@@ -85,8 +85,8 @@ pub mod arena {
       implicit_scalar: i32,
       explicit_scalar: i32,
       child: ::core::option::Option<&'a M<'a>>,
-      packed_nums: &'a [i32],
-      expanded_nums: &'a [i32],
+      packed_nums: ::rapidproto::PackedSlice<'a, i32>,
+      expanded_nums: ::rapidproto::PackedSlice<'a, i32>,
       delim: ::core::option::Option<&'a M<'a>>,
       rp_presence: u8,
     }
@@ -102,10 +102,10 @@ pub mod arena {
         self.child
       }
       pub fn packed_nums(&self) -> &'a [i32] {
-        self.packed_nums
+        self.packed_nums.get()
       }
       pub fn expanded_nums(&self) -> &'a [i32] {
-        self.expanded_nums
+        self.expanded_nums.get()
       }
       pub fn delim(&self) -> ::core::option::Option<&'a M<'a>> {
         self.delim
@@ -348,8 +348,8 @@ pub mod arena {
           implicit_scalar: rp_field_1,
           explicit_scalar: rp_field_2,
           child: rp_field_3,
-          packed_nums: rp_acc_4.into_slice(),
-          expanded_nums: rp_acc_5.into_slice(),
+          packed_nums: ::rapidproto::PackedSlice::new(rp_acc_4.into_slice()),
+          expanded_nums: ::rapidproto::PackedSlice::new(rp_acc_5.into_slice()),
           delim: rp_field_6,
           rp_presence,
         }))

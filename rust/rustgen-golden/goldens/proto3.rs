@@ -51,12 +51,12 @@ pub mod arena {
       name: ::rapidproto::ProtoStr<'a>,
       state: super::super::common::p3::State,
       self_: ::core::option::Option<&'a Msg<'a>>,
-      nums: &'a [i32],
-      unpacked: &'a [i32],
-      states: &'a [super::super::common::p3::State],
-      reals: &'a [f64],
-      codes: &'a [u32],
-      bools: &'a [bool],
+      nums: ::rapidproto::PackedSlice<'a, i32>,
+      unpacked: ::rapidproto::PackedSlice<'a, i32>,
+      states: ::rapidproto::PackedSlice<'a, super::super::common::p3::State>,
+      reals: ::rapidproto::PackedSlice<'a, f64>,
+      codes: ::rapidproto::PackedSlice<'a, u32>,
+      bools: ::rapidproto::PackedSlice<'a, bool>,
       ratio: f64,
       scale: f32,
       rp_presence: u8,
@@ -85,22 +85,22 @@ pub mod arena {
         self.self_
       }
       pub fn nums(&self) -> &'a [i32] {
-        self.nums
+        self.nums.get()
       }
       pub fn unpacked(&self) -> &'a [i32] {
-        self.unpacked
+        self.unpacked.get()
       }
       pub fn states(&self) -> &'a [super::super::common::p3::State] {
-        self.states
+        self.states.get()
       }
       pub fn reals(&self) -> &'a [f64] {
-        self.reals
+        self.reals.get()
       }
       pub fn codes(&self) -> &'a [u32] {
-        self.codes
+        self.codes.get()
       }
       pub fn bools(&self) -> &'a [bool] {
-        self.bools
+        self.bools.get()
       }
       pub fn ratio(&self) -> f64 {
         self.ratio
@@ -282,7 +282,7 @@ pub mod arena {
         let mut rp_presence: u8 = 0;
         let mut rp_field_1: i32 = 0;
         let mut rp_field_2: i32 = 0;
-        let mut rp_field_3: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+        let mut rp_field_3: &'a [u8] = &[];
         let mut rp_field_4: super::super::common::p3::State = super::super::common::p3::State(0);
         let mut rp_field_5: ::core::option::Option<&'a Msg<'a>> = ::core::option::Option::None;
         let mut rp_acc_6 = ::rapidproto::DecodeVec::new(rp_arena);
@@ -326,7 +326,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_3 = ::rapidproto::ProtoStr::new(rp_p);
+          rp_field_3 = rp_p;
         }
         if rp_rest.first() == ::core::option::Option::Some(&32u8) {
           rp_rest = &rp_rest[1..];
@@ -845,7 +845,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_3 = ::rapidproto::ProtoStr::new(rp_p);
+              rp_field_3 = rp_p;
             }
             32u32 => {
               let mut rp_v = 0u64;
@@ -1310,15 +1310,15 @@ pub mod arena {
         ::core::result::Result::Ok(rp_out.write(Msg {
           implicit_i: rp_field_1,
           explicit_i: rp_field_2,
-          name: rp_field_3,
+          name: ::rapidproto::ProtoStr::new(rp_field_3),
           state: rp_field_4,
           self_: rp_field_5,
-          nums: rp_acc_6.into_slice(),
-          unpacked: rp_acc_7.into_slice(),
-          states: rp_acc_8.into_slice(),
-          reals: rp_acc_12.into_slice(),
-          codes: rp_acc_13.into_slice(),
-          bools: rp_acc_17.into_slice(),
+          nums: ::rapidproto::PackedSlice::new(rp_acc_6.into_slice()),
+          unpacked: ::rapidproto::PackedSlice::new(rp_acc_7.into_slice()),
+          states: ::rapidproto::PackedSlice::new(rp_acc_8.into_slice()),
+          reals: ::rapidproto::PackedSlice::new(rp_acc_12.into_slice()),
+          codes: ::rapidproto::PackedSlice::new(rp_acc_13.into_slice()),
+          bools: ::rapidproto::PackedSlice::new(rp_acc_17.into_slice()),
           ratio: rp_field_20,
           scale: rp_field_21,
           rp_presence,

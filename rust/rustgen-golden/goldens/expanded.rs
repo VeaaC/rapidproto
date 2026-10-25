@@ -51,28 +51,28 @@ pub mod arena {
 
   pub mod xp {
     pub struct Expanded<'a> {
-      uzz: &'a [i64],
-      ub: &'a [bool],
-      uk: &'a [super::super::common::xp::expanded::Kind],
-      ufx: &'a [u64],
-      usf: &'a [i32],
+      uzz: ::rapidproto::PackedSlice<'a, i64>,
+      ub: ::rapidproto::PackedSlice<'a, bool>,
+      uk: ::rapidproto::PackedSlice<'a, super::super::common::xp::expanded::Kind>,
+      ufx: ::rapidproto::PackedSlice<'a, u64>,
+      usf: ::rapidproto::PackedSlice<'a, i32>,
     }
 
     impl<'a> Expanded<'a> {
       pub fn uzz(&self) -> &'a [i64] {
-        self.uzz
+        self.uzz.get()
       }
       pub fn ub(&self) -> &'a [bool] {
-        self.ub
+        self.ub.get()
       }
       pub fn uk(&self) -> &'a [super::super::common::xp::expanded::Kind] {
-        self.uk
+        self.uk.get()
       }
       pub fn ufx(&self) -> &'a [u64] {
-        self.ufx
+        self.ufx.get()
       }
       pub fn usf(&self) -> &'a [i32] {
-        self.usf
+        self.usf.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -384,11 +384,11 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Expanded {
-          uzz: rp_acc_1.into_slice(),
-          ub: rp_acc_2.into_slice(),
-          uk: rp_acc_3.into_slice(),
-          ufx: rp_acc_4.into_slice(),
-          usf: rp_acc_5.into_slice(),
+          uzz: ::rapidproto::PackedSlice::new(rp_acc_1.into_slice()),
+          ub: ::rapidproto::PackedSlice::new(rp_acc_2.into_slice()),
+          uk: ::rapidproto::PackedSlice::new(rp_acc_3.into_slice()),
+          ufx: ::rapidproto::PackedSlice::new(rp_acc_4.into_slice()),
+          usf: ::rapidproto::PackedSlice::new(rp_acc_5.into_slice()),
         }))
       }
     }

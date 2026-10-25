@@ -695,13 +695,34 @@ std::string mask_test(const std::string& base, int bit, int total) {
            std::to_string(mask_bit_pos(bit, total)) + ")) != 0";
 }
 
-// The struct storage type (= the getter return type) for a field: a repeated field is a borrowed
-// slice; a singular message is `Option<&'a T<'a>>`; an explicit-presence scalar wraps in `Option`;
-// everything else is the bare value type. A proto2 `[default = ...]` is NOT materialized (matching the
-// C++ decoder, which reads an absent defaulted field as `None` and leaves the default to the consumer),
-// so a defaulted field is stored exactly like any other field of its presence. A `raw` message field
-// keeps its undecoded LEN payload instead of the decoded tree: `Option<&'a [u8]>` singular,
-// `&'a [&'a [u8]]` repeated (the consumer feeds a payload to the field type's `decode` itself).
+// Whether a singular field's decode local holds the plain `&'a [u8]` it read: a `string` or `bytes`
+// field. The struct packs it (`ProtoStr` / `PackedSlice`, 12 bytes) only at construction: a decode
+// keeps many such locals live at once, and the pointer/length pair stays in registers where a packed
+// 12-byte value is copied through memory.
+bool slice_local(const FieldNode& field) {
+    return !field.is_repeated && !field.is_message_type && !field.is_enum_type &&
+           (field.type_name == "string" || field.type_name == "bytes");
+}
+
+// Whether a field is stored as a `PackedSlice` (12 bytes, like the C++ decoder's views) while its
+// getter returns the plain `&'a [T]`: every repeated field and a singular `bytes` field, except a raw
+// one.
+bool packed_storage(const FieldNode& field, const FieldModes& modes) {
+    if (field_mode(modes, field) == arenagen::FieldMode::Raw) {
+        return false;
+    }
+    return field.is_repeated ||
+           (!field.is_message_type && !field.is_enum_type && field.type_name == "bytes");
+}
+
+// The struct storage type for a field: a repeated or `bytes` field is a `PackedSlice` (see
+// `packed_storage`); a singular message is `Option<&'a T<'a>>`; an explicit-presence scalar wraps in
+// `Option`; everything else is the bare value type. A proto2 `[default = ...]` is NOT materialized
+// (matching the C++ decoder, which reads an absent defaulted field as `None` and leaves the default to
+// the consumer), so a defaulted field is stored exactly like any other field of its presence. A `raw`
+// message field keeps its undecoded LEN payload instead of the decoded tree: `Option<&'a [u8]>`
+// singular, `&'a [&'a [u8]]` repeated (the consumer feeds a payload to the field type's `decode`
+// itself).
 std::string field_storage_type(const NameTable& table, const std::vector<std::string>& current_mod,
                                const FieldNode& field, const FieldModes& modes,
                                const arenagen::MemberPlan* member) {
@@ -709,8 +730,8 @@ std::string field_storage_type(const NameTable& table, const std::vector<std::st
         return field.is_repeated ? "&'a [&'a [u8]]" : "::core::option::Option<&'a [u8]>";
     }
     std::string value = field_value_type(table, current_mod, field);
-    if (field.is_repeated) {
-        return "&'a [" + value + "]";
+    if (packed_storage(field, modes)) {
+        return "::rapidproto::PackedSlice<'a, " + (field.is_repeated ? value : "u8") + ">";
     }
     if (rust_store(member, field) == RustStore::PointerMsg) {
         return "::core::option::Option<&'a " + value + ">";
@@ -912,6 +933,16 @@ void emit_field_accessor(Printer& printer, const NameTable& table,
     const std::string pbit = (masked && member->presence_bit >= 0)
                                  ? mask_test("self.rp_presence", member->presence_bit, mask_bits)
                                  : "";
+    // The stored value as the getter returns it: a `PackedSlice` hands back its plain slice, and an
+    // optional string restates its pointer's non-null invariant (a read out of a packed field loses
+    // it), so testing the returned `Option` tests only the presence bit.
+    std::string value = "self." + accessor;
+    if (packed_storage(field, modes)) {
+        value += ".get()";
+    } else if (store == RustStore::MaskedValue && !field.is_message_type && !field.is_enum_type &&
+               field.type_name == "string") {
+        value += ".hint_nonnull()";
+    }
     switch (store) {
         case RustStore::MaskedBool: {
             const std::string vtest = mask_test("self.rp_presence", member->value_bit, mask_bits);
@@ -923,7 +954,7 @@ void emit_field_accessor(Printer& printer, const NameTable& table,
             break;
         }
         case RustStore::MaskedValue:
-            printer.print("($p$).then_some(self.$a$)\n", {{"p", pbit}, {"a", accessor}});
+            printer.print("($p$).then_some($v$)\n", {{"p", pbit}, {"v", value}});
             break;
         case RustStore::InlineMsg:
             if (member->presence_bit >= 0) {
@@ -936,7 +967,7 @@ void emit_field_accessor(Printer& printer, const NameTable& table,
             break;
         case RustStore::PointerMsg:
         case RustStore::Bare:
-            printer.print("self.$a$\n", {{"a", accessor}});
+            printer.print("$v$\n", {{"v", value}});
             break;
     }
     printer.outdent();
@@ -1334,7 +1365,9 @@ void emit_singular_scalar_store(Printer& printer, const NameTable& table,
                                 bool required, const arenagen::MemberPlan* member, int mask_bits,
                                 const ReadAt& at) {
     const std::string local = field_local(field);
-    const std::string conv = scalar_convert_expr(table, current_mod, field);
+    // A string/bytes local holds the slice it read (see `slice_local`).
+    const std::string conv =
+        slice_local(field) ? "rp_p" : scalar_convert_expr(table, current_mod, field);
     const auto set_bit = [&](int bit) {
         return mask_word_at("rp_presence", bit, mask_bits) + " |= 1 << " +
                std::to_string(mask_bit_pos(bit, mask_bits)) + ";\n";
@@ -1715,11 +1748,15 @@ void emit_decode_locals(Printer& printer, const NameTable& table,
             printer.print("let mut rp_acc_$n$ = ::rapidproto::DecodeVec::new(rp_arena);\n",
                           {{"n", std::to_string(field.number)}});
         } else if (rust_store(member, field) != RustStore::MaskedBool) {
-            // A packed bool has no local -- its value and presence live entirely in the mask.
-            printer.print("let mut $l$: $t$ = $d$;\n",
-                          {{"l", field_local(field)},
-                           {"t", field_storage_type(table, current_mod, field, modes, member)},
-                           {"d", field_default_expr(table, current_mod, field, member)}});
+            // A packed bool has no local -- its value and presence live entirely in the mask. A
+            // string/bytes local holds the plain slice (see `slice_local`); the construct packs it.
+            const bool slice = slice_local(field);
+            printer.print(
+                "let mut $l$: $t$ = $d$;\n",
+                {{"l", field_local(field)},
+                 {"t", slice ? "&'a [u8]"
+                             : field_storage_type(table, current_mod, field, modes, member)},
+                 {"d", slice ? "&[]" : field_default_expr(table, current_mod, field, member)}});
         }
         if (field.presence == FieldPresence::Required) {
             printer.print("let mut rp_req_$n$ = false;\n", {{"n", std::to_string(field.number)}});
@@ -1827,11 +1864,20 @@ void emit_decode_construct(Printer& printer, const MessageNode& msg, const Field
             continue;
         }
         if (field.is_repeated) {
-            printer.print("$a$: rp_acc_$n$.into_slice(),\n",
+            // A raw repeated field stores the plain slice; every other repeated field packs it.
+            printer.print(packed_storage(field, modes)
+                              ? "$a$: ::rapidproto::PackedSlice::new(rp_acc_$n$.into_slice()),\n"
+                              : "$a$: rp_acc_$n$.into_slice(),\n",
                           {{"a", accessors.fields[i]}, {"n", std::to_string(field.number)}});
         } else if (rust_store(member_for(layout, field), field) != RustStore::MaskedBool) {
-            // A packed bool contributes no struct field (its value/presence are in `rp_presence`).
-            printer.print("$a$: $l$,\n", {{"a", accessors.fields[i]}, {"l", field_local(field)}});
+            // A packed bool contributes no struct field (its value/presence are in `rp_presence`). A
+            // string/bytes local is packed here (see `slice_local`).
+            const char* fmt = "$a$: $l$,\n";
+            if (slice_local(field)) {
+                fmt = field.type_name == "string" ? "$a$: ::rapidproto::ProtoStr::new($l$),\n"
+                                                  : "$a$: ::rapidproto::PackedSlice::new($l$),\n";
+            }
+            printer.print(fmt, {{"a", accessors.fields[i]}, {"l", field_local(field)}});
         }
     }
     if (layout != nullptr && rust_mask_bits(*layout) > 0) {

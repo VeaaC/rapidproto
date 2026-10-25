@@ -249,9 +249,9 @@ pub mod arena {
       bg: ::core::option::Option<&'a Big<'a>>,
       hs: ::core::option::Option<&'a HasString<'a>>,
       flag: BoolWrap<'a>,
-      nums: &'a [i32],
-      points: &'a [Point<'a>],
-      labels: &'a [::rapidproto::ProtoStr<'a>],
+      nums: ::rapidproto::PackedSlice<'a, i32>,
+      points: ::rapidproto::PackedSlice<'a, Point<'a>>,
+      labels: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoStr<'a>>,
       rp_presence: u8,
       counts: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
       grid: ::rapidproto::MapView<'a, i32, Point<'a>>,
@@ -278,7 +278,7 @@ pub mod arena {
         self.name
       }
       pub fn oname(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 3)) != 0).then_some(self.oname)
+        ((self.rp_presence & (1 << 3)) != 0).then_some(self.oname.hint_nonnull())
       }
       pub fn color(&self) -> super::super::common::al::Color {
         self.color
@@ -296,13 +296,13 @@ pub mod arena {
         ((self.rp_presence & (1 << 5)) != 0).then_some(&self.flag)
       }
       pub fn nums(&self) -> &'a [i32] {
-        self.nums
+        self.nums.get()
       }
       pub fn points(&self) -> &'a [Point<'a>] {
-        self.points
+        self.points.get()
       }
       pub fn labels(&self) -> &'a [::rapidproto::ProtoStr<'a>] {
-        self.labels
+        self.labels.get()
       }
       pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32> {
         self.counts
@@ -643,7 +643,7 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut rp_field_1: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+        let mut rp_field_1: &'a [u8] = &[];
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -652,7 +652,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+          rp_field_1 = rp_p;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -677,7 +677,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+              rp_field_1 = rp_p;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -688,7 +688,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(HasString {
-          s: rp_field_1,
+          s: ::rapidproto::ProtoStr::new(rp_field_1),
         }))
       }
     }
@@ -876,8 +876,8 @@ pub mod arena {
         let mut rp_field_2: i64 = 0;
         let mut rp_field_4: i32 = 0;
         let mut rp_field_5: i32 = 0;
-        let mut rp_field_6: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
-        let mut rp_field_7: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+        let mut rp_field_6: &'a [u8] = &[];
+        let mut rp_field_7: &'a [u8] = &[];
         let mut rp_field_8: super::super::common::al::Color = super::super::common::al::Color(0);
         let mut rp_field_9: Point<'a> = ::core::default::Default::default();
         let mut rp_field_10: ::core::option::Option<&'a Big<'a>> = ::core::option::Option::None;
@@ -951,7 +951,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_6 = ::rapidproto::ProtoStr::new(rp_p);
+          rp_field_6 = rp_p;
         }
         if rp_rest.first() == ::core::option::Option::Some(&58u8) {
           rp_rest = &rp_rest[1..];
@@ -960,7 +960,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_7 = ::rapidproto::ProtoStr::new(rp_p);
+          rp_field_7 = rp_p;
           rp_presence |= 1 << 3;
         }
         if rp_rest.first() == ::core::option::Option::Some(&64u8) {
@@ -1276,7 +1276,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_6 = ::rapidproto::ProtoStr::new(rp_p);
+              rp_field_6 = rp_p;
             }
             58u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1284,7 +1284,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_7 = ::rapidproto::ProtoStr::new(rp_p);
+              rp_field_7 = rp_p;
               rp_presence |= 1 << 3;
             }
             64u32 => {
@@ -1526,16 +1526,16 @@ pub mod arena {
           big: rp_field_2,
           small: rp_field_4,
           opt: rp_field_5,
-          name: rp_field_6,
-          oname: rp_field_7,
+          name: ::rapidproto::ProtoStr::new(rp_field_6),
+          oname: ::rapidproto::ProtoStr::new(rp_field_7),
           color: rp_field_8,
           pt: rp_field_9,
           bg: rp_field_10,
           hs: rp_field_11,
           flag: rp_field_12,
-          nums: rp_acc_13.into_slice(),
-          points: rp_acc_14.into_slice(),
-          labels: rp_acc_20.into_slice(),
+          nums: ::rapidproto::PackedSlice::new(rp_acc_13.into_slice()),
+          points: ::rapidproto::PackedSlice::new(rp_acc_14.into_slice()),
+          labels: ::rapidproto::PackedSlice::new(rp_acc_20.into_slice()),
           rp_presence,
           counts: ::rapidproto::MapView::new(rp_map_15.into_slice()),
           grid: ::rapidproto::MapView::new(rp_map_16.into_slice()),

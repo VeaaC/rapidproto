@@ -9,20 +9,20 @@ pub mod arena {
 
   pub mod pk {
     pub struct Packed<'a> {
-      pd: &'a [f64],
-      psf: &'a [i32],
-      pf: &'a [f32],
+      pd: ::rapidproto::PackedSlice<'a, f64>,
+      psf: ::rapidproto::PackedSlice<'a, i32>,
+      pf: ::rapidproto::PackedSlice<'a, f32>,
     }
 
     impl<'a> Packed<'a> {
       pub fn pd(&self) -> &'a [f64] {
-        self.pd
+        self.pd.get()
       }
       pub fn psf(&self) -> &'a [i32] {
-        self.psf
+        self.psf.get()
       }
       pub fn pf(&self) -> &'a [f32] {
-        self.pf
+        self.pf.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -276,9 +276,9 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Packed {
-          pd: rp_acc_1.into_slice(),
-          psf: rp_acc_2.into_slice(),
-          pf: rp_acc_3.into_slice(),
+          pd: ::rapidproto::PackedSlice::new(rp_acc_1.into_slice()),
+          psf: ::rapidproto::PackedSlice::new(rp_acc_2.into_slice()),
+          pf: ::rapidproto::PackedSlice::new(rp_acc_3.into_slice()),
         }))
       }
     }

@@ -2,6 +2,8 @@
 
 use core::fmt::{self, Write as _};
 
+use crate::PackedSlice;
+
 /// A borrowed protobuf `string` field: the raw UTF-8 bytes, with validation left to the caller.
 ///
 /// Decoding does not validate (matching the C++ runtime, which trusts the schema), so a `ProtoStr`
@@ -12,38 +14,51 @@ use core::fmt::{self, Write as _};
 /// directly and do not use this type.
 #[derive(Clone, Copy)]
 pub struct ProtoStr<'a> {
-    bytes: &'a [u8],
+    bytes: PackedSlice<'a, u8>,
 }
 
 impl<'a> ProtoStr<'a> {
     /// Wrap raw bytes (no validation).
     #[inline]
     pub fn new(bytes: &'a [u8]) -> Self {
-        Self { bytes }
+        Self {
+            bytes: PackedSlice::new(bytes),
+        }
     }
 
     /// The raw bytes, unchanged. Free.
     #[inline]
     pub fn as_bytes(&self) -> &'a [u8] {
-        self.bytes
+        self.bytes.get()
+    }
+
+    /// This string, unchanged, with its pointer's non-null invariant restated to the optimizer (see
+    /// [`PackedSlice::hint_nonnull`]). Generated getters return an optional string through it, so
+    /// testing the `Option` tests only the presence bit.
+    #[doc(hidden)]
+    #[inline(always)]
+    pub fn hint_nonnull(self) -> Self {
+        Self {
+            bytes: self.bytes.hint_nonnull(),
+        }
     }
 
     /// Length in bytes.
     #[inline]
     pub fn len(&self) -> usize {
-        self.bytes.len()
+        self.as_bytes().len()
     }
 
     /// Whether the field is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.bytes.is_empty()
+        self.as_bytes().is_empty()
     }
 
     /// Validate as UTF-8, borrowing the input on success.
     #[inline]
     pub fn to_str(&self) -> Result<&'a str, core::str::Utf8Error> {
-        core::str::from_utf8(self.bytes)
+        core::str::from_utf8(self.as_bytes())
     }
 
     /// Validate as UTF-8, substituting U+FFFD for invalid sequences. Borrows the input when it is
@@ -51,16 +66,16 @@ impl<'a> ProtoStr<'a> {
     #[cfg(feature = "alloc")]
     #[inline]
     pub fn to_str_lossy(&self) -> alloc::borrow::Cow<'a, str> {
-        // `from_utf8_lossy` already borrows for the valid case (tied to `self.bytes: &'a`) and owns
+        // `from_utf8_lossy` already borrows for the valid case (tied to `as_bytes(): &'a`) and owns
         // the repaired copy otherwise, in a single scan.
-        alloc::string::String::from_utf8_lossy(self.bytes)
+        alloc::string::String::from_utf8_lossy(self.as_bytes())
     }
 }
 
 impl fmt::Display for ProtoStr<'_> {
     /// Writes the text, substituting U+FFFD for each invalid sequence. Allocation-free.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut rem = self.bytes;
+        let mut rem = self.as_bytes();
         loop {
             match core::str::from_utf8(rem) {
                 Ok(s) => return f.write_str(s),
@@ -85,7 +100,7 @@ impl fmt::Debug for ProtoStr<'_> {
         // show the raw bytes so invalid content is unambiguous.
         match self.to_str() {
             Ok(s) => fmt::Debug::fmt(s, f),
-            Err(_) => write!(f, "ProtoStr({:?})", self.bytes),
+            Err(_) => write!(f, "ProtoStr({:?})", self.as_bytes()),
         }
     }
 }
@@ -93,7 +108,7 @@ impl fmt::Debug for ProtoStr<'_> {
 impl PartialEq for ProtoStr<'_> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.bytes == other.bytes
+        self.as_bytes() == other.as_bytes()
     }
 }
 impl Eq for ProtoStr<'_> {}
@@ -101,14 +116,14 @@ impl Eq for ProtoStr<'_> {}
 impl PartialEq<str> for ProtoStr<'_> {
     #[inline]
     fn eq(&self, other: &str) -> bool {
-        self.bytes == other.as_bytes()
+        self.as_bytes() == other.as_bytes()
     }
 }
 
 impl PartialEq<&str> for ProtoStr<'_> {
     #[inline]
     fn eq(&self, other: &&str) -> bool {
-        self.bytes == other.as_bytes()
+        self.as_bytes() == other.as_bytes()
     }
 }
 

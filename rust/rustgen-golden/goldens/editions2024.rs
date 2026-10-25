@@ -10,7 +10,7 @@ pub mod arena {
   pub mod ed24 {
     pub struct M<'a> {
       a: i32,
-      b: &'a [i32],
+      b: ::rapidproto::PackedSlice<'a, i32>,
       rp_presence: u8,
     }
 
@@ -19,7 +19,7 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.a)
       }
       pub fn b(&self) -> &'a [i32] {
-        self.b
+        self.b.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -146,7 +146,7 @@ pub mod arena {
         }
         ::core::result::Result::Ok(rp_out.write(M {
           a: rp_field_1,
-          b: rp_acc_2.into_slice(),
+          b: ::rapidproto::PackedSlice::new(rp_acc_2.into_slice()),
           rp_presence,
         }))
       }

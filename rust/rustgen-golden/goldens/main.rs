@@ -292,7 +292,7 @@ pub mod arena {
       p: super::r#pub::Pub<'a>,
       f: super::fwd::Fwd<'a>,
       e: super::super::common::dep::DepEnum,
-      ds: &'a [super::dep::Dep<'a>],
+      ds: ::rapidproto::PackedSlice<'a, super::dep::Dep<'a>>,
       rp_presence: u8,
       dm: ::rapidproto::MapView<'a, i32, super::dep::Dep<'a>>,
       choice: ::core::option::Option<main::Choice<'a>>,
@@ -312,7 +312,7 @@ pub mod arena {
         ((self.rp_presence & (1 << 3)) != 0).then_some(self.e)
       }
       pub fn ds(&self) -> &'a [super::dep::Dep<'a>] {
-        self.ds
+        self.ds.get()
       }
       pub fn dm(&self) -> ::rapidproto::MapView<'a, i32, super::dep::Dep<'a>> {
         self.dm
@@ -708,7 +708,7 @@ pub mod arena {
           p: rp_field_2,
           f: rp_field_3,
           e: rp_field_4,
-          ds: rp_acc_5.into_slice(),
+          ds: ::rapidproto::PackedSlice::new(rp_acc_5.into_slice()),
           rp_presence,
           dm: ::rapidproto::MapView::new(rp_map_6.into_slice()),
           choice: rp_oneof_0,

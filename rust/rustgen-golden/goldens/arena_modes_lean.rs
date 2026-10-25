@@ -91,14 +91,14 @@ pub mod arena {
 
   pub mod fm {
     pub struct Blob<'a> {
-      payload: &'a [u8],
+      payload: ::rapidproto::PackedSlice<'a, u8>,
       kind: super::super::common::fm::blob::Kind,
       rp_presence: u8,
     }
 
     impl<'a> Blob<'a> {
       pub fn payload(&self) -> ::core::option::Option<&'a [u8]> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.payload)
+        ((self.rp_presence & (1 << 0)) != 0).then_some(self.payload.get())
       }
       pub fn kind(&self) -> ::core::option::Option<super::super::common::fm::blob::Kind> {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.kind)
@@ -134,8 +134,8 @@ pub mod arena {
       big_num: i32,
       blob: ::core::option::Option<&'a [u8]>,
       blobs: &'a [&'a [u8]],
-      samples: &'a [i32],
-      spread: &'a [i32],
+      samples: ::rapidproto::PackedSlice<'a, i32>,
+      spread: ::rapidproto::PackedSlice<'a, i32>,
       level: super::super::common::fm::Level,
       req_blob: ::core::option::Option<&'a [u8]>,
       grp: ::core::option::Option<&'a [u8]>,
@@ -160,10 +160,10 @@ pub mod arena {
         self.blobs
       }
       pub fn samples(&self) -> &'a [i32] {
-        self.samples
+        self.samples.get()
       }
       pub fn spread(&self) -> &'a [i32] {
-        self.spread
+        self.spread.get()
       }
       pub fn level(&self) -> ::core::option::Option<super::super::common::fm::Level> {
         ((self.rp_presence & (1 << 2)) != 0).then_some(self.level)
@@ -436,7 +436,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Blob {
-          payload: rp_field_1,
+          payload: ::rapidproto::PackedSlice::new(rp_field_1),
           kind: rp_field_2,
           rp_presence,
         }))
@@ -845,8 +845,8 @@ pub mod arena {
           big_num: rp_field_6,
           blob: rp_field_7,
           blobs: rp_acc_8.into_slice(),
-          samples: rp_acc_9.into_slice(),
-          spread: rp_acc_10.into_slice(),
+          samples: ::rapidproto::PackedSlice::new(rp_acc_9.into_slice()),
+          spread: ::rapidproto::PackedSlice::new(rp_acc_10.into_slice()),
           level: rp_field_12,
           req_blob: rp_field_13,
           grp: rp_field_14,

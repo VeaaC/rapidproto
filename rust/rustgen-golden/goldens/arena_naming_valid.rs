@@ -448,13 +448,13 @@ pub mod arena {
     }
 
     pub struct Bytes<'a> {
-      bytes: &'a [u8],
+      bytes: ::rapidproto::PackedSlice<'a, u8>,
       m_bytes: i32,
     }
 
     impl<'a> Bytes<'a> {
       pub fn bytes(&self) -> &'a [u8] {
-        self.bytes
+        self.bytes.get()
       }
       pub fn m_bytes(&self) -> i32 {
         self.m_bytes
@@ -1613,7 +1613,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Bytes {
-          bytes: rp_field_1,
+          bytes: ::rapidproto::PackedSlice::new(rp_field_1),
           m_bytes: rp_field_2,
         }))
       }

@@ -13,9 +13,9 @@ pub mod arena {
       db: f64,
       fx: u32,
       s: ::rapidproto::ProtoStr<'a>,
-      by: &'a [u8],
+      by: ::rapidproto::PackedSlice<'a, u8>,
       nested: ::core::option::Option<&'a AllWire<'a>>,
-      packed: &'a [i32],
+      packed: ::rapidproto::PackedSlice<'a, i32>,
       g: all_wire::G<'a>,
       rp_presence: u8,
       pick: ::core::option::Option<all_wire::Pick<'a>>,
@@ -32,16 +32,16 @@ pub mod arena {
         ((self.rp_presence & (1 << 2)) != 0).then_some(self.fx)
       }
       pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 3)) != 0).then_some(self.s)
+        ((self.rp_presence & (1 << 3)) != 0).then_some(self.s.hint_nonnull())
       }
       pub fn by(&self) -> ::core::option::Option<&'a [u8]> {
-        ((self.rp_presence & (1 << 4)) != 0).then_some(self.by)
+        ((self.rp_presence & (1 << 4)) != 0).then_some(self.by.get())
       }
       pub fn nested(&self) -> ::core::option::Option<&'a AllWire<'a>> {
         self.nested
       }
       pub fn packed(&self) -> &'a [i32] {
-        self.packed
+        self.packed.get()
       }
       pub fn g(&self) -> ::core::option::Option<&all_wire::G<'a>> {
         ((self.rp_presence & (1 << 5)) != 0).then_some(&self.g)
@@ -238,7 +238,7 @@ pub mod arena {
         let mut rp_field_1: i64 = 0;
         let mut rp_field_2: f64 = 0.0;
         let mut rp_field_3: u32 = 0;
-        let mut rp_field_4: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+        let mut rp_field_4: &'a [u8] = &[];
         let mut rp_field_5: &'a [u8] = &[];
         let mut rp_field_6: ::core::option::Option<&'a AllWire<'a>> = ::core::option::Option::None;
         let mut rp_acc_7 = ::rapidproto::DecodeVec::new(rp_arena);
@@ -282,7 +282,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_4 = ::rapidproto::ProtoStr::new(rp_p);
+          rp_field_4 = rp_p;
           rp_presence |= 1 << 3;
         }
         if rp_rest.first() == ::core::option::Option::Some(&42u8) {
@@ -393,7 +393,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_4 = ::rapidproto::ProtoStr::new(rp_p);
+              rp_field_4 = rp_p;
               rp_presence |= 1 << 3;
             }
             42u32 => {
@@ -472,10 +472,10 @@ pub mod arena {
           zz: rp_field_1,
           db: rp_field_2,
           fx: rp_field_3,
-          s: rp_field_4,
-          by: rp_field_5,
+          s: ::rapidproto::ProtoStr::new(rp_field_4),
+          by: ::rapidproto::PackedSlice::new(rp_field_5),
           nested: rp_field_6,
-          packed: rp_acc_7.into_slice(),
+          packed: ::rapidproto::PackedSlice::new(rp_acc_7.into_slice()),
           g: rp_field_8,
           rp_presence,
           pick: rp_oneof_0,

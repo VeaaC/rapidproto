@@ -289,11 +289,11 @@ pub mod arena {
     pub mod nested {
       pub struct User<'a> {
         single: ::core::option::Option<&'a Def<'a>>,
-        many: &'a [Def<'a>],
+        many: ::rapidproto::PackedSlice<'a, Def<'a>>,
         kind: super::super::super::common::xr::nested::def::Kind,
-        kinds: &'a [super::super::super::common::xr::nested::def::Kind],
+        kinds: ::rapidproto::PackedSlice<'a, super::super::super::common::xr::nested::def::Kind>,
         inner: ::core::option::Option<&'a def::Inner<'a>>,
-        inners: &'a [def::Inner<'a>],
+        inners: ::rapidproto::PackedSlice<'a, def::Inner<'a>>,
         by_name: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, Def<'a>>,
         ranked: ::rapidproto::MapView<'a, i32, super::super::super::common::xr::nested::def::Kind>,
         pick: ::core::option::Option<user::Pick<'a>>,
@@ -304,19 +304,19 @@ pub mod arena {
           self.single
         }
         pub fn many(&self) -> &'a [Def<'a>] {
-          self.many
+          self.many.get()
         }
         pub fn kind(&self) -> super::super::super::common::xr::nested::def::Kind {
           self.kind
         }
         pub fn kinds(&self) -> &'a [super::super::super::common::xr::nested::def::Kind] {
-          self.kinds
+          self.kinds.get()
         }
         pub fn inner(&self) -> ::core::option::Option<&'a def::Inner<'a>> {
           self.inner
         }
         pub fn inners(&self) -> &'a [def::Inner<'a>] {
-          self.inners
+          self.inners.get()
         }
         pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, Def<'a>> {
           self.by_name
@@ -485,7 +485,7 @@ pub mod arena {
             if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
               return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
             }
-            let mut rp_field_1: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+            let mut rp_field_1: &'a [u8] = &[];
             let mut rp_rest: &'a [u8] = rp_body;
             if rp_rest.first() == ::core::option::Option::Some(&10u8) {
               rp_rest = &rp_rest[1..];
@@ -494,7 +494,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+              rp_field_1 = rp_p;
             }
             loop {
               let rp_b = match rp_rest.first() {
@@ -519,7 +519,7 @@ pub mod arena {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+                  rp_field_1 = rp_p;
                 }
                 _ => {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -530,7 +530,7 @@ pub mod arena {
               }
             }
             ::core::result::Result::Ok(rp_out.write(Inner {
-              s: rp_field_1,
+              s: ::rapidproto::ProtoStr::new(rp_field_1),
             }))
           }
         }
@@ -1045,11 +1045,11 @@ pub mod arena {
           }
           ::core::result::Result::Ok(rp_out.write(User {
             single: rp_field_1,
-            many: rp_acc_2.into_slice(),
+            many: ::rapidproto::PackedSlice::new(rp_acc_2.into_slice()),
             kind: rp_field_5,
-            kinds: rp_acc_6.into_slice(),
+            kinds: ::rapidproto::PackedSlice::new(rp_acc_6.into_slice()),
             inner: rp_field_9,
-            inners: rp_acc_10.into_slice(),
+            inners: ::rapidproto::PackedSlice::new(rp_acc_10.into_slice()),
             by_name: ::rapidproto::MapView::new(rp_map_3.into_slice()),
             ranked: ::rapidproto::MapView::new(rp_map_7.into_slice()),
             pick: rp_oneof_0,
@@ -1072,7 +1072,7 @@ pub mod arena {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
-          let mut rp_field_1: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_field_1: &'a [u8] = &[];
           let mut rp_field_2: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -1082,7 +1082,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+            rp_field_1 = rp_p;
           }
           if rp_rest.first() == ::core::option::Option::Some(&16u8) {
             rp_rest = &rp_rest[1..];
@@ -1116,7 +1116,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+                rp_field_1 = rp_p;
               }
               16u32 => {
                 let mut rp_v = 0u64;
@@ -1135,7 +1135,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Def {
-            s: rp_field_1,
+            s: ::rapidproto::ProtoStr::new(rp_field_1),
             n: rp_field_2,
           }))
         }
@@ -1306,7 +1306,7 @@ pub mod arena {
     pub mod fwd_msg {
       pub struct Ref<'a> {
         one: ::core::option::Option<&'a Target<'a>>,
-        many: &'a [Target<'a>],
+        many: ::rapidproto::PackedSlice<'a, Target<'a>>,
         by_id: ::rapidproto::MapView<'a, i32, Target<'a>>,
         pick: ::core::option::Option<r#ref::Pick<'a>>,
       }
@@ -1316,7 +1316,7 @@ pub mod arena {
           self.one
         }
         pub fn many(&self) -> &'a [Target<'a>] {
-          self.many
+          self.many.get()
         }
         pub fn by_id(&self) -> ::rapidproto::MapView<'a, i32, Target<'a>> {
           self.by_id
@@ -1639,7 +1639,7 @@ pub mod arena {
           }
           ::core::result::Result::Ok(rp_out.write(Ref {
             one: rp_field_1,
-            many: rp_acc_2.into_slice(),
+            many: ::rapidproto::PackedSlice::new(rp_acc_2.into_slice()),
             by_id: ::rapidproto::MapView::new(rp_map_3.into_slice()),
             pick: rp_oneof_0,
           }))
@@ -1661,7 +1661,7 @@ pub mod arena {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
-          let mut rp_field_1: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_field_1: &'a [u8] = &[];
           let mut rp_field_2: i32 = 0;
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -1671,7 +1671,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+            rp_field_1 = rp_p;
           }
           if rp_rest.first() == ::core::option::Option::Some(&16u8) {
             rp_rest = &rp_rest[1..];
@@ -1705,7 +1705,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+                rp_field_1 = rp_p;
               }
               16u32 => {
                 let mut rp_v = 0u64;
@@ -1724,7 +1724,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Target {
-            s: rp_field_1,
+            s: ::rapidproto::ProtoStr::new(rp_field_1),
             n: rp_field_2,
           }))
         }
@@ -1753,7 +1753,7 @@ pub mod arena {
     pub mod cousin_a {
       pub struct Use<'a> {
         thing: ::core::option::Option<&'a super::cousin_b::Thing<'a>>,
-        things: &'a [super::cousin_b::Thing<'a>],
+        things: ::rapidproto::PackedSlice<'a, super::cousin_b::Thing<'a>>,
         tag: super::super::super::common::xr::cousin_b::Tag,
       }
 
@@ -1762,7 +1762,7 @@ pub mod arena {
           self.thing
         }
         pub fn things(&self) -> &'a [super::cousin_b::Thing<'a>] {
-          self.things
+          self.things.get()
         }
         pub fn tag(&self) -> super::super::super::common::xr::cousin_b::Tag {
           self.tag
@@ -1902,7 +1902,7 @@ pub mod arena {
           }
           ::core::result::Result::Ok(rp_out.write(Use {
             thing: rp_field_1,
-            things: rp_acc_2.into_slice(),
+            things: ::rapidproto::PackedSlice::new(rp_acc_2.into_slice()),
             tag: rp_field_3,
           }))
         }
@@ -1973,7 +1973,7 @@ pub mod arena {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
-          let mut rp_field_1: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_field_1: &'a [u8] = &[];
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -1982,7 +1982,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+            rp_field_1 = rp_p;
           }
           loop {
             let rp_b = match rp_rest.first() {
@@ -2007,7 +2007,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+                rp_field_1 = rp_p;
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -2018,7 +2018,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Thing {
-            s: rp_field_1,
+            s: ::rapidproto::ProtoStr::new(rp_field_1),
           }))
         }
       }
@@ -2178,12 +2178,12 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(BoolWrap);
 
     pub struct BytesWrap<'a> {
-      value: &'a [u8],
+      value: ::rapidproto::PackedSlice<'a, u8>,
     }
 
     impl<'a> BytesWrap<'a> {
       pub fn value(&self) -> &'a [u8] {
-        self.value
+        self.value.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -2935,7 +2935,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(BytesWrap {
-          value: rp_field_1,
+          value: ::rapidproto::PackedSlice::new(rp_field_1),
         }))
       }
     }

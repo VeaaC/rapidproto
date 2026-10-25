@@ -37,6 +37,7 @@ mod error;
 mod map;
 #[cfg(feature = "alloc")]
 mod owned;
+mod packed_slice;
 mod packed_varint;
 mod proto_str;
 #[cfg(feature = "serde")]
@@ -56,6 +57,7 @@ pub use error::{DecodeError, ErrorKind};
 pub use map::MapView;
 #[cfg(feature = "alloc")]
 pub use owned::{decode_owned, ArenaDecode, Owned};
+pub use packed_slice::PackedSlice;
 pub use proto_str::ProtoStr;
 
 /// Re-export of the standard `Box` (only with `alloc`), so a generated `decode_owned` can name

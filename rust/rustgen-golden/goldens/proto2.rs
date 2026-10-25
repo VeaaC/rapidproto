@@ -62,12 +62,12 @@ pub mod arena {
       sf32: i32,
       sf64: i64,
       s: ::rapidproto::ProtoStr<'a>,
-      by: &'a [u8],
+      by: ::rapidproto::PackedSlice<'a, u8>,
       fl: f32,
       db: f64,
       color: super::super::common::p2::Color,
-      packed_nums: &'a [i32],
-      expanded_nums: &'a [i32],
+      packed_nums: ::rapidproto::PackedSlice<'a, i32>,
+      expanded_nums: ::rapidproto::PackedSlice<'a, i32>,
       rp_presence: u16,
     }
 
@@ -106,10 +106,10 @@ pub mod arena {
         ((self.rp_presence & (1 << 9)) != 0).then_some((self.rp_presence & (1 << 10)) != 0)
       }
       pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 11)) != 0).then_some(self.s)
+        ((self.rp_presence & (1 << 11)) != 0).then_some(self.s.hint_nonnull())
       }
       pub fn by(&self) -> ::core::option::Option<&'a [u8]> {
-        ((self.rp_presence & (1 << 12)) != 0).then_some(self.by)
+        ((self.rp_presence & (1 << 12)) != 0).then_some(self.by.get())
       }
       pub fn fl(&self) -> ::core::option::Option<f32> {
         ((self.rp_presence & (1 << 13)) != 0).then_some(self.fl)
@@ -121,10 +121,10 @@ pub mod arena {
         ((self.rp_presence & (1 << 15)) != 0).then_some(self.color)
       }
       pub fn packed_nums(&self) -> &'a [i32] {
-        self.packed_nums
+        self.packed_nums.get()
       }
       pub fn expanded_nums(&self) -> &'a [i32] {
-        self.expanded_nums
+        self.expanded_nums.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -550,7 +550,7 @@ pub mod arena {
           ((self.rp_presence & (1 << 0)) != 0).then_some(self.x)
         }
         pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-          ((self.rp_presence & (1 << 1)) != 0).then_some(self.s)
+          ((self.rp_presence & (1 << 1)) != 0).then_some(self.s.hint_nonnull())
         }
       }
       #[cfg(feature = "serde")]
@@ -594,7 +594,7 @@ pub mod arena {
           }
           let mut rp_presence: u8 = 0;
           let mut rp_field_3: i32 = 0;
-          let mut rp_field_4: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_field_4: &'a [u8] = &[];
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&24u8) {
             rp_rest = &rp_rest[1..];
@@ -613,7 +613,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_4 = ::rapidproto::ProtoStr::new(rp_p);
+            rp_field_4 = rp_p;
             rp_presence |= 1 << 1;
           }
           loop {
@@ -648,7 +648,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_4 = ::rapidproto::ProtoStr::new(rp_p);
+                rp_field_4 = rp_p;
                 rp_presence |= 1 << 1;
               }
               _ => {
@@ -661,7 +661,7 @@ pub mod arena {
           }
           ::core::result::Result::Ok(rp_out.write(G {
             x: rp_field_3,
-            s: rp_field_4,
+            s: ::rapidproto::ProtoStr::new(rp_field_4),
             rp_presence,
           }))
         }
@@ -802,14 +802,14 @@ pub mod arena {
     }
 
     pub struct RepeatedGroup<'a> {
-      item: &'a [repeated_group::Item<'a>],
+      item: ::rapidproto::PackedSlice<'a, repeated_group::Item<'a>>,
       tail: i32,
       rp_presence: u8,
     }
 
     impl<'a> RepeatedGroup<'a> {
       pub fn item(&self) -> &'a [repeated_group::Item<'a>] {
-        self.item
+        self.item.get()
       }
       pub fn tail(&self) -> ::core::option::Option<i32> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.tail)
@@ -1091,7 +1091,7 @@ pub mod arena {
     }
 
     pub struct Container<'a> {
-      items: &'a [container::Nested<'a>],
+      items: ::rapidproto::PackedSlice<'a, container::Nested<'a>>,
       by_name: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, container::Nested<'a>>,
       by_id: ::rapidproto::MapView<'a, i32, super::super::common::p2::Color>,
       choice: ::core::option::Option<container::Choice<'a>>,
@@ -1099,7 +1099,7 @@ pub mod arena {
 
     impl<'a> Container<'a> {
       pub fn items(&self) -> &'a [container::Nested<'a>] {
-        self.items
+        self.items.get()
       }
       pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, container::Nested<'a>> {
         self.by_name
@@ -1284,7 +1284,7 @@ pub mod arena {
         let mut rp_field_8: u64 = 0;
         let mut rp_field_9: i32 = 0;
         let mut rp_field_10: i64 = 0;
-        let mut rp_field_12: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+        let mut rp_field_12: &'a [u8] = &[];
         let mut rp_field_13: &'a [u8] = &[];
         let mut rp_field_14: f32 = 0.0;
         let mut rp_field_15: f64 = 0.0;
@@ -1413,7 +1413,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_12 = ::rapidproto::ProtoStr::new(rp_p);
+          rp_field_12 = rp_p;
           rp_presence |= 1 << 11;
         }
         if rp_rest.first() == ::core::option::Option::Some(&106u8) {
@@ -1618,7 +1618,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_12 = ::rapidproto::ProtoStr::new(rp_p);
+              rp_field_12 = rp_p;
               rp_presence |= 1 << 11;
             }
             106u32 => {
@@ -1711,13 +1711,13 @@ pub mod arena {
           f64: rp_field_8,
           sf32: rp_field_9,
           sf64: rp_field_10,
-          s: rp_field_12,
-          by: rp_field_13,
+          s: ::rapidproto::ProtoStr::new(rp_field_12),
+          by: ::rapidproto::PackedSlice::new(rp_field_13),
           fl: rp_field_14,
           db: rp_field_15,
           color: rp_field_16,
-          packed_nums: rp_acc_17.into_slice(),
-          expanded_nums: rp_acc_18.into_slice(),
+          packed_nums: ::rapidproto::PackedSlice::new(rp_acc_17.into_slice()),
+          expanded_nums: ::rapidproto::PackedSlice::new(rp_acc_18.into_slice()),
           rp_presence,
         }))
       }
@@ -2019,7 +2019,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(RepeatedGroup {
-          item: rp_acc_1.into_slice(),
+          item: ::rapidproto::PackedSlice::new(rp_acc_1.into_slice()),
           tail: rp_field_3,
           rp_presence,
         }))
@@ -2459,7 +2459,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Container {
-          items: rp_acc_5.into_slice(),
+          items: ::rapidproto::PackedSlice::new(rp_acc_5.into_slice()),
           by_name: ::rapidproto::MapView::new(rp_map_1.into_slice()),
           by_id: ::rapidproto::MapView::new(rp_map_2.into_slice()),
           choice: rp_oneof_0,

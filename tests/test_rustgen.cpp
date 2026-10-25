@@ -466,7 +466,8 @@ TEST_CASE("rustgen: a message named like a primitive gains a `_`") {
         message u8 { bytes b = 1; }
         message M { u8 m = 1; })");
     CHECK(has(out, "pub struct u8_<'a> {"));
-    CHECK(has(out, "b: &'a [u8],"));
+    CHECK(has(out, "b: ::rapidproto::PackedSlice<'a, u8>,"));
+    CHECK(has(out, "pub fn b(&self) -> &'a [u8] {"));
     CHECK_FALSE(has(out, "pub struct u8<"));
 }
 
@@ -808,8 +809,7 @@ TEST_CASE(
     CHECK(
         has(out, "let mut rp_presence: u8 = 0;"));  // packed presence mask for the explicit fields
     CHECK(has(out, "let mut rp_field_2: i32 = 0;"));  // bare storage; default 42 NOT materialized
-    CHECK(has(
-        out, "let mut rp_field_3: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);"));
+    CHECK(has(out, "let mut rp_field_3: &'a [u8] = &[];"));  // a string local holds its slice
     CHECK(has(
         out,
         "let mut rp_field_4: super::super::common::p::Color = super::super::common::p::Color(0);"));

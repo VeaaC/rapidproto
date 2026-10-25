@@ -123,12 +123,12 @@ pub mod arena {
 
   pub mod collide {
     pub struct SearchResponse<'a> {
-      results: &'a [search_response::Result<'a>],
+      results: ::rapidproto::PackedSlice<'a, search_response::Result<'a>>,
     }
 
     impl<'a> SearchResponse<'a> {
       pub fn results(&self) -> &'a [search_response::Result<'a>] {
-        self.results
+        self.results.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -196,7 +196,7 @@ pub mod arena {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
-          let mut rp_field_1: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_field_1: &'a [u8] = &[];
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -205,7 +205,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+            rp_field_1 = rp_p;
           }
           loop {
             let rp_b = match rp_rest.first() {
@@ -230,7 +230,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+                rp_field_1 = rp_p;
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -241,7 +241,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Result {
-            url: rp_field_1,
+            url: ::rapidproto::ProtoStr::new(rp_field_1),
           }))
         }
       }
@@ -616,12 +616,12 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(f64_);
 
     pub struct usize_<'a> {
-      flags: &'a [bool],
+      flags: ::rapidproto::PackedSlice<'a, bool>,
     }
 
     impl<'a> usize_<'a> {
       pub fn flags(&self) -> &'a [bool] {
-        self.flags
+        self.flags.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -1038,10 +1038,10 @@ pub mod arena {
       e: ::core::option::Option<&'a usize_<'a>>,
       f: super::super::common::collide::i32_,
       g: i32,
-      h: &'a [u8],
+      h: ::rapidproto::PackedSlice<'a, u8>,
       i: f32,
-      j: &'a [u32],
-      k: &'a [u32],
+      j: ::rapidproto::PackedSlice<'a, u32>,
+      k: ::rapidproto::PackedSlice<'a, u32>,
       rp_presence: u8,
     }
 
@@ -1068,16 +1068,16 @@ pub mod arena {
         self.g
       }
       pub fn h(&self) -> &'a [u8] {
-        self.h
+        self.h.get()
       }
       pub fn i(&self) -> ::core::option::Option<f32> {
         ((self.rp_presence & (1 << 4)) != 0).then_some(self.i)
       }
       pub fn j(&self) -> &'a [u32] {
-        self.j
+        self.j.get()
       }
       pub fn k(&self) -> &'a [u32] {
-        self.k
+        self.k.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -1937,7 +1937,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(SearchResponse {
-          results: rp_acc_1.into_slice(),
+          results: ::rapidproto::PackedSlice::new(rp_acc_1.into_slice()),
         }))
       }
     }
@@ -2624,7 +2624,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(usize_ {
-          flags: rp_acc_1.into_slice(),
+          flags: ::rapidproto::PackedSlice::new(rp_acc_1.into_slice()),
         }))
       }
     }
@@ -3198,10 +3198,10 @@ pub mod arena {
           e: rp_field_5,
           f: rp_field_6,
           g: rp_field_7,
-          h: rp_field_8,
+          h: ::rapidproto::PackedSlice::new(rp_field_8),
           i: rp_field_9,
-          j: rp_acc_10.into_slice(),
-          k: rp_acc_11.into_slice(),
+          j: ::rapidproto::PackedSlice::new(rp_acc_10.into_slice()),
+          k: ::rapidproto::PackedSlice::new(rp_acc_11.into_slice()),
           rp_presence,
         }))
       }

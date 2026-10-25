@@ -85,14 +85,14 @@ pub mod arena {
 
   pub mod fm {
     pub struct Blob<'a> {
-      payload: &'a [u8],
+      payload: ::rapidproto::PackedSlice<'a, u8>,
       kind: super::super::common::fm::blob::Kind,
       rp_presence: u8,
     }
 
     impl<'a> Blob<'a> {
       pub fn payload(&self) -> ::core::option::Option<&'a [u8]> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.payload)
+        ((self.rp_presence & (1 << 0)) != 0).then_some(self.payload.get())
       }
       pub fn kind(&self) -> ::core::option::Option<super::super::common::fm::blob::Kind> {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.kind)
@@ -126,13 +126,13 @@ pub mod arena {
       keep: i32,
       debug: i32,
       extra: ::core::option::Option<&'a Blob<'a>>,
-      old_ids: &'a [i32],
+      old_ids: ::rapidproto::PackedSlice<'a, i32>,
       must: i32,
       big_num: i32,
       blob: ::core::option::Option<&'a Blob<'a>>,
-      blobs: &'a [Blob<'a>],
-      samples: &'a [i32],
-      spread: &'a [i32],
+      blobs: ::rapidproto::PackedSlice<'a, Blob<'a>>,
+      samples: ::rapidproto::PackedSlice<'a, i32>,
+      spread: ::rapidproto::PackedSlice<'a, i32>,
       level: super::super::common::fm::Level,
       req_blob: ::core::option::Option<&'a Blob<'a>>,
       grp: holder::Grp<'a>,
@@ -151,7 +151,7 @@ pub mod arena {
         self.extra
       }
       pub fn old_ids(&self) -> &'a [i32] {
-        self.old_ids
+        self.old_ids.get()
       }
       pub fn must(&self) -> i32 {
         self.must
@@ -163,13 +163,13 @@ pub mod arena {
         self.blob
       }
       pub fn blobs(&self) -> &'a [Blob<'a>] {
-        self.blobs
+        self.blobs.get()
       }
       pub fn samples(&self) -> &'a [i32] {
-        self.samples
+        self.samples.get()
       }
       pub fn spread(&self) -> &'a [i32] {
-        self.spread
+        self.spread.get()
       }
       pub fn level(&self) -> ::core::option::Option<super::super::common::fm::Level> {
         ((self.rp_presence & (1 << 3)) != 0).then_some(self.level)
@@ -458,7 +458,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Blob {
-          payload: rp_field_1,
+          payload: ::rapidproto::PackedSlice::new(rp_field_1),
           kind: rp_field_2,
           rp_presence,
         }))
@@ -951,13 +951,13 @@ pub mod arena {
           keep: rp_field_1,
           debug: rp_field_2,
           extra: rp_field_3,
-          old_ids: rp_acc_4.into_slice(),
+          old_ids: ::rapidproto::PackedSlice::new(rp_acc_4.into_slice()),
           must: rp_field_5,
           big_num: rp_field_6,
           blob: rp_field_7,
-          blobs: rp_acc_8.into_slice(),
-          samples: rp_acc_9.into_slice(),
-          spread: rp_acc_10.into_slice(),
+          blobs: ::rapidproto::PackedSlice::new(rp_acc_8.into_slice()),
+          samples: ::rapidproto::PackedSlice::new(rp_acc_9.into_slice()),
+          spread: ::rapidproto::PackedSlice::new(rp_acc_10.into_slice()),
           level: rp_field_12,
           req_blob: rp_field_13,
           grp: rp_field_14,

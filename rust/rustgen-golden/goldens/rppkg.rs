@@ -169,12 +169,12 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Tag);
 
     pub struct ByteView<'a> {
-      b: &'a [u8],
+      b: ::rapidproto::PackedSlice<'a, u8>,
     }
 
     impl<'a> ByteView<'a> {
       pub fn b(&self) -> &'a [u8] {
-        self.b
+        self.b.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -344,7 +344,7 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut rp_field_1: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+        let mut rp_field_1: &'a [u8] = &[];
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -353,7 +353,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+          rp_field_1 = rp_p;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -378,7 +378,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+              rp_field_1 = rp_p;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -389,7 +389,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Tag {
-          s: rp_field_1,
+          s: ::rapidproto::ProtoStr::new(rp_field_1),
         }))
       }
     }
@@ -454,7 +454,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(ByteView {
-          b: rp_field_1,
+          b: ::rapidproto::PackedSlice::new(rp_field_1),
         }))
       }
     }

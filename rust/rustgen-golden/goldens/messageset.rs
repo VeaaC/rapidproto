@@ -122,7 +122,7 @@ pub mod arena {
 
     impl<'a> Ext<'a> {
       pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.s)
+        ((self.rp_presence & (1 << 0)) != 0).then_some(self.s.hint_nonnull())
       }
     }
     #[cfg(feature = "serde")]
@@ -256,7 +256,7 @@ pub mod arena {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
         let mut rp_presence: u8 = 0;
-        let mut rp_field_1: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+        let mut rp_field_1: &'a [u8] = &[];
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -265,7 +265,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+          rp_field_1 = rp_p;
           rp_presence |= 1 << 0;
         }
         loop {
@@ -291,7 +291,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = ::rapidproto::ProtoStr::new(rp_p);
+              rp_field_1 = rp_p;
               rp_presence |= 1 << 0;
             }
             _ => {
@@ -303,7 +303,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Ext {
-          s: rp_field_1,
+          s: ::rapidproto::ProtoStr::new(rp_field_1),
           rp_presence,
         }))
       }

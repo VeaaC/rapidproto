@@ -11,7 +11,7 @@ pub mod arena {
     pub struct Types<'a> {
       n: i32,
       s: ::rapidproto::ProtoStr<'a>,
-      many: &'a [i64],
+      many: ::rapidproto::PackedSlice<'a, i64>,
     }
 
     impl<'a> Types<'a> {
@@ -22,7 +22,7 @@ pub mod arena {
         self.s
       }
       pub fn many(&self) -> &'a [i64] {
-        self.many
+        self.many.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -73,7 +73,7 @@ pub mod arena {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
         let mut rp_field_1: i32 = 0;
-        let mut rp_field_2: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+        let mut rp_field_2: &'a [u8] = &[];
         let mut rp_acc_3 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
@@ -92,7 +92,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_2 = ::rapidproto::ProtoStr::new(rp_p);
+          rp_field_2 = rp_p;
         }
         while rp_rest.first() == ::core::option::Option::Some(&24u8) {
           rp_rest = &rp_rest[1..];
@@ -143,7 +143,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_2 = ::rapidproto::ProtoStr::new(rp_p);
+              rp_field_2 = rp_p;
             }
             24u32 => {
               let mut rp_v = 0u64;
@@ -171,8 +171,8 @@ pub mod arena {
         }
         ::core::result::Result::Ok(rp_out.write(Types {
           n: rp_field_1,
-          s: rp_field_2,
-          many: rp_acc_3.into_slice(),
+          s: ::rapidproto::ProtoStr::new(rp_field_2),
+          many: ::rapidproto::PackedSlice::new(rp_acc_3.into_slice()),
         }))
       }
     }
