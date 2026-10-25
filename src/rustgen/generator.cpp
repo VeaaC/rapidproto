@@ -716,13 +716,13 @@ bool packed_storage(const FieldNode& field, const FieldModes& modes) {
 }
 
 // The struct storage type for a field: a repeated or `bytes` field is a `PackedSlice` (see
-// `packed_storage`); a singular message is `Option<&'a T<'a>>`; an explicit-presence scalar wraps in
-// `Option`; everything else is the bare value type. A proto2 `[default = ...]` is NOT materialized
-// (matching the C++ decoder, which reads an absent defaulted field as `None` and leaves the default to
-// the consumer), so a defaulted field is stored exactly like any other field of its presence. A `raw`
-// message field keeps its undecoded LEN payload instead of the decoded tree: `Option<&'a [u8]>`
-// singular, `&'a [&'a [u8]]` repeated (the consumer feeds a payload to the field type's `decode`
-// itself).
+// `packed_storage`); a singular message is `Option<&'a T<'a>>`; everything else is the bare value
+// type (an explicit-presence scalar keeps its presence in the mask). A proto2 `[default = ...]` is NOT
+// materialized (matching the C++ decoder, which reads an absent defaulted field as `None` and leaves
+// the default to the consumer), so a defaulted field is stored exactly like any other field of its
+// presence. A `raw` message field keeps its undecoded LEN payload instead of the decoded tree:
+// `Option<&'a [u8]>` singular, `&'a [&'a [u8]]` repeated (the consumer feeds a payload to the field
+// type's `decode` itself).
 std::string field_storage_type(const NameTable& table, const std::vector<std::string>& current_mod,
                                const FieldNode& field, const FieldModes& modes,
                                const arenagen::MemberPlan* member) {
@@ -743,7 +743,8 @@ std::string field_storage_type(const NameTable& table, const std::vector<std::st
 
 // The getter's return type -- the SEMANTIC presence-wrapped type, which (unlike the storage type) still
 // wraps explicit presence in `Option`: masked scalar/enum/string -> `Option<T>`; inline/pointer message
-// -> `Option<&T>`; bool -> `bool` / `Option<bool>`; bare -> the plain value; repeated/raw as stored.
+// -> `Option<&T>`; bool -> `bool` / `Option<bool>`; bare -> the plain value; repeated and `bytes` ->
+// the plain slice their `PackedSlice` holds; raw as stored.
 std::string field_getter_type(const NameTable& table, const std::vector<std::string>& current_mod,
                               const FieldNode& field, const FieldModes& modes,
                               const arenagen::MemberPlan* member) {
@@ -772,7 +773,8 @@ std::string field_getter_type(const NameTable& table, const std::vector<std::str
     return value;
 }
 
-// The default initializer for a NON-repeated field's storage local: `None` for a pointer message;
+// The default initializer for a NON-repeated field's or a map entry key/value's decode local (a
+// string/bytes field local is the empty slice instead, see `slice_local`): `None` for a pointer message;
 // `Default::default()` for an inlined-by-value message; else the proto3 zero value (shared by Bare and
 // masked-with-a-presence-bit fields -- the presence bit, not the value, records absence). A proto2
 // `[default = ...]` is not materialized (matching the C++ decoder). A bool has no local (it lives in

@@ -816,7 +816,7 @@ TEST_CASE(
     // The default-literal machinery is gone: no default values appear anywhere.
     CHECK_FALSE(has(out, "= 42"));
     CHECK_FALSE(has(out, "Color::RED"));
-    CHECK_FALSE(has(out, "ProtoStr::new(b\"hi\")"));
+    CHECK_FALSE(has(out, "b\"hi\""));
     // A defaulted required field is bare + required-checked (its default is irrelevant).
     CHECK(has(out, "pub fn r(&self) -> i32 {"));
     CHECK(has(out, "let mut rp_field_1: i32 = 0;"));

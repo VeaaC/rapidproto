@@ -26,7 +26,8 @@ impl<K, V> Clone for MapView<'_, K, V> {
 impl<K, V> Copy for MapView<'_, K, V> {}
 
 impl<'a, K, V> MapView<'a, K, V> {
-    /// Wrap a slice of decoded entries.
+    /// Wrap a slice of decoded entries. Stored as a [`PackedSlice`]: more than `u32::MAX` entries
+    /// keep only the low 32 bits of their count.
     #[inline]
     pub fn new(entries: &'a [(K, V)]) -> Self {
         Self {

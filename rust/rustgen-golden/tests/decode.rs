@@ -1094,6 +1094,16 @@ fn dropped_field_record_is_still_wire_validated() {
     ));
 }
 
+// Decoded messages stay `Send + Sync`: their strings, maps and repeated fields are `PackedSlice`s,
+// which get those traits from manual impls rather than automatically.
+#[test]
+fn decoded_messages_are_send_and_sync() {
+    fn send_sync<T: Send + Sync>() {}
+    send_sync::<Msg<'static>>();
+    send_sync::<ModedHolder<'static>>();
+    send_sync::<Main<'static>>();
+}
+
 #[test]
 fn dropped_fields_in_field_order_are_skipped() {
     // debug (2), extra (3) and old_ids (4) are DROPPED. Written in field order between kept fields,

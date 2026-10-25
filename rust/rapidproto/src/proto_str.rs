@@ -18,7 +18,8 @@ pub struct ProtoStr<'a> {
 }
 
 impl<'a> ProtoStr<'a> {
-    /// Wrap raw bytes (no validation).
+    /// Wrap raw bytes (no validation). Stored as a [`PackedSlice`]: bytes longer than `u32::MAX` keep
+    /// only the low 32 bits of their length.
     #[inline]
     pub fn new(bytes: &'a [u8]) -> Self {
         Self {
@@ -32,9 +33,9 @@ impl<'a> ProtoStr<'a> {
         self.bytes.get()
     }
 
-    /// This string, unchanged, with its pointer's non-null invariant restated to the optimizer (see
-    /// [`PackedSlice::hint_nonnull`]). Generated getters return an optional string through it, so
-    /// testing the `Option` tests only the presence bit.
+    /// This string, unchanged, with its pointer's non-null invariant restated to the optimizer: a read
+    /// out of a packed struct field loses it. Generated getters return an optional string through it,
+    /// so testing the `Option` tests only the presence bit.
     #[doc(hidden)]
     #[inline(always)]
     pub fn hint_nonnull(self) -> Self {
