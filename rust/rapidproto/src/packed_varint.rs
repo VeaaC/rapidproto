@@ -175,7 +175,7 @@ unsafe fn read_one(q: *const u8, end: *const u8) -> Result<(u64, *const u8), Err
 
 /// Read one varint from `[q, end)` word-at-a-time: a 1-byte value takes a straight-line fast path, a
 /// 2..=8-byte value is decoded branchlessly from one 8-byte load, and a 9/10-byte value (all 8 low
-/// bytes continue) falls to [`read_one`], which also applies the overflow rule. Mirror of C++
+/// bytes continue) falls to [`read_one`], which also reports overflow and truncation. Mirror of C++
 /// `read_varint_packed`.
 ///
 /// # Safety
@@ -626,16 +626,6 @@ mod tests {
         check(&vals);
     }
 
-    #[test]
-    fn wide_mixed_swar() {
-        // Mix in wide values (max width > 5) -> Swar. The classifier only samples the first 64-byte
-        // window, so a representative mix must appear up front for this to engage Swar (it does here).
-        let vals: alloc::vec::Vec<u64> = (0..3000u64)
-            .map(|i| if i % 7 == 0 { u64::MAX - i } else { i % 50 })
-            .collect();
-        check(&vals);
-    }
-
     // Encode `values` as one packed span, asserting the classifier sends it to the Swar kernel.
     fn swar_span(values: &[u64]) -> alloc::vec::Vec<u8> {
         let mut span = alloc::vec::Vec::new();
@@ -644,6 +634,26 @@ mod tests {
         }
         assert!(unsafe { classify(span.as_ptr(), span.len()) }.0 == Kernel::Swar);
         span
+    }
+
+    // A Swar span of 1-byte values with every third one 10 bytes wide.
+    fn swar_prefix() -> alloc::vec::Vec<u8> {
+        swar_span(
+            &(0..100u64)
+                .map(|i| if i % 3 == 0 { u64::MAX } else { i })
+                .collect::<alloc::vec::Vec<_>>(),
+        )
+    }
+
+    #[test]
+    fn wide_mixed_swar() {
+        // Mix in wide values (max width > 5) -> Swar. The classifier only samples the first 64-byte
+        // window, so a representative mix must appear up front for this to engage Swar.
+        let vals: alloc::vec::Vec<u64> = (0..3000u64)
+            .map(|i| if i % 7 == 0 { u64::MAX - i } else { i % 50 })
+            .collect();
+        swar_span(&vals);
+        check(&vals);
     }
 
     #[test]
@@ -660,24 +670,46 @@ mod tests {
         assert_eq!(decode_u64(&span), vals);
     }
 
+    // The error `fill_packed_varints` reports for `span`, as (kind, offset).
+    fn decode_err(span: &[u8]) -> (ErrorKind, usize) {
+        let arena = Arena::new();
+        let mut v = DecodeVec::<u64>::new(&arena);
+        let err = v.fill_packed_varints(span, 0, |raw| raw).unwrap_err();
+        (err.kind(), err.offset())
+    }
+
     #[test]
     fn swar_overflow_reports_offset() {
-        // A 10-byte varint whose last byte is > 1 overflows; with more input after it, the Swar
-        // kernel itself (not the tail) reads it and reports it at its own offset.
-        let mut span = swar_span(
-            &(0..100u64)
-                .map(|i| if i % 3 == 0 { u64::MAX } else { i })
-                .collect::<alloc::vec::Vec<_>>(),
-        );
+        // A 10-byte varint whose last byte is > 1 overflows. At least 8 bytes remain at it, so the
+        // Swar loop's fallback reads it and reports it at its own offset.
+        let mut span = swar_prefix();
         let overflow_at = span.len();
         span.resize(span.len() + 9, 0x80);
         span.push(0x02);
-        span.resize(span.len() + 600, 5);
-        let arena = Arena::new();
-        let mut v = DecodeVec::<u64>::new(&arena);
-        let err = v.fill_packed_varints(&span, 0, |raw| raw).unwrap_err();
-        assert_eq!(err.kind(), ErrorKind::VarintOverflow);
-        assert_eq!(err.offset(), overflow_at);
+        assert_eq!(decode_err(&span), (ErrorKind::VarintOverflow, overflow_at));
+    }
+
+    #[test]
+    fn swar_truncation_reports_offset() {
+        // A varint cut off at the end of the span: with 9 bytes left the Swar loop's fallback reads
+        // it, with 7 the scalar tail does. Both report it at its start.
+        for left in [9usize, 7] {
+            let mut span = swar_prefix();
+            let truncated_at = span.len();
+            span.resize(span.len() + left, 0x80);
+            assert_eq!(decode_err(&span), (ErrorKind::Truncated, truncated_at));
+        }
+    }
+
+    #[test]
+    fn swar_non_canonical_padding() {
+        // Zero-padded encodings (1 as 0x81 0x80 0x80 0x00, 300 as 0xac 0x82 0x00) decode like the byte
+        // loop reads them.
+        let mut span = swar_prefix();
+        for _ in 0..50 {
+            span.extend_from_slice(&[0x81, 0x80, 0x80, 0x00, 0xac, 0x82, 0x00, 0x07]);
+        }
+        assert_eq!(decode_u64(&span), reference(&span));
     }
 
     #[test]
