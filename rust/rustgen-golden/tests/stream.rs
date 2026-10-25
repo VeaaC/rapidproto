@@ -10,9 +10,8 @@
 //! individually, a recursive sub-message handed its typed reader handle (`sub.decode(..)`), error
 //! propagation from a malformed sub-message, the `unknown`-field handler, `Flow::Stop`, map entries
 //! (scalar, bytes and message values), the field-order probes agreeing with the decode loop, and a
-//! hand-implemented visitor; the shared-state form
-//! `msg_stream!(&mut state; { field => |state, value| .. })` aggregating many fields into one
-//! accumulator re-threaded across nested decodes. The glob of a message's stream module brings in its
+//! hand-implemented visitor; the shared-state form `msg_stream!(&mut state; { field => |state,
+//! value| .. })` aggregating many fields into one accumulator re-threaded across nested decodes. The glob of a message's stream module brings in its
 //! handle, trait and macro plus the hidden per-message scope the expansion names everything through, so
 //! globbing several stream modules into one scope leaves every expansion unambiguous (the `globbing_*`
 //! tests), and names shaped like that glue cannot collide with it (the gluenames test).

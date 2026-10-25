@@ -268,8 +268,8 @@ fn read_varint_cold<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], Error
 
 /// [`read_varint`] with the multibyte decode inline too, so a multibyte value costs no call. It makes
 /// every call site larger, which pays off in a decode loop with few of them: the generated stream
-/// decoders read values with it, since only the fields a visitor selects keep their reads. The arena
-/// decoders read every field and use [`read_varint`].
+/// decoders read values with it, since only the fields a visitor selects keep their reads, and
+/// [`skip_field`] skips varints with it. The arena decoders read every field and use [`read_varint`].
 #[inline(always)]
 pub fn read_varint_inline<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
     if let Some((&b0, tail)) = rest.split_first() {
@@ -284,11 +284,12 @@ pub fn read_varint_inline<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8],
 /// The complete varint decode, fully inlined: one `#[inline(always)]` loop with no out-of-line
 /// `#[cold]` tail. The arena's per-element read over a packed span (`packed_varint`), where inlining
 /// the whole decode avoids the out-of-line call [`read_varint`] makes per multibyte value -- matching
-/// the C++ `RP_FLATTEN`ed small packed kernel. (The stream decoders' packed loops use
-/// [`PackedVarints`].) NOT for the arena's per-field decode loop: inlining the full loop at its many
-/// call sites spills the value-threaded slice (see `read_varint`). Re-reads from `rest` (including byte
-/// 0) so it is a correct standalone decode. `VarintOverflow` on an over-long encoding (10th byte above
-/// bit 0, or ten continuation bytes), `Truncated` if the input runs out mid-varint.
+/// the C++ `RP_FLATTEN`ed small packed kernel -- and the multibyte half of [`read_varint_inline`].
+/// (The stream decoders' packed loops use [`PackedVarints`].) NOT for the arena's typed per-field
+/// reads: inlining the full loop at their many call sites spills the value-threaded slice (see
+/// `read_varint`). Re-reads from `rest` (including byte 0) so it is a correct standalone decode.
+/// `VarintOverflow` on an over-long encoding (10th byte above bit 0, or ten continuation bytes),
+/// `Truncated` if the input runs out mid-varint.
 #[inline(always)]
 pub(crate) fn read_varint_full<'a>(rest: &'a [u8], out: &mut u64) -> Result<&'a [u8], ErrorKind> {
     let mut result: u64 = 0;
@@ -628,7 +629,9 @@ pub fn skip_field(rest: &[u8], key: u32) -> Result<&[u8], ErrorKind> {
     let wire = key & 0x07;
     if key >> 3 != 0 {
         if wire == 0 {
-            return skip_varint(rest);
+            // Inlined, the value is dead, so this is a scan for the varint's last byte.
+            let mut v = 0;
+            return read_varint_inline(rest, &mut v);
         }
         if wire == 2 {
             let mut p: &[u8] = &[];
@@ -642,13 +645,6 @@ pub fn skip_field(rest: &[u8], key: u32) -> Result<&[u8], ErrorKind> {
         }
     }
     skip_field_cold(rest, key)
-}
-
-// Past one varint. Inlined, the value it assembles is dead, so this is a scan for the last byte.
-#[inline(always)]
-fn skip_varint(rest: &[u8]) -> Result<&[u8], ErrorKind> {
-    let mut value = 0;
-    read_varint_inline(rest, &mut value)
 }
 
 // `skip_field` for a group, an end-group or a malformed key.

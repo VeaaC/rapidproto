@@ -806,6 +806,12 @@ std::string scalar_wire_variant(const FieldNode& field) {
     return "Varint";  // int*/uint*/sint*/bool/enum
 }
 
+// Whether a field also arrives as a packed LEN run: a repeated numeric (not a message, string or
+// bytes).
+bool is_packable_repeated(const FieldNode& field) {
+    return field.is_repeated && !field.is_message_type && scalar_wire_variant(field) != "Len";
+}
+
 // The low-3-bit wire code of each wire type (its on-wire value, matching `wire::WireType as u8`).
 enum WireCode : std::uint8_t {
     kWireVarint = 0,
@@ -1438,7 +1444,7 @@ void emit_field_arms(Printer& printer, const NameTable& table,
     }
 
     const std::string wire = scalar_wire_variant(field);
-    if (field.is_repeated && wire != "Len") {
+    if (is_packable_repeated(field)) {
         // Repeated numeric: an unpacked arm (one value per occurrence) and a packed arm (a
         // length-delimited run of values). proto permits mixing both on the wire.
         printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
@@ -1866,22 +1872,20 @@ struct ThreadItem {
     const MapFieldNode* map = nullptr;            // non-null only for ThreadKind::Map
 };
 
-// Whether the Rust prologues (arena and stream) thread a repeated field, which self-loops on its own
-// element tag. A group element (SGROUP/EGROUP-delimited) must NOT thread as a bare LEN self-loop -- it
-// dispatches on the SGroup hub arm and reads via `read_group` -- so a repeated group field is excluded
-// (mirroring arenagen's `is_threaded` "delimited never thread"); its elements decode through the hub.
-// Unlike the C++ reference (repeated threads at a one-byte tag only), Rust threads up to a two-byte
-// tag (<= 2047): lacking C++'s goto re-entry, an unthreaded field ends the straight-line prologue for
-// everything after it, so a two-byte repeated field left out would break threading of a well-ordered
-// message's tail.
+// Whether the Rust prologues (arena and stream) can thread a repeated field, which self-loops on its
+// own element tag: up to a two-byte tag (see `emit_threaded_prologue` for why that is broader than the
+// C++ reference), and never a group. A group element (SGROUP/EGROUP-delimited) must NOT thread as a
+// bare LEN self-loop -- it dispatches on the SGroup hub arm and reads via `read_group` -- so a repeated
+// group field is excluded (mirroring arenagen's `is_threaded` "delimited never thread"); its elements
+// decode through the hub.
 bool is_threadable_repeated(const FieldNode& field) {
     const bool group =
         field.is_message_type && field.message_encoding == MessageEncoding::Delimited;
     return field.number >= 1 && field.number <= codegen::kMaxTwoByteTagField && !group;
 }
 
-// Whether the Rust prologues thread a map: a repeated series of LEN entries, so it self-loops like a
-// repeated field, up to a two-byte tag (<= 2047).
+// Whether the Rust prologues can thread a map: a repeated series of LEN entries, so it self-loops like
+// a repeated field, up to a two-byte tag (<= 2047).
 bool is_threadable_map(const MapFieldNode& map) {
     return map.number >= 1 && map.number <= codegen::kMaxTwoByteTagField;
 }
@@ -1934,9 +1938,8 @@ std::vector<ThreadItem> collect_threaded_items(const NameTable& table, const Mes
         if (f.is_repeated) {
             if (is_threadable_repeated(f)) {
                 const std::string wire = f.is_message_type ? "Len" : scalar_wire_variant(f);
-                const bool packable = !f.is_message_type && wire != "Len";
-                items.push_back({f.number, ThreadKind::Repeated, packable, wire, &f, false, nullptr,
-                                 "", "", ""});
+                items.push_back({f.number, ThreadKind::Repeated, is_packable_repeated(f), wire, &f,
+                                 false, nullptr, "", "", ""});
             }
             continue;
         }
@@ -3120,8 +3123,7 @@ std::string stream_slot_wire(const StreamSlot& slot) {
 
 // Whether the slot is a repeated numeric field, which also arrives as a packed LEN run.
 bool stream_slot_packable(const StreamSlot& slot) {
-    return slot.field != nullptr && slot.field->is_repeated && !slot.field->is_message_type &&
-           scalar_wire_variant(*slot.field) != "Len";
+    return slot.field != nullptr && is_packable_repeated(*slot.field);
 }
 
 // The field number of the slot's field or map.
@@ -3154,11 +3156,11 @@ void emit_stream_arm(Printer& printer, const NameTable& table,
 // reference's), with the same scope: singular fields and oneof members admitted by
 // codegen::is_threadable_singular, plus the repeated fields and maps admitted by
 // `is_threadable_repeated` / `is_threadable_map`, which self-loop (a repeated numeric also probes its
-// packed run). A probed field is delivered when the
-// visitor selects it and skipped otherwise, through `skip_field` with its constant tag, which folds to
-// that wire type's skip -- as C++ streamgen skips an unselected threaded field. So a well-ordered
-// message with few selected fields costs one tag compare per field, with no `match` and no runtime
-// wire-type switch. The hub loop after it decodes whatever the chain did not consume.
+// packed run). A probed field is delivered when the visitor selects it and skipped otherwise, through
+// `skip_field` with its constant tag, which folds to that wire type's skip -- as C++ streamgen skips an
+// unselected threaded field. So a well-ordered message with few selected fields costs one tag compare
+// per field, with no `match` and no runtime wire-type switch. The hub loop after it decodes whatever
+// the chain did not consume.
 void emit_stream_prologue(Printer& printer, const NameTable& table,
                           const std::vector<std::string>& current_mod,
                           const std::vector<StreamSlot>& slots) {
