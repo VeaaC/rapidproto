@@ -234,6 +234,16 @@ arenagen::FieldModesSpec messageset_unknown_spec() {
     return spec;
 }
 
+// The benchmark schema under the drop profile of the arena benches' `records sparse (dropped)`
+// scenario, read from the same file the C++ arena bench generates from.
+constexpr std::string_view kBenchRecordsSparseGoldenStem = "bench_records_sparse";
+arenagen::FieldModesSpec bench_records_sparse_spec() {
+    const std::string path = std::string(RAPIDPROTO_CORPUS_DIR) + "/../bench/records_sparse.modes";
+    arenagen::FieldModesSpec spec;
+    REQUIRE(arenagen::parse_modes_file(read_file(path), "records_sparse.modes", spec).is_ok());
+    return spec;
+}
+
 // Analyze several in-memory schemas as ONE set and emit them together, for cross-package edge cases
 // the on-disk corpus does not cover. The schemas need not import one another -- the merged module
 // tree is built from their packages alone -- so this exercises the package trie directly.
@@ -971,6 +981,10 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // the SAME schema the C++ arena bench uses.
     check_golden("bench", gen_corpus("../bench/bench.proto", both("bench")));
     stems.emplace_back("bench");
+    // The same schema under the `records sparse (dropped)` profile, the Rust bench's decoder for it.
+    check_golden(std::string(kBenchRecordsSparseGoldenStem),
+                 gen_corpus_modes("../bench/bench.proto", bench_records_sparse_spec()));
+    stems.emplace_back(kBenchRecordsSparseGoldenStem);
     // The wire-fixture schema (tests/wire_fixtures/wire_all.proto, package `wire`): every wire type
     // incl. a group, the schema of the protoc-encoded all_wire.bin the streaming tests decode -- as
     // the C++ generators' goldens have it too.

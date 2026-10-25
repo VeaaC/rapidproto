@@ -518,6 +518,24 @@ if(RAPIDPROTO_BUILD_TESTS)
     # is NOT linked against rapidproto_strict (it is a standalone measurement, like rapidproto_bench).
     target_compile_options(rapidproto_arena_bench PRIVATE -O3 -DNDEBUG ${RAPIDPROTO_BENCH_ALIGN})
 
+    # `records sparse (dropped)`: bench.proto again, arena only, under a drop profile, in its own
+    # OUT_DIR and its own object library. The profiled tree's bench.rp.hpp has the same name as
+    # BENCH_GEN's, so its one TU (tests/bench_arm_records_sparse.cpp) must not see BENCH_GEN.
+    set(BENCH_SPARSE_GEN "${CMAKE_CURRENT_BINARY_DIR}/generated/bench-records-sparse")
+    rapidproto_generate(rapidproto_bench_records_sparse_schema
+      GENERATOR arena
+      NAMESPACE_PREFIX rp
+      PROTOS "${BENCH_PROTO}"
+      IMPORT_DIRS "${BENCH_PROTO_DIR}"
+      FIELD_MODES "${BENCH_PROTO_DIR}/records_sparse.modes"
+      OUT_DIR "${BENCH_SPARSE_GEN}")
+    add_library(rapidproto_arena_bench_records_sparse OBJECT tests/bench_arm_records_sparse.cpp)
+    target_link_libraries(rapidproto_arena_bench_records_sparse PRIVATE
+                          rapidproto_bench_records_sparse_schema rapidproto)
+    target_compile_options(rapidproto_arena_bench_records_sparse PRIVATE
+                           -O3 -DNDEBUG ${RAPIDPROTO_BENCH_ALIGN})
+    target_link_libraries(rapidproto_arena_bench PRIVATE rapidproto_arena_bench_records_sparse)
+
     # ── upb baseline arm ───────────────────────────────────────────────────────────────────────
     # upb: protobuf upstream's speed-focused C parser -- the honest materializing yardstick.
     # Compiled from the fetched corpus's protobuf checkout (fetch_corpus.py brings upb/ +

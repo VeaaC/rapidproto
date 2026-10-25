@@ -58,12 +58,13 @@
 #include <string_view>
 #include <vector>
 
-#include "bench.pb.h"              // protoc: bench::Dataset / WideSet / BigSet
-#include "bench.rp.hpp"            // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
-#include "bench.rp.stream.hpp"     // streamgen: rp::stream::bench::Dataset
-#include "bench_arm_messages.hpp"  // google_message1/2 scenarios (declaration only; own TU)
-#include "bench_arm_osm.hpp"       // OSM PBF scenarios (declaration only; own TU)
-#include "bench_baselines.hpp"     // third-party baselines, in their own TUs (see that header)
+#include "bench.pb.h"                    // protoc: bench::Dataset / WideSet / BigSet
+#include "bench.rp.hpp"                  // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
+#include "bench.rp.stream.hpp"           // streamgen: rp::stream::bench::Dataset
+#include "bench_arm_messages.hpp"        // google_message1/2 scenarios (declaration only; own TU)
+#include "bench_arm_osm.hpp"             // OSM PBF scenarios (declaration only; own TU)
+#include "bench_arm_records_sparse.hpp"  // records under a drop profile (declaration only; own TU)
+#include "bench_baselines.hpp"  // third-party baselines, in their own TUs (see that header)
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
 #include "bench_payloads.hpp"  // the shared payload directory (RAPIDPROTO_BENCH_DIR / _DUMP_DIR)
 #include "bench_records.hpp"   // the hand-built RecordSet wire, asserted against protoc below
@@ -979,6 +980,8 @@ int main() {
              }},
         };
         bad += rpbench::run("scalar records (dispatch-bound)", static_cast<double>(rbuf.size()), a);
+        // The same payload with 17 of each Record's 20 fields dropped (own TU, see the header).
+        bad += rprecords_sparse::run_arm(rbuf);
     }
 
     // Repeated-varint sweep: the packed int64 decode surface across element byte width x count. Part of

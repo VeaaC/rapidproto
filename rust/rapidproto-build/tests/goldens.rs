@@ -9,9 +9,10 @@
 //!
 //! The golden set mirrors that C++ case: one plain golden per `tests/corpus/**.proto` (stem =
 //! basename) plus the `tests/bench/bench.proto` and `tests/wire_fixtures/wire_all.proto` goldens,
-//! each with exported stream macros under its stem; the stream-only golden; and four field-modes
-//! goldens. The field-modes profiles are mirrored from `test_rustgen.cpp` (the `*_spec()` helpers);
-//! if either side changes, this test fails loudly with a diff — which is the point.
+//! each with exported stream macros under its stem; the stream-only golden; four field-modes
+//! goldens, whose profiles are mirrored from `test_rustgen.cpp` (the `*_spec()` helpers); and the
+//! bench schema under `tests/bench/records_sparse.modes`, a profile file both sides read. If either
+//! side changes, this test fails loudly with a diff, which is the point.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -129,6 +130,15 @@ fn goldens_match(backend: Backend) {
         backend,
         &mut verified,
     );
+    // The bench schema under its drop profile, read from the file test_rustgen.cpp reads.
+    let modes = std::fs::read_to_string(root.join("tests/bench/records_sparse.modes"))
+        .expect("read records_sparse.modes");
+    check(
+        "bench_records_sparse",
+        &gen_modes(&bench, &modes, backend),
+        backend,
+        &mut verified,
+    );
     // The wire-fixture schema's golden (from tests/wire_fixtures/).
     let wire_all = root.join("tests/wire_fixtures/wire_all.proto");
     let generated = gen_plain(&wire_all, "wire_all", backend);
@@ -141,7 +151,7 @@ fn goldens_match(backend: Backend) {
     check("streamonly", &generated, backend, &mut verified);
 
     // Field-modes goldens — profiles mirrored from test_rustgen.cpp's *_spec() helpers (no `name`
-    // directive, matching the empty profile_name there).
+    // directive, matching their empty profile_name).
     let corpus = |rel: &str| root.join("tests/corpus").join(rel);
     for (stem, proto, modes) in [
         (

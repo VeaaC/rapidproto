@@ -5,6 +5,7 @@
 //! arm so all arms must agree. See the crate docs for the per-type contribution convention.
 
 use rustgen_golden::bench::arena::bench::{Big, BigSet, Dataset, ParticleSet, RecordSet, WideSet};
+use rustgen_golden::bench_records_sparse::arena::bench::RecordSet as SparseRecordSet;
 
 pub fn checksum_dataset(ds: &Dataset) -> u64 {
     let mut sum = ds.name().as_bytes().len() as u64 ^ (ds.version() as u64);
@@ -111,6 +112,16 @@ pub fn checksum_recordset(rs: &RecordSet) -> u64 {
         }
     }
     sum
+}
+
+/// `records sparse (dropped)`: the three fields its drop profile keeps
+/// (`tests/bench/records_sparse.modes`).
+pub fn checksum_recordset_sparse(rs: &SparseRecordSet) -> u64 {
+    rs.records().iter().fold(0u64, |sum, r| {
+        sum.wrapping_add(r.f1() as u64)
+            .wrapping_add(r.f10() as u64)
+            .wrapping_add(r.f20() as u64)
+    })
 }
 
 pub fn checksum_particleset(ps: &ParticleSet) -> u64 {
