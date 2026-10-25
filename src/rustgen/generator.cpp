@@ -1113,8 +1113,9 @@ void emit_reserve(Printer& printer, const std::string& acc, const std::string& c
 // erroring at `at.off`. The loop's `_` catch-all passes `rp_tagkey`: the peek hub dispatches on the raw
 // key, so an unknown or wrong-wire field reaches here with only the key (no rebuilt Tag), and
 // `skip_field` reconstructs the wire type -- rejecting a malformed one-byte tag (field 0 / reserved
-// wire code) as InvalidTag, the kind a full tag read would have raised. A stream probe passes its
-// field's constant key, for which `skip_field` folds to that wire type's skip.
+// wire code) as InvalidTag, the kind a full tag read would have raised. A threading probe (a stream
+// decoder's unselected field, an arena decoder's dropped field) passes its field's constant key, for
+// which `skip_field` folds to that wire type's skip.
 void emit_skip_field_body(Printer& printer, const ReadAt& at,
                           const std::string& key = "rp_tagkey") {
     printer.print("$s$ = match ::rapidproto::wire::skip_field($s$, $k$) {\n",
@@ -1688,7 +1689,7 @@ void emit_map_arm(Printer& printer, const NameTable& table,
 // The decode locals: a repeated field / map accumulates into a `DecodeVec`; a oneof holds its enum
 // (None until a member is seen); a proto2 `required` field a transient seen-flag; `unknown-fields` a
 // bool; the rest plain values at their proto3 zero / None default. A dropped field/map has no local
-// (its arm skip-validates and discards). `submodule` names the message's own oneof-enum submodule.
+// (it is skip-validated and discarded). `submodule` names the message's own oneof-enum submodule.
 void emit_decode_locals(Printer& printer, const NameTable& table,
                         const std::vector<std::string>& current_mod, const MessageNode& msg,
                         const FieldModes& modes, const std::string& submodule,
@@ -1858,8 +1859,8 @@ void emit_decode_construct(Printer& printer, const MessageNode& msg, const Field
 
 // A field the threaded prologue will probe, with everything its body emitter needs. Collected across a
 // message's regular fields and oneof members by `collect_threaded_items`, then emitted in ascending
-// field-number order.
-enum class ThreadKind : std::uint8_t { Scalar, Message, Oneof, Repeated, Map };
+// field-number order. A `Skip` item is a dropped field or map: its probe only skips the value.
+enum class ThreadKind : std::uint8_t { Scalar, Message, Oneof, Repeated, Map, Skip };
 struct ThreadItem {
     int number;
     ThreadKind kind;
@@ -1869,7 +1870,7 @@ struct ThreadItem {
     bool required;
     const arenagen::MemberPlan* member;
     std::string oneof_local, enum_path, variant;  // oneof members only
-    const MapFieldNode* map = nullptr;            // non-null only for ThreadKind::Map
+    const MapFieldNode* map = nullptr;  // non-null for a map, kept (Map) or dropped (Skip)
 };
 
 // Whether the Rust prologues (arena and stream) can thread a repeated field, which self-loops on its
@@ -1890,15 +1891,17 @@ bool is_threadable_map(const MapFieldNode& map) {
     return map.number >= 1 && map.number <= codegen::kMaxTwoByteTagField;
 }
 
-// Append the threadable maps of `msg` to `items`. A dropped map is left to the hub (skipped there).
+// Append the threadable maps of `msg` to `items`; a dropped map's probe skips its entries.
 void append_map_threaded_items(const MessageNode& msg, const FieldModes& modes,
                                std::vector<ThreadItem>& items) {
     for (const MapFieldNode& map : msg.map_fields) {
-        if (map_mode(modes, map) == arenagen::FieldMode::Drop || !is_threadable_map(map)) {
+        if (!is_threadable_map(map)) {
             continue;
         }
+        const ThreadKind kind =
+            map_mode(modes, map) == arenagen::FieldMode::Drop ? ThreadKind::Skip : ThreadKind::Map;
         items.push_back(
-            {map.number, ThreadKind::Map, false, "Len", nullptr, false, nullptr, "", "", "", &map});
+            {map.number, kind, false, "Len", nullptr, false, nullptr, "", "", "", &map});
     }
 }
 
@@ -1932,25 +1935,27 @@ std::vector<ThreadItem> collect_threaded_items(const NameTable& table, const Mes
     std::vector<ThreadItem> items;
     for (const FieldNode& f : msg.fields) {
         const arenagen::FieldMode mode = field_mode(modes, f);
-        if (mode == arenagen::FieldMode::Drop || mode == arenagen::FieldMode::Raw) {
-            continue;  // dropped/raw fields are never threaded (handled by the hub loop / catch-all)
+        if (mode == arenagen::FieldMode::Raw) {
+            continue;  // a raw field is never threaded (handled by its hub arm)
         }
-        if (f.is_repeated) {
-            if (is_threadable_repeated(f)) {
-                const std::string wire = f.is_message_type ? "Len" : scalar_wire_variant(f);
-                items.push_back({f.number, ThreadKind::Repeated, is_packable_repeated(f), wire, &f,
-                                 false, nullptr, "", "", ""});
-            }
+        // Number out of 1..2047, or a delimited (group) message: not threadable.
+        if (f.is_repeated ? !is_threadable_repeated(f) : !codegen::is_threadable_singular(f)) {
             continue;
         }
-        if (!codegen::is_threadable_singular(f)) {
-            continue;  // number out of 1..2047, or a delimited (group) message -- not threadable
-        }
-        const bool required = f.presence == FieldPresence::Required;
-        const ThreadKind kind = f.is_message_type ? ThreadKind::Message : ThreadKind::Scalar;
         const std::string wire = f.is_message_type ? "Len" : scalar_wire_variant(f);
-        items.push_back(
-            {f.number, kind, false, wire, &f, required, member_for(layout, f), "", "", ""});
+        const bool packable = is_packable_repeated(f);
+        if (mode == arenagen::FieldMode::Drop) {
+            items.push_back(
+                {f.number, ThreadKind::Skip, packable, wire, &f, false, nullptr, "", "", ""});
+        } else if (f.is_repeated) {
+            items.push_back(
+                {f.number, ThreadKind::Repeated, packable, wire, &f, false, nullptr, "", "", ""});
+        } else {
+            const bool required = f.presence == FieldPresence::Required;
+            const ThreadKind kind = f.is_message_type ? ThreadKind::Message : ThreadKind::Scalar;
+            items.push_back(
+                {f.number, kind, false, wire, &f, required, member_for(layout, f), "", "", ""});
+        }
     }
     append_map_threaded_items(msg, modes, items);
     append_oneof_threaded_items(table, msg, submodule, items);
@@ -2005,9 +2010,12 @@ void emit_probe_close(Printer& printer) {
 // one-byte only; maps never): C++ re-enters threading from its hub via goto, so an unthreaded field
 // mid-message costs it nothing, but Rust's straight-line prologue can't re-enter -- once it falls to
 // the hub it stays there -- so leaving a map or a two-byte repeated field unthreaded would end
-// threading for every later field of a well-ordered message. Threading them keeps a well-ordered
-// message (fields <= 2047) on the fast path end to end. Decoded output is unchanged either way
-// (threading is a pure fast path; the hub decodes whatever the prologue did not).
+// threading for every later field of a well-ordered message. For the same reason a dropped field or
+// map is probed by the same rules, its probe skipping the value through `skip_field` with the
+// constant tag (as the stream prologue skips an unselected field); C++ leaves dropped fields to its
+// hub. A well-ordered message (fields <= 2047) thus stays on the fast path end to end, except past a
+// group or a raw field, which still end threading. Decoded output is unchanged either way (threading
+// is a pure fast path; the hub decodes whatever the prologue did not).
 void emit_threaded_prologue(Printer& printer, const NameTable& table,
                             const std::vector<std::string>& current_mod, const MessageNode& msg,
                             const FieldModes& modes, const std::string& submodule,
@@ -2020,7 +2028,7 @@ void emit_threaded_prologue(Printer& printer, const NameTable& table,
     for (const ThreadItem& it : items) {
         // Repeated fields and maps are a series of same-tag entries, so they self-loop (`while`);
         // singular fields and oneof members occur once (`if`).
-        const bool self_loop = it.kind == ThreadKind::Repeated || it.kind == ThreadKind::Map;
+        const bool self_loop = it.map != nullptr || it.field->is_repeated;
         emit_probe_open(printer, it.number, it.wire, self_loop);
         switch (it.kind) {
             case ThreadKind::Scalar:
@@ -2041,13 +2049,20 @@ void emit_threaded_prologue(Printer& printer, const NameTable& table,
             case ThreadKind::Map:
                 emit_map_body(printer, table, current_mod, *it.map);
                 break;
+            case ThreadKind::Skip:
+                emit_skip_field_body(printer, loop_read(), raw_tag_key(it.number, it.wire));
+                break;
         }
         emit_probe_close(printer);
-        if (it.kind == ThreadKind::Repeated && it.packable) {
+        if (it.packable) {
             // A packed run of the same field: one LEN payload. Probed once (a second run falls to the
             // hub loop).
             emit_probe_open(printer, it.number, "Len", /*self_loop=*/false);
-            emit_packed_body(printer, table, current_mod, *it.field);
+            if (it.kind == ThreadKind::Skip) {
+                emit_skip_field_body(printer, loop_read(), raw_tag_key(it.number, "Len"));
+            } else {
+                emit_packed_body(printer, table, current_mod, *it.field);
+            }
             emit_probe_close(printer);
         }
     }

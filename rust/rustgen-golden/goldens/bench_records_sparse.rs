@@ -2560,6 +2560,62 @@ pub mod arena {
           };
           rp_field_1 = rp_v as i32;
         }
+        if rp_rest.first() == ::core::option::Option::Some(&16u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 16u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&24u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 24u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&32u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 32u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&40u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 40u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&48u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 48u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&56u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 56u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&64u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 64u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&72u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 72u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
         if rp_rest.first() == ::core::option::Option::Some(&80u8) {
           rp_rest = &rp_rest[1..];
           let mut rp_v = 0u64;
@@ -2568,6 +2624,69 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           rp_field_10 = rp_v as i32;
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&88u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 88u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&96u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 96u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&104u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 104u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&112u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 112u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&120u8) {
+          rp_rest = &rp_rest[1..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 120u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[130u8, 1u8]) {
+          rp_rest = &rp_rest[2..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 130u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[138u8, 1u8]) {
+          rp_rest = &rp_rest[2..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 138u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[144u8, 1u8]) {
+          rp_rest = &rp_rest[2..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 144u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+        }
+        if rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[152u8, 1u8]) {
+          rp_rest = &rp_rest[2..];
+          rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 152u32) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
         }
         if rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[160u8, 1u8]) {
           rp_rest = &rp_rest[2..];

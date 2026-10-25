@@ -195,6 +195,8 @@ constexpr std::string_view kModesGoldenStem = "proto3_modes";
 arenagen::FieldModesSpec modes_golden_spec() {
     arenagen::FieldModesSpec spec;
     spec.entries.push_back({arenagen::FieldMode::Drop, "p3.Msg.name", "golden-modes"});
+    spec.entries.push_back({arenagen::FieldMode::Drop, "p3.Msg.flags", "golden-modes"});
+    spec.entries.push_back({arenagen::FieldMode::Drop, "p3.Msg.blobs", "golden-modes"});
     spec.entries.push_back({arenagen::FieldMode::Raw, "p3.Msg.self", "golden-modes"});
     spec.unknowns.push_back({"p3.Msg", "golden-modes"});
     return spec;
@@ -837,9 +839,11 @@ TEST_CASE("rustgen modes: drop / raw / unknown-fields on a decodable message") {
     const std::string out = gen_arena_modes(schema, spec);
 
     // drop: no storage field, no getter, and no arm -- it falls to the loop's `_` catch-all (which
-    // skips it), its number carried in the catch-all's known-number set (checked below).
+    // skips it), its number carried in the catch-all's known-number set (checked below). In field
+    // order, its threading probe skips it with its constant key.
     CHECK(!has(out, "pub fn gone(&self)"));
     CHECK(!has(out, "gone:"));
+    CHECK(has(out, "skip_field(rp_rest, 16u32)"));
     CHECK(has(out, "keep: i32,"));  // the untouched field is unaffected
     // raw: the payload bytes, not a decoded Sub -- borrowed-slice storage + getter, no decode_into.
     CHECK(has(out, "sub: ::core::option::Option<&'a [u8]>,"));
