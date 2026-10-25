@@ -6,7 +6,7 @@
 //! The hot kernels use raw-pointer loads that deliberately read a full 8 (or 64) bytes at a time,
 //! including bytes past the current varint. That is sound only inside a window the caller has already
 //! bounds-checked (`end - q >= 8` / `>= 64` / `>= 72`); every such read is guarded. The non-hot
-//! paths (the scalar tail, and the 9/10-byte cases) reuse the validated [`wire::read_varint`], so the
+//! paths (the scalar tail, and the 9/10-byte cases) reuse the validated `wire::read_varint_full`, so the
 //! malformed-input rules (truncation, overflow) live in one place. The kernel never aborts mid-span
 //! on a *store* -- only a malformed varint stops it -- so the bulk stores stay vectorizable.
 //!
