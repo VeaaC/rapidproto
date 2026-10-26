@@ -57,13 +57,6 @@ impl<'a, T> PackedSlice<'a, T> {
     pub fn as_slice(self) -> &'a [T] {
         // Copy the fields out first: a reference to a field of a packed struct may be misaligned.
         let (ptr, len) = (self.ptr, self.len);
-        // A read out of a packed field loses the fact that `ptr` is non-null, so an `Option` of the
-        // slice would test the pointer again. This restates it; the lint knows it from the type.
-        #[allow(useless_ptr_null_checks)]
-        // SAFETY: `ptr` is a `NonNull`; this only restates its invariant.
-        unsafe {
-            core::hint::assert_unchecked(!ptr.as_ptr().is_null());
-        }
         // SAFETY: `ptr` came from a `&'a [T]` and `len` is at most that slice's length (`new` only
         // ever truncates it), and `PhantomData<&'a [T]>` keeps the borrow alive for `'a`.
         unsafe { core::slice::from_raw_parts(ptr.as_ptr(), len as usize) }
