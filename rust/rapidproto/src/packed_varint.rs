@@ -469,9 +469,19 @@ unsafe fn decode_scalar<T, F: FnMut(u64) -> T>(
     let mut q = begin;
     let mut n = 0usize;
     while q < end {
-        let (raw, next) = unsafe { read_one(q, end) }
-            .map_err(|k| (k, unsafe { q.offset_from(begin) as usize }))?;
-        q = next;
+        // A 1-byte value is read here directly; `read_one`'s slice-based reader would re-check the
+        // remaining length and bound the advance on every element.
+        // SAFETY: `q < end`, so one byte is readable.
+        let b = unsafe { *q };
+        let raw = if b < 0x80 {
+            q = unsafe { q.add(1) };
+            u64::from(b)
+        } else {
+            let (raw, next) = unsafe { read_one(q, end) }
+                .map_err(|k| (k, unsafe { q.offset_from(begin) as usize }))?;
+            q = next;
+            raw
+        };
         unsafe { put(out, n, raw, conv) };
         n += 1;
     }

@@ -136,6 +136,10 @@ impl<'buf> Arena<'buf> {
     /// The single allocation primitive: `bytes` aligned to `align` (which must be a power of two).
     /// Identical signature in all tiers; **never panics** — a non-power-of-two `align` is rejected
     /// with `Err` rather than aborting (generated code only ever passes `align_of`).
+    // `#[inline(always)]`: every decoded sub-message and array allocates here, so the bump fast path
+    // inlines into the decoder (with `align` a constant there, the checks fold); a grow takes the cold
+    // out-of-line slow path. The C++ arena inlines its bump the same way.
+    #[inline(always)]
     pub fn alloc_bytes(&self, bytes: usize, align: usize) -> Result<NonNull<u8>, ArenaExhausted> {
         if !align.is_power_of_two() {
             return Err(ArenaExhausted);
@@ -297,14 +301,17 @@ impl<'buf> Arena<'buf> {
         }
     }
 
+    /// `align` must be a power of two (`alloc_bytes` checks it).
+    #[inline(always)]
     fn try_bump(&self, bytes: usize, align: usize) -> Option<NonNull<u8>> {
         let cur = self.cur.get().as_ptr();
         let limit = self.limit.get().as_ptr();
         // Provenance-clean: `addr()` for the arithmetic, `add()` for the actual pointer. `cur <=
         // limit` is an invariant, so this never underflows.
         let avail = limit.addr() - cur.addr();
-        let pad = cur.align_offset(align);
-        if pad == usize::MAX || pad > avail || bytes > avail - pad {
+        // The padding up to the next multiple of the power-of-two `align`.
+        let pad = cur.addr().wrapping_neg() & (align - 1);
+        if pad > avail || bytes > avail - pad {
             return None;
         }
         // SAFETY: `pad + bytes <= avail`, so both offsets stay within (or one past) the chunk.
@@ -316,11 +323,14 @@ impl<'buf> Arena<'buf> {
     }
 
     #[cfg(not(feature = "alloc"))]
+    #[cold]
     fn allocate_slow(&self, _bytes: usize, _align: usize) -> Result<NonNull<u8>, ArenaExhausted> {
         Err(ArenaExhausted) // no allocator → cannot grow; a clean error, never a panic
     }
 
     #[cfg(feature = "alloc")]
+    #[cold]
+    #[inline(never)]
     fn allocate_slow(&self, bytes: usize, align: usize) -> Result<NonNull<u8>, ArenaExhausted> {
         {
             let mut g = self.grow.borrow_mut();
