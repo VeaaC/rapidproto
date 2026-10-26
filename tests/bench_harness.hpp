@@ -18,7 +18,8 @@
 //     comparison falsely reads ~0.3% "significant").
 //   * Sampling is ADAPTIVE: rounds accumulate until every ratio's verdict is confident -- the effect
 //     is clearly non-zero, or its CI is tight enough to call it a wash -- or a wall-time budget
-//     elapses (then it warns that a ratio stayed ambiguous). The verdict is three-way: noise (CI
+//     elapses (then it warns that a ratio stayed ambiguous). The budget stretches, within a cap, so
+//     a scenario with long rounds still reaches its minimum. The verdict is three-way: noise (CI
 //     spans zero) / flat (real but < 0.5%) / SIG (real and meaningful).
 //   * Where the kernel permits unprivileged self-monitoring (perf_event_paranoid <= 2) we count CPU
 //     cycles and report frequency-invariant cycles/byte; otherwise we fall back to wall time.
@@ -349,7 +350,8 @@ inline Stat stat(std::vector<double> v) {
 // (the benches are not -Werror builds).
 // `budget_ns` / `min_rounds` widen the defaults for scenarios whose single round is expensive
 // (the OSM file pass costs seconds): the defaults would terminate them after ~2 rounds with a
-// CI computed from nothing.
+// CI computed from nothing. A round long enough to miss the first convergence check (a whole pool
+// pass) stretches the budget on its own, up to 20 s.
 [[nodiscard]] inline int run(const char* scenario, double byte_size, const std::vector<Arm>& arms,
                              double budget_ns = 3.0e9, std::size_t min_rounds = 30) {
     if (!scenario_selected(scenario)) {
@@ -361,7 +363,6 @@ inline Stat stat(std::vector<double> v) {
     const bool ins = cnt.instr >= 0;
     const std::size_t kMinRounds =
         min_rounds;  // floor; a null (wash) result self-extends for tighter CI
-    const double kBudgetNs = budget_ns;
     // A ratio's verdict is CONFIDENT once the effect is clearly non-zero (|mean-1| > 3 CI, so the
     // sign and rough size are settled) OR the CI is tight enough to confidently call it a wash. We
     // sample until every arm is confident, then stop; we only warn "noisy" if the budget runs out
@@ -376,11 +377,24 @@ inline Stat stat(std::vector<double> v) {
     std::vector<std::uint64_t> sums(n, 0);
 
     std::uint64_t junk = 0;
-    for (int w = 0; w < 5; ++w) {  // warm caches / predictors for every arm
+    // Warm caches / predictors for every arm: 5 rounds, or 2 when a round is long (a whole pool
+    // pass), which one round already warms. The last warm-up round times a round.
+    constexpr double kLongRoundNs = 10.0e6;
+    double round_ns = 0;
+    for (int w = 0; w < 5 && !(w >= 2 && round_ns > kLongRoundNs); ++w) {
+        const auto t = Clock::now();
         for (const auto& a : arms) {
             sample(cnt, a.fn, junk);
         }
+        round_ns = ns_since(t);
     }
+    // The rounds the first convergence check below needs. Long rounds stretch the budget to reach
+    // it, up to kMaxBudgetNs; otherwise such a scenario stops on the budget with a CI from a handful
+    // of samples and no check at all.
+    constexpr double kMaxBudgetNs = 20.0e9;
+    const std::size_t first_check = (kMinRounds + 6) / 8 * 8 + 1;
+    const double kBudgetNs = std::max(
+        budget_ns, std::min(kMaxBudgetNs, 1.1 * static_cast<double>(first_check) * round_ns));
 
     const auto start = Clock::now();
     bool converged = false;
