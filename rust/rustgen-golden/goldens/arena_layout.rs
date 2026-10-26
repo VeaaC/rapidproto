@@ -141,12 +141,12 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Big);
 
     pub struct HasString<'a> {
-      s: ::rapidproto::ProtoStr<'a>,
+      s: ::rapidproto::PackedStr<'a>,
     }
 
     impl<'a> HasString<'a> {
-      pub fn s(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.s
+      pub fn s(&self) -> &'a ::rapidproto::ProtoStr {
+        self.s.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -242,8 +242,8 @@ pub mod arena {
       big: i64,
       small: i32,
       opt: i32,
-      name: ::rapidproto::ProtoStr<'a>,
-      oname: ::rapidproto::ProtoStr<'a>,
+      name: ::rapidproto::PackedStr<'a>,
+      oname: ::rapidproto::PackedStr<'a>,
       color: super::super::common::al::Color,
       pt: Point<'a>,
       bg: ::core::option::Option<&'a Big<'a>>,
@@ -251,9 +251,9 @@ pub mod arena {
       flag: BoolWrap<'a>,
       nums: ::rapidproto::PackedSlice<'a, i32>,
       points: ::rapidproto::PackedSlice<'a, Point<'a>>,
-      labels: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoStr<'a>>,
+      labels: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
       rp_presence: u8,
-      counts: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
+      counts: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32>,
       grid: ::rapidproto::MapView<'a, i32, Point<'a>>,
       choice: ::core::option::Option<layout::Choice<'a>>,
     }
@@ -274,11 +274,11 @@ pub mod arena {
       pub fn opt(&self) -> ::core::option::Option<i32> {
         ((self.rp_presence & (1 << 2)) != 0).then_some(self.opt)
       }
-      pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.name
+      pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
+        self.name.get()
       }
-      pub fn oname(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 3)) != 0).then_some(self.oname.hint_nonnull())
+      pub fn oname(&self) -> ::core::option::Option<&'a ::rapidproto::ProtoStr> {
+        ((self.rp_presence & (1 << 3)) != 0).then_some(self.oname.get())
       }
       pub fn color(&self) -> super::super::common::al::Color {
         self.color
@@ -296,15 +296,15 @@ pub mod arena {
         ((self.rp_presence & (1 << 5)) != 0).then_some(&self.flag)
       }
       pub fn nums(&self) -> &'a [i32] {
-        self.nums.get()
+        self.nums.as_slice()
       }
       pub fn points(&self) -> &'a [Point<'a>] {
-        self.points.get()
+        self.points.as_slice()
       }
-      pub fn labels(&self) -> &'a [::rapidproto::ProtoStr<'a>] {
-        self.labels.get()
+      pub fn labels(&self) -> &'a [::rapidproto::PackedStr<'a>] {
+        self.labels.as_slice()
       }
-      pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32> {
+      pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32> {
         self.counts
       }
       pub fn grid(&self) -> ::rapidproto::MapView<'a, i32, Point<'a>> {
@@ -434,7 +434,7 @@ pub mod arena {
     pub mod layout {
       pub enum Choice<'a> {
         Ci(i32),
-        Cs(::rapidproto::ProtoStr<'a>),
+        Cs(::rapidproto::PackedStr<'a>),
         Cp(&'a super::Point<'a>),
       }
     }
@@ -688,7 +688,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(HasString {
-          s: ::rapidproto::ProtoStr::new(rp_field_1),
+          s: ::rapidproto::PackedStr::new(rp_field_1),
         }))
       }
     }
@@ -1057,7 +1057,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
           let mut rp_val: i32 = 0;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -1083,7 +1083,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                rp_key = ::rapidproto::PackedStr::new(rp_p);
               }
               16u32 => {
                 let mut rp_v = 0u64;
@@ -1180,7 +1180,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(layout::Choice::Cs(::rapidproto::ProtoStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(layout::Choice::Cs(::rapidproto::PackedStr::new(rp_p)));
         }
         if rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[154u8, 1u8]) {
           rp_rest = &rp_rest[2..];
@@ -1202,7 +1202,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_20.push(::rapidproto::ProtoStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_20.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -1371,7 +1371,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_20.push(::rapidproto::ProtoStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_20.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             122u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1380,7 +1380,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -1406,7 +1406,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::PackedStr::new(rp_p);
                   }
                   16u32 => {
                     let mut rp_v = 0u64;
@@ -1500,7 +1500,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(layout::Choice::Cs(::rapidproto::ProtoStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(layout::Choice::Cs(::rapidproto::PackedStr::new(rp_p)));
             }
             154u32 => {
               if ::core::matches!(rp_oneof_0, ::core::option::Option::Some(layout::Choice::Cp(_))) {
@@ -1526,8 +1526,8 @@ pub mod arena {
           big: rp_field_2,
           small: rp_field_4,
           opt: rp_field_5,
-          name: ::rapidproto::ProtoStr::new(rp_field_6),
-          oname: ::rapidproto::ProtoStr::new(rp_field_7),
+          name: ::rapidproto::PackedStr::new(rp_field_6),
+          oname: ::rapidproto::PackedStr::new(rp_field_7),
           color: rp_field_8,
           pt: rp_field_9,
           bg: rp_field_10,
@@ -1900,7 +1900,7 @@ pub mod stream {
     pub trait HasStringVisitor<'a> {
       const WANT_s: bool = false;
       #[inline(always)]
-      fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2005,7 +2005,7 @@ pub mod stream {
     macro_rules! __rp_12arena_layout_2al9HasString {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2al9HasString::has_string_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2al9HasString::has_string_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_2al9HasString::has_string_stream!(@f [$($a)* WANT_s on_s: rp_mod_2al9HasString::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_2al9HasString::has_string_stream!(@f [$($a)* WANT_s on_s: &'rp_a rp_mod_2al9HasString::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al9HasString::has_string_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al9HasString::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, unknown")) };
       (@f $a:tt) => { rp_mod_2al9HasString::rp_rt::stream_visitor!(rp_mod_2al9HasString HasStringVisitor $a) };
@@ -2306,10 +2306,10 @@ pub mod stream {
       fn on_opt(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_name: bool = false;
       #[inline(always)]
-      fn on_name(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_oname: bool = false;
       #[inline(always)]
-      fn on_oname(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_oname(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_color: bool = false;
       #[inline(always)]
       fn on_color(&mut self, _rp_v: super::super::common::al::Color) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2333,10 +2333,10 @@ pub mod stream {
       fn on_points(&mut self, _rp_v: Point<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_labels: bool = false;
       #[inline(always)]
-      fn on_labels(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_labels(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_counts: bool = false;
       #[inline(always)]
-      fn on_counts(&mut self, _rp_v: (::rapidproto::ProtoStr<'a>, i32)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_counts(&mut self, _rp_v: (&'a ::rapidproto::ProtoStr, i32)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_grid: bool = false;
       #[inline(always)]
       fn on_grid(&mut self, _rp_v: (i32, Point<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2345,7 +2345,7 @@ pub mod stream {
       fn on_ci(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_cs: bool = false;
       #[inline(always)]
-      fn on_cs(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_cs(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_cp: bool = false;
       #[inline(always)]
       fn on_cp(&mut self, _rp_v: Point<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2674,7 +2674,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             let rp_ent_body: &'a [u8] = rp_p;
-            let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+            let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
             let mut rp_val: i32 = 0;
             let mut rp_ent: &'a [u8] = rp_ent_body;
             loop {
@@ -3077,7 +3077,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -3254,8 +3254,8 @@ pub mod stream {
       (@f [$($a:tt)*] b2 => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_b2 on_b2: ::core::primitive::bool = $c;] $($r)*) };
       (@f [$($a:tt)*] small => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_small on_small: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] opt => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_opt on_opt: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_name on_name: rp_mod_2al6Layout::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] oname => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_oname on_oname: rp_mod_2al6Layout::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_2al6Layout::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] oname => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_oname on_oname: &'rp_a rp_mod_2al6Layout::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] color => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_color on_color: rp_mod_2al6Layout::rp_stream_ty_0 = $c;] $($r)*) };
       (@f [$($a:tt)*] pt => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_pt on_pt: rp_mod_2al6Layout::Point<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] bg => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_bg on_bg: rp_mod_2al6Layout::Big<'rp_a> = $c;] $($r)*) };
@@ -3263,11 +3263,11 @@ pub mod stream {
       (@f [$($a:tt)*] flag => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_flag on_flag: rp_mod_2al6Layout::BoolWrap<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] nums => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_nums on_nums: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] points => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_points on_points: rp_mod_2al6Layout::Point<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] labels => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_labels on_labels: rp_mod_2al6Layout::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_counts on_counts: (rp_mod_2al6Layout::rp_rt::ProtoStr<'rp_a>, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] labels => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_labels on_labels: &'rp_a rp_mod_2al6Layout::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_counts on_counts: (&'rp_a rp_mod_2al6Layout::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
       (@f [$($a:tt)*] grid => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_grid on_grid: (::core::primitive::i32, rp_mod_2al6Layout::Point<'rp_a>) = $c;] $($r)*) };
       (@f [$($a:tt)*] ci => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_ci on_ci: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] cs => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_cs on_cs: rp_mod_2al6Layout::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] cs => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_cs on_cs: &'rp_a rp_mod_2al6Layout::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] cp => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_cp on_cp: rp_mod_2al6Layout::Point<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al6Layout::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: b1, big, b2, small, opt, name, oname, color, pt, bg, hs, flag, nums, points, labels, counts, grid, ci, cs, cp, unknown")) };

@@ -140,12 +140,12 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Arena);
 
     pub struct Tag<'a> {
-      s: ::rapidproto::ProtoStr<'a>,
+      s: ::rapidproto::PackedStr<'a>,
     }
 
     impl<'a> Tag<'a> {
-      pub fn s(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.s
+      pub fn s(&self) -> &'a ::rapidproto::ProtoStr {
+        self.s.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -174,7 +174,7 @@ pub mod arena {
 
     impl<'a> ByteView<'a> {
       pub fn b(&self) -> &'a [u8] {
-        self.b.get()
+        self.b.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -389,7 +389,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Tag {
-          s: ::rapidproto::ProtoStr::new(rp_field_1),
+          s: ::rapidproto::PackedStr::new(rp_field_1),
         }))
       }
     }
@@ -711,7 +711,7 @@ pub mod stream {
     pub trait TagVisitor<'a> {
       const WANT_s: bool = false;
       #[inline(always)]
-      fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -816,7 +816,7 @@ pub mod stream {
     macro_rules! __rp_5rppkg_10rapidproto3Tag {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_10rapidproto3Tag::tag_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_10rapidproto3Tag::tag_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_10rapidproto3Tag::tag_stream!(@f [$($a)* WANT_s on_s: rp_mod_10rapidproto3Tag::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_10rapidproto3Tag::tag_stream!(@f [$($a)* WANT_s on_s: &'rp_a rp_mod_10rapidproto3Tag::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_10rapidproto3Tag::tag_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_10rapidproto3Tag::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, unknown")) };
       (@f $a:tt) => { rp_mod_10rapidproto3Tag::rp_rt::stream_visitor!(rp_mod_10rapidproto3Tag TagVisitor $a) };

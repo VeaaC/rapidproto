@@ -127,13 +127,13 @@ pub mod arena {
     }
 
     pub struct Ext<'a> {
-      s: ::rapidproto::ProtoStr<'a>,
+      s: ::rapidproto::PackedStr<'a>,
       rp_presence: u8,
     }
 
     impl<'a> Ext<'a> {
-      pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.s.hint_nonnull())
+      pub fn s(&self) -> ::core::option::Option<&'a ::rapidproto::ProtoStr> {
+        ((self.rp_presence & (1 << 0)) != 0).then_some(self.s.get())
       }
     }
     #[cfg(feature = "serde")]
@@ -314,7 +314,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Ext {
-          s: ::rapidproto::ProtoStr::new(rp_field_1),
+          s: ::rapidproto::PackedStr::new(rp_field_1),
           rp_presence,
         }))
       }

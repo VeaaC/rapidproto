@@ -268,16 +268,16 @@ pub mod arena {
       ::rapidproto::impl_decode_owned!(Duration);
 
       pub struct Any<'a> {
-        type_url: ::rapidproto::ProtoStr<'a>,
+        type_url: ::rapidproto::PackedStr<'a>,
         value: ::rapidproto::PackedSlice<'a, u8>,
       }
 
       impl<'a> Any<'a> {
-        pub fn type_url(&self) -> ::rapidproto::ProtoStr<'a> {
-          self.type_url
+        pub fn type_url(&self) -> &'a ::rapidproto::ProtoStr {
+          self.type_url.get()
         }
         pub fn value(&self) -> &'a [u8] {
-          self.value.get()
+          self.value.as_slice()
         }
       }
       #[cfg(feature = "serde")]
@@ -307,12 +307,12 @@ pub mod arena {
       ::rapidproto::impl_decode_owned!(Any);
 
       pub struct SourceContext<'a> {
-        file_name: ::rapidproto::ProtoStr<'a>,
+        file_name: ::rapidproto::PackedStr<'a>,
       }
 
       impl<'a> SourceContext<'a> {
-        pub fn file_name(&self) -> ::rapidproto::ProtoStr<'a> {
-          self.file_name
+        pub fn file_name(&self) -> &'a ::rapidproto::ProtoStr {
+          self.file_name.get()
         }
       }
       #[cfg(feature = "serde")]
@@ -336,26 +336,26 @@ pub mod arena {
       ::rapidproto::impl_decode_owned!(SourceContext);
 
       pub struct Type<'a> {
-        name: ::rapidproto::ProtoStr<'a>,
+        name: ::rapidproto::PackedStr<'a>,
         fields: ::rapidproto::PackedSlice<'a, Field<'a>>,
-        oneofs: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoStr<'a>>,
+        oneofs: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
         options: ::rapidproto::PackedSlice<'a, Option<'a>>,
         source_context: ::core::option::Option<&'a SourceContext<'a>>,
         syntax: super::super::super::common::google::protobuf::Syntax,
       }
 
       impl<'a> Type<'a> {
-        pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
-          self.name
+        pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
+          self.name.get()
         }
         pub fn fields(&self) -> &'a [Field<'a>] {
-          self.fields.get()
+          self.fields.as_slice()
         }
-        pub fn oneofs(&self) -> &'a [::rapidproto::ProtoStr<'a>] {
-          self.oneofs.get()
+        pub fn oneofs(&self) -> &'a [::rapidproto::PackedStr<'a>] {
+          self.oneofs.as_slice()
         }
         pub fn options(&self) -> &'a [Option<'a>] {
-          self.options.get()
+          self.options.as_slice()
         }
         pub fn source_context(&self) -> ::core::option::Option<&'a SourceContext<'a>> {
           self.source_context
@@ -417,12 +417,12 @@ pub mod arena {
         kind: super::super::super::common::google::protobuf::field::Kind,
         cardinality: super::super::super::common::google::protobuf::field::Cardinality,
         number: i32,
-        name: ::rapidproto::ProtoStr<'a>,
-        type_url: ::rapidproto::ProtoStr<'a>,
+        name: ::rapidproto::PackedStr<'a>,
+        type_url: ::rapidproto::PackedStr<'a>,
         oneof_index: i32,
         options: ::rapidproto::PackedSlice<'a, Option<'a>>,
-        json_name: ::rapidproto::ProtoStr<'a>,
-        default_value: ::rapidproto::ProtoStr<'a>,
+        json_name: ::rapidproto::PackedStr<'a>,
+        default_value: ::rapidproto::PackedStr<'a>,
         rp_presence: u8,
       }
 
@@ -436,11 +436,11 @@ pub mod arena {
         pub fn number(&self) -> i32 {
           self.number
         }
-        pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
-          self.name
+        pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
+          self.name.get()
         }
-        pub fn type_url(&self) -> ::rapidproto::ProtoStr<'a> {
-          self.type_url
+        pub fn type_url(&self) -> &'a ::rapidproto::ProtoStr {
+          self.type_url.get()
         }
         pub fn oneof_index(&self) -> i32 {
           self.oneof_index
@@ -449,13 +449,13 @@ pub mod arena {
           (self.rp_presence & (1 << 0)) != 0
         }
         pub fn options(&self) -> &'a [Option<'a>] {
-          self.options.get()
+          self.options.as_slice()
         }
-        pub fn json_name(&self) -> ::rapidproto::ProtoStr<'a> {
-          self.json_name
+        pub fn json_name(&self) -> &'a ::rapidproto::ProtoStr {
+          self.json_name.get()
         }
-        pub fn default_value(&self) -> ::rapidproto::ProtoStr<'a> {
-          self.default_value
+        pub fn default_value(&self) -> &'a ::rapidproto::ProtoStr {
+          self.default_value.get()
         }
       }
       #[cfg(feature = "serde")]
@@ -533,7 +533,7 @@ pub mod arena {
       ::rapidproto::impl_decode_owned!(Field);
 
       pub struct Enum<'a> {
-        name: ::rapidproto::ProtoStr<'a>,
+        name: ::rapidproto::PackedStr<'a>,
         enumvalue: ::rapidproto::PackedSlice<'a, EnumValue<'a>>,
         options: ::rapidproto::PackedSlice<'a, Option<'a>>,
         source_context: ::core::option::Option<&'a SourceContext<'a>>,
@@ -541,14 +541,14 @@ pub mod arena {
       }
 
       impl<'a> Enum<'a> {
-        pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
-          self.name
+        pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
+          self.name.get()
         }
         pub fn enumvalue(&self) -> &'a [EnumValue<'a>] {
-          self.enumvalue.get()
+          self.enumvalue.as_slice()
         }
         pub fn options(&self) -> &'a [Option<'a>] {
-          self.options.get()
+          self.options.as_slice()
         }
         pub fn source_context(&self) -> ::core::option::Option<&'a SourceContext<'a>> {
           self.source_context
@@ -601,20 +601,20 @@ pub mod arena {
       ::rapidproto::impl_decode_owned!(Enum);
 
       pub struct EnumValue<'a> {
-        name: ::rapidproto::ProtoStr<'a>,
+        name: ::rapidproto::PackedStr<'a>,
         number: i32,
         options: ::rapidproto::PackedSlice<'a, Option<'a>>,
       }
 
       impl<'a> EnumValue<'a> {
-        pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
-          self.name
+        pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
+          self.name.get()
         }
         pub fn number(&self) -> i32 {
           self.number
         }
         pub fn options(&self) -> &'a [Option<'a>] {
-          self.options.get()
+          self.options.as_slice()
         }
       }
       #[cfg(feature = "serde")]
@@ -650,13 +650,13 @@ pub mod arena {
       ::rapidproto::impl_decode_owned!(EnumValue);
 
       pub struct Option<'a> {
-        name: ::rapidproto::ProtoStr<'a>,
+        name: ::rapidproto::PackedStr<'a>,
         value: ::core::option::Option<&'a Any<'a>>,
       }
 
       impl<'a> Option<'a> {
-        pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
-          self.name
+        pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
+          self.name.get()
         }
         pub fn value(&self) -> ::core::option::Option<&'a Any<'a>> {
           self.value
@@ -935,7 +935,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Any {
-            type_url: ::rapidproto::ProtoStr::new(rp_field_1),
+            type_url: ::rapidproto::PackedStr::new(rp_field_1),
             value: ::rapidproto::PackedSlice::new(rp_field_2),
           }))
         }
@@ -1001,7 +1001,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(SourceContext {
-            file_name: ::rapidproto::ProtoStr::new(rp_field_1),
+            file_name: ::rapidproto::PackedStr::new(rp_field_1),
           }))
         }
       }
@@ -1053,7 +1053,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_acc_3.push(::rapidproto::ProtoStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+            rp_acc_3.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
           }
           while rp_rest.first() == ::core::option::Option::Some(&34u8) {
             rp_rest = &rp_rest[1..];
@@ -1124,7 +1124,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_acc_3.push(::rapidproto::ProtoStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+                rp_acc_3.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
               }
               34u32 => {
                 let mut rp_p: &[u8] = &[];
@@ -1162,7 +1162,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Type {
-            name: ::rapidproto::ProtoStr::new(rp_field_1),
+            name: ::rapidproto::PackedStr::new(rp_field_1),
             fields: ::rapidproto::PackedSlice::new(rp_acc_2.into_slice()),
             oneofs: ::rapidproto::PackedSlice::new(rp_acc_3.into_slice()),
             options: ::rapidproto::PackedSlice::new(rp_acc_4.into_slice()),
@@ -1405,12 +1405,12 @@ pub mod arena {
             kind: rp_field_1,
             cardinality: rp_field_2,
             number: rp_field_3,
-            name: ::rapidproto::ProtoStr::new(rp_field_4),
-            type_url: ::rapidproto::ProtoStr::new(rp_field_6),
+            name: ::rapidproto::PackedStr::new(rp_field_4),
+            type_url: ::rapidproto::PackedStr::new(rp_field_6),
             oneof_index: rp_field_7,
             options: ::rapidproto::PackedSlice::new(rp_acc_9.into_slice()),
-            json_name: ::rapidproto::ProtoStr::new(rp_field_10),
-            default_value: ::rapidproto::ProtoStr::new(rp_field_11),
+            json_name: ::rapidproto::PackedStr::new(rp_field_10),
+            default_value: ::rapidproto::PackedStr::new(rp_field_11),
             rp_presence,
           }))
         }
@@ -1554,7 +1554,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Enum {
-            name: ::rapidproto::ProtoStr::new(rp_field_1),
+            name: ::rapidproto::PackedStr::new(rp_field_1),
             enumvalue: ::rapidproto::PackedSlice::new(rp_acc_2.into_slice()),
             options: ::rapidproto::PackedSlice::new(rp_acc_3.into_slice()),
             source_context: rp_field_4,
@@ -1659,7 +1659,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(EnumValue {
-            name: ::rapidproto::ProtoStr::new(rp_field_1),
+            name: ::rapidproto::PackedStr::new(rp_field_1),
             number: rp_field_2,
             options: ::rapidproto::PackedSlice::new(rp_acc_3.into_slice()),
           }))
@@ -1750,7 +1750,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Option {
-            name: ::rapidproto::ProtoStr::new(rp_field_1),
+            name: ::rapidproto::PackedStr::new(rp_field_1),
             value: rp_field_2,
           }))
         }
@@ -2261,7 +2261,7 @@ pub mod stream {
       pub trait AnyVisitor<'a> {
         const WANT_type_url: bool = false;
         #[inline(always)]
-        fn on_type_url(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_type_url(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_value: bool = false;
         #[inline(always)]
         fn on_value(&mut self, _rp_v: &'a [u8]) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2399,7 +2399,7 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf3Any {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf3Any::any_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf3Any::any_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf3Any::any_stream!(@f [$($a)* WANT_type_url on_type_url: rp_mod_6google8protobuf3Any::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf3Any::any_stream!(@f [$($a)* WANT_type_url on_type_url: &'rp_a rp_mod_6google8protobuf3Any::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf3Any::any_stream!(@f [$($a)* WANT_value on_value: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf3Any::any_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf3Any::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: type_url, value, unknown")) };
@@ -2414,7 +2414,7 @@ pub mod stream {
       pub trait SourceContextVisitor<'a> {
         const WANT_file_name: bool = false;
         #[inline(always)]
-        fn on_file_name(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_file_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2519,7 +2519,7 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf13SourceContext {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf13SourceContext::source_context_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf13SourceContext::source_context_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] file_name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf13SourceContext::source_context_stream!(@f [$($a)* WANT_file_name on_file_name: rp_mod_6google8protobuf13SourceContext::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] file_name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf13SourceContext::source_context_stream!(@f [$($a)* WANT_file_name on_file_name: &'rp_a rp_mod_6google8protobuf13SourceContext::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf13SourceContext::source_context_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf13SourceContext::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: file_name, unknown")) };
         (@f $a:tt) => { rp_mod_6google8protobuf13SourceContext::rp_rt::stream_visitor!(rp_mod_6google8protobuf13SourceContext SourceContextVisitor $a) };
@@ -2533,13 +2533,13 @@ pub mod stream {
       pub trait TypeVisitor<'a> {
         const WANT_name: bool = false;
         #[inline(always)]
-        fn on_name(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_fields: bool = false;
         #[inline(always)]
         fn on_fields(&mut self, _rp_v: Field<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_oneofs: bool = false;
         #[inline(always)]
-        fn on_oneofs(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_oneofs(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_options: bool = false;
         #[inline(always)]
         fn on_options(&mut self, _rp_v: Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2803,9 +2803,9 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf4Type {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf4Type::type_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf4Type::type_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_name on_name: rp_mod_6google8protobuf4Type::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_6google8protobuf4Type::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] fields => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_fields on_fields: rp_mod_6google8protobuf4Type::Field<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] oneofs => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_oneofs on_oneofs: rp_mod_6google8protobuf4Type::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] oneofs => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_oneofs on_oneofs: &'rp_a rp_mod_6google8protobuf4Type::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_options on_options: rp_mod_6google8protobuf4Type::Option<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] source_context => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_source_context on_source_context: rp_mod_6google8protobuf4Type::SourceContext<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] syntax => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_syntax on_syntax: rp_mod_6google8protobuf4Type::rp_stream_ty_0 = $c;] $($r)*) };
@@ -2831,10 +2831,10 @@ pub mod stream {
         fn on_number(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_name: bool = false;
         #[inline(always)]
-        fn on_name(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_type_url: bool = false;
         #[inline(always)]
-        fn on_type_url(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_type_url(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_oneof_index: bool = false;
         #[inline(always)]
         fn on_oneof_index(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2846,10 +2846,10 @@ pub mod stream {
         fn on_options(&mut self, _rp_v: Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_json_name: bool = false;
         #[inline(always)]
-        fn on_json_name(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_json_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_default_value: bool = false;
         #[inline(always)]
-        fn on_default_value(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_default_value(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3227,13 +3227,13 @@ pub mod stream {
         (@f [$($a:tt)*] kind => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_kind on_kind: rp_mod_6google8protobuf5Field::rp_stream_ty_1 = $c;] $($r)*) };
         (@f [$($a:tt)*] cardinality => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_cardinality on_cardinality: rp_mod_6google8protobuf5Field::rp_stream_ty_2 = $c;] $($r)*) };
         (@f [$($a:tt)*] number => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_number on_number: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_name on_name: rp_mod_6google8protobuf5Field::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_type_url on_type_url: rp_mod_6google8protobuf5Field::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_6google8protobuf5Field::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_type_url on_type_url: &'rp_a rp_mod_6google8protobuf5Field::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] oneof_index => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_oneof_index on_oneof_index: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] packed => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_packed on_packed: ::core::primitive::bool = $c;] $($r)*) };
         (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_options on_options: rp_mod_6google8protobuf5Field::Option<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] json_name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_json_name on_json_name: rp_mod_6google8protobuf5Field::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] default_value => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_default_value on_default_value: rp_mod_6google8protobuf5Field::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] json_name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_json_name on_json_name: &'rp_a rp_mod_6google8protobuf5Field::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] default_value => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_default_value on_default_value: &'rp_a rp_mod_6google8protobuf5Field::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf5Field::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: kind, cardinality, number, name, type_url, oneof_index, packed, options, json_name, default_value, unknown")) };
         (@f $a:tt) => { rp_mod_6google8protobuf5Field::rp_rt::stream_visitor!(rp_mod_6google8protobuf5Field FieldVisitor $a) };
@@ -3247,7 +3247,7 @@ pub mod stream {
       pub trait EnumVisitor<'a> {
         const WANT_name: bool = false;
         #[inline(always)]
-        fn on_name(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_enumvalue: bool = false;
         #[inline(always)]
         fn on_enumvalue(&mut self, _rp_v: EnumValue<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3484,7 +3484,7 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf4Enum {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [$($a)* WANT_name on_name: rp_mod_6google8protobuf4Enum::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_6google8protobuf4Enum::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] enumvalue => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [$($a)* WANT_enumvalue on_enumvalue: rp_mod_6google8protobuf4Enum::EnumValue<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [$($a)* WANT_options on_options: rp_mod_6google8protobuf4Enum::Option<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] source_context => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [$($a)* WANT_source_context on_source_context: rp_mod_6google8protobuf4Enum::SourceContext<'rp_a> = $c;] $($r)*) };
@@ -3502,7 +3502,7 @@ pub mod stream {
       pub trait EnumValueVisitor<'a> {
         const WANT_name: bool = false;
         #[inline(always)]
-        fn on_name(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_number: bool = false;
         #[inline(always)]
         fn on_number(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3673,7 +3673,7 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf9EnumValue {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_name on_name: rp_mod_6google8protobuf9EnumValue::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_6google8protobuf9EnumValue::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] number => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_number on_number: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_options on_options: rp_mod_6google8protobuf9EnumValue::Option<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf9EnumValue::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
@@ -3689,7 +3689,7 @@ pub mod stream {
       pub trait OptionVisitor<'a> {
         const WANT_name: bool = false;
         #[inline(always)]
-        fn on_name(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_value: bool = false;
         #[inline(always)]
         fn on_value(&mut self, _rp_v: Any<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3827,7 +3827,7 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf6Option {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf6Option::option_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf6Option::option_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf6Option::option_stream!(@f [$($a)* WANT_name on_name: rp_mod_6google8protobuf6Option::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf6Option::option_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_6google8protobuf6Option::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf6Option::option_stream!(@f [$($a)* WANT_value on_value: rp_mod_6google8protobuf6Option::Any<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf6Option::option_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf6Option::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, value, unknown")) };

@@ -1102,6 +1102,25 @@ fn decoded_messages_are_send_and_sync() {
     send_sync::<Msg<'static>>();
     send_sync::<ModedHolder<'static>>();
     send_sync::<Main<'static>>();
+    send_sync::<Layout<'static>>();
+    send_sync::<Scalars<'static>>();
+}
+
+// `Owned` relies on decoded messages being covariant in their lifetime. Between them these hold
+// every 12-byte cell: strings and `bytes`, singular and repeated, raw payloads, string-keyed and
+// bytes-valued maps, and a string oneof member.
+fn _decoded_messages_are_covariant<'a: 'b, 'b>(
+    m: &'b Msg<'a>,
+    h: &'b ModedHolder<'a>,
+    l: &'b Layout<'a>,
+    s: &'b Scalars<'a>,
+) -> (
+    &'b Msg<'b>,
+    &'b ModedHolder<'b>,
+    &'b Layout<'b>,
+    &'b Scalars<'b>,
+) {
+    (m, h, l, s)
 }
 
 #[test]

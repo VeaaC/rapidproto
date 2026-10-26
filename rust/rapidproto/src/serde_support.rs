@@ -18,7 +18,7 @@
 
 use serde::ser::{Serialize, SerializeMap, Serializer};
 
-use crate::{MapView, ProtoStr};
+use crate::{MapView, PackedSlice, PackedStr, ProtoStr};
 
 /// A protobuf `bytes` value. Serializes via `serialize_bytes` so a format renders it as an opaque
 /// byte string rather than serde's default sequence-of-`u8` for `&[u8]`.
@@ -31,7 +31,7 @@ impl Serialize for Bytes<'_> {
 }
 
 /// A repeated `bytes` field: a sequence whose elements each serialize as [`Bytes`].
-pub struct BytesSeq<'a>(pub &'a [&'a [u8]]);
+pub struct BytesSeq<'a>(pub &'a [PackedSlice<'a, u8>]);
 
 impl Serialize for BytesSeq<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -39,7 +39,13 @@ impl Serialize for BytesSeq<'_> {
     }
 }
 
-impl Serialize for ProtoStr<'_> {
+impl Serialize for PackedStr<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        (**self).serialize(serializer)
+    }
+}
+
+impl Serialize for ProtoStr {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         // A protobuf `string` is UTF-8 by spec; a decoder borrows the bytes without validating, so a
         // hostile payload could carry non-UTF-8. Serialize valid text as a string; fall back to the
@@ -61,15 +67,15 @@ impl<K: Serialize, V: Serialize> Serialize for MapView<'_, K, V> {
     }
 }
 
-/// A `map` with `bytes` values: each value serializes as [`Bytes`] (opaque), not serde's default
-/// sequence-of-`u8`. Generated code uses this instead of the plain `MapView` impl for a bytes-valued
-/// map -- the one map-value type the generic impl would get wrong.
-pub struct BytesMapView<'a, K>(pub MapView<'a, K, &'a [u8]>);
+/// A `map` with `bytes` values: each value serializes as [`Bytes`] (opaque). Generated code uses
+/// this for a bytes-valued map, whose `PackedSlice<u8>` values the plain `MapView` impl can't
+/// serialize.
+pub struct BytesMapView<'a, K>(pub MapView<'a, K, PackedSlice<'a, u8>>);
 
 impl<K: Serialize> Serialize for BytesMapView<'_, K> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut map = serializer.serialize_map(Some(self.0.len()))?;
-        for (key, &value) in self.0.iter() {
+        for (key, value) in self.0.iter() {
             map.serialize_entry(key, &Bytes(value))?;
         }
         map.end()

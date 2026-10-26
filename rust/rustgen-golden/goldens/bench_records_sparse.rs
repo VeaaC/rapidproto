@@ -64,17 +64,17 @@ pub mod arena {
 
   pub mod bench {
     pub struct Address<'a> {
-      street: ::rapidproto::ProtoStr<'a>,
-      city: ::rapidproto::ProtoStr<'a>,
+      street: ::rapidproto::PackedStr<'a>,
+      city: ::rapidproto::PackedStr<'a>,
       zip: u32,
     }
 
     impl<'a> Address<'a> {
-      pub fn street(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.street
+      pub fn street(&self) -> &'a ::rapidproto::ProtoStr {
+        self.street.get()
       }
-      pub fn city(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.city
+      pub fn city(&self) -> &'a ::rapidproto::ProtoStr {
+        self.city.get()
       }
       pub fn zip(&self) -> u32 {
         self.zip
@@ -113,16 +113,16 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Address);
 
     pub struct Attribute<'a> {
-      key: ::rapidproto::ProtoStr<'a>,
-      value: ::rapidproto::ProtoStr<'a>,
+      key: ::rapidproto::PackedStr<'a>,
+      value: ::rapidproto::PackedStr<'a>,
     }
 
     impl<'a> Attribute<'a> {
-      pub fn key(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.key
+      pub fn key(&self) -> &'a ::rapidproto::ProtoStr {
+        self.key.get()
       }
-      pub fn value(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.value
+      pub fn value(&self) -> &'a ::rapidproto::ProtoStr {
+        self.value.get()
       }
     }
     #[cfg(feature = "serde")]
@@ -153,27 +153,27 @@ pub mod arena {
 
     pub struct Person<'a> {
       id: i64,
-      name: ::rapidproto::ProtoStr<'a>,
-      email: ::rapidproto::ProtoStr<'a>,
+      name: ::rapidproto::PackedStr<'a>,
+      email: ::rapidproto::PackedStr<'a>,
       score: f64,
       created: u64,
       address: ::core::option::Option<&'a Address<'a>>,
-      tags: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoStr<'a>>,
+      tags: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
       history: ::rapidproto::PackedSlice<'a, i32>,
       attributes: ::rapidproto::PackedSlice<'a, Attribute<'a>>,
       rp_presence: u8,
-      counters: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
+      counters: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32>,
     }
 
     impl<'a> Person<'a> {
       pub fn id(&self) -> i64 {
         self.id
       }
-      pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.name
+      pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
+        self.name.get()
       }
-      pub fn email(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.email
+      pub fn email(&self) -> &'a ::rapidproto::ProtoStr {
+        self.email.get()
       }
       pub fn active(&self) -> bool {
         (self.rp_presence & (1 << 0)) != 0
@@ -187,16 +187,16 @@ pub mod arena {
       pub fn address(&self) -> ::core::option::Option<&'a Address<'a>> {
         self.address
       }
-      pub fn tags(&self) -> &'a [::rapidproto::ProtoStr<'a>] {
-        self.tags.get()
+      pub fn tags(&self) -> &'a [::rapidproto::PackedStr<'a>] {
+        self.tags.as_slice()
       }
       pub fn history(&self) -> &'a [i32] {
-        self.history.get()
+        self.history.as_slice()
       }
       pub fn attributes(&self) -> &'a [Attribute<'a>] {
-        self.attributes.get()
+        self.attributes.as_slice()
       }
-      pub fn counters(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32> {
+      pub fn counters(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32> {
         self.counters
       }
     }
@@ -280,20 +280,20 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Person);
 
     pub struct Dataset<'a> {
-      name: ::rapidproto::ProtoStr<'a>,
+      name: ::rapidproto::PackedStr<'a>,
       version: i64,
       people: ::rapidproto::PackedSlice<'a, Person<'a>>,
     }
 
     impl<'a> Dataset<'a> {
-      pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.name
+      pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
+        self.name.get()
       }
       pub fn version(&self) -> i64 {
         self.version
       }
       pub fn people(&self) -> &'a [Person<'a>] {
-        self.people.get()
+        self.people.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -333,28 +333,28 @@ pub mod arena {
       b: ::rapidproto::PackedSlice<'a, i32>,
       c: ::rapidproto::PackedSlice<'a, i32>,
       d: ::rapidproto::PackedSlice<'a, i32>,
-      s: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoStr<'a>>,
-      t: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoStr<'a>>,
+      s: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
+      t: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
     }
 
     impl<'a> Wide<'a> {
       pub fn a(&self) -> &'a [i32] {
-        self.a.get()
+        self.a.as_slice()
       }
       pub fn b(&self) -> &'a [i32] {
-        self.b.get()
+        self.b.as_slice()
       }
       pub fn c(&self) -> &'a [i32] {
-        self.c.get()
+        self.c.as_slice()
       }
       pub fn d(&self) -> &'a [i32] {
-        self.d.get()
+        self.d.as_slice()
       }
-      pub fn s(&self) -> &'a [::rapidproto::ProtoStr<'a>] {
-        self.s.get()
+      pub fn s(&self) -> &'a [::rapidproto::PackedStr<'a>] {
+        self.s.as_slice()
       }
-      pub fn t(&self) -> &'a [::rapidproto::ProtoStr<'a>] {
-        self.t.get()
+      pub fn t(&self) -> &'a [::rapidproto::PackedStr<'a>] {
+        self.t.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -413,7 +413,7 @@ pub mod arena {
 
     impl<'a> WideSet<'a> {
       pub fn items(&self) -> &'a [Wide<'a>] {
-        self.items.get()
+        self.items.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -445,16 +445,16 @@ pub mod arena {
 
     impl<'a> Big<'a> {
       pub fn numbers(&self) -> &'a [i64] {
-        self.numbers.get()
+        self.numbers.as_slice()
       }
       pub fn reals(&self) -> &'a [f64] {
-        self.reals.get()
+        self.reals.as_slice()
       }
       pub fn zz(&self) -> &'a [i64] {
-        self.zz.get()
+        self.zz.as_slice()
       }
       pub fn kinds(&self) -> &'a [super::super::common::bench::Kind] {
-        self.kinds.get()
+        self.kinds.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -501,7 +501,7 @@ pub mod arena {
 
     impl<'a> BigSet<'a> {
       pub fn items(&self) -> &'a [Big<'a>] {
-        self.items.get()
+        self.items.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -638,7 +638,7 @@ pub mod arena {
 
     impl<'a> ParticleSet<'a> {
       pub fn items(&self) -> &'a [Particle<'a>] {
-        self.items.get()
+        self.items.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -799,7 +799,7 @@ pub mod arena {
 
     impl<'a> RecordSet<'a> {
       pub fn records(&self) -> &'a [Record<'a>] {
-        self.records.get()
+        self.records.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -918,8 +918,8 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Address {
-          street: ::rapidproto::ProtoStr::new(rp_field_1),
-          city: ::rapidproto::ProtoStr::new(rp_field_2),
+          street: ::rapidproto::PackedStr::new(rp_field_1),
+          city: ::rapidproto::PackedStr::new(rp_field_2),
           zip: rp_field_3,
         }))
       }
@@ -1003,8 +1003,8 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Attribute {
-          key: ::rapidproto::ProtoStr::new(rp_field_1),
-          value: ::rapidproto::ProtoStr::new(rp_field_2),
+          key: ::rapidproto::PackedStr::new(rp_field_1),
+          value: ::rapidproto::PackedStr::new(rp_field_2),
         }))
       }
     }
@@ -1113,7 +1113,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_8.push(::rapidproto::ProtoStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_8.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         while rp_rest.first() == ::core::option::Option::Some(&72u8) {
           rp_rest = &rp_rest[1..];
@@ -1150,7 +1150,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
           let mut rp_val: i32 = 0;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -1176,7 +1176,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                rp_key = ::rapidproto::PackedStr::new(rp_p);
               }
               16u32 => {
                 let mut rp_v = 0u64;
@@ -1282,7 +1282,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_8.push(::rapidproto::ProtoStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_8.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             72u32 => {
               let mut rp_v = 0u64;
@@ -1315,7 +1315,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -1341,7 +1341,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::PackedStr::new(rp_p);
                   }
                   16u32 => {
                     let mut rp_v = 0u64;
@@ -1371,8 +1371,8 @@ pub mod arena {
         }
         ::core::result::Result::Ok(rp_out.write(Person {
           id: rp_field_1,
-          name: ::rapidproto::ProtoStr::new(rp_field_2),
-          email: ::rapidproto::ProtoStr::new(rp_field_3),
+          name: ::rapidproto::PackedStr::new(rp_field_2),
+          email: ::rapidproto::PackedStr::new(rp_field_3),
           score: rp_field_5,
           created: rp_field_6,
           address: rp_field_7,
@@ -1481,7 +1481,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Dataset {
-          name: ::rapidproto::ProtoStr::new(rp_field_1),
+          name: ::rapidproto::PackedStr::new(rp_field_1),
           version: rp_field_2,
           people: ::rapidproto::PackedSlice::new(rp_acc_3.into_slice()),
         }))
@@ -1589,7 +1589,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_5.push(::rapidproto::ProtoStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_5.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         while rp_rest.first() == ::core::option::Option::Some(&50u8) {
           rp_rest = &rp_rest[1..];
@@ -1598,7 +1598,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_6.push(::rapidproto::ProtoStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_6.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -1687,7 +1687,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_5.push(::rapidproto::ProtoStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_5.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             50u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1695,7 +1695,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_6.push(::rapidproto::ProtoStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_6.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {

@@ -102,10 +102,10 @@ pub mod arena {
         self.child
       }
       pub fn packed_nums(&self) -> &'a [i32] {
-        self.packed_nums.get()
+        self.packed_nums.as_slice()
       }
       pub fn expanded_nums(&self) -> &'a [i32] {
-        self.expanded_nums.get()
+        self.expanded_nums.as_slice()
       }
       pub fn delim(&self) -> ::core::option::Option<&'a M<'a>> {
         self.delim

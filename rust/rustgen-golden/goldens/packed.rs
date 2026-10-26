@@ -16,13 +16,13 @@ pub mod arena {
 
     impl<'a> Packed<'a> {
       pub fn pd(&self) -> &'a [f64] {
-        self.pd.get()
+        self.pd.as_slice()
       }
       pub fn psf(&self) -> &'a [i32] {
-        self.psf.get()
+        self.psf.as_slice()
       }
       pub fn pf(&self) -> &'a [f32] {
-        self.pf.get()
+        self.pf.as_slice()
       }
     }
     #[cfg(feature = "serde")]

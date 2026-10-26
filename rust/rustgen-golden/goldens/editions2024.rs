@@ -19,7 +19,7 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.a)
       }
       pub fn b(&self) -> &'a [i32] {
-        self.b.get()
+        self.b.as_slice()
       }
     }
     #[cfg(feature = "serde")]

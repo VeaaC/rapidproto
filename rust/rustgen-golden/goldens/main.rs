@@ -312,7 +312,7 @@ pub mod arena {
         ((self.rp_presence & (1 << 3)) != 0).then_some(self.e)
       }
       pub fn ds(&self) -> &'a [super::dep::Dep<'a>] {
-        self.ds.get()
+        self.ds.as_slice()
       }
       pub fn dm(&self) -> ::rapidproto::MapView<'a, i32, super::dep::Dep<'a>> {
         self.dm

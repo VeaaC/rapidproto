@@ -1,19 +1,20 @@
 //! A borrowed slice stored in 12 bytes.
 
+use core::borrow::Borrow;
+use core::cmp::Ordering;
 use core::fmt;
+use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
+use core::ops::Deref;
 use core::ptr::NonNull;
 
 /// A `&'a [T]` stored as its pointer and a `u32` length: on a 64-bit target 12 bytes with alignment
-/// 4, where a slice reference takes 16 with alignment 8. Decoded messages store their strings
-/// ([`ProtoStr`](crate::ProtoStr)), maps ([`MapView`](crate::MapView)), `bytes` fields and repeated
-/// fields (other than raw ones) this way, as the C++ decoder stores its views. The accessors hand back
-/// the plain slice via [`get`](PackedSlice::get).
+/// 4, where a slice reference takes 16 with alignment 8. Decoded messages store their repeated
+/// fields, maps and `bytes` values this way, as the C++ decoder stores its views. A repeated
+/// `bytes` field hands out its elements as `PackedSlice<'a, u8>`.
 ///
-/// The length is 32-bit, as in C++: the arena decoder rejects an input over `u32::MAX` bytes, so no
-/// view or element count it produces can exceed it. The streaming decoder takes any input, so a
-/// string over `u32::MAX` bytes (never valid protobuf, which caps a message at 2 GiB) reaches its
-/// visitor with only the low 32 bits of its length: shorter, never out of bounds.
+/// It derefs to the slice. Deref borrows the cell, so a slice reached through it lives only as long
+/// as that borrow; [`as_slice`](PackedSlice::as_slice) returns it for the full `'a`.
 #[repr(C, packed(4))]
 pub struct PackedSlice<'a, T> {
     ptr: NonNull<T>,
@@ -36,49 +37,135 @@ unsafe impl<T: Sync> Send for PackedSlice<'_, T> {}
 unsafe impl<T: Sync> Sync for PackedSlice<'_, T> {}
 
 impl<'a, T> PackedSlice<'a, T> {
-    /// Store `slice`. A slice longer than `u32::MAX` elements keeps only the low 32 bits of its length:
-    /// a shorter view of the same memory, never out of bounds.
+    /// Store `slice`. The length truncates to 32 bits rather than being checked: a check costs a
+    /// branch on every view a decode stores (up to 9% more instructions on string-heavy messages),
+    /// and the arena decoder rejects an input over `u32::MAX` bytes, so nothing it stores is
+    /// longer.
+    #[doc(hidden)]
     #[inline]
     pub fn new(slice: &'a [T]) -> Self {
         Self {
             ptr: NonNull::from(slice).cast(),
-            // Truncates rather than checks: a check costs a branch on every view a decode stores (up
-            // to 9% more instructions on string-heavy messages), for a length no valid input has.
             len: slice.len() as u32,
             _marker: PhantomData,
         }
     }
 
-    /// The stored slice.
+    /// The stored slice, for the full `'a`.
     #[inline]
-    pub fn get(self) -> &'a [T] {
+    pub fn as_slice(self) -> &'a [T] {
         // Copy the fields out first: a reference to a field of a packed struct may be misaligned.
-        let (ptr, len) = (self.hint_nonnull().ptr, self.len);
-        // SAFETY: `ptr` came from a `&'a [T]` and `len` is at most that slice's length (`new` only
-        // ever truncates it), and `PhantomData<&'a [T]>` keeps the borrow alive for `'a`.
-        unsafe { core::slice::from_raw_parts(ptr.as_ptr(), len as usize) }
-    }
-
-    /// This view, unchanged, with its pointer's non-null invariant restated to the optimizer. A read
-    /// out of a packed field loses that fact, so an `Option` of the view (or of the slice it hands
-    /// back) would test the pointer again; with the hint it tests only what built the `Option`.
-    #[inline(always)]
-    pub(crate) fn hint_nonnull(self) -> Self {
-        let ptr = self.ptr;
-        // The lint knows `ptr` is non-null from its type; the optimizer, after the packed read, does
-        // not, and this tells it.
+        let (ptr, len) = (self.ptr, self.len);
+        // A read out of a packed field loses the fact that `ptr` is non-null, so an `Option` of the
+        // slice would test the pointer again. This restates it; the lint knows it from the type.
         #[allow(useless_ptr_null_checks)]
         // SAFETY: `ptr` is a `NonNull`; this only restates its invariant.
         unsafe {
             core::hint::assert_unchecked(!ptr.as_ptr().is_null());
         }
+        // SAFETY: `ptr` came from a `&'a [T]` and `len` is at most that slice's length (`new` only
+        // ever truncates it), and `PhantomData<&'a [T]>` keeps the borrow alive for `'a`.
+        unsafe { core::slice::from_raw_parts(ptr.as_ptr(), len as usize) }
+    }
+}
+
+impl<T> Deref for PackedSlice<'_, T> {
+    type Target = [T];
+    #[inline]
+    fn deref(&self) -> &[T] {
+        self.as_slice()
+    }
+}
+
+impl<T> AsRef<[T]> for PackedSlice<'_, T> {
+    #[inline]
+    fn as_ref(&self) -> &[T] {
         self
+    }
+}
+
+impl<T> Borrow<[T]> for PackedSlice<'_, T> {
+    #[inline]
+    fn borrow(&self) -> &[T] {
+        self
+    }
+}
+
+impl<'a, T> IntoIterator for PackedSlice<'a, T> {
+    type Item = &'a T;
+    type IntoIter = core::slice::Iter<'a, T>;
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.as_slice().iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &PackedSlice<'a, T> {
+    type Item = &'a T;
+    type IntoIter = core::slice::Iter<'a, T>;
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.as_slice().iter()
     }
 }
 
 impl<T: fmt::Debug> fmt::Debug for PackedSlice<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.get().fmt(f)
+        self.as_slice().fmt(f)
+    }
+}
+
+// Comparison, ordering and hashing are the slice's, so `Borrow<[T]>` keys look up consistently.
+impl<T: PartialEq<U>, U> PartialEq<PackedSlice<'_, U>> for PackedSlice<'_, T> {
+    #[inline]
+    fn eq(&self, other: &PackedSlice<'_, U>) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+impl<T: Eq> Eq for PackedSlice<'_, T> {}
+
+impl<T: PartialOrd> PartialOrd for PackedSlice<'_, T> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.as_slice().partial_cmp(other.as_slice())
+    }
+}
+impl<T: Ord> Ord for PackedSlice<'_, T> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_slice().cmp(other.as_slice())
+    }
+}
+
+impl<T: Hash> Hash for PackedSlice<'_, T> {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_slice().hash(state);
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<[U]> for PackedSlice<'_, T> {
+    #[inline]
+    fn eq(&self, other: &[U]) -> bool {
+        self.as_slice() == other
+    }
+}
+impl<T: PartialEq<U>, U> PartialEq<&[U]> for PackedSlice<'_, T> {
+    #[inline]
+    fn eq(&self, other: &&[U]) -> bool {
+        self.as_slice() == *other
+    }
+}
+impl<T: PartialEq<U>, U, const N: usize> PartialEq<[U; N]> for PackedSlice<'_, T> {
+    #[inline]
+    fn eq(&self, other: &[U; N]) -> bool {
+        self.as_slice() == other
+    }
+}
+impl<T: PartialEq<U>, U, const N: usize> PartialEq<&[U; N]> for PackedSlice<'_, T> {
+    #[inline]
+    fn eq(&self, other: &&[U; N]) -> bool {
+        self.as_slice() == *other
     }
 }
 
@@ -87,15 +174,16 @@ mod tests {
     use core::mem::{align_of, size_of};
 
     use super::*;
-    use crate::{MapView, ProtoStr};
+    use crate::{MapView, PackedStr};
 
-    // The sizes the packed layout exists for. `Option<ProtoStr>` keeps the pointer niche.
+    // The sizes the packed layout exists for. `Option` of a cell keeps the pointer niche.
     #[cfg(target_pointer_width = "64")]
     const _: () = assert!(
         size_of::<PackedSlice<'_, u64>>() == 12
             && align_of::<PackedSlice<'_, u64>>() == 4
-            && size_of::<ProtoStr<'_>>() == 12
-            && size_of::<Option<ProtoStr<'_>>>() == 12
+            && size_of::<Option<PackedSlice<'_, u8>>>() == 12
+            && size_of::<PackedStr<'_>>() == 12
+            && size_of::<Option<PackedStr<'_>>>() == 12
             && size_of::<MapView<'_, u8, u8>>() == 12
     );
 
@@ -108,9 +196,22 @@ mod tests {
     fn round_trips_the_slice() {
         let data = [1u64, 2, 3];
         let s = PackedSlice::new(&data[1..]);
-        assert_eq!(s.get(), &[2, 3]);
-        assert_eq!(s.get().as_ptr(), data[1..].as_ptr());
-        assert!(PackedSlice::new(&data[..0]).get().is_empty());
+        assert_eq!(s.as_slice(), &[2, 3]);
+        assert_eq!(s.as_slice().as_ptr(), data[1..].as_ptr());
+        assert!(PackedSlice::new(&data[..0]).as_slice().is_empty());
+    }
+
+    #[test]
+    fn derefs_and_compares_as_the_slice() {
+        let data = [1u8, 2, 3];
+        let cells = [PackedSlice::new(&data[..1]), PackedSlice::new(&data[1..])];
+        assert_eq!(cells[1].len(), 2);
+        assert_eq!(cells[1][0], 2);
+        assert_eq!(cells[1].get(1), Some(&3));
+        assert_eq!(cells, [&[1u8][..], &[2, 3]]);
+        assert_eq!(cells[1], [2u8, 3]);
+        assert!(cells[0] < cells[1]);
+        assert_eq!(cells[1].into_iter().sum::<u8>(), 5);
     }
 
     #[test]
@@ -123,7 +224,7 @@ mod tests {
         let data = [Wide(1), Wide(2)];
         let cells = [PackedSlice::new(&data[..1]), PackedSlice::new(&data[1..])];
         for (cell, want) in cells.iter().zip([1u8, 2]) {
-            let s = cell.get();
+            let s: &[Wide] = cell;
             assert_eq!(s.as_ptr().addr() % 16, 0);
             assert_eq!(s, &[Wide(want)]);
         }

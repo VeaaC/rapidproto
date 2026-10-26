@@ -106,12 +106,13 @@ fn loc(raw: i64, granularity: i64, offset: i64) -> u64 {
 }
 
 // The first byte of string-table entry `i` (0 for an empty entry or an index past the table): forces
-// the stringtable resolution without measuring strlen.
-fn first_byte(strings: &[&[u8]], i: u64) -> u64 {
+// the stringtable resolution without measuring strlen. The arena table holds 12-byte cells, the
+// stream walk collects plain slices.
+fn first_byte<S: AsRef<[u8]>>(strings: &[S], i: u64) -> u64 {
     usize::try_from(i)
         .ok()
         .and_then(|i| strings.get(i))
-        .and_then(|s| s.first())
+        .and_then(|s| s.as_ref().first())
         .map_or(0, |&b| u64::from(b))
 }
 
@@ -126,7 +127,7 @@ fn arena_block_sum(b: &PrimitiveBlock) -> u64 {
     let lat_off = b.lat_offset().unwrap_or(0);
     let lon_off = b.lon_offset().unwrap_or(0);
     let date_gran = i64::from(b.date_granularity().unwrap_or(1000));
-    let st: &[&[u8]] = b.stringtable().map_or(&[], |t| t.s());
+    let st = b.stringtable().map(|t| t.s()).unwrap_or_default();
     let sv = |i: u64| first_byte(st, i);
     let info_sum = |info: Option<&Info>| {
         info.map_or(0, |info| {
@@ -453,8 +454,8 @@ pub fn file_sum(file: &[u8], inflated: &mut Vec<u8>, mut block: impl FnMut(&[u8]
             return 0;
         };
         let payload: &[u8] = match blob.data() {
-            Some(&Data::Raw(raw)) => raw,
-            Some(&Data::ZlibData(deflated)) => {
+            Some(Data::Raw(raw)) => raw,
+            Some(Data::ZlibData(deflated)) => {
                 let raw_size = blob.raw_size().unwrap_or(0);
                 if raw_size <= 0
                     || i64::from(raw_size) > MAX_RAW_SIZE

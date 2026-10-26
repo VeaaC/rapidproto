@@ -10,7 +10,7 @@ pub mod arena {
   pub mod std {
     pub struct Types<'a> {
       n: i32,
-      s: ::rapidproto::ProtoStr<'a>,
+      s: ::rapidproto::PackedStr<'a>,
       many: ::rapidproto::PackedSlice<'a, i64>,
     }
 
@@ -18,11 +18,11 @@ pub mod arena {
       pub fn n(&self) -> i32 {
         self.n
       }
-      pub fn s(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.s
+      pub fn s(&self) -> &'a ::rapidproto::ProtoStr {
+        self.s.get()
       }
       pub fn many(&self) -> &'a [i64] {
-        self.many.get()
+        self.many.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -171,7 +171,7 @@ pub mod arena {
         }
         ::core::result::Result::Ok(rp_out.write(Types {
           n: rp_field_1,
-          s: ::rapidproto::ProtoStr::new(rp_field_2),
+          s: ::rapidproto::PackedStr::new(rp_field_2),
           many: ::rapidproto::PackedSlice::new(rp_acc_3.into_slice()),
         }))
       }
@@ -194,7 +194,7 @@ pub mod stream {
       fn on_n(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_s: bool = false;
       #[inline(always)]
-      fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_many: bool = false;
       #[inline(always)]
       fn on_many(&mut self, _rp_v: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -409,7 +409,7 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3std5Types::types_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3std5Types::types_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_n on_n: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_s on_s: rp_mod_3std5Types::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_s on_s: &'rp_a rp_mod_3std5Types::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] many => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_many on_many: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3std5Types::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: n, s, many, unknown")) };

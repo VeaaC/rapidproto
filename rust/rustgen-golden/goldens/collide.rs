@@ -128,7 +128,7 @@ pub mod arena {
 
     impl<'a> SearchResponse<'a> {
       pub fn results(&self) -> &'a [search_response::Result<'a>] {
-        self.results.get()
+        self.results.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -153,12 +153,12 @@ pub mod arena {
 
     pub mod search_response {
       pub struct Result<'a> {
-        url: ::rapidproto::ProtoStr<'a>,
+        url: ::rapidproto::PackedStr<'a>,
       }
 
       impl<'a> Result<'a> {
-        pub fn url(&self) -> ::rapidproto::ProtoStr<'a> {
-          self.url
+        pub fn url(&self) -> &'a ::rapidproto::ProtoStr {
+          self.url.get()
         }
       }
       #[cfg(feature = "serde")]
@@ -241,7 +241,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Result {
-            url: ::rapidproto::ProtoStr::new(rp_field_1),
+            url: ::rapidproto::PackedStr::new(rp_field_1),
           }))
         }
       }
@@ -381,7 +381,7 @@ pub mod arena {
     pub mod response {
       pub enum Result<'a> {
         Error(&'a Error<'a>),
-        Value(::rapidproto::ProtoStr<'a>),
+        Value(::rapidproto::PackedStr<'a>),
       }
 
       pub enum Option {
@@ -621,7 +621,7 @@ pub mod arena {
 
     impl<'a> usize_<'a> {
       pub fn flags(&self) -> &'a [bool] {
-        self.flags.get()
+        self.flags.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -1068,16 +1068,16 @@ pub mod arena {
         self.g
       }
       pub fn h(&self) -> &'a [u8] {
-        self.h.get()
+        self.h.as_slice()
       }
       pub fn i(&self) -> ::core::option::Option<f32> {
         ((self.rp_presence & (1 << 4)) != 0).then_some(self.i)
       }
       pub fn j(&self) -> &'a [u32] {
-        self.j.get()
+        self.j.as_slice()
       }
       pub fn k(&self) -> &'a [u32] {
-        self.k.get()
+        self.k.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -2187,7 +2187,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(response::Result::Value(::rapidproto::ProtoStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(response::Result::Value(::rapidproto::PackedStr::new(rp_p)));
         }
         if rp_rest.first() == ::core::option::Option::Some(&24u8) {
           rp_rest = &rp_rest[1..];
@@ -2242,7 +2242,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(response::Result::Value(::rapidproto::ProtoStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(response::Result::Value(::rapidproto::PackedStr::new(rp_p)));
             }
             24u32 => {
               let mut rp_v = 0u64;
@@ -5205,7 +5205,7 @@ pub mod stream {
       pub trait ResultVisitor<'a> {
         const WANT_url: bool = false;
         #[inline(always)]
-        fn on_url(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_url(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -5310,7 +5310,7 @@ pub mod stream {
       macro_rules! __rp_7collide_7collide14SearchResponse6Result {
         ($($f:ident => $c:expr),* $(,)?) => { rp_mod_7collide14SearchResponse6Result::result_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_7collide14SearchResponse6Result::result_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] url => $c:expr, $($r:tt)*) => { rp_mod_7collide14SearchResponse6Result::result_stream!(@f [$($a)* WANT_url on_url: rp_mod_7collide14SearchResponse6Result::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] url => $c:expr, $($r:tt)*) => { rp_mod_7collide14SearchResponse6Result::result_stream!(@f [$($a)* WANT_url on_url: &'rp_a rp_mod_7collide14SearchResponse6Result::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_7collide14SearchResponse6Result::result_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_7collide14SearchResponse6Result::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: url, unknown")) };
         (@f $a:tt) => { rp_mod_7collide14SearchResponse6Result::rp_rt::stream_visitor!(rp_mod_7collide14SearchResponse6Result ResultVisitor $a) };
@@ -5685,7 +5685,7 @@ pub mod stream {
       fn on_error(&mut self, _rp_v: response::Error<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_value: bool = false;
       #[inline(always)]
-      fn on_value(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_value(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_on: bool = false;
       #[inline(always)]
       fn on_on(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -5887,7 +5887,7 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_7collide8Response::response_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_7collide8Response::response_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] error => $c:expr, $($r:tt)*) => { rp_mod_7collide8Response::response_stream!(@f [$($a)* WANT_error on_error: rp_mod_7collide8Response::rp_stream_ty_1<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_7collide8Response::response_stream!(@f [$($a)* WANT_value on_value: rp_mod_7collide8Response::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_7collide8Response::response_stream!(@f [$($a)* WANT_value on_value: &'rp_a rp_mod_7collide8Response::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] on => $c:expr, $($r:tt)*) => { rp_mod_7collide8Response::response_stream!(@f [$($a)* WANT_on on_on: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] off => $c:expr, $($r:tt)*) => { rp_mod_7collide8Response::response_stream!(@f [$($a)* WANT_off on_off: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_7collide8Response::response_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_7collide8Response::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };

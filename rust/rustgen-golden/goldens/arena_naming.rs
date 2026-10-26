@@ -14,7 +14,7 @@ pub mod arena {
       pick_case: i32,
       decode_: i32,
       rp_presence: u8,
-      foo: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
+      foo: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32>,
       pick: ::core::option::Option<collide::Pick>,
       letters: ::core::option::Option<collide::Letters>,
     }
@@ -32,7 +32,7 @@ pub mod arena {
       pub fn decode_(&self) -> i32 {
         self.decode_
       }
-      pub fn foo(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32> {
+      pub fn foo(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32> {
         self.foo
       }
       pub fn pick(&self) -> ::core::option::Option<&collide::Pick> {
@@ -246,16 +246,16 @@ pub mod arena {
 
     pub mod callback {
       pub enum Callback<'a> {
-        PythonCode(::rapidproto::ProtoStr<'a>),
+        PythonCode(::rapidproto::PackedStr<'a>),
       }
     }
 
     pub struct FooEntry<'a> {
-      foo: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
+      foo: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32>,
     }
 
     impl<'a> FooEntry<'a> {
-      pub fn foo(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32> {
+      pub fn foo(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32> {
         self.foo
       }
     }
@@ -510,7 +510,7 @@ pub mod arena {
 
     pub mod config {
       pub enum Config<'a> {
-        A(::rapidproto::ProtoStr<'a>),
+        A(::rapidproto::PackedStr<'a>),
       }
     }
 
@@ -566,7 +566,7 @@ pub mod arena {
 
     impl<'a> Bytes<'a> {
       pub fn bytes(&self) -> &'a [u8] {
-        self.bytes.get()
+        self.bytes.as_slice()
       }
       pub fn m_bytes(&self) -> i32 {
         self.m_bytes
@@ -810,7 +810,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
           let mut rp_val: i32 = 0;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -836,7 +836,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                rp_key = ::rapidproto::PackedStr::new(rp_p);
               }
               16u32 => {
                 let mut rp_v = 0u64;
@@ -967,7 +967,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -993,7 +993,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::PackedStr::new(rp_p);
                   }
                   16u32 => {
                     let mut rp_v = 0u64;
@@ -1091,7 +1091,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(callback::Callback::PythonCode(::rapidproto::ProtoStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(callback::Callback::PythonCode(::rapidproto::PackedStr::new(rp_p)));
         }
         if rp_rest.first() == ::core::option::Option::Some(&16u8) {
           rp_rest = &rp_rest[1..];
@@ -1141,7 +1141,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(callback::Callback::PythonCode(::rapidproto::ProtoStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(callback::Callback::PythonCode(::rapidproto::PackedStr::new(rp_p)));
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1183,7 +1183,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
           let mut rp_val: i32 = 0;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -1209,7 +1209,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                rp_key = ::rapidproto::PackedStr::new(rp_p);
               }
               16u32 => {
                 let mut rp_v = 0u64;
@@ -1253,7 +1253,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -1279,7 +1279,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::PackedStr::new(rp_p);
                   }
                   16u32 => {
                     let mut rp_v = 0u64;
@@ -1563,7 +1563,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(config::Config::A(::rapidproto::ProtoStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(config::Config::A(::rapidproto::PackedStr::new(rp_p)));
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -1588,7 +1588,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(config::Config::A(::rapidproto::ProtoStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(config::Config::A(::rapidproto::PackedStr::new(rp_p)));
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -2118,7 +2118,7 @@ pub mod stream {
       fn on_decode(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_foo: bool = false;
       #[inline(always)]
-      fn on_foo(&mut self, _rp_v: (::rapidproto::ProtoStr<'a>, i32)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_foo(&mut self, _rp_v: (&'a ::rapidproto::ProtoStr, i32)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_p1: bool = false;
       #[inline(always)]
       fn on_p1(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2201,7 +2201,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             let rp_ent_body: &'a [u8] = rp_p;
-            let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+            let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
             let mut rp_val: i32 = 0;
             let mut rp_ent: &'a [u8] = rp_ent_body;
             loop {
@@ -2438,7 +2438,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -2569,7 +2569,7 @@ pub mod stream {
       (@f [$($a:tt)*] has_x => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_has_x on_has_x: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] pick_case => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_pick_case on_pick_case: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] decode => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_decode on_decode: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_foo on_foo: (rp_mod_2an7Collide::rp_rt::ProtoStr<'rp_a>, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_foo on_foo: (&'rp_a rp_mod_2an7Collide::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
       (@f [$($a:tt)*] p1 => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_p1 on_p1: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] p2 => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_p2 on_p2: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2an7Collide::collide_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
@@ -2714,7 +2714,7 @@ pub mod stream {
       fn on_disabled(&mut self, _rp_v: bool) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_python_code: bool = false;
       #[inline(always)]
-      fn on_python_code(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_python_code(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2850,7 +2850,7 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an8Callback::callback_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an8Callback::callback_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] disabled => $c:expr, $($r:tt)*) => { rp_mod_2an8Callback::callback_stream!(@f [$($a)* WANT_disabled on_disabled: ::core::primitive::bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] python_code => $c:expr, $($r:tt)*) => { rp_mod_2an8Callback::callback_stream!(@f [$($a)* WANT_python_code on_python_code: rp_mod_2an8Callback::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] python_code => $c:expr, $($r:tt)*) => { rp_mod_2an8Callback::callback_stream!(@f [$($a)* WANT_python_code on_python_code: &'rp_a rp_mod_2an8Callback::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an8Callback::callback_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an8Callback::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: disabled, python_code, unknown")) };
       (@f $a:tt) => { rp_mod_2an8Callback::rp_rt::stream_visitor!(rp_mod_2an8Callback CallbackVisitor $a) };
@@ -2864,7 +2864,7 @@ pub mod stream {
     pub trait FooEntryVisitor<'a> {
       const WANT_foo: bool = false;
       #[inline(always)]
-      fn on_foo(&mut self, _rp_v: (::rapidproto::ProtoStr<'a>, i32)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_foo(&mut self, _rp_v: (&'a ::rapidproto::ProtoStr, i32)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2897,7 +2897,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             let rp_ent_body: &'a [u8] = rp_p;
-            let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+            let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
             let mut rp_val: i32 = 0;
             let mut rp_ent: &'a [u8] = rp_ent_body;
             loop {
@@ -2976,7 +2976,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -3059,7 +3059,7 @@ pub mod stream {
     macro_rules! __rp_12arena_naming_2an8FooEntry {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an8FooEntry::foo_entry_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an8FooEntry::foo_entry_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_2an8FooEntry::foo_entry_stream!(@f [$($a)* WANT_foo on_foo: (rp_mod_2an8FooEntry::rp_rt::ProtoStr<'rp_a>, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_2an8FooEntry::foo_entry_stream!(@f [$($a)* WANT_foo on_foo: (&'rp_a rp_mod_2an8FooEntry::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an8FooEntry::foo_entry_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an8FooEntry::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: foo, unknown")) };
       (@f $a:tt) => { rp_mod_2an8FooEntry::rp_rt::stream_visitor!(rp_mod_2an8FooEntry FooEntryVisitor $a) };
@@ -3588,7 +3588,7 @@ pub mod stream {
     pub trait config_Visitor<'a> {
       const WANT_a: bool = false;
       #[inline(always)]
-      fn on_a(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_a(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3693,7 +3693,7 @@ pub mod stream {
     macro_rules! __rp_12arena_naming_2an6config {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2an6config::config__stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2an6config::config__stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2an6config::config__stream!(@f [$($a)* WANT_a on_a: rp_mod_2an6config::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2an6config::config__stream!(@f [$($a)* WANT_a on_a: &'rp_a rp_mod_2an6config::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2an6config::config__stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2an6config::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, unknown")) };
       (@f $a:tt) => { rp_mod_2an6config::rp_rt::stream_visitor!(rp_mod_2an6config config_Visitor $a) };

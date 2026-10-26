@@ -116,13 +116,13 @@ pub mod arena {
     }
 
     pub struct Ext<'a> {
-      s: ::rapidproto::ProtoStr<'a>,
+      s: ::rapidproto::PackedStr<'a>,
       rp_presence: u8,
     }
 
     impl<'a> Ext<'a> {
-      pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.s.hint_nonnull())
+      pub fn s(&self) -> ::core::option::Option<&'a ::rapidproto::ProtoStr> {
+        ((self.rp_presence & (1 << 0)) != 0).then_some(self.s.get())
       }
     }
     #[cfg(feature = "serde")]
@@ -303,7 +303,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Ext {
-          s: ::rapidproto::ProtoStr::new(rp_field_1),
+          s: ::rapidproto::PackedStr::new(rp_field_1),
           rp_presence,
         }))
       }
@@ -568,7 +568,7 @@ pub mod stream {
     pub trait ExtVisitor<'a> {
       const WANT_s: bool = false;
       #[inline(always)]
-      fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -673,7 +673,7 @@ pub mod stream {
     macro_rules! __rp_10messageset_2ms3Ext {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2ms3Ext::ext_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2ms3Ext::ext_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_2ms3Ext::ext_stream!(@f [$($a)* WANT_s on_s: rp_mod_2ms3Ext::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_2ms3Ext::ext_stream!(@f [$($a)* WANT_s on_s: &'rp_a rp_mod_2ms3Ext::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2ms3Ext::ext_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2ms3Ext::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, unknown")) };
       (@f $a:tt) => { rp_mod_2ms3Ext::rp_rt::stream_visitor!(rp_mod_2ms3Ext ExtVisitor $a) };

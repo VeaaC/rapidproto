@@ -55,7 +55,7 @@ pub mod arena {
       implicit_i: i32,
       explicit_i: i32,
       state: super::super::common::p3::State,
-      self_: ::core::option::Option<&'a [u8]>,
+      self_: ::core::option::Option<::rapidproto::PackedSlice<'a, u8>>,
       nums: ::rapidproto::PackedSlice<'a, i32>,
       unpacked: ::rapidproto::PackedSlice<'a, i32>,
       states: ::rapidproto::PackedSlice<'a, super::super::common::p3::State>,
@@ -65,9 +65,9 @@ pub mod arena {
       ratio: f64,
       scale: f32,
       rp_presence: u8,
-      counts: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
-      toggles: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, bool>,
-      ratios: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, f64>,
+      counts: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32>,
+      toggles: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, bool>,
+      ratios: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, f64>,
       pick: ::core::option::Option<msg::Pick<'a>>,
       rp_unknown: bool,
     }
@@ -83,25 +83,25 @@ pub mod arena {
         self.state
       }
       pub fn self_(&self) -> ::core::option::Option<&'a [u8]> {
-        self.self_
+        self.self_.map(::rapidproto::PackedSlice::as_slice)
       }
       pub fn nums(&self) -> &'a [i32] {
-        self.nums.get()
+        self.nums.as_slice()
       }
       pub fn unpacked(&self) -> &'a [i32] {
-        self.unpacked.get()
+        self.unpacked.as_slice()
       }
       pub fn states(&self) -> &'a [super::super::common::p3::State] {
-        self.states.get()
+        self.states.as_slice()
       }
       pub fn reals(&self) -> &'a [f64] {
-        self.reals.get()
+        self.reals.as_slice()
       }
       pub fn codes(&self) -> &'a [u32] {
-        self.codes.get()
+        self.codes.as_slice()
       }
       pub fn bools(&self) -> &'a [bool] {
-        self.bools.get()
+        self.bools.as_slice()
       }
       pub fn ratio(&self) -> f64 {
         self.ratio
@@ -109,13 +109,13 @@ pub mod arena {
       pub fn scale(&self) -> f32 {
         self.scale
       }
-      pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32> {
+      pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32> {
         self.counts
       }
-      pub fn toggles(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, bool> {
+      pub fn toggles(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, bool> {
         self.toggles
       }
-      pub fn ratios(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, f64> {
+      pub fn ratios(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, f64> {
         self.ratios
       }
       pub fn pick(&self) -> ::core::option::Option<&msg::Pick<'a>> {
@@ -238,7 +238,7 @@ pub mod arena {
     pub mod msg {
       pub enum Pick<'a> {
         A(i32),
-        B(::rapidproto::ProtoStr<'a>),
+        B(::rapidproto::PackedStr<'a>),
         C(bool),
         D(f64),
       }
@@ -375,7 +375,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
           let mut rp_val: i32 = 0;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -401,7 +401,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                rp_key = ::rapidproto::PackedStr::new(rp_p);
               }
               16u32 => {
                 let mut rp_v = 0u64;
@@ -437,7 +437,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::B(::rapidproto::ProtoStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::B(::rapidproto::PackedStr::new(rp_p)));
         }
         while rp_rest.first() == ::core::option::Option::Some(&97u8) {
           rp_rest = &rp_rest[1..];
@@ -550,7 +550,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
           let mut rp_val: bool = false;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -576,7 +576,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                rp_key = ::rapidproto::PackedStr::new(rp_p);
               }
               16u32 => {
                 let mut rp_v = 0u64;
@@ -604,7 +604,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
           let mut rp_val: f64 = 0.0;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -630,7 +630,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                rp_key = ::rapidproto::PackedStr::new(rp_p);
               }
               17u32 => {
                 let mut rp_v = 0u64;
@@ -871,7 +871,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -897,7 +897,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::PackedStr::new(rp_p);
                   }
                   16u32 => {
                     let mut rp_v = 0u64;
@@ -924,7 +924,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
               let mut rp_val: bool = false;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -950,7 +950,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::PackedStr::new(rp_p);
                   }
                   16u32 => {
                     let mut rp_v = 0u64;
@@ -977,7 +977,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
               let mut rp_val: f64 = 0.0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -1003,7 +1003,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::PackedStr::new(rp_p);
                   }
                   17u32 => {
                     let mut rp_v = 0u64;
@@ -1037,7 +1037,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::B(::rapidproto::ProtoStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::B(::rapidproto::PackedStr::new(rp_p)));
             }
             120u32 => {
               let mut rp_v = 0u64;
@@ -1070,7 +1070,7 @@ pub mod arena {
           implicit_i: rp_field_1,
           explicit_i: rp_field_2,
           state: rp_field_4,
-          self_: rp_field_5,
+          self_: rp_field_5.map(::rapidproto::PackedSlice::new),
           nums: ::rapidproto::PackedSlice::new(rp_acc_6.into_slice()),
           unpacked: ::rapidproto::PackedSlice::new(rp_acc_7.into_slice()),
           states: ::rapidproto::PackedSlice::new(rp_acc_8.into_slice()),

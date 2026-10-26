@@ -60,19 +60,19 @@ pub mod arena {
 
     impl<'a> Expanded<'a> {
       pub fn uzz(&self) -> &'a [i64] {
-        self.uzz.get()
+        self.uzz.as_slice()
       }
       pub fn ub(&self) -> &'a [bool] {
-        self.ub.get()
+        self.ub.as_slice()
       }
       pub fn uk(&self) -> &'a [super::super::common::xp::expanded::Kind] {
-        self.uk.get()
+        self.uk.as_slice()
       }
       pub fn ufx(&self) -> &'a [u64] {
-        self.ufx.get()
+        self.ufx.as_slice()
       }
       pub fn usf(&self) -> &'a [i32] {
-        self.usf.get()
+        self.usf.as_slice()
       }
     }
     #[cfg(feature = "serde")]

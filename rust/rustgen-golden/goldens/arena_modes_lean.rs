@@ -98,7 +98,7 @@ pub mod arena {
 
     impl<'a> Blob<'a> {
       pub fn payload(&self) -> ::core::option::Option<&'a [u8]> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.payload.get())
+        ((self.rp_presence & (1 << 0)) != 0).then_some(self.payload.as_slice())
       }
       pub fn kind(&self) -> ::core::option::Option<super::super::common::fm::blob::Kind> {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.kind)
@@ -132,15 +132,15 @@ pub mod arena {
       keep: i32,
       must: i32,
       big_num: i32,
-      blob: ::core::option::Option<&'a [u8]>,
-      blobs: &'a [&'a [u8]],
+      blob: ::core::option::Option<::rapidproto::PackedSlice<'a, u8>>,
+      blobs: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedSlice<'a, u8>>,
       samples: ::rapidproto::PackedSlice<'a, i32>,
       spread: ::rapidproto::PackedSlice<'a, i32>,
       level: super::super::common::fm::Level,
-      req_blob: ::core::option::Option<&'a [u8]>,
-      grp: ::core::option::Option<&'a [u8]>,
+      req_blob: ::core::option::Option<::rapidproto::PackedSlice<'a, u8>>,
+      grp: ::core::option::Option<::rapidproto::PackedSlice<'a, u8>>,
       rp_presence: u8,
-      by_name: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, Blob<'a>>,
+      by_name: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, Blob<'a>>,
     }
 
     impl<'a> Holder<'a> {
@@ -154,27 +154,27 @@ pub mod arena {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.big_num)
       }
       pub fn blob(&self) -> ::core::option::Option<&'a [u8]> {
-        self.blob
+        self.blob.map(::rapidproto::PackedSlice::as_slice)
       }
-      pub fn blobs(&self) -> &'a [&'a [u8]] {
-        self.blobs
+      pub fn blobs(&self) -> &'a [::rapidproto::PackedSlice<'a, u8>] {
+        self.blobs.as_slice()
       }
       pub fn samples(&self) -> &'a [i32] {
-        self.samples.get()
+        self.samples.as_slice()
       }
       pub fn spread(&self) -> &'a [i32] {
-        self.spread.get()
+        self.spread.as_slice()
       }
       pub fn level(&self) -> ::core::option::Option<super::super::common::fm::Level> {
         ((self.rp_presence & (1 << 2)) != 0).then_some(self.level)
       }
       pub fn req_blob(&self) -> ::core::option::Option<&'a [u8]> {
-        self.req_blob
+        self.req_blob.map(::rapidproto::PackedSlice::as_slice)
       }
       pub fn grp(&self) -> ::core::option::Option<&'a [u8]> {
-        self.grp
+        self.grp.map(::rapidproto::PackedSlice::as_slice)
       }
-      pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, Blob<'a>> {
+      pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, Blob<'a>> {
         self.by_name
       }
     }
@@ -575,7 +575,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
           let mut rp_val: ::core::option::Option<Blob<'a>> = ::core::option::Option::None;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -601,7 +601,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                rp_key = ::rapidproto::PackedStr::new(rp_p);
               }
               18u32 => {
                 if rp_val.is_some() {
@@ -699,7 +699,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_8.push(rp_p).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_8.push(::rapidproto::PackedSlice::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             72u32 => {
               let mut rp_v = 0u64;
@@ -772,7 +772,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
               let mut rp_val: ::core::option::Option<Blob<'a>> = ::core::option::Option::None;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -798,7 +798,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::PackedStr::new(rp_p);
                   }
                   18u32 => {
                     if rp_val.is_some() {
@@ -843,13 +843,13 @@ pub mod arena {
           keep: rp_field_1,
           must: rp_field_5,
           big_num: rp_field_6,
-          blob: rp_field_7,
-          blobs: rp_acc_8.into_slice(),
+          blob: rp_field_7.map(::rapidproto::PackedSlice::new),
+          blobs: ::rapidproto::PackedSlice::new(rp_acc_8.into_slice()),
           samples: ::rapidproto::PackedSlice::new(rp_acc_9.into_slice()),
           spread: ::rapidproto::PackedSlice::new(rp_acc_10.into_slice()),
           level: rp_field_12,
-          req_blob: rp_field_13,
-          grp: rp_field_14,
+          req_blob: rp_field_13.map(::rapidproto::PackedSlice::new),
+          grp: rp_field_14.map(::rapidproto::PackedSlice::new),
           rp_presence,
           by_name: ::rapidproto::MapView::new(rp_map_11.into_slice()),
         }))
