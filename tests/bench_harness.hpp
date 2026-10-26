@@ -352,8 +352,12 @@ inline Stat stat(std::vector<double> v) {
 // (the OSM file pass costs seconds): the defaults would terminate them after ~2 rounds with a
 // CI computed from nothing. A round long enough to miss the first convergence check (a whole pool
 // pass) stretches the budget on its own, up to 20 s.
+inline constexpr double kDefaultBudgetNs = 3.0e9;
+// A pool sweep's sample is a whole pass that already averages 8-64 buffers, so its ratios settle in
+// fewer rounds; the lower minimum halves the cost of its long rounds.
+inline constexpr std::size_t kPoolMinRounds = 10;
 [[nodiscard]] inline int run(const char* scenario, double byte_size, const std::vector<Arm>& arms,
-                             double budget_ns = 3.0e9, std::size_t min_rounds = 30) {
+                             double budget_ns = kDefaultBudgetNs, std::size_t min_rounds = 30) {
     if (!scenario_selected(scenario)) {
         return 0;
     }
