@@ -459,7 +459,7 @@ unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
 ///
 /// # Safety
 /// `out` must have room for at least `span.len()` elements (the element-count upper bound).
-#[inline]
+#[inline(always)]
 unsafe fn decode_scalar<T, F: FnMut(u64) -> T>(
     span: &[u8],
     out: *mut T,
