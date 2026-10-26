@@ -589,42 +589,36 @@ int sweep_repeated_varint() {
             if (!rpbench::scenario_selected(name.c_str())) {
                 continue;
             }
-            // Distinct-seed pool, rotated so no arm replays one memorized width sequence
-            // (arithmetic + rationale: bench_varint.hpp).
+            // Distinct-seed pool, decoded whole per sample so no arm replays one memorized width
+            // sequence (arithmetic + rationale: bench_varint.hpp).
             const rpbench::VarintPool built =
                 rpbench::load_varint_pool(rpbench::payload_stem(name), dist, count);
             const std::vector<std::string>& pool = built.buffers;
-            const double avg_bytes = built.avg_bytes;
             std::vector<rapidproto::ByteView> views;
             views.reserve(pool.size());
             for (const auto& b : pool) {
                 views.emplace_back(b);  // pool strings are stable (fully built, no realloc)
             }
             rapidproto::Arena warm;
-            // Each arm keeps its own rotation index; the harness calls every arm the same number of
-            // times, so all indices stay in lockstep and the per-round checksum cross-check still holds.
             std::vector<rpbench::Arm> arms = {
+                // Lambdas, not function pointers: every arm calls its decode directly.
                 {"protoc",
-                 [&, i = 0]() mutable {
-                     return rpbaseline::protoc_big(
-                         pool[static_cast<std::size_t>(i++) % pool.size()]);
-                 }},
-                {"arena-warm",
-                 [&, i = 0]() mutable {
-                     const rapidproto::ByteView& view =
-                         views[static_cast<std::size_t>(i++) % views.size()];
-                     warm.reset();
-                     return checksum_big_arena(rp::arena::bench::Big::decode(view, warm));
-                 }},
+                 rpbench::pool_pass(
+                     pool, [](const std::string& b) { return rpbaseline::protoc_big(b); })},
+                {"arena-warm", rpbench::pool_pass(views,
+                                                  [&](rapidproto::ByteView view) {
+                                                      warm.reset();
+                                                      return checksum_big_arena(
+                                                          rp::arena::bench::Big::decode(view,
+                                                                                        warm));
+                                                  })},
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
                 {"protozero",
-                 [&, i = 0]() mutable {
-                     return rpbaseline::protozero_big(
-                         views[static_cast<std::size_t>(i++) % views.size()]);
-                 }},
+                 rpbench::pool_pass(
+                     views, [](rapidproto::ByteView b) { return rpbaseline::protozero_big(b); })},
 #endif
             };
-            bad += rpbench::run(name.c_str(), avg_bytes, arms);
+            bad += rpbench::run(name.c_str(), built.total_bytes, arms);
         }
     }
     return bad;
@@ -652,7 +646,6 @@ int sweep_repeated_varint_types() {
         const rpbench::VarintPool built =
             rpbench::load_varint_pool(rpbench::payload_stem(name), dist, kTypeCount, field_number);
         const std::vector<std::string>& pool = built.buffers;
-        const double avg_bytes = built.avg_bytes;
         std::vector<rapidproto::ByteView> views;
         views.reserve(pool.size());
         for (const auto& b : pool) {
@@ -661,24 +654,19 @@ int sweep_repeated_varint_types() {
         rapidproto::Arena warm;
         std::vector<rpbench::Arm> arms = {
             {"protoc",
-             [&, i = 0]() mutable {
-                 return protoc_sum(pool[static_cast<std::size_t>(i++) % pool.size()]);
-             }},
-            {"arena-warm",
-             [&, i = 0]() mutable {
-                 const rapidproto::ByteView& view =
-                     views[static_cast<std::size_t>(i++) % views.size()];
-                 warm.reset();
-                 return arena_sum(rp::arena::bench::Big::decode(view, warm));
-             }},
+             rpbench::pool_pass(pool, [&](const std::string& b) { return protoc_sum(b); })},
+            {"arena-warm", rpbench::pool_pass(views,
+                                              [&](rapidproto::ByteView view) {
+                                                  warm.reset();
+                                                  return arena_sum(
+                                                      rp::arena::bench::Big::decode(view, warm));
+                                              })},
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
             {"protozero",
-             [&, i = 0]() mutable {
-                 return protozero_sum(views[static_cast<std::size_t>(i++) % views.size()]);
-             }},
+             rpbench::pool_pass(views, [&](rapidproto::ByteView b) { return protozero_sum(b); })},
 #endif
         };
-        return rpbench::run(name.c_str(), avg_bytes, arms);
+        return rpbench::run(name.c_str(), built.total_bytes, arms);
     };
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
     const auto zz_pz = rpbaseline::protozero_big_zz;

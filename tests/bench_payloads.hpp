@@ -98,12 +98,10 @@ inline VarintPool load_varint_pool(const std::string& stem, const VarintDist& di
         std::exit(1);
     }
     VarintPool pool;
-    double total_bytes = 0;
     for (long i = 0; i < n; ++i) {
         pool.buffers.push_back(read_payload((pool_dir / (std::to_string(i) + ".bin")).string()));
-        total_bytes += static_cast<double>(pool.buffers.back().size());
+        pool.total_bytes += static_cast<double>(pool.buffers.back().size());
     }
-    pool.avg_bytes = total_bytes / static_cast<double>(n);
     return pool;
 }
 

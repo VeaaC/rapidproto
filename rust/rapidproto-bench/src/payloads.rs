@@ -12,8 +12,8 @@
 //! <dir>/external/<stem>.sum  the C++ arms' checksum over that input (rapidproto_arena_bench)
 //! ```
 //!
-//! The varint sweeps decode a POOL of distinct-seed buffers per scenario, rotated one decode per call,
-//! so no arm replays one memorized width sequence (the C++ rationale, `tests/bench_varint.hpp`). Their
+//! The varint sweeps decode a POOL of distinct-seed buffers per scenario, in whole passes, so no arm
+//! replays one memorized width sequence (the C++ rationale, `tests/bench_varint.hpp`). Their
 //! scenario names and axes are mirrored here from that header: the names must match the C++ tables.
 //!
 //! A real-world dataset's input exists only when the C++ bench was built with that dataset fetched

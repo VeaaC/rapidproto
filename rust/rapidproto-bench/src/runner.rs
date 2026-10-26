@@ -8,18 +8,18 @@
 //! - drop the input before the next scenario (a sweep pool is up to ~80 MB).
 //!
 //! Timing: `ROUNDS` samples per arm. Within a round every supported arm runs once, in an order rotated
-//! per round to cancel slot bias, and an arm's cost is its median sample. A sample is `inner`
-//! consecutive decode calls (a pool's calls rotate over its buffers, all arms in lockstep), `inner`
-//! calibrated so the baseline's sample takes ~10 ms. Throughput is [`Inputs::bytes`] over the median
+//! per round to cancel slot bias, and an arm's cost is its median sample. A sample is whole passes over
+//! the scenario's buffers, as many as make the baseline's sample take ~10 ms: a median is only
+//! meaningful when every sample is the same workload. Throughput is [`Inputs::bytes`] over the median
 //! time per call, in decimal GB/s as the C++ benches print. There are no in-process counters: read
 //! instructions/byte with `perf stat -e instructions:u` over the `perf_*` examples.
 //!
-//! Comparing with C++: the C++ harness times every call separately (two clock reads and a
-//! `std::function` call, ~20 ns per sample) and adds rounds until its ratios are significant; this
-//! runner times ~10 ms batches over a fixed number of rounds. On the sweeps' `rv <dist> 10` and `100`
-//! rows the C++ per-call overhead dominates its GB/s and ins/B, so a Rust/C++ ratio there compares the
-//! harnesses, not the decoders. The NDJSON `cpp_scenario` and `cpp_arm` name the C++ row a record
-//! corresponds to (null where C++ has none); `vs_base_pct` compares arms within this runner only.
+//! Comparing with C++: the C++ harness times one call per sample (two clock reads and a
+//! `std::function` call, ~20 ns), a pool's call being one pass over all its buffers, and adds rounds
+//! until its ratios are significant; this runner times batches of at least ~10 ms over a fixed number
+//! of rounds. On a small single buffer the C++ per-call overhead still weighs on its GB/s and ins/B.
+//! The NDJSON `cpp_scenario` and `cpp_arm` name the C++ row a record corresponds to (null where C++
+//! has none); `vs_base_pct` compares arms within this runner only.
 //!
 //! Run discipline, or the numbers lie: pinned (`taskset -c N`), aligned (`RUSTFLAGS=
 //! "-Cllvm-args=-align-all-functions=6"`, so an unrelated edit relaying the binary does not move
@@ -31,7 +31,8 @@
 //! NDJSON line per measurement (`cyc_b`/`ins_b` are null) and one `rec:"mem"` line per memory report;
 //! `RAPIDPROTO_BENCH_ONLY=<substring>` run only the scenarios whose Rust or C++ name contains it;
 //! `ARMS` a comma-separated arm allowlist (arm 0, the baseline, is always kept); `ITERS` decode calls
-//! per sample (default: calibrated); `ROUNDS` samples per arm (default 20).
+//! per sample, rounded up to whole pool passes (default: calibrated); `ROUNDS` samples per arm
+//! (default 20).
 
 use std::hint::black_box;
 use std::path::PathBuf;
@@ -138,36 +139,37 @@ fn pool_checksum(f: &mut Decode, inputs: &Inputs) -> u64 {
 // The baseline sample's target duration when `ITERS` is unset.
 const TARGET_SAMPLE_NS: f64 = 10e6;
 
-/// Decode calls per sample: `ITERS`, else enough for the baseline's sample to take ~10 ms.
+/// Passes over the buffers per sample: enough for `ITERS` decode calls, else for the baseline's sample
+/// to take ~10 ms. Whole passes, so every sample of a pool is the same workload.
 fn calibrate(base: &mut Decode, inputs: &Inputs, fixed: Option<usize>) -> usize {
-    if let Some(n) = fixed {
-        return n.max(1);
-    }
     let n = inputs.buffers.len();
-    let t0 = Instant::now();
-    let mut acc = 0u64;
-    for b in &inputs.buffers {
-        acc = acc.wrapping_add(base(black_box(b)));
-    }
-    black_box(acc);
-    let per_call = t0.elapsed().as_nanos() as f64 / n as f64;
-    ((TARGET_SAMPLE_NS / per_call.max(1.0)).ceil() as usize).clamp(1, 10_000_000)
+    let calls = fixed.unwrap_or_else(|| {
+        let t0 = Instant::now();
+        let mut acc = 0u64;
+        for b in &inputs.buffers {
+            acc = acc.wrapping_add(base(black_box(b)));
+        }
+        black_box(acc);
+        let per_call = t0.elapsed().as_nanos() as f64 / n as f64;
+        ((TARGET_SAMPLE_NS / per_call.max(1.0)).ceil() as usize).clamp(1, 10_000_000)
+    });
+    calls.max(1).div_ceil(n)
 }
 
 /// Median ns per decode call for each arm (`None` for an arm unsupported for this scenario).
-fn measure(arms: &mut [Arm], inputs: &Inputs, rounds: usize, inner: usize) -> Vec<Option<f64>> {
+fn measure(arms: &mut [Arm], inputs: &Inputs, rounds: usize, passes: usize) -> Vec<Option<f64>> {
     let sup: Vec<usize> = (0..arms.len())
         .filter(|&i| arms[i].is_supported())
         .collect();
     let m = sup.len();
     let bufs = &inputs.buffers;
-    // Each arm's own rotation index; every arm makes the same number of calls, so all stay in lockstep.
-    let mut at = vec![0usize; arms.len()];
+    let calls = passes * bufs.len();
     for &i in &sup {
         let f = arms[i].decoder().unwrap();
         for _ in 0..3 {
-            black_box(f(black_box(&bufs[at[i] % bufs.len()])));
-            at[i] += 1;
+            for b in bufs {
+                black_box(f(black_box(b)));
+            }
         }
     }
     let mut samples: Vec<Vec<f64>> = vec![Vec::with_capacity(rounds); arms.len()];
@@ -177,11 +179,12 @@ fn measure(arms: &mut [Arm], inputs: &Inputs, rounds: usize, inner: usize) -> Ve
             let f = arms[idx].decoder().unwrap();
             let t0 = Instant::now();
             let mut acc = 0u64;
-            for _ in 0..inner {
-                acc = acc.wrapping_add(f(black_box(&bufs[at[idx] % bufs.len()])));
-                at[idx] += 1;
+            for _ in 0..passes {
+                for b in bufs {
+                    acc = acc.wrapping_add(f(black_box(b)));
+                }
             }
-            let ns = t0.elapsed().as_nanos() as f64 / inner as f64;
+            let ns = t0.elapsed().as_nanos() as f64 / calls as f64;
             black_box(acc);
             samples[idx].push(ns);
         }
@@ -365,8 +368,8 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
             continue;
         }
         let base = arms[0].decoder().expect("baseline arm must be supported");
-        let inner = calibrate(base, &inputs, opts.inner);
-        let meds = measure(&mut arms, &inputs, opts.rounds, inner);
+        let passes = calibrate(base, &inputs, opts.inner);
+        let meds = measure(&mut arms, &inputs, opts.rounds, passes);
         let base_gbs = bytes / meds[0].expect("baseline arm must be supported");
         for (i, a) in arms.iter().enumerate() {
             let ub = (report.ub)(name, a.name);

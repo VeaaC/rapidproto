@@ -738,8 +738,8 @@ int run_arm() {
                  return ok ? h : 0;
              }},
         };
-        // Wider budget than the default: one round costs ~1s here, and the default 3s budget
-        // would terminate before the CI means anything.
+        // ~1 s per round: the default budget stops right after the first convergence check (9
+        // rounds); this one allows a second.
         const int r =
             rpbench::run("osm_blocks", static_cast<double>(data.payload_bytes), arms, 20.0e9, 8);
         if (r < 0) {
@@ -774,7 +774,8 @@ int run_arm() {
             {"libosmium", [&]() { return osmium_file_sum(data.file); },
              /*threaded=*/true},  // its reader decompresses/parses on worker threads
         };
-        // ~1.7s per round: without a wider budget the default terminates after two rounds.
+        // ~1.7 s per round: the default budget stops right after the first convergence check (9
+        // rounds); this one allows a second.
         const int r =
             rpbench::run("osm_file", static_cast<double>(data.file.size()), arms, 30.0e9, 8);
         if (r < 0) {
