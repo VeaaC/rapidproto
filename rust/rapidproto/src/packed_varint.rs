@@ -314,11 +314,13 @@ unsafe fn fixed_fill_wide<const W: usize, T, F: FnMut(u64) -> T>(
 
 /// Decode a whole packed-varint span into `out`, applying `conv` per raw value. Returns the element
 /// count, or `(kind, offset-within-span)` on a malformed varint. Mirror of C++
-/// `decode_packed_varints`. Out-of-line (the kernel is large): only spans `>= KERNEL_MIN_SPAN` reach
-/// it; smaller spans take the inline [`decode_scalar`] directly from `fill_packed_varints`.
+/// `decode_packed_varints`. Kept out of line, as C++ does with `RP_NOINLINE`: the kernel is large,
+/// and only spans `>= KERNEL_MIN_SPAN` reach it. Smaller spans take [`decode_scalar`], inlined into
+/// `fill_packed_varints`.
 ///
 /// # Safety
 /// `out` must have room for at least `span.len()` elements (the element-count upper bound).
+#[inline(never)]
 unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
     span: &[u8],
     out: *mut T,
@@ -451,14 +453,13 @@ unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
     Ok(n + tail)
 }
 
-/// The validating scalar varint loop over a whole span -- both the small-span path (kept `#[inline]`
-/// so it folds into the generated decoder for tiny packed fields, with no out-of-line call to
-/// amortize) and the remainder tail of [`decode_kernel`]. Returns the element count or
+/// The validating scalar varint loop over a whole span: the small-span path of `fill_packed_varints`,
+/// which it inlines into, and the remainder tail of [`decode_kernel`]. Returns the element count or
 /// `(kind, offset-within-span)`.
 ///
 /// # Safety
 /// `out` must have room for at least `span.len()` elements (the element-count upper bound).
-#[inline]
+#[inline(always)]
 unsafe fn decode_scalar<T, F: FnMut(u64) -> T>(
     span: &[u8],
     out: *mut T,
@@ -469,9 +470,19 @@ unsafe fn decode_scalar<T, F: FnMut(u64) -> T>(
     let mut q = begin;
     let mut n = 0usize;
     while q < end {
-        let (raw, next) = unsafe { read_one(q, end) }
-            .map_err(|k| (k, unsafe { q.offset_from(begin) as usize }))?;
-        q = next;
+        // A 1-byte value is read here directly; `read_one`'s slice-based reader would re-check the
+        // remaining length and bound the advance on every element.
+        // SAFETY: `q < end`, so one byte is readable and `q + 1 <= end`.
+        let b = unsafe { *q };
+        let raw = if b < 0x80 {
+            q = unsafe { q.add(1) };
+            u64::from(b)
+        } else {
+            let (raw, next) = unsafe { read_one(q, end) }
+                .map_err(|k| (k, unsafe { q.offset_from(begin) as usize }))?;
+            q = next;
+            raw
+        };
         unsafe { put(out, n, raw, conv) };
         n += 1;
     }
@@ -486,6 +497,8 @@ impl<'a, T> DecodeVec<'a, T> {
     /// kernel (large spans) or the scalar loop (small spans), then trims the over-estimate -- the
     /// Rust mirror of the C++ decoder's `emit_packed_fill` + `decode_packed_varints`. Generated
     /// decoders call this for every packed-varint field; the only `unsafe` stays here, not in them.
+    // A plain `#[inline]`: forcing this into the generated decoders measured slower on small packed
+    // arrays.
     #[inline]
     pub fn fill_packed_varints<F>(
         &mut self,
@@ -699,6 +712,17 @@ mod tests {
             span.resize(span.len() + left, 0x80);
             assert_eq!(decode_err(&span), (ErrorKind::Truncated, truncated_at));
         }
+    }
+
+    #[test]
+    fn scalar_loop_reports_offset_after_one_byte_values() {
+        // A small span (the scalar loop) whose bad varint follows 1-byte values: it is reported at
+        // its own offset.
+        assert_eq!(decode_err(&[1, 2, 0x80]), (ErrorKind::Truncated, 2));
+        let mut span = alloc::vec![5, 0x7f];
+        span.resize(span.len() + 9, 0xff);
+        span.push(0x02);
+        assert_eq!(decode_err(&span), (ErrorKind::VarintOverflow, 2));
     }
 
     #[test]
