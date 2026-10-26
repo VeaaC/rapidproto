@@ -471,7 +471,7 @@ unsafe fn decode_scalar<T, F: FnMut(u64) -> T>(
     while q < end {
         // A 1-byte value is read here directly; `read_one`'s slice-based reader would re-check the
         // remaining length and bound the advance on every element.
-        // SAFETY: `q < end`, so one byte is readable.
+        // SAFETY: `q < end`, so one byte is readable and `q + 1 <= end`.
         let b = unsafe { *q };
         let raw = if b < 0x80 {
             q = unsafe { q.add(1) };
@@ -709,6 +709,17 @@ mod tests {
             span.resize(span.len() + left, 0x80);
             assert_eq!(decode_err(&span), (ErrorKind::Truncated, truncated_at));
         }
+    }
+
+    #[test]
+    fn scalar_loop_reports_offset_after_one_byte_values() {
+        // A small span (the scalar loop) whose bad varint follows 1-byte values: it is reported at
+        // its own offset.
+        assert_eq!(decode_err(&[1, 2, 0x80]), (ErrorKind::Truncated, 2));
+        let mut span = alloc::vec![5, 0x7f];
+        span.resize(span.len() + 9, 0xff);
+        span.push(0x02);
+        assert_eq!(decode_err(&span), (ErrorKind::VarintOverflow, 2));
     }
 
     #[test]

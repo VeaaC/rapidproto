@@ -13,8 +13,9 @@
 //! allocation, or hitting [`set_capacity_limit`](Arena::set_capacity_limit), becomes `Err`, not an
 //! abort. The hot path is a pointer bump; growth touches the chunk list.
 //!
-//! The bump path uses `pointer::align_offset` + `pointer::add` + `pointer::addr` only, with no
-//! integer-to-pointer casts, so it is sound under Miri's strict-provenance model.
+//! The bump path does its padding and bounds arithmetic on `pointer::addr` and forms pointers only
+//! with `pointer::add`, with no integer-to-pointer casts, so it is sound under Miri's
+//! strict-provenance model.
 
 use core::cell::Cell;
 use core::marker::PhantomData;
@@ -81,11 +82,18 @@ pub struct Arena<'buf> {
     _marker: PhantomData<&'buf mut [u8]>,
 }
 
+/// The padding from `addr` up to the next multiple of `align`, which must be a power of two.
+#[inline(always)]
+fn align_pad(addr: usize, align: usize) -> usize {
+    debug_assert!(align.is_power_of_two());
+    addr.wrapping_neg() & (align - 1)
+}
+
 // Compute the usable, MAX_ALIGN-aligned sub-range of `[base, base+len)`. Returns `None` if the
 // buffer is too small to carry an aligned region.
 fn aligned_region(base: *mut u8, len: usize) -> Option<(NonNull<u8>, NonNull<u8>)> {
-    let pad = base.align_offset(MAX_ALIGN);
-    if pad == usize::MAX || pad >= len {
+    let pad = align_pad(base.addr(), MAX_ALIGN);
+    if pad >= len {
         return None;
     }
     // SAFETY: `pad < len`, so `base + pad` is in bounds and `base + len` is one past the end.
@@ -138,7 +146,7 @@ impl<'buf> Arena<'buf> {
     /// with `Err` rather than aborting (generated code only ever passes `align_of`).
     // `#[inline(always)]`: every decoded sub-message and array allocates here, so the bump fast path
     // inlines into the decoder (with `align` a constant there, the checks fold); a grow takes the cold
-    // out-of-line slow path. The C++ arena inlines its bump the same way.
+    // out-of-line slow path. The C++ decoder inlines its bump too, through `RP_FLATTEN`.
     #[inline(always)]
     pub fn alloc_bytes(&self, bytes: usize, align: usize) -> Result<NonNull<u8>, ArenaExhausted> {
         if !align.is_power_of_two() {
@@ -309,8 +317,7 @@ impl<'buf> Arena<'buf> {
         // Provenance-clean: `addr()` for the arithmetic, `add()` for the actual pointer. `cur <=
         // limit` is an invariant, so this never underflows.
         let avail = limit.addr() - cur.addr();
-        // The padding up to the next multiple of the power-of-two `align`.
-        let pad = cur.addr().wrapping_neg() & (align - 1);
+        let pad = align_pad(cur.addr(), align);
         if pad > avail || bytes > avail - pad {
             return None;
         }
@@ -400,9 +407,9 @@ impl<'buf> Arena<'buf> {
 #[cfg(feature = "alloc")]
 fn chunk_fits(c: &Chunk, bytes: usize, align: usize) -> bool {
     let data = c.data.as_ptr();
-    let pad = data.align_offset(align);
+    let pad = align_pad(data.addr(), align);
     let avail = c.limit.as_ptr().addr() - data.addr();
-    pad != usize::MAX && pad <= avail && bytes <= avail - pad
+    pad <= avail && bytes <= avail - pad
 }
 
 /// Heap-only constructors, available only when an allocator is present.
