@@ -7,6 +7,8 @@
 //!   `alloc`, and `no_std` with no allocator (a caller-seeded fixed buffer). Allocation is
 //!   fallible and never panics.
 //! - [`ProtoStr`] — a borrowed `string` field; the caller chooses whether/how to validate UTF-8.
+//! - [`PackedSlice`] / [`PackedStr`] — the 12-byte cells decoded messages store slices and
+//!   strings in; they deref to `[T]` and [`ProtoStr`].
 //! - [`MapView`] — a borrowed view over a `map` field's entries.
 //! - [`DecodeError`] / [`ErrorKind`] — the error returned by generated `decode` entry points.
 //! - [`wire`] — the wire-decode primitives (varint, fixed, length-delimited, tag, skip) generated
@@ -37,6 +39,7 @@ mod error;
 mod map;
 #[cfg(feature = "alloc")]
 mod owned;
+mod packed_slice;
 mod packed_varint;
 mod proto_str;
 #[cfg(feature = "serde")]
@@ -56,7 +59,8 @@ pub use error::{DecodeError, ErrorKind};
 pub use map::MapView;
 #[cfg(feature = "alloc")]
 pub use owned::{decode_owned, ArenaDecode, Owned};
-pub use proto_str::ProtoStr;
+pub use packed_slice::PackedSlice;
+pub use proto_str::{PackedStr, ProtoStr};
 
 /// Re-export of the standard `Box` (only with `alloc`), so a generated `decode_owned` can name
 /// `::rapidproto::Box<[u8]>` without the consumer crate spelling an `alloc`/`std` path itself.
@@ -77,7 +81,7 @@ pub use alloc::boxed::Box;
 ///
 /// # Safety of the emitted `unsafe impl`
 /// A generated message borrows the input/arena only through shared `&'a` references (scalars,
-/// `ProtoStr`, slices, `MapView`, by-value or `&` sub-messages): it is covariant in `'a`,
+/// `PackedStr`, `PackedSlice`, `MapView`, by-value or `&` sub-messages): it is covariant in `'a`,
 /// layout-identical at every lifetime, and free of interior mutability over the borrow — exactly
 /// [`ArenaDecode`]'s contract. Only invoke this for a type with those properties (every `rustgen`
 /// message has them).

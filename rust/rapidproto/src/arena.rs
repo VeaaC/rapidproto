@@ -152,8 +152,8 @@ impl<'buf> Arena<'buf> {
     /// overlap, which is what makes it sound (verified under Miri's Stacked/Tree Borrows).
     ///
     /// The arena never runs `T`'s destructor, so `T` must not own resources that need `Drop`.
-    /// Decoded values are borrowed or plain data (scalars, `&[T]`, `ProtoStr`, `MapView`), so this
-    /// holds; do not arena-allocate a `Drop` type.
+    /// Decoded values are borrowed or plain data (scalars, `PackedSlice`, `PackedStr`, `MapView`),
+    /// so this holds; do not arena-allocate a `Drop` type.
     #[allow(clippy::mut_from_ref)]
     pub fn alloc<T>(&self, val: T) -> Result<&mut T, ArenaExhausted> {
         let p = self

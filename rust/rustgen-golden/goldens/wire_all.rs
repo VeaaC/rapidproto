@@ -12,10 +12,10 @@ pub mod arena {
       zz: i64,
       db: f64,
       fx: u32,
-      s: ::rapidproto::ProtoStr<'a>,
-      by: &'a [u8],
+      s: ::rapidproto::PackedStr<'a>,
+      by: ::rapidproto::PackedSlice<'a, u8>,
       nested: ::core::option::Option<&'a AllWire<'a>>,
-      packed: &'a [i32],
+      packed: ::rapidproto::PackedSlice<'a, i32>,
       g: all_wire::G<'a>,
       rp_presence: u8,
       pick: ::core::option::Option<all_wire::Pick<'a>>,
@@ -31,17 +31,17 @@ pub mod arena {
       pub fn fx(&self) -> ::core::option::Option<u32> {
         ((self.rp_presence & (1 << 2)) != 0).then_some(self.fx)
       }
-      pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 3)) != 0).then_some(self.s)
+      pub fn s(&self) -> ::core::option::Option<&'a ::rapidproto::ProtoStr> {
+        ((self.rp_presence & (1 << 3)) != 0).then_some(self.s.get())
       }
       pub fn by(&self) -> ::core::option::Option<&'a [u8]> {
-        ((self.rp_presence & (1 << 4)) != 0).then_some(self.by)
+        ((self.rp_presence & (1 << 4)) != 0).then_some(self.by.as_slice())
       }
       pub fn nested(&self) -> ::core::option::Option<&'a AllWire<'a>> {
         self.nested
       }
       pub fn packed(&self) -> &'a [i32] {
-        self.packed
+        self.packed.as_slice()
       }
       pub fn g(&self) -> ::core::option::Option<&all_wire::G<'a>> {
         ((self.rp_presence & (1 << 5)) != 0).then_some(&self.g)
@@ -114,7 +114,7 @@ pub mod arena {
     pub mod all_wire {
       pub enum Pick<'a> {
         Oi(i32),
-        Os(::rapidproto::ProtoStr<'a>),
+        Os(::rapidproto::PackedStr<'a>),
       }
 
       #[derive(Default)]
@@ -238,7 +238,7 @@ pub mod arena {
         let mut rp_field_1: i64 = 0;
         let mut rp_field_2: f64 = 0.0;
         let mut rp_field_3: u32 = 0;
-        let mut rp_field_4: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+        let mut rp_field_4: &'a [u8] = &[];
         let mut rp_field_5: &'a [u8] = &[];
         let mut rp_field_6: ::core::option::Option<&'a AllWire<'a>> = ::core::option::Option::None;
         let mut rp_acc_7 = ::rapidproto::DecodeVec::new(rp_arena);
@@ -282,7 +282,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_4 = ::rapidproto::ProtoStr::new(rp_p);
+          rp_field_4 = rp_p;
           rp_presence |= 1 << 3;
         }
         if rp_rest.first() == ::core::option::Option::Some(&42u8) {
@@ -341,7 +341,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(all_wire::Pick::Os(::rapidproto::ProtoStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(all_wire::Pick::Os(::rapidproto::PackedStr::new(rp_p)));
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -393,7 +393,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_4 = ::rapidproto::ProtoStr::new(rp_p);
+              rp_field_4 = rp_p;
               rp_presence |= 1 << 3;
             }
             42u32 => {
@@ -458,7 +458,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(all_wire::Pick::Os(::rapidproto::ProtoStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(all_wire::Pick::Os(::rapidproto::PackedStr::new(rp_p)));
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -472,10 +472,10 @@ pub mod arena {
           zz: rp_field_1,
           db: rp_field_2,
           fx: rp_field_3,
-          s: rp_field_4,
-          by: rp_field_5,
+          s: ::rapidproto::PackedStr::new(rp_field_4),
+          by: ::rapidproto::PackedSlice::new(rp_field_5),
           nested: rp_field_6,
-          packed: rp_acc_7.into_slice(),
+          packed: ::rapidproto::PackedSlice::new(rp_acc_7.into_slice()),
           g: rp_field_8,
           rp_presence,
           pick: rp_oneof_0,
@@ -508,7 +508,7 @@ pub mod stream {
       fn on_fx(&mut self, _rp_v: u32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_s: bool = false;
       #[inline(always)]
-      fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_by: bool = false;
       #[inline(always)]
       fn on_by(&mut self, _rp_v: &'a [u8]) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -526,7 +526,7 @@ pub mod stream {
       fn on_oi(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_os: bool = false;
       #[inline(always)]
-      fn on_os(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_os(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -931,13 +931,13 @@ pub mod stream {
       (@f [$($a:tt)*] zz => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_zz on_zz: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] db => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_db on_db: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] fx => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_fx on_fx: ::core::primitive::u32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_s on_s: rp_mod_4wire7AllWire::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_s on_s: &'rp_a rp_mod_4wire7AllWire::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] by => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_by on_by: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
       (@f [$($a:tt)*] nested => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_nested on_nested: rp_mod_4wire7AllWire::AllWire<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] packed => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_packed on_packed: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] g => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_g on_g: rp_mod_4wire7AllWire::rp_stream_ty_0<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] oi => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_oi on_oi: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] os => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_os on_os: rp_mod_4wire7AllWire::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] os => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_os on_os: &'rp_a rp_mod_4wire7AllWire::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_4wire7AllWire::all_wire_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_4wire7AllWire::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: zz, db, fx, s, by, nested, packed, g, oi, os, unknown")) };
       (@f $a:tt) => { rp_mod_4wire7AllWire::rp_rt::stream_visitor!(rp_mod_4wire7AllWire AllWireVisitor $a) };

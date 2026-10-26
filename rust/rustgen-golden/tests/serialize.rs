@@ -87,3 +87,21 @@ fn proto3_bytes_valued_map_renders_as_opaque_hex() {
     let msg = Msg::decode(&buf, &arena).unwrap();
     assert_eq!(to_line(msg).unwrap(), r#"{"blobs":{"k":"6869"}}"#);
 }
+
+#[test]
+fn proto3_repeated_and_oneof_strings_and_bytes() {
+    // Elements of a repeated `bytes` field and a `bytes` oneof member serialize as opaque hex too;
+    // a `string` oneof member as its text.
+    let mut buf = Vec::new();
+    put_len(&mut buf, 23, &[0xab]); // pick.e (bytes)
+    put_len(&mut buf, 24, &[0x68, 0x69]); // chunks
+    put_len(&mut buf, 24, &[]);
+    let arena = Arena::new();
+    let msg = Msg::decode(&buf, &arena).unwrap();
+    assert_eq!(to_line(msg).unwrap(), r#"{"chunks":["6869",""],"e":"ab"}"#);
+
+    let mut sbuf = Vec::new();
+    put_len(&mut sbuf, 11, b"txt"); // pick.b (string)
+    let msg = Msg::decode(&sbuf, &arena).unwrap();
+    assert_eq!(to_line(msg).unwrap(), r#"{"b":"txt"}"#);
+}

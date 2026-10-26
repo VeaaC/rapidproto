@@ -19,6 +19,7 @@ file proto3.proto
     field bools num=17 presence=explicit repeated=packed type=bool
     field ratio num=20 presence=implicit type=double
     field scale num=21 presence=implicit type=float
+    field chunks num=24 presence=explicit repeated=expanded type=bytes
     map counts num=9 key=string value=int32
     map flags num=14 key=bool value=string
     map toggles num=18 key=string value=bool
@@ -29,6 +30,7 @@ file proto3.proto
       field b num=11 presence=explicit type=string
       field c num=15 presence=explicit type=bool
       field d num=16 presence=explicit type=double
+      field e num=23 presence=explicit type=bytes
 symbols
   .p3.Msg message
   .p3.State enum

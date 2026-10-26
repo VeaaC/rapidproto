@@ -85,14 +85,14 @@ pub mod arena {
 
   pub mod fm {
     pub struct Blob<'a> {
-      payload: &'a [u8],
+      payload: ::rapidproto::PackedSlice<'a, u8>,
       kind: super::super::common::fm::blob::Kind,
       rp_presence: u8,
     }
 
     impl<'a> Blob<'a> {
       pub fn payload(&self) -> ::core::option::Option<&'a [u8]> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.payload)
+        ((self.rp_presence & (1 << 0)) != 0).then_some(self.payload.as_slice())
       }
       pub fn kind(&self) -> ::core::option::Option<super::super::common::fm::blob::Kind> {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.kind)
@@ -126,18 +126,18 @@ pub mod arena {
       keep: i32,
       debug: i32,
       extra: ::core::option::Option<&'a Blob<'a>>,
-      old_ids: &'a [i32],
+      old_ids: ::rapidproto::PackedSlice<'a, i32>,
       must: i32,
       big_num: i32,
       blob: ::core::option::Option<&'a Blob<'a>>,
-      blobs: &'a [Blob<'a>],
-      samples: &'a [i32],
-      spread: &'a [i32],
+      blobs: ::rapidproto::PackedSlice<'a, Blob<'a>>,
+      samples: ::rapidproto::PackedSlice<'a, i32>,
+      spread: ::rapidproto::PackedSlice<'a, i32>,
       level: super::super::common::fm::Level,
       req_blob: ::core::option::Option<&'a Blob<'a>>,
       grp: holder::Grp<'a>,
       rp_presence: u8,
-      by_name: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, Blob<'a>>,
+      by_name: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, Blob<'a>>,
     }
 
     impl<'a> Holder<'a> {
@@ -151,7 +151,7 @@ pub mod arena {
         self.extra
       }
       pub fn old_ids(&self) -> &'a [i32] {
-        self.old_ids
+        self.old_ids.as_slice()
       }
       pub fn must(&self) -> i32 {
         self.must
@@ -163,13 +163,13 @@ pub mod arena {
         self.blob
       }
       pub fn blobs(&self) -> &'a [Blob<'a>] {
-        self.blobs
+        self.blobs.as_slice()
       }
       pub fn samples(&self) -> &'a [i32] {
-        self.samples
+        self.samples.as_slice()
       }
       pub fn spread(&self) -> &'a [i32] {
-        self.spread
+        self.spread.as_slice()
       }
       pub fn level(&self) -> ::core::option::Option<super::super::common::fm::Level> {
         ((self.rp_presence & (1 << 3)) != 0).then_some(self.level)
@@ -180,7 +180,7 @@ pub mod arena {
       pub fn grp(&self) -> ::core::option::Option<&holder::Grp<'a>> {
         ((self.rp_presence & (1 << 4)) != 0).then_some(&self.grp)
       }
-      pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, Blob<'a>> {
+      pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, Blob<'a>> {
         self.by_name
       }
     }
@@ -458,7 +458,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Blob {
-          payload: rp_field_1,
+          payload: ::rapidproto::PackedSlice::new(rp_field_1),
           kind: rp_field_2,
           rp_presence,
         }))
@@ -633,7 +633,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
           let mut rp_val: ::core::option::Option<Blob<'a>> = ::core::option::Option::None;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -659,7 +659,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                rp_key = ::rapidproto::PackedStr::new(rp_p);
               }
               18u32 => {
                 if rp_val.is_some() {
@@ -880,7 +880,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
               let mut rp_val: ::core::option::Option<Blob<'a>> = ::core::option::Option::None;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -906,7 +906,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::PackedStr::new(rp_p);
                   }
                   18u32 => {
                     if rp_val.is_some() {
@@ -951,13 +951,13 @@ pub mod arena {
           keep: rp_field_1,
           debug: rp_field_2,
           extra: rp_field_3,
-          old_ids: rp_acc_4.into_slice(),
+          old_ids: ::rapidproto::PackedSlice::new(rp_acc_4.into_slice()),
           must: rp_field_5,
           big_num: rp_field_6,
           blob: rp_field_7,
-          blobs: rp_acc_8.into_slice(),
-          samples: rp_acc_9.into_slice(),
-          spread: rp_acc_10.into_slice(),
+          blobs: ::rapidproto::PackedSlice::new(rp_acc_8.into_slice()),
+          samples: ::rapidproto::PackedSlice::new(rp_acc_9.into_slice()),
+          spread: ::rapidproto::PackedSlice::new(rp_acc_10.into_slice()),
           level: rp_field_12,
           req_blob: rp_field_13,
           grp: rp_field_14,
@@ -1179,7 +1179,7 @@ pub mod stream {
       fn on_grp(&mut self, _rp_v: holder::Grp<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_by_name: bool = false;
       #[inline(always)]
-      fn on_by_name(&mut self, _rp_v: (::rapidproto::ProtoStr<'a>, Blob<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_by_name(&mut self, _rp_v: (&'a ::rapidproto::ProtoStr, Blob<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -1483,7 +1483,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             let rp_ent_body: &'a [u8] = rp_p;
-            let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+            let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
             let mut rp_val: &'a [u8] = &[];
             let mut rp_ent: &'a [u8] = rp_ent_body;
             loop {
@@ -1800,7 +1800,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
               let mut rp_val: &'a [u8] = &[];
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -1896,7 +1896,7 @@ pub mod stream {
       (@f [$($a:tt)*] level => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_level on_level: rp_mod_2fm6Holder::rp_stream_ty_1 = $c;] $($r)*) };
       (@f [$($a:tt)*] req_blob => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_req_blob on_req_blob: rp_mod_2fm6Holder::Blob<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] grp => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_grp on_grp: rp_mod_2fm6Holder::rp_stream_ty_2<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] by_name => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_by_name on_by_name: (rp_mod_2fm6Holder::rp_rt::ProtoStr<'rp_a>, rp_mod_2fm6Holder::Blob<'rp_a>) = $c;] $($r)*) };
+      (@f [$($a:tt)*] by_name => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_by_name on_by_name: (&'rp_a rp_mod_2fm6Holder::rp_rt::ProtoStr, rp_mod_2fm6Holder::Blob<'rp_a>) = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2fm6Holder::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2fm6Holder::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: keep, debug, extra, old_ids, must, big_num, blob, blobs, samples, spread, level, req_blob, grp, by_name, unknown")) };
       (@f $a:tt) => { rp_mod_2fm6Holder::rp_rt::stream_visitor!(rp_mod_2fm6Holder HolderVisitor $a) };

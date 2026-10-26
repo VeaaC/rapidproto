@@ -18,7 +18,7 @@ pub fn walk_block(block: &PrimitiveBlock) -> Stats {
     let lat_offset = block.lat_offset().unwrap_or(0);
     let lon_offset = block.lon_offset().unwrap_or(0);
 
-    let strings: &[&[u8]] = block.stringtable().map(|st| st.s()).unwrap_or(&[]);
+    let strings = block.stringtable().map(|st| st.s()).unwrap_or(&[]);
     let mut key_counts = vec![0u64; strings.len()];
     // Tag keys index the stringtable; indexes come off the wire, so bounds-check them (an
     // out-of-range index still counts as a tag, it just names no key).
@@ -98,6 +98,6 @@ pub fn walk_block(block: &PrimitiveBlock) -> Stats {
         }
     }
     stats.blocks = 1;
-    stats.merge_block_keys(&key_counts, |i| strings[i]);
+    stats.merge_block_keys(&key_counts, |i| &strings[i]);
     stats
 }

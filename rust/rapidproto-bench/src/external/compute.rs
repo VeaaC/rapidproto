@@ -22,7 +22,7 @@ pub fn arms() -> Vec<Arm> {
     arena_arms!(Instance, checksum)
 }
 
-fn len(v: Option<ProtoStr>) -> u64 {
+fn len(v: Option<&ProtoStr>) -> u64 {
     v.map_or(0, |v| v.len() as u64)
 }
 

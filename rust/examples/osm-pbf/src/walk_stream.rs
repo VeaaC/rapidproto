@@ -178,7 +178,7 @@ pub fn check_header_stream(payload: &[u8]) -> Result<(), String> {
     let mut unsupported: Option<String> = None;
     HeaderBlock::new(payload)
         .decode(header_block_stream! {
-            required_features => |f: ProtoStr| {
+            required_features => |f: &ProtoStr| {
                 if unsupported.is_none() {
                     let name = String::from_utf8_lossy(f.as_bytes());
                     if !feature_supported(&name) {

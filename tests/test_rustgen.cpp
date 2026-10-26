@@ -388,12 +388,12 @@ TEST_CASE("rustgen arena: message struct with scalar/string/bytes/enum accessors
     CHECK(has(out, "pub struct Rec<'a> {"));
     // Rec borrows the input (string/bytes/repeated), so the struct uses `'a` through a field and
     // carries no PhantomData; it now holds real field storage.
-    CHECK(has(out, "name: ::rapidproto::ProtoStr<'a>,"));
+    CHECK(has(out, "name: ::rapidproto::PackedStr<'a>,"));
     CHECK(!has(out, "_marker"));
     CHECK(has(out, "impl<'a> Rec<'a> {"));
 
     CHECK(has(out, "pub fn key(&self) -> i64 {"));  // proto3 singular -> bare
-    CHECK(has(out, "pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {"));
+    CHECK(has(out, "pub fn name(&self) -> &'a ::rapidproto::ProtoStr {"));
     CHECK(has(out, "pub fn blob(&self) -> &'a [u8] {"));
     CHECK(has(out, "pub fn active(&self) -> bool {"));
     CHECK(has(out,
@@ -466,7 +466,8 @@ TEST_CASE("rustgen: a message named like a primitive gains a `_`") {
         message u8 { bytes b = 1; }
         message M { u8 m = 1; })");
     CHECK(has(out, "pub struct u8_<'a> {"));
-    CHECK(has(out, "b: &'a [u8],"));
+    CHECK(has(out, "b: ::rapidproto::PackedSlice<'a, u8>,"));
+    CHECK(has(out, "pub fn b(&self) -> &'a [u8] {"));
     CHECK_FALSE(has(out, "pub struct u8<"));
 }
 
@@ -515,8 +516,8 @@ TEST_CASE("rustgen arena: repeated fields become borrowed slices") {
           repeated M children = 5;
         })");
     CHECK(has(out, "pub fn nums(&self) -> &'a [i32] {"));
-    CHECK(has(out, "pub fn names(&self) -> &'a [::rapidproto::ProtoStr<'a>] {"));
-    CHECK(has(out, "pub fn blobs(&self) -> &'a [&'a [u8]] {"));
+    CHECK(has(out, "pub fn names(&self) -> &'a [::rapidproto::PackedStr<'a>] {"));
+    CHECK(has(out, "pub fn blobs(&self) -> &'a [::rapidproto::PackedSlice<'a, u8>] {"));
     CHECK(has(out, "pub fn palette(&self) -> &'a [super::super::common::p::Color] {"));
     CHECK(has(out,
               "pub fn children(&self) -> &'a [M<'a>] {"));  // repeated message -> slice of values
@@ -533,13 +534,13 @@ TEST_CASE("rustgen arena: maps become MapView accessors") {
           oneof pick { int32 a = 4; string b = 5; }
         })");
     CHECK(has(out,
-              "pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, "
+              "pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, "
               "i32> {"));
     CHECK(has(out,
               "pub fn colors(&self) -> ::rapidproto::MapView<'a, i32, "
               "super::super::common::p::Color> {"));
     CHECK(has(out,
-              "pub fn nested(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, "
+              "pub fn nested(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, "
               "Inner<'a>> {"));  // message-valued map -> inline value
     CHECK(has(
         out,
@@ -547,7 +548,7 @@ TEST_CASE("rustgen arena: maps become MapView accessors") {
     CHECK(has(out, "pub mod m {"));          // M's submodule holds the enum
     CHECK(has(out, "pub enum Pick<'a> {"));  // borrows (string) -> <'a>
     CHECK(has(out, "A(i32),"));
-    CHECK(has(out, "B(::rapidproto::ProtoStr<'a>),"));
+    CHECK(has(out, "B(::rapidproto::PackedStr<'a>),"));
 }
 
 TEST_CASE("rustgen arena: nested messages/enums and message-typed fields") {
@@ -687,8 +688,8 @@ TEST_CASE("rustgen oneof: native enum in the message submodule, variants over al
     CHECK(has(out, "pub mod m {"));
     CHECK(has(out, "pub enum Choice<'a> {"));
     CHECK(has(out, "Num(i32),"));
-    CHECK(has(out, "Text(::rapidproto::ProtoStr<'a>),"));
-    CHECK(has(out, "Blob(&'a [u8]),"));
+    CHECK(has(out, "Text(::rapidproto::PackedStr<'a>),"));
+    CHECK(has(out, "Blob(::rapidproto::PackedSlice<'a, u8>),"));
     CHECK(
         has(out, "Col(super::super::super::common::p::Color),"));  // enum variant -> common newtype
     CHECK(has(out, "Sub(&'a super::Sub<'a>),"));  // message variant -> borrowed arena ref
@@ -808,15 +809,14 @@ TEST_CASE(
     CHECK(
         has(out, "let mut rp_presence: u8 = 0;"));  // packed presence mask for the explicit fields
     CHECK(has(out, "let mut rp_field_2: i32 = 0;"));  // bare storage; default 42 NOT materialized
-    CHECK(has(
-        out, "let mut rp_field_3: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);"));
+    CHECK(has(out, "let mut rp_field_3: &'a [u8] = &[];"));  // a string local holds its slice
     CHECK(has(
         out,
         "let mut rp_field_4: super::super::common::p::Color = super::super::common::p::Color(0);"));
     // The default-literal machinery is gone: no default values appear anywhere.
     CHECK_FALSE(has(out, "= 42"));
     CHECK_FALSE(has(out, "Color::RED"));
-    CHECK_FALSE(has(out, "ProtoStr::new(b\"hi\")"));
+    CHECK_FALSE(has(out, "b\"hi\""));
     // A defaulted required field is bare + required-checked (its default is irrelevant).
     CHECK(has(out, "pub fn r(&self) -> i32 {"));
     CHECK(has(out, "let mut rp_field_1: i32 = 0;"));
@@ -845,12 +845,13 @@ TEST_CASE("rustgen modes: drop / raw / unknown-fields on a decodable message") {
     CHECK(!has(out, "gone:"));
     CHECK(has(out, "skip_field(rp_rest, 16u32)"));
     CHECK(has(out, "keep: i32,"));  // the untouched field is unaffected
-    // raw: the payload bytes, not a decoded Sub -- borrowed-slice storage + getter, no decode_into.
-    CHECK(has(out, "sub: ::core::option::Option<&'a [u8]>,"));
-    CHECK(has(out, "subs: &'a [&'a [u8]],"));
+    // raw: the payload bytes, not a decoded Sub -- `bytes`-cell storage + getter, no decode_into.
+    CHECK(has(out, "sub: ::core::option::Option<::rapidproto::PackedSlice<'a, u8>>,"));
+    CHECK(has(out, "subs: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedSlice<'a, u8>>,"));
     CHECK(has(out, "pub fn sub(&self) -> ::core::option::Option<&'a [u8]> {"));
-    CHECK(has(out, "pub fn subs(&self) -> &'a [&'a [u8]] {"));
-    CHECK(has(out, "rp_field_3 = ::core::option::Option::Some(rp_p);"));  // payload stored directly
+    CHECK(has(out, "pub fn subs(&self) -> &'a [::rapidproto::PackedSlice<'a, u8>] {"));
+    CHECK(has(out, "rp_field_3 = ::core::option::Option::Some(rp_p);"));      // a slice local
+    CHECK(has(out, "sub: rp_field_3.map(::rapidproto::PackedSlice::new),"));  // packed at build
     CHECK(!has(out, "Sub::rp_decode_into"));  // a raw field is NOT recursed into
     // unknown-fields: the accessor, its storage bit, and the catch-all that sets it only for a field
     // number NOT declared in the message. The known-number set covers every declared field (kept 1/3/4

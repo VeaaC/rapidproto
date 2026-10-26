@@ -39,8 +39,8 @@ const FIRST_CAP: usize = 4;
 
 /// A growable array of decoded `T` backed by `arena`, built during one field loop and finished with
 /// [`into_slice`](DecodeVec::into_slice). `T` must be a plain decoded value with no `Drop` (every
-/// generated message, scalar, enum, `ProtoStr` and `&[u8]` qualifies): a grow relocates the elements
-/// with a bitwise copy and never runs their destructors, as the arena requires.
+/// generated message, scalar, enum, `PackedStr` and `PackedSlice` qualifies): a grow relocates the
+/// elements with a bitwise copy and never runs their destructors, as the arena requires.
 pub struct DecodeVec<'a, T> {
     arena: &'a Arena<'a>,
     ptr: NonNull<T>, // dangling while `cap == 0`

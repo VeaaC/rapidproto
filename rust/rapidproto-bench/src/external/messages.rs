@@ -38,7 +38,7 @@ use crate::Arm;
 fn add(s: &mut u64, v: u64) {
     *s = s.wrapping_add(v);
 }
-fn len(v: ProtoStr) -> u64 {
+fn len(v: &ProtoStr) -> u64 {
     v.len() as u64
 }
 fn blen(v: &[u8]) -> u64 {
@@ -244,7 +244,7 @@ fn gm2_walk(m: &gm2::arena::benchmarks::proto2::GoogleMessage2) -> u64 {
         add(s, g.field26().map_or(0, fbits));
         add(s, g.field12().map_or(0, len));
         add(s, g.field13().map_or(0, len));
-        for &v in g.field14() {
+        for v in g.field14() {
             add(s, len(v));
         }
         add(s, g.field15());
@@ -253,7 +253,7 @@ fn gm2_walk(m: &gm2::arena::benchmarks::proto2::GoogleMessage2) -> u64 {
         add(s, g.field28().map_or(0, i32w));
         add(s, g.field29().map_or(0, len));
         add(s, g.field16().map_or(0, len));
-        for &v in g.field22() {
+        for v in g.field22() {
             add(s, len(v));
         }
         for &v in g.field73() {
@@ -275,11 +275,11 @@ fn gm2_walk(m: &gm2::arena::benchmarks::proto2::GoogleMessage2) -> u64 {
             add(s, gm.field11().map_or(0, i64w));
         }
     }
-    for &v in m.field128() {
+    for v in m.field128() {
         add(s, len(v));
     }
     add(s, m.field131().map_or(0, i64w));
-    for &v in m.field127() {
+    for v in m.field127() {
         add(s, len(v));
     }
     add(s, m.field129().map_or(0, i32w));

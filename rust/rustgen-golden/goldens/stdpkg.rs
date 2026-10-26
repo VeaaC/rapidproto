@@ -10,19 +10,19 @@ pub mod arena {
   pub mod std {
     pub struct Types<'a> {
       n: i32,
-      s: ::rapidproto::ProtoStr<'a>,
-      many: &'a [i64],
+      s: ::rapidproto::PackedStr<'a>,
+      many: ::rapidproto::PackedSlice<'a, i64>,
     }
 
     impl<'a> Types<'a> {
       pub fn n(&self) -> i32 {
         self.n
       }
-      pub fn s(&self) -> ::rapidproto::ProtoStr<'a> {
-        self.s
+      pub fn s(&self) -> &'a ::rapidproto::ProtoStr {
+        self.s.get()
       }
       pub fn many(&self) -> &'a [i64] {
-        self.many
+        self.many.as_slice()
       }
     }
     #[cfg(feature = "serde")]
@@ -73,7 +73,7 @@ pub mod arena {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
         let mut rp_field_1: i32 = 0;
-        let mut rp_field_2: ::rapidproto::ProtoStr<'a> = ::rapidproto::ProtoStr::new(&[]);
+        let mut rp_field_2: &'a [u8] = &[];
         let mut rp_acc_3 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
@@ -92,7 +92,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_2 = ::rapidproto::ProtoStr::new(rp_p);
+          rp_field_2 = rp_p;
         }
         while rp_rest.first() == ::core::option::Option::Some(&24u8) {
           rp_rest = &rp_rest[1..];
@@ -143,7 +143,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_2 = ::rapidproto::ProtoStr::new(rp_p);
+              rp_field_2 = rp_p;
             }
             24u32 => {
               let mut rp_v = 0u64;
@@ -171,8 +171,8 @@ pub mod arena {
         }
         ::core::result::Result::Ok(rp_out.write(Types {
           n: rp_field_1,
-          s: rp_field_2,
-          many: rp_acc_3.into_slice(),
+          s: ::rapidproto::PackedStr::new(rp_field_2),
+          many: ::rapidproto::PackedSlice::new(rp_acc_3.into_slice()),
         }))
       }
     }
@@ -194,7 +194,7 @@ pub mod stream {
       fn on_n(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_s: bool = false;
       #[inline(always)]
-      fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_many: bool = false;
       #[inline(always)]
       fn on_many(&mut self, _rp_v: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -409,7 +409,7 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3std5Types::types_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3std5Types::types_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_n on_n: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_s on_s: rp_mod_3std5Types::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_s on_s: &'rp_a rp_mod_3std5Types::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] many => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_many on_many: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3std5Types::types_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3std5Types::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: n, s, many, unknown")) };
