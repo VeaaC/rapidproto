@@ -164,13 +164,14 @@ fn measure(arms: &mut [Arm], inputs: &Inputs, rounds: usize, inner: usize) -> Ve
         .collect();
     let m = sup.len();
     let bufs = &inputs.buffers;
-    // Each arm's own rotation index; every arm makes the same number of calls, so all stay in lockstep.
-    let mut at = vec![0usize; arms.len()];
+    // `inner` is whole passes over the buffers (see `calibrate`).
+    let passes = inner / bufs.len();
     for &i in &sup {
         let f = arms[i].decoder().unwrap();
         for _ in 0..3 {
-            black_box(f(black_box(&bufs[at[i] % bufs.len()])));
-            at[i] += 1;
+            for b in bufs {
+                black_box(f(black_box(b)));
+            }
         }
     }
     let mut samples: Vec<Vec<f64>> = vec![Vec::with_capacity(rounds); arms.len()];
@@ -180,9 +181,10 @@ fn measure(arms: &mut [Arm], inputs: &Inputs, rounds: usize, inner: usize) -> Ve
             let f = arms[idx].decoder().unwrap();
             let t0 = Instant::now();
             let mut acc = 0u64;
-            for _ in 0..inner {
-                acc = acc.wrapping_add(f(black_box(&bufs[at[idx] % bufs.len()])));
-                at[idx] += 1;
+            for _ in 0..passes {
+                for b in bufs {
+                    acc = acc.wrapping_add(f(black_box(b)));
+                }
             }
             let ns = t0.elapsed().as_nanos() as f64 / inner as f64;
             black_box(acc);
