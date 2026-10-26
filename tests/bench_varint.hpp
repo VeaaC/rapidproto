@@ -85,8 +85,9 @@ inline std::string length_tag(int count) {
 
 // `count` int64 element values under `dist`, deterministic (seeded from the mode and `seed`). `seed`
 // selects an independent buffer with the SAME distribution but a different width/value SEQUENCE -- the
-// bench rotates over many seeds so the branch predictor can't memorize one sequence (which would make a
-// replayed byte loop look artificially fast, since production decodes each buffer once on fresh data).
+// bench decodes a pool of many seeds so the branch predictor can't memorize one sequence (which would
+// make a replayed byte loop look artificially fast, since production decodes each buffer once on fresh
+// data).
 inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count,
                                                std::uint64_t seed = 0) {
     std::vector<std::int64_t> out;
@@ -166,10 +167,10 @@ inline std::string make_packed_i64(const std::vector<std::int64_t>& values, int 
 // A pool of distinct-seed packed-varint buffers with one shape, plus their total size -- what every
 // sweep decodes, a whole pass per sample (rpbench::pool_pass), so no arm replays a single memorized
 // width sequence. Pool size: ~64 MB budget, >= 8 buffers (defeat the predictor at small counts),
-// <= 64 (bound setup). Each
-// element is <= 10 bytes, so count*10 over-estimates a buffer; that only makes the pool smaller,
-// never unsafe. Returns the strings ONLY -- the caller builds its ByteView vector over them
-// after the vector is fully populated (a returned view container would dangle on SSO buffers).
+// <= 64 (bound setup). Each element is <= 10 bytes, so count*10 over-estimates a buffer; that only
+// makes the pool smaller, never unsafe. Returns the strings ONLY -- the caller builds its ByteView
+// vector over them after the vector is fully populated (a returned view container would dangle on SSO
+// buffers).
 // This arithmetic existed in three copies across the two benches before it lived here.
 struct VarintPool {
     std::vector<std::string> buffers;

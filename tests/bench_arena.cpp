@@ -601,7 +601,10 @@ int sweep_repeated_varint() {
             }
             rapidproto::Arena warm;
             std::vector<rpbench::Arm> arms = {
-                {"protoc", rpbench::pool_pass(pool, rpbaseline::protoc_big)},
+                // Lambdas, not function pointers: every arm calls its decode directly.
+                {"protoc",
+                 rpbench::pool_pass(
+                     pool, [](const std::string& b) { return rpbaseline::protoc_big(b); })},
                 {"arena-warm", rpbench::pool_pass(views,
                                                   [&](rapidproto::ByteView view) {
                                                       warm.reset();
@@ -610,7 +613,9 @@ int sweep_repeated_varint() {
                                                                                         warm));
                                                   })},
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
-                {"protozero", rpbench::pool_pass(views, rpbaseline::protozero_big)},
+                {"protozero",
+                 rpbench::pool_pass(
+                     views, [](rapidproto::ByteView b) { return rpbaseline::protozero_big(b); })},
 #endif
             };
             bad += rpbench::run(name.c_str(), built.total_bytes, arms);
@@ -648,7 +653,8 @@ int sweep_repeated_varint_types() {
         }
         rapidproto::Arena warm;
         std::vector<rpbench::Arm> arms = {
-            {"protoc", rpbench::pool_pass(pool, protoc_sum)},
+            {"protoc",
+             rpbench::pool_pass(pool, [&](const std::string& b) { return protoc_sum(b); })},
             {"arena-warm", rpbench::pool_pass(views,
                                               [&](rapidproto::ByteView view) {
                                                   warm.reset();
@@ -656,7 +662,8 @@ int sweep_repeated_varint_types() {
                                                       rp::arena::bench::Big::decode(view, warm));
                                               })},
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
-            {"protozero", rpbench::pool_pass(views, protozero_sum)},
+            {"protozero",
+             rpbench::pool_pass(views, [&](rapidproto::ByteView b) { return protozero_sum(b); })},
 #endif
         };
         return rpbench::run(name.c_str(), built.total_bytes, arms);

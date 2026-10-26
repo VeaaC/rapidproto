@@ -8,19 +8,18 @@
 //! - drop the input before the next scenario (a sweep pool is up to ~80 MB).
 //!
 //! Timing: `ROUNDS` samples per arm. Within a round every supported arm runs once, in an order rotated
-//! per round to cancel slot bias, and an arm's cost is its median sample. A sample is `inner`
-//! consecutive decode calls, `inner` calibrated so the baseline's sample takes ~10 ms and rounded up to
-//! whole passes over a pool's buffers: a median is only meaningful when every sample is the same
-//! workload. Throughput is [`Inputs::bytes`] over the median time per call, in decimal GB/s as the C++
-//! benches print. There are no in-process counters: read instructions/byte with
-//! `perf stat -e instructions:u` over the `perf_*` examples.
+//! per round to cancel slot bias, and an arm's cost is its median sample. A sample is whole passes over
+//! the scenario's buffers, as many as make the baseline's sample take ~10 ms: a median is only
+//! meaningful when every sample is the same workload. Throughput is [`Inputs::bytes`] over the median
+//! time per call, in decimal GB/s as the C++ benches print. There are no in-process counters: read
+//! instructions/byte with `perf stat -e instructions:u` over the `perf_*` examples.
 //!
 //! Comparing with C++: the C++ harness times one call per sample (two clock reads and a
 //! `std::function` call, ~20 ns), a pool's call being one pass over all its buffers, and adds rounds
-//! until its ratios are significant; this runner times ~10 ms batches over a fixed number of rounds. On
-//! a small single buffer the C++ per-call overhead still weighs on its GB/s and ins/B. The NDJSON
-//! `cpp_scenario` and `cpp_arm` name the C++ row a record
-//! corresponds to (null where C++ has none); `vs_base_pct` compares arms within this runner only.
+//! until its ratios are significant; this runner times batches of at least ~10 ms over a fixed number
+//! of rounds. On a small single buffer the C++ per-call overhead still weighs on its GB/s and ins/B.
+//! The NDJSON `cpp_scenario` and `cpp_arm` name the C++ row a record corresponds to (null where C++
+//! has none); `vs_base_pct` compares arms within this runner only.
 //!
 //! Run discipline, or the numbers lie: pinned (`taskset -c N`), aligned (`RUSTFLAGS=
 //! "-Cllvm-args=-align-all-functions=6"`, so an unrelated edit relaying the binary does not move
@@ -140,8 +139,8 @@ fn pool_checksum(f: &mut Decode, inputs: &Inputs) -> u64 {
 // The baseline sample's target duration when `ITERS` is unset.
 const TARGET_SAMPLE_NS: f64 = 10e6;
 
-/// Decode calls per sample: `ITERS`, else enough for the baseline's sample to take ~10 ms, rounded up
-/// to whole passes over the buffers so every sample of a pool is the same workload.
+/// Passes over the buffers per sample: enough for `ITERS` decode calls, else for the baseline's sample
+/// to take ~10 ms. Whole passes, so every sample of a pool is the same workload.
 fn calibrate(base: &mut Decode, inputs: &Inputs, fixed: Option<usize>) -> usize {
     let n = inputs.buffers.len();
     let calls = fixed.unwrap_or_else(|| {
@@ -154,18 +153,17 @@ fn calibrate(base: &mut Decode, inputs: &Inputs, fixed: Option<usize>) -> usize 
         let per_call = t0.elapsed().as_nanos() as f64 / n as f64;
         ((TARGET_SAMPLE_NS / per_call.max(1.0)).ceil() as usize).clamp(1, 10_000_000)
     });
-    calls.max(1).div_ceil(n) * n
+    calls.max(1).div_ceil(n)
 }
 
 /// Median ns per decode call for each arm (`None` for an arm unsupported for this scenario).
-fn measure(arms: &mut [Arm], inputs: &Inputs, rounds: usize, inner: usize) -> Vec<Option<f64>> {
+fn measure(arms: &mut [Arm], inputs: &Inputs, rounds: usize, passes: usize) -> Vec<Option<f64>> {
     let sup: Vec<usize> = (0..arms.len())
         .filter(|&i| arms[i].is_supported())
         .collect();
     let m = sup.len();
     let bufs = &inputs.buffers;
-    // `inner` is whole passes over the buffers (see `calibrate`).
-    let passes = inner / bufs.len();
+    let calls = passes * bufs.len();
     for &i in &sup {
         let f = arms[i].decoder().unwrap();
         for _ in 0..3 {
@@ -186,7 +184,7 @@ fn measure(arms: &mut [Arm], inputs: &Inputs, rounds: usize, inner: usize) -> Ve
                     acc = acc.wrapping_add(f(black_box(b)));
                 }
             }
-            let ns = t0.elapsed().as_nanos() as f64 / inner as f64;
+            let ns = t0.elapsed().as_nanos() as f64 / calls as f64;
             black_box(acc);
             samples[idx].push(ns);
         }
@@ -370,8 +368,8 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
             continue;
         }
         let base = arms[0].decoder().expect("baseline arm must be supported");
-        let inner = calibrate(base, &inputs, opts.inner);
-        let meds = measure(&mut arms, &inputs, opts.rounds, inner);
+        let passes = calibrate(base, &inputs, opts.inner);
+        let meds = measure(&mut arms, &inputs, opts.rounds, passes);
         let base_gbs = bytes / meds[0].expect("baseline arm must be supported");
         for (i, a) in arms.iter().enumerate() {
             let ub = (report.ub)(name, a.name);

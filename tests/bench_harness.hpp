@@ -250,9 +250,9 @@ inline bool json_mode() {
     return on;
 }
 
-// RAPIDPROTO_BENCH_ONLY=<substring> runs only the scenarios whose name contains it. A full suite is
-// 30-60s per bench, and a five-repeat snapshot of both is minutes, which makes investigating ONE
-// scenario over many repetitions impractical. Unset (the default) runs everything.
+// RAPIDPROTO_BENCH_ONLY=<substring> runs only the scenarios whose name contains it. A full suite takes
+// minutes per bench, which makes investigating ONE scenario over many repetitions impractical. Unset
+// (the default) runs everything.
 inline bool scenario_selected(const char* scenario) {
     static const char* only = std::getenv("RAPIDPROTO_BENCH_ONLY");
     return only == nullptr || *only == '\0' ||
@@ -316,6 +316,9 @@ Work pool_pass(const std::vector<Buffer>& pool, Decode decode) {
         return sum;
     };
 }
+// A temporary pool would dangle inside the returned arm.
+template <class Buffer, class Decode>
+Work pool_pass(const std::vector<Buffer>&& pool, Decode decode) = delete;
 
 struct Stat {
     double mean;
