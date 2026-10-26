@@ -73,7 +73,8 @@ pub fn scenarios() -> Vec<Scenario> {
     out
 }
 
-// A scenario's two arms: the generated decoder (the baseline) and the hand-written loop.
+// A scenario's two arms: the generated decoder (the baseline) and the hand-written loop. Function
+// pointers, as the C++ streaming bench's arms are: a pass makes one indirect call per buffer in both.
 fn arms(generated: fn(&[u8]) -> u64, wire: fn(&[u8]) -> u64) -> Vec<Arm> {
     vec![Arm::new("generated", generated), Arm::new("wire", wire)]
 }

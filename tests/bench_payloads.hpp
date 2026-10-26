@@ -22,10 +22,13 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <system_error>
 #include <vector>
+
+#include <unistd.h>
 
 #include "bench_varint.hpp"
 
@@ -81,20 +84,27 @@ inline std::filesystem::path rv_pool_path(const char* dir, const std::string& st
     return std::filesystem::path(dir) / "rv" / (stem + ".pool");
 }
 
+// Fatal: `path` is not a pool, its buffer at byte `at` being truncated or empty.
+[[noreturn]] inline void bad_pool(const std::string& path, std::size_t at) {
+    std::fprintf(stderr, "bench: '%s' is not a pool (bad buffer at byte %zu)\n", path.c_str(), at);
+    std::exit(1);
+}
+
 // The buffers of the .pool file `path`, fatal on a malformed file or an empty buffer.
 inline std::vector<std::string> read_pool(const std::string& path) {
     const std::string file = read_payload(path);
     std::vector<std::string> buffers;
     std::size_t at = 0;
     while (at < file.size()) {
+        if (file.size() - at < 4) {
+            bad_pool(path, at);
+        }
         std::uint32_t len = 0;
-        for (std::size_t i = 0; i < 4 && at + i < file.size(); ++i) {
+        for (std::size_t i = 0; i < 4; ++i) {
             len |= static_cast<std::uint32_t>(static_cast<unsigned char>(file[at + i])) << (8 * i);
         }
-        if (file.size() - at < 4 || len == 0 || len > file.size() - at - 4) {
-            std::fprintf(stderr, "bench: '%s' is not a pool (bad buffer at byte %zu)\n",
-                         path.c_str(), at);
-            std::exit(1);
+        if (len == 0 || len > file.size() - at - 4) {
+            bad_pool(path, at);
         }
         buffers.emplace_back(file, at + 4, len);
         at += 4 + len;
@@ -118,12 +128,13 @@ inline VarintPool load_varint_pool(const std::string& stem, const VarintDist& di
     return pool;
 }
 
-// Write `buffers` as the .pool file `path`, through a temporary file renamed into place, so an
-// interrupted dump leaves no loadable pool.
+// Write `buffers` as the .pool file `path`, through a temporary file renamed into place, so a pool
+// is never left partly written. The temporary file is this process's own, so two dumps into one
+// directory at once cannot rename each other's.
 inline bool write_pool(const std::filesystem::path& path, const std::vector<std::string>& buffers) {
     std::string file;
     for (const std::string& b : buffers) {
-        if (b.empty() || b.size() > UINT32_MAX) {
+        if (b.empty() || b.size() > std::numeric_limits<std::uint32_t>::max()) {
             std::fprintf(stderr, "bench: a pool buffer for '%s' is empty or over 4 GiB\n",
                          path.string().c_str());
             return false;
@@ -134,14 +145,16 @@ inline bool write_pool(const std::filesystem::path& path, const std::vector<std:
         file += b;
     }
     std::filesystem::path tmp = path;
-    tmp += ".tmp";
+    tmp += ".tmp." + std::to_string(getpid());
     if (!write_payload(tmp, file)) {
         return false;
     }
     std::error_code ec;
     std::filesystem::rename(tmp, path, ec);
     if (ec) {
-        std::fprintf(stderr, "bench: cannot write '%s'\n", path.string().c_str());
+        std::fprintf(stderr, "bench: cannot write '%s': %s\n", path.string().c_str(),
+                     ec.message().c_str());
+        std::filesystem::remove(tmp, ec);
         return false;
     }
     return true;

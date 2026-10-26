@@ -62,8 +62,7 @@ depend on code layout, which makes them useful for small differences between bui
 instructions can still be faster. Measure a build against itself to see the noise before trusting a
 small difference. Criterion reports MiB/s, everything else GB/s.
 
-Don't compare the `rv <dist> 10` and `100` rows with C++: its per-call timing overhead dominates
-there. Published numbers go in [docs/benchmarks.md](../docs/benchmarks.md).
+Published numbers go in [docs/benchmarks.md](../docs/benchmarks.md).
 
 ### Optional scenarios and arms
 

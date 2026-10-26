@@ -24,7 +24,7 @@
 //! inputs are ported from the C++ ones field for field, so the runner holds them to the dumped C++
 //! checksum ([`cpp_checksum`]).
 
-use std::io::Read as _;
+use std::io::{BufReader, Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
 
 /// One scenario's input: a single buffer (a batch is one, too), or a varint-sweep pool decoded one
@@ -135,18 +135,15 @@ pub fn load(dir: &Path, source: &Source) -> Inputs {
             bytes,
         };
     }
-    // An empty buffer would decode as an empty message and silently "measure" nothing.
-    let lens: Vec<usize> = frames(&file).map(<[u8]>::len).collect();
-    assert!(lens.iter().all(|&n| n > 0), "{path:?} has an empty buffer");
-    let total = lens.iter().sum::<usize>() as f64;
+    let (n, total) = pool_size(&path, Cursor::new(&file), file.len() as u64);
     match source {
         Source::Batch(_) => Inputs {
             buffers: vec![file],
-            bytes: total,
+            bytes: total as f64,
         },
         _ => Inputs {
             buffers: frames(&file).map(<[u8]>::to_vec).collect(),
-            bytes: total / lens.len() as f64,
+            bytes: total as f64 / n as f64,
         },
     }
 }
@@ -180,25 +177,25 @@ pub fn frames(mut batch: &[u8]) -> impl Iterator<Item = &[u8]> {
     })
 }
 
-/// The buffer lengths of the `.pool` file `path`, read without loading the buffers.
-fn frame_lens(path: &Path) -> Vec<u64> {
-    let walk = || -> std::io::Result<Vec<u64>> {
-        let file = std::fs::File::open(path)?;
-        let size = file.metadata()?.len();
-        let mut file = std::io::BufReader::new(file);
-        let (mut lens, mut at) = (Vec::new(), 0);
-        while at < size {
-            let mut len = [0u8; 4];
-            file.read_exact(&mut len)?;
-            let len = u32::from_le_bytes(len);
-            file.seek_relative(i64::from(len))?;
-            at += 4 + u64::from(len);
-            lens.push(u64::from(len));
-        }
-        assert_eq!(at, size, "{path:?} is not a pool: a buffer past the end");
-        Ok(lens)
-    };
-    walk().unwrap_or_else(|e| panic!("cannot read pool {path:?}: {e}"))
+/// The buffer count and total buffer size of the `.pool` file `path`, whose `size` bytes `pool` reads:
+/// only the length prefixes are read. Panics, naming `path`, on a malformed or empty pool or an empty
+/// buffer (which would decode as an empty message and silently "measure" nothing).
+fn pool_size(path: &Path, mut pool: impl Read + Seek, size: u64) -> (usize, u64) {
+    let (mut n, mut at) = (0, 0);
+    while at < size {
+        let mut len = [0u8; 4];
+        pool.read_exact(&mut len)
+            .unwrap_or_else(|e| panic!("{path:?} is not a pool: {e}"));
+        let len = u32::from_le_bytes(len);
+        assert!(len > 0, "{path:?} has an empty buffer");
+        pool.seek_relative(i64::from(len))
+            .unwrap_or_else(|e| panic!("cannot read pool {path:?}: {e}"));
+        at += 4 + u64::from(len);
+        n += 1;
+    }
+    assert!(at == size, "{path:?} is not a pool: a buffer past the end");
+    assert!(n > 0, "{path:?} is empty");
+    (n, size - 4 * n as u64)
 }
 
 /// [`Inputs::bytes`] without loading the input -- for a caller that must state a throughput before it
@@ -210,11 +207,16 @@ pub fn bytes_per_call(dir: &Path, source: &Source) -> f64 {
             .unwrap_or_else(|e| panic!("cannot stat payload {path:?}: {e}"))
             .len() as f64;
     }
-    let lens = frame_lens(&path);
-    let total = lens.iter().sum::<u64>() as f64;
+    let file =
+        std::fs::File::open(&path).unwrap_or_else(|e| panic!("cannot read payload {path:?}: {e}"));
+    let size = file
+        .metadata()
+        .unwrap_or_else(|e| panic!("cannot stat payload {path:?}: {e}"))
+        .len();
+    let (n, total) = pool_size(&path, BufReader::new(file), size);
     match source {
-        Source::Batch(_) => total,
-        _ => total / lens.len() as f64,
+        Source::Batch(_) => total as f64,
+        _ => total as f64 / n as f64,
     }
 }
 
@@ -279,7 +281,52 @@ pub fn rv_type_scenario_name(tag: &str, dist: &VarintDist, count: u32) -> String
     format!("rv-{tag} {} {}", dist.label, length_tag(count))
 }
 
-/// A sweep scenario's pool: its name as a directory stem (spaces -> `-`).
+/// A sweep scenario's pool: its name as a file stem (spaces -> `-`).
 pub fn pool(name: &str) -> Source {
     Source::Pool(name.replace(' ', "-"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn size(pool: &[u8]) -> (usize, u64) {
+        pool_size(Path::new("test.pool"), Cursor::new(pool), pool.len() as u64)
+    }
+
+    #[test]
+    fn reads_what_batch_writes() {
+        let buffers = vec![vec![1u8, 2, 3], vec![4], vec![5, 6]];
+        let pool = batch(&buffers);
+        assert_eq!(size(&pool), (3, 6));
+        assert!(frames(&pool).eq(buffers.iter().map(Vec::as_slice)));
+    }
+
+    #[test]
+    #[should_panic(expected = "a buffer past the end")]
+    fn rejects_a_truncated_buffer() {
+        let mut pool = batch(&[vec![1, 2, 3]]);
+        pool.pop();
+        size(&pool);
+    }
+
+    #[test]
+    #[should_panic(expected = "is not a pool")]
+    fn rejects_a_truncated_length() {
+        let mut pool = batch(&[vec![1]]);
+        pool.extend_from_slice(&[2, 0]);
+        size(&pool);
+    }
+
+    #[test]
+    #[should_panic(expected = "has an empty buffer")]
+    fn rejects_an_empty_buffer() {
+        size(&batch(&[vec![1], vec![]]));
+    }
+
+    #[test]
+    #[should_panic(expected = "is empty")]
+    fn rejects_an_empty_pool() {
+        size(&[]);
+    }
 }
