@@ -165,16 +165,18 @@ inline std::string make_packed_i64(const std::vector<std::int64_t>& values, int 
 }
 
 // The fewest elements a pool holds, so the branch predictor cannot learn its width sequence. On 64
-// buffers of 10 elements, `rv mix13 10` read 4x faster than on unseen data; pools of 2^17 elements
-// and more read within ~1% of each other.
+// buffers of 10 elements, the streaming bench's `rv mix13 10` read 4x faster than on unseen data;
+// pools of 2^17 elements and more read within ~1% of each other.
 constexpr long kPoolElements = 1L << 17;
 
 // A pool of distinct-seed packed-varint buffers with one shape, plus their total size -- what every
 // sweep decodes, a whole pass per sample (rpbench::pool_pass), so no arm replays a single memorized
 // width sequence. Pool size: enough buffers for kPoolElements, within a ~64 MB budget; the floors of
-// 64 and 8 buffers keep the pools of 10k elements and more as they were. Each element is <= 10 bytes,
-// so count*10 over-estimates a buffer; that only makes the pool smaller, never unsafe. Returns the strings ONLY -- the caller builds its ByteView vector over them
-// after the vector is fully populated (a returned view container would dangle on SSO buffers).
+// 64 and 8 buffers keep the pools of 10k elements and more as they were (8 buffers of 1M 10-byte
+// elements are 80 MB). Each element is <= 10 bytes, so count*10 over-estimates a buffer; that only
+// makes the pool smaller, never unsafe. Returns the strings ONLY -- the caller builds its ByteView
+// vector over them after the vector is fully populated (a returned view container would dangle on SSO
+// buffers).
 // This arithmetic existed in three copies across the two benches before it lived here.
 struct VarintPool {
     std::vector<std::string> buffers;

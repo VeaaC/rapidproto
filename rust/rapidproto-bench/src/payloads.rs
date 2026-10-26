@@ -185,7 +185,7 @@ fn pool_size(path: &Path, mut pool: impl Read + Seek, size: u64) -> (usize, u64)
     while at < size {
         let mut len = [0u8; 4];
         pool.read_exact(&mut len)
-            .unwrap_or_else(|e| panic!("{path:?} is not a pool: {e}"));
+            .unwrap_or_else(|e| panic!("{path:?} is not a pool: a truncated buffer length ({e})"));
         let len = u32::from_le_bytes(len);
         assert!(len > 0, "{path:?} has an empty buffer");
         pool.seek_relative(i64::from(len))
@@ -311,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "is not a pool")]
+    #[should_panic(expected = "a truncated buffer length")]
     fn rejects_a_truncated_length() {
         let mut pool = batch(&[vec![1]]);
         pool.extend_from_slice(&[2, 0]);

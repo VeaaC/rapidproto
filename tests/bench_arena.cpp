@@ -584,7 +584,7 @@ int sweep_repeated_varint() {
     for (const auto& dist : rpbench::varint_dists()) {
         for (const int count : rpbench::varint_lengths()) {
             // Name first, so a scenario filter can skip the POOL BUILD below, not merely the
-            // measurement -- the pool is up to 64 MB and dominates a filtered run otherwise.
+            // measurement -- the pool is up to 80 MB and dominates a filtered run otherwise.
             const std::string name = rpbench::rv_scenario_name(dist, count);
             if (!rpbench::scenario_selected(name.c_str())) {
                 continue;

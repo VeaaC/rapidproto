@@ -107,7 +107,7 @@ inline std::vector<std::string> read_pool(const std::string& path) {
             bad_pool(path, at);
         }
         buffers.emplace_back(file, at + 4, len);
-        at += 4 + len;
+        at += 4 + std::size_t{len};
     }
     return buffers;
 }
@@ -145,11 +145,12 @@ inline bool write_pool(const std::filesystem::path& path, const std::vector<std:
         file += b;
     }
     std::filesystem::path tmp = path;
-    tmp += ".tmp." + std::to_string(getpid());
+    tmp += ".tmp." + std::to_string(::getpid());
+    std::error_code ec;
     if (!write_payload(tmp, file)) {
+        std::filesystem::remove(tmp, ec);
         return false;
     }
-    std::error_code ec;
     std::filesystem::rename(tmp, path, ec);
     if (ec) {
         std::fprintf(stderr, "bench: cannot write '%s': %s\n", path.string().c_str(),
