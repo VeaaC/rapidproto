@@ -314,11 +314,13 @@ unsafe fn fixed_fill_wide<const W: usize, T, F: FnMut(u64) -> T>(
 
 /// Decode a whole packed-varint span into `out`, applying `conv` per raw value. Returns the element
 /// count, or `(kind, offset-within-span)` on a malformed varint. Mirror of C++
-/// `decode_packed_varints`. Out-of-line (the kernel is large): only spans `>= KERNEL_MIN_SPAN` reach
-/// it; smaller spans take the inline [`decode_scalar`] directly from `fill_packed_varints`.
+/// `decode_packed_varints`. Kept out of line, as C++ does with `RP_NOINLINE`: the kernel is large,
+/// and only spans `>= KERNEL_MIN_SPAN` reach it. Smaller spans take [`decode_scalar`], inlined into
+/// `fill_packed_varints`.
 ///
 /// # Safety
 /// `out` must have room for at least `span.len()` elements (the element-count upper bound).
+#[inline(never)]
 unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
     span: &[u8],
     out: *mut T,
@@ -451,9 +453,8 @@ unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
     Ok(n + tail)
 }
 
-/// The validating scalar varint loop over a whole span -- both the small-span path (kept `#[inline]`
-/// so it folds into the generated decoder for tiny packed fields, with no out-of-line call to
-/// amortize) and the remainder tail of [`decode_kernel`]. Returns the element count or
+/// The validating scalar varint loop over a whole span: the small-span path of `fill_packed_varints`,
+/// which it inlines into, and the remainder tail of [`decode_kernel`]. Returns the element count or
 /// `(kind, offset-within-span)`.
 ///
 /// # Safety
@@ -496,6 +497,8 @@ impl<'a, T> DecodeVec<'a, T> {
     /// kernel (large spans) or the scalar loop (small spans), then trims the over-estimate -- the
     /// Rust mirror of the C++ decoder's `emit_packed_fill` + `decode_packed_varints`. Generated
     /// decoders call this for every packed-varint field; the only `unsafe` stays here, not in them.
+    // A plain `#[inline]`: forcing this into the generated decoders measured slower on small packed
+    // arrays.
     #[inline]
     pub fn fill_packed_varints<F>(
         &mut self,
