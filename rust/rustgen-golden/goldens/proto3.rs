@@ -59,6 +59,7 @@ pub mod arena {
       bools: ::rapidproto::PackedSlice<'a, bool>,
       ratio: f64,
       scale: f32,
+      chunks: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedSlice<'a, u8>>,
       rp_presence: u8,
       counts: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32>,
       flags: ::rapidproto::MapView<'a, bool, ::rapidproto::PackedStr<'a>>,
@@ -107,6 +108,9 @@ pub mod arena {
       }
       pub fn scale(&self) -> f32 {
         self.scale
+      }
+      pub fn chunks(&self) -> &'a [::rapidproto::PackedSlice<'a, u8>] {
+        self.chunks.as_slice()
       }
       pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32> {
         self.counts
@@ -212,6 +216,12 @@ pub mod arena {
           }
         }
         {
+          let rp_v = self.chunks();
+          if !rp_v.is_empty() {
+            rp_map.serialize_entry("chunks", &::rapidproto::serde_support::BytesSeq(rp_v))?;
+          }
+        }
+        {
           let rp_v = self.counts();
           if !rp_v.is_empty() {
             rp_map.serialize_entry("counts", &rp_v)?;
@@ -247,6 +257,7 @@ pub mod arena {
             msg::Pick::B(rp_v) => rp_map.serialize_entry("b", rp_v)?,
             msg::Pick::C(rp_v) => rp_map.serialize_entry("c", rp_v)?,
             msg::Pick::D(rp_v) => rp_map.serialize_entry("d", rp_v)?,
+            msg::Pick::E(rp_v) => rp_map.serialize_entry("e", &::rapidproto::serde_support::Bytes(rp_v))?,
           }
         }
         rp_map.end()
@@ -261,6 +272,7 @@ pub mod arena {
         B(::rapidproto::PackedStr<'a>),
         C(bool),
         D(f64),
+        E(::rapidproto::PackedSlice<'a, u8>),
       }
     }
 
@@ -293,6 +305,7 @@ pub mod arena {
         let mut rp_acc_17 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_field_20: f64 = 0.0;
         let mut rp_field_21: f32 = 0.0;
+        let mut rp_acc_24 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_map_9 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_map_14 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_map_18 = ::rapidproto::DecodeVec::new(rp_arena);
@@ -805,6 +818,24 @@ pub mod arena {
           }
           rp_map_22.push((rp_key, rp_val)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
+        if rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[186u8, 1u8]) {
+          rp_rest = &rp_rest[2..];
+          let mut rp_p: &[u8] = &[];
+          rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::E(::rapidproto::PackedSlice::new(rp_p)));
+        }
+        while rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[194u8, 1u8]) {
+          rp_rest = &rp_rest[2..];
+          let mut rp_p: &[u8] = &[];
+          rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          rp_acc_24.push(::rapidproto::PackedSlice::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+        }
         loop {
           let rp_b = match rp_rest.first() {
             ::core::option::Option::Some(&rp_b) => rp_b,
@@ -1001,6 +1032,14 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               rp_field_21 = f32::from_bits(rp_v);
+            }
+            194u32 => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_acc_24.push(::rapidproto::PackedSlice::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             74u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1299,6 +1338,14 @@ pub mod arena {
               };
               rp_oneof_0 = ::core::option::Option::Some(msg::Pick::D(f64::from_bits(rp_v)));
             }
+            186u32 => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::E(::rapidproto::PackedSlice::new(rp_p)));
+            }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 ::core::result::Result::Ok(r) => r,
@@ -1321,6 +1368,7 @@ pub mod arena {
           bools: ::rapidproto::PackedSlice::new(rp_acc_17.into_slice()),
           ratio: rp_field_20,
           scale: rp_field_21,
+          chunks: ::rapidproto::PackedSlice::new(rp_acc_24.into_slice()),
           rp_presence,
           counts: ::rapidproto::MapView::new(rp_map_9.into_slice()),
           flags: ::rapidproto::MapView::new(rp_map_14.into_slice()),
@@ -1385,6 +1433,9 @@ pub mod stream {
       const WANT_scale: bool = false;
       #[inline(always)]
       fn on_scale(&mut self, _rp_v: f32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_chunks: bool = false;
+      #[inline(always)]
+      fn on_chunks(&mut self, _rp_v: &'a [u8]) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_counts: bool = false;
       #[inline(always)]
       fn on_counts(&mut self, _rp_v: (&'a ::rapidproto::ProtoStr, i32)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -1412,6 +1463,9 @@ pub mod stream {
       const WANT_d: bool = false;
       #[inline(always)]
       fn on_d(&mut self, _rp_v: f64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_e: bool = false;
+      #[inline(always)]
+      fn on_e(&mut self, _rp_v: &'a [u8]) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2238,6 +2292,44 @@ pub mod stream {
             };
           }
         }
+        if rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[186u8, 1u8]) {
+          rp_rest = &rp_rest[2..];
+          if V::WANT_e {
+            let mut rp_p: &[u8] = &[];
+            rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            match rp_vis.on_e(rp_p)? {
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Continue => {}
+            }
+          } else {
+            rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 186u32) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+          }
+        }
+        while rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[194u8, 1u8]) {
+          rp_rest = &rp_rest[2..];
+          if V::WANT_chunks {
+            let mut rp_p: &[u8] = &[];
+            rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            match rp_vis.on_chunks(rp_p)? {
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Continue => {}
+            }
+          } else {
+            rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 194u32) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+          }
+        }
         loop {
           let rp_b = match rp_rest.first() {
             ::core::option::Option::Some(&rp_b) => rp_b,
@@ -2506,6 +2598,17 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_scale(f32::from_bits(rp_v))? {
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Continue => {}
+              }
+            }
+            194u32 if V::WANT_chunks => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              match rp_vis.on_chunks(rp_p)? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2834,8 +2937,19 @@ pub mod stream {
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
+            186u32 if V::WANT_e => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              match rp_vis.on_e(rp_p)? {
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Continue => {}
+              }
+            }
             _ => {
-              if V::WANT_UNKNOWN && !::core::matches!(rp_tagkey >> 3, 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 12 | 13 | 17 | 20 | 21 | 10 | 11 | 15 | 16 | 9 | 14 | 18 | 19 | 22) {
+              if V::WANT_UNKNOWN && !::core::matches!(rp_tagkey >> 3, 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 12 | 13 | 17 | 20 | 21 | 24 | 10 | 11 | 15 | 16 | 23 | 9 | 14 | 18 | 19 | 22) {
                 let rp_before = rp_rest;
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                   ::core::result::Result::Ok(r) => r,
@@ -2881,6 +2995,7 @@ pub mod stream {
       (@f [$($a:tt)*] bools => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_bools on_bools: ::core::primitive::bool = $c;] $($r)*) };
       (@f [$($a:tt)*] ratio => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_ratio on_ratio: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] scale => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_scale on_scale: ::core::primitive::f32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] chunks => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_chunks on_chunks: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
       (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_counts on_counts: (&'rp_a rp_mod_2p33Msg::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
       (@f [$($a:tt)*] flags => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_flags on_flags: (::core::primitive::bool, &'rp_a rp_mod_2p33Msg::rp_rt::ProtoStr) = $c;] $($r)*) };
       (@f [$($a:tt)*] toggles => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_toggles on_toggles: (&'rp_a rp_mod_2p33Msg::rp_rt::ProtoStr, ::core::primitive::bool) = $c;] $($r)*) };
@@ -2890,8 +3005,9 @@ pub mod stream {
       (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_b on_b: &'rp_a rp_mod_2p33Msg::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_c on_c: ::core::primitive::bool = $c;] $($r)*) };
       (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_d on_d: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] e => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_e on_e: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2p33Msg::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
-      (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: implicit_i, explicit_i, name, state, self_, nums, unpacked, states, reals, codes, bools, ratio, scale, counts, flags, toggles, ratios, blobs, a, b, c, d, unknown")) };
+      (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: implicit_i, explicit_i, name, state, self_, nums, unpacked, states, reals, codes, bools, ratio, scale, chunks, counts, flags, toggles, ratios, blobs, a, b, c, d, e, unknown")) };
       (@f $a:tt) => { rp_mod_2p33Msg::rp_rt::stream_visitor!(rp_mod_2p33Msg MsgVisitor $a) };
     }
     #[doc(inline)]

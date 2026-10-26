@@ -7,7 +7,8 @@ nothing, and scalar/packed fields are read straight out of the arena.
 Decoders are generated at build time by the companion [`rapidproto-build`] crate (no `protoc`), or
 from committed generated code.
 
-- **Zero-copy, arena-based.** Repeated scalar columns come back as `&[i64]`, strings as `&[u8]`.
+- **Zero-copy, arena-based.** Repeated scalar columns come back as `&[i64]`, strings as
+  `&ProtoStr`.
 - **`no_std`-ready.** `default = ["std"]`; `alloc` alone is the no_std + allocator tier; neither
   feature is the no_std-no-alloc embedded tier (a caller-seeded arena). No third-party deps in the
   default build.

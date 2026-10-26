@@ -15,8 +15,9 @@ use crate::PackedSlice;
 /// always borrows the input directly and costs nothing to produce. The caller picks the cost it
 /// wants: [`as_bytes`](ProtoStr::as_bytes) is free, [`to_str`](ProtoStr::to_str) validates and can
 /// fail, and [`to_str_lossy`](ProtoStr::to_str_lossy) (with `alloc`) never fails. `Display` writes
-/// the text, substituting U+FFFD for any invalid sequence. Proto `bytes` fields are `&[u8]`
-/// directly and do not use this type.
+/// the text, substituting U+FFFD for any invalid sequence. Proto `bytes` values do not use this
+/// type: a getter returns `&[u8]`, or a [`PackedSlice<'a, u8>`](PackedSlice) cell inside a repeated
+/// field, map or oneof.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct ProtoStr([u8]);
@@ -126,6 +127,13 @@ impl AsRef<ProtoStr> for ProtoStr {
     }
 }
 
+impl Default for &ProtoStr {
+    #[inline]
+    fn default() -> Self {
+        ProtoStr::new(&[])
+    }
+}
+
 /// A `string` as decoded messages store it, in 12 bytes (see [`PackedSlice`]). A repeated `string`
 /// field hands out its elements as `PackedStr`, as do `string` map keys and values and `string`
 /// oneof members.
@@ -155,7 +163,7 @@ impl Deref for PackedStr<'_> {
     type Target = ProtoStr;
     #[inline]
     fn deref(&self) -> &ProtoStr {
-        (*self).get()
+        self.get()
     }
 }
 
@@ -182,13 +190,13 @@ impl Borrow<ProtoStr> for PackedStr<'_> {
 
 impl fmt::Display for PackedStr<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&**self, f)
+        fmt::Display::fmt(self.get(), f)
     }
 }
 
 impl fmt::Debug for PackedStr<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&**self, f)
+        fmt::Debug::fmt(self.get(), f)
     }
 }
 
@@ -197,7 +205,7 @@ impl fmt::Debug for PackedStr<'_> {
 impl PartialEq for PackedStr<'_> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        **self == **other
+        self.get() == other.get()
     }
 }
 impl Eq for PackedStr<'_> {}
@@ -211,37 +219,35 @@ impl PartialOrd for PackedStr<'_> {
 impl Ord for PackedStr<'_> {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        (**self).cmp(&**other)
+        self.get().cmp(other.get())
     }
 }
 
 impl Hash for PackedStr<'_> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        (**self).hash(state);
+        self.get().hash(state);
     }
 }
 
-impl PartialEq<ProtoStr> for PackedStr<'_> {
-    #[inline]
-    fn eq(&self, other: &ProtoStr) -> bool {
-        **self == *other
-    }
+// A cell compares with the string types it stands for, in either order.
+macro_rules! packed_str_eq {
+    ($($other:ty),*) => {$(
+        impl PartialEq<$other> for PackedStr<'_> {
+            #[inline]
+            fn eq(&self, other: &$other) -> bool {
+                self.as_bytes() == AsRef::<[u8]>::as_ref(other)
+            }
+        }
+        impl PartialEq<PackedStr<'_>> for $other {
+            #[inline]
+            fn eq(&self, other: &PackedStr<'_>) -> bool {
+                other == self
+            }
+        }
+    )*};
 }
-
-impl PartialEq<str> for PackedStr<'_> {
-    #[inline]
-    fn eq(&self, other: &str) -> bool {
-        **self == *other
-    }
-}
-
-impl PartialEq<&str> for PackedStr<'_> {
-    #[inline]
-    fn eq(&self, other: &&str) -> bool {
-        **self == **other
-    }
-}
+packed_str_eq!(ProtoStr, &ProtoStr, str, &str);
 
 #[cfg(test)]
 mod tests {
@@ -277,9 +283,15 @@ mod tests {
     #[test]
     fn cells_deref_and_compare_as_the_string() {
         let cells = [PackedStr::new(b"b"), PackedStr::new(b"a\xFFz")];
+        let b = ProtoStr::new(b"b");
         assert_eq!(cells[0], "b");
         assert_eq!(&cells[0], "b");
-        assert_eq!(cells[0], *ProtoStr::new(b"b"));
+        assert_eq!("b", cells[0]);
+        assert_eq!(cells[0], b);
+        assert_eq!(b, cells[0]);
+        assert_eq!(*b, cells[0]);
+        assert_ne!(cells[1], b);
+        assert!(<&ProtoStr>::default().is_empty());
         assert_eq!(cells[1].len(), 3);
         assert!(cells[1] < cells[0]);
         assert_eq!(cells[1].to_string(), "a\u{FFFD}z");

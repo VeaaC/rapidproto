@@ -21,7 +21,7 @@
 //!   collide::Holder  -- names shaped like what generated code refers to (prelude and primitive type
 //!                       names, `V`, `type`, `Some`/`rp_out` fields), each reading back its own field.
 
-use rapidproto::{Arena, ErrorKind};
+use rapidproto::{Arena, ErrorKind, ProtoStr};
 
 use rustgen_golden::arena_layout::arena::al::Layout;
 use rustgen_golden::arena_manyreq::arena::mr::ManyRequired;
@@ -370,6 +370,26 @@ fn maps_with_scalar_keys_and_values() {
 }
 
 #[test]
+fn repeated_strings_and_bytes_are_indexable_cells() {
+    let arena = Arena::new();
+    let mut buf = Vec::new();
+    put_len(&mut buf, 24, b"ab"); // chunks (repeated bytes)
+    put_len(&mut buf, 24, b"");
+    let m = Msg::decode(&buf, &arena).unwrap();
+    assert_eq!(m.chunks(), [&b"ab"[..], b""]);
+    assert_eq!(m.chunks()[0][1], b'b');
+
+    let mut lbuf = Vec::new();
+    put_len(&mut lbuf, 20, b"x"); // labels (repeated string)
+    put_len(&mut lbuf, 20, b"yz");
+    let l = Layout::decode(&lbuf, &arena).unwrap();
+    assert_eq!(l.labels(), ["x", "yz"]);
+    let first: &ProtoStr = &l.labels()[0];
+    assert_eq!(first.to_str(), Ok("x"));
+    assert_eq!(l.labels()[1].get().len(), 2);
+}
+
+#[test]
 fn oneof_last_wins_and_unset() {
     let arena = Arena::new();
     // a (10, int32) then b (11, string): last tag wins.
@@ -394,6 +414,13 @@ fn oneof_last_wins_and_unset() {
     match Msg::decode(&dbuf, &arena).unwrap().pick() {
         Some(Pick::D(x)) => assert_eq!(*x, 2.5),
         _ => panic!("expected D"),
+    }
+    // e (23, bytes): held as a `bytes` cell.
+    let mut ebuf = Vec::new();
+    put_len(&mut ebuf, 23, b"\x00\xff");
+    match Msg::decode(&ebuf, &arena).unwrap().pick() {
+        Some(Pick::E(e)) => assert_eq!(e, b"\x00\xff"),
+        _ => panic!("expected E"),
     }
     // unset.
     assert!(Msg::decode(&[], &arena).unwrap().pick().is_none());

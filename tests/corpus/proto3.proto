@@ -25,6 +25,7 @@ message Msg {
     string b = 11;
     bool c = 15;    // bool/double reach the dumper through their own oneof-member path
     double d = 16;
+    bytes e = 23;   // the corpus's only `bytes` oneof member
   }
   repeated double reals = 12;   // packed fixed-width (I64): exercises the bulk-copy path
   repeated fixed32 codes = 13;  // packed fixed-width (I32): exercises the bulk-copy path
@@ -42,4 +43,6 @@ message Msg {
   // A map with `bytes` VALUES: these render as opaque bytes (hex), not a seq of u8 -- the one
   // map-value type a generic serializer gets wrong. Nothing else in the corpus has one.
   map<string, bytes> blobs = 22;
+  // A repeated `bytes` field (not a raw payload). Nothing else in the corpus has one.
+  repeated bytes chunks = 24;
 }

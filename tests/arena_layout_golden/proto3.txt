@@ -1,4 +1,4 @@
-message .p3.Msg size=200 align=8 fixed=no decode=noinline cost=22
+message .p3.Msg size=208 align=8 fixed=no decode=noinline cost=24
   field self num=5 pointer-submsg .p3.Msg off=16 size=8 align=8 presence=ptr
   field ratio num=20 inline-scalar double off=24 size=8 align=8 presence=none
   field name num=3 borrow-string ArenaString off=32 size=12 align=4 presence=none
@@ -18,14 +18,16 @@ message .p3.Msg size=200 align=8 fixed=no decode=noinline cost=22
     entry key=borrow-string:ArenaString value=inline-scalar:double size=24 align=8
   map blobs num=22 off=164 size=12 align=4 presence=empty
     entry key=borrow-string:ArenaString value=borrow-string:ArenaString size=24 align=4
-  field implicit_i num=1 inline-scalar int32 off=176 size=4 align=4 presence=none
-  field explicit_i num=2 inline-scalar int32 off=180 size=4 align=4 presence=bit0
-  field state num=4 inline-enum .p3.State off=184 size=4 align=4 presence=none
-  field scale num=21 inline-scalar float off=188 size=4 align=4 presence=none
-  oneof pick disc-off=192 union-off=0 union-size=12 union-align=8
+  field chunks num=24 repeated ArrayView<ArenaString> off=176 size=12 align=4 presence=empty
+  field implicit_i num=1 inline-scalar int32 off=188 size=4 align=4 presence=none
+  field explicit_i num=2 inline-scalar int32 off=192 size=4 align=4 presence=bit0
+  field state num=4 inline-enum .p3.State off=196 size=4 align=4 presence=none
+  field scale num=21 inline-scalar float off=200 size=4 align=4 presence=none
+  oneof pick disc-off=204 union-off=0 union-size=12 union-align=8
     member a num=10 inline-scalar int32 size=4 align=4
     member b num=11 borrow-string ArenaString size=12 align=4
     member c num=15 inline-scalar bool size=1 align=1
     member d num=16 inline-scalar double size=8 align=8
-  mask off=193 size=1 align=1 bits=1
+    member e num=23 borrow-string ArenaString size=12 align=4
+  mask off=205 size=1 align=1 bits=1
     bit 0 presence explicit_i

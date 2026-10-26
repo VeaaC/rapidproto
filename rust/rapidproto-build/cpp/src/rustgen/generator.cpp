@@ -483,7 +483,7 @@ std::string variant_payload_type(const NameTable& table,
 // variants borrow; scalar and enum (Copy newtype) variants do not.
 bool oneof_borrows(const OneofNode& oneof) {
     return std::any_of(oneof.fields.begin(), oneof.fields.end(), [](const FieldNode& field) {
-        return field.is_message_type || field.type_name == "string" || field.type_name == "bytes";
+        return field.is_message_type || is_string_or_bytes(field);
     });
 }
 
@@ -573,8 +573,7 @@ bool message_uses_lifetime(const MessageNode& msg, const FieldModes& modes) {
     if (std::any_of(msg.fields.begin(), msg.fields.end(), [&](const FieldNode& field) {
             // A dropped field has no storage; a raw message field borrows its payload.
             return field_mode(modes, field) != arenagen::FieldMode::Drop &&
-                   (field.is_repeated || field.is_message_type || field.type_name == "string" ||
-                    field.type_name == "bytes");
+                   (field.is_repeated || field.is_message_type || is_string_or_bytes(field));
         })) {
         return true;
     }
@@ -716,9 +715,9 @@ std::string mask_test(const std::string& base, int bit, int total) {
 }
 
 // Whether a singular field's decode local holds the plain `&'a [u8]` it read: a `string` or `bytes`
-// field (a singular raw field's local is likewise an `Option<&'a [u8]>`). The struct packs it into
-// its 12-byte cell only at construction: a decode keeps many such locals live at once, and the
-// pointer/length pair stays in registers where a packed 12-byte value is copied through memory.
+// field. The struct packs it into its 12-byte cell only at construction: a decode keeps many such
+// locals live at once, and the pointer/length pair stays in registers where a packed 12-byte value
+// is copied through memory.
 bool slice_local(const FieldNode& field) {
     return !field.is_repeated && is_string_or_bytes(field);
 }
@@ -788,17 +787,13 @@ std::string field_getter_type(const NameTable& table, const std::vector<std::str
 }
 
 // The default initializer for a NON-repeated field's or a map entry key/value's decode local (a
-// string/bytes field local is the empty slice instead, see `slice_local`): `None` for a pointer message;
-// `Default::default()` for an inlined-by-value message; else the proto3 zero value (shared by Bare and
-// masked-with-a-presence-bit fields -- the presence bit, not the value, records absence). A proto2
-// `[default = ...]` is not materialized (matching the C++ decoder). A bool has no local (it lives in
-// the mask). Repeated fields use a `DecodeVec`, not this.
+// string/bytes or raw field's local is a plain slice instead, see `emit_decode_locals`): `None` for a
+// pointer message; `Default::default()` for an inlined-by-value message; else the proto3 zero value
+// (shared by Bare and masked-with-a-presence-bit fields -- the presence bit, not the value, records
+// absence). A proto2 `[default = ...]` is not materialized (matching the C++ decoder). A bool has no
+// local (it lives in the mask). Repeated fields use a `DecodeVec`, not this.
 std::string field_default_expr(const NameTable& table, const std::vector<std::string>& current_mod,
                                const FieldNode& field, const arenagen::MemberPlan* member) {
-    if (member != nullptr && member->kind == arenagen::FieldKind::Raw) {
-        // A singular `raw` field's local is `Option<&'a [u8]>` (None = absent).
-        return "::core::option::Option::None";
-    }
     switch (rust_store(member, field)) {
         case RustStore::PointerMsg:
             return "::core::option::Option::None";
@@ -1777,15 +1772,19 @@ void emit_decode_locals(Printer& printer, const NameTable& table,
                           {{"n", std::to_string(field.number)}});
         } else if (rust_store(member, field) != RustStore::MaskedBool) {
             // A packed bool has no local -- its value and presence live entirely in the mask. A
-            // string/bytes/raw local holds the plain slice (see `slice_local`); the construct packs
-            // it.
-            std::string type = field_storage_type(table, current_mod, field, modes, member);
-            std::string init = field_default_expr(table, current_mod, field, member);
+            // string/bytes local holds the plain slice (see `slice_local`) and a raw field's local
+            // the payload slice, `None` while absent; the construct packs either into its cell.
+            std::string type;
+            std::string init;
             if (slice_local(field)) {
                 type = "&'a [u8]";
                 init = "&[]";
             } else if (field_mode(modes, field) == arenagen::FieldMode::Raw) {
                 type = "::core::option::Option<&'a [u8]>";
+                init = "::core::option::Option::None";
+            } else {
+                type = field_storage_type(table, current_mod, field, modes, member);
+                init = field_default_expr(table, current_mod, field, member);
             }
             printer.print("let mut $l$: $t$ = $d$;\n",
                           {{"l", field_local(field)}, {"t", type}, {"d", init}});

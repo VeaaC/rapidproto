@@ -39,13 +39,13 @@ impl<'a, K, V> MapView<'a, K, V> {
     /// Number of entries as decoded (duplicated keys counted).
     #[inline]
     pub fn len(&self) -> usize {
-        self.entries.as_slice().len()
+        self.entries.len()
     }
 
     /// Whether the map has no entries.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.entries.as_slice().is_empty()
+        self.entries.is_empty()
     }
 
     /// The raw entry slice, in wire order.

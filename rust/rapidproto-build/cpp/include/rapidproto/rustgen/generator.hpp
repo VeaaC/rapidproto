@@ -53,7 +53,7 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 // `on_<field>(&mut self, V) -> Result<Flow, DecodeError>` method per field, plus an `unknown` handler),
 // a `<Msg>::decode` driver whose per-field arm gates on `V::WANT_<field>` (an unselected field
 // const-folds to a wire-skip), and a per-message `<msg>_stream! { field => closure, .. }` macro. A
-// handler receives a scalar as its Rust primitive, a string as `ProtoStr`, bytes as `&[u8]`, an ENUM as
+// handler receives a scalar as its Rust primitive, a string as `&ProtoStr`, bytes as `&[u8]`, an ENUM as
 // its generated `common`-tree newtype, a message/group as the child's reader handle (recurse with
 // `child.decode(..)`), and a MAP field as a `(key, value)` pair per entry (the value a child handle when
 // it is a message); `Flow::Stop` and an `Err` propagate out of `decode`. The trait and driver name a

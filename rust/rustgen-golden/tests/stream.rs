@@ -1352,3 +1352,29 @@ fn bytes_is_the_exact_undecoded_span() {
     assert_eq!(M::new(&len_buf).bytes().as_ptr(), len_buf.as_ptr());
     assert_eq!(M::new(&len_buf).bytes(), &len_buf[..]);
 }
+
+#[cfg(target_pointer_width = "64")]
+#[cfg_attr(miri, ignore)]
+#[test]
+fn string_over_u32_max_streams_at_full_length_and_the_arena_rejects_it() {
+    // Never valid protobuf (a message is at most 2 GiB), but the streaming decoder has no size
+    // limit: the handler sees the whole length. The arena decoder, whose cells store a 32-bit
+    // length, rejects the input up front. The buffer is zeroed memory, so only the header page is
+    // ever touched.
+    let len = (1u64 << 32) + 5;
+    let mut head = Vec::new();
+    put_tag(&mut head, 3, 2); // name
+    put_varint(&mut head, len);
+    let mut buf = vec![0u8; head.len() + len as usize];
+    buf[..head.len()].copy_from_slice(&head);
+
+    let mut got = 0;
+    Msg::new(&buf)
+        .decode(msg_stream! { name => |n| got = n.len() })
+        .unwrap();
+    assert_eq!(got as u64, len);
+
+    let arena = rapidproto::Arena::new();
+    let err = rustgen_golden::proto3::arena::p3::Msg::decode(&buf, &arena).err();
+    assert_eq!(err.map(|e| e.kind()), Some(ErrorKind::InputTooLarge));
+}

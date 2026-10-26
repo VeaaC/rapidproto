@@ -10,8 +10,8 @@ use core::ptr::NonNull;
 
 /// A `&'a [T]` stored as its pointer and a `u32` length: on a 64-bit target 12 bytes with alignment
 /// 4, where a slice reference takes 16 with alignment 8. Decoded messages store their repeated
-/// fields, maps and `bytes` values this way, as the C++ decoder stores its views. A repeated
-/// `bytes` field hands out its elements as `PackedSlice<'a, u8>`.
+/// fields, maps and `bytes` values this way, as the C++ decoder stores its views. A `bytes` value
+/// inside a repeated field, map or oneof, and a repeated raw payload, is a `PackedSlice<'a, u8>`.
 ///
 /// It derefs to the slice. Deref borrows the cell, so a slice reached through it lives only as long
 /// as that borrow; [`as_slice`](PackedSlice::as_slice) returns it for the full `'a`.
@@ -40,10 +40,11 @@ impl<'a, T> PackedSlice<'a, T> {
     /// Store `slice`. The length truncates to 32 bits rather than being checked: a check costs a
     /// branch on every view a decode stores (up to 9% more instructions on string-heavy messages),
     /// and the arena decoder rejects an input over `u32::MAX` bytes, so nothing it stores is
-    /// longer.
+    /// longer. A debug build asserts that.
     #[doc(hidden)]
     #[inline]
     pub fn new(slice: &'a [T]) -> Self {
+        debug_assert!(u32::try_from(slice.len()).is_ok());
         Self {
             ptr: NonNull::from(slice).cast(),
             len: slice.len() as u32,
@@ -168,6 +169,18 @@ impl<T: PartialEq<U>, U, const N: usize> PartialEq<&[U; N]> for PackedSlice<'_, 
         self.as_slice() == *other
     }
 }
+impl<T: PartialEq<U>, U> PartialEq<PackedSlice<'_, U>> for [T] {
+    #[inline]
+    fn eq(&self, other: &PackedSlice<'_, U>) -> bool {
+        self == other.as_slice()
+    }
+}
+impl<T: PartialEq<U>, U> PartialEq<PackedSlice<'_, U>> for &[T] {
+    #[inline]
+    fn eq(&self, other: &PackedSlice<'_, U>) -> bool {
+        *self == other.as_slice()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -210,6 +223,7 @@ mod tests {
         assert_eq!(cells[1].get(1), Some(&3));
         assert_eq!(cells, [&[1u8][..], &[2, 3]]);
         assert_eq!(cells[1], [2u8, 3]);
+        assert_eq!(&[2u8, 3][..], cells[1]);
         assert!(cells[0] < cells[1]);
         assert_eq!(cells[1].into_iter().sum::<u8>(), 5);
     }
