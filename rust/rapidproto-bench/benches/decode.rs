@@ -536,7 +536,7 @@ fn external_bench(c: &mut Criterion) {
             let f = arm.decoder().expect("a supported arm");
             group.bench_function(id, |b| {
                 let inputs = inputs.get_or_init(|| payloads::load(&dir, &sc.source));
-                b.iter(|| black_box(f(black_box(&inputs.buffers[0]))));
+                b.iter(|| black_box(f.decode(black_box(&inputs.buffers[0]))));
             });
         }
     }

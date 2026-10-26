@@ -5,12 +5,14 @@
 //! ```text
 //! <dir>/<name>.bin           an arena scenario, protoc-serialized   (rapidproto_arena_bench)
 //! <dir>/stream/<stem>.bin    a streaming scenario                   (rapidproto_bench)
-//! <dir>/rv/<stem>/<i>.bin    buffer i of a varint-sweep pool        (both)
-//! <dir>/rv/<stem>/pool.txt   the pool's buffer count, written last  (both)
+//! <dir>/rv/<stem>.pool       a varint-sweep pool                    (both)
 //! <dir>/external/<stem>.bin  a real-world dataset's input           (rapidproto_arena_bench)
-//! <dir>/external/<stem>/     a real-world dataset's pool            (rapidproto_arena_bench)
+//! <dir>/external/<stem>.pool a real-world dataset's pool            (rapidproto_arena_bench)
 //! <dir>/external/<stem>.sum  the C++ arms' checksum over that input (rapidproto_arena_bench)
 //! ```
+//!
+//! A `.pool` file holds a pool's buffers in order, each a 4-byte little-endian length and its bytes:
+//! the [`Source::Batch`] layout.
 //!
 //! The varint sweeps decode a POOL of distinct-seed buffers per scenario, in whole passes, so no arm
 //! replays one memorized width sequence (the C++ rationale, `tests/bench_varint.hpp`). Their
@@ -22,6 +24,7 @@
 //! inputs are ported from the C++ ones field for field, so the runner holds them to the dumped C++
 //! checksum ([`cpp_checksum`]).
 
+use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
 /// One scenario's input: a single buffer (a batch is one, too), or a varint-sweep pool decoded one
@@ -39,25 +42,25 @@ pub enum Source {
     Arena(&'static str),
     /// `<dir>/stream/<stem>.bin` -- a streaming scenario.
     Stream(&'static str),
-    /// `<dir>/rv/<stem>/<i>.bin` -- a varint-sweep pool.
+    /// `<dir>/rv/<stem>.pool` -- a varint-sweep pool.
     Pool(String),
     /// `<dir>/external/<stem>.bin` -- a real-world dataset's input.
     External(&'static str),
-    /// `<dir>/external/<stem>/<i>.bin` -- a real-world dataset's pool decoded WHOLE per call (as the C++
-    /// `osm_blocks` arms loop over every block): loaded as ONE buffer of length-prefixed frames, which
-    /// a decoder walks with [`frames`].
+    /// `<dir>/external/<stem>.pool` -- a real-world dataset's pool decoded WHOLE per call (as the C++
+    /// `osm_blocks` arms loop over every block): loaded as ONE buffer, the file itself, whose
+    /// length-prefixed frames a decoder walks with [`frames`].
     Batch(&'static str),
 }
 
 impl Source {
-    /// The input's file, or its pool's directory.
+    /// The input's file.
     fn path(&self, dir: &Path) -> PathBuf {
         match self {
             Source::Arena(stem) => dir.join(format!("{stem}.bin")),
             Source::Stream(stem) => dir.join("stream").join(format!("{stem}.bin")),
-            Source::Pool(stem) => dir.join("rv").join(stem),
+            Source::Pool(stem) => dir.join("rv").join(format!("{stem}.pool")),
             Source::External(stem) => dir.join("external").join(format!("{stem}.bin")),
-            Source::Batch(stem) => dir.join("external").join(stem),
+            Source::Batch(stem) => dir.join("external").join(format!("{stem}.pool")),
         }
     }
 
@@ -95,14 +98,9 @@ pub fn read(path: &Path) -> Vec<u8> {
     bytes
 }
 
-/// Whether `source`'s input is in the payload directory `dir` (its file, or its pool's manifest).
+/// Whether `source`'s input is in the payload directory `dir`.
 pub fn present(dir: &Path, source: &Source) -> bool {
-    let path = source.path(dir);
-    if source.is_pool() {
-        path.join("pool.txt").is_file()
-    } else {
-        path.is_file()
-    }
+    source.path(dir).is_file()
 }
 
 /// The C++ arms' checksum over a real-world dataset's input (`<dir>/external/<stem>.sum`, which the dump
@@ -129,44 +127,43 @@ pub fn cpp_checksum(dir: &Path, source: &Source) -> Option<u64> {
 /// Load a scenario's input from the payload directory `dir`.
 pub fn load(dir: &Path, source: &Source) -> Inputs {
     let path = source.path(dir);
+    let file = read(&path);
     if !source.is_pool() {
-        let buffer = read(&path);
-        let bytes = buffer.len() as f64;
+        let bytes = file.len() as f64;
         return Inputs {
-            buffers: vec![buffer],
+            buffers: vec![file],
             bytes,
         };
     }
-    // Exactly the buffers the pool's `pool.txt` counts: a dump writes it last, so a pool an interrupted
-    // dump left behind fails here instead of loading short.
-    let pool: Vec<Vec<u8>> = (0..pool_len(&path))
-        .map(|i| read(&path.join(format!("{i}.bin"))))
-        .collect();
-    let total = pool.iter().map(Vec::len).sum::<usize>() as f64;
+    // An empty buffer would decode as an empty message and silently "measure" nothing.
+    let lens: Vec<usize> = frames(&file).map(<[u8]>::len).collect();
+    assert!(lens.iter().all(|&n| n > 0), "{path:?} has an empty buffer");
+    let total = lens.iter().sum::<usize>() as f64;
     match source {
         Source::Batch(_) => Inputs {
-            buffers: vec![batch(&pool)],
+            buffers: vec![file],
             bytes: total,
         },
         _ => Inputs {
-            bytes: total / pool.len() as f64,
-            buffers: pool,
+            buffers: frames(&file).map(<[u8]>::to_vec).collect(),
+            bytes: total / lens.len() as f64,
         },
     }
 }
 
-/// `buffers` as one [`Source::Batch`] input: each prefixed with its length (u32, little-endian).
+/// `buffers` in the `.pool` layout: each prefixed with its length (u32, little-endian).
 pub fn batch(buffers: &[Vec<u8>]) -> Vec<u8> {
     let mut out = Vec::with_capacity(buffers.iter().map(|b| 4 + b.len()).sum());
     for b in buffers {
-        let len = u32::try_from(b.len()).expect("a batch buffer over 4 GiB");
+        let len = u32::try_from(b.len()).expect("a pool buffer over 4 GiB");
         out.extend_from_slice(&len.to_le_bytes());
         out.extend_from_slice(b);
     }
     out
 }
 
-/// The buffers of a [`Source::Batch`] input, in order. Panics on a malformed batch.
+/// The buffers of a `.pool` file's bytes (a [`Source::Batch`] input), in order. Panics on a malformed
+/// pool.
 pub fn frames(mut batch: &[u8]) -> impl Iterator<Item = &[u8]> {
     std::iter::from_fn(move || {
         if batch.is_empty() {
@@ -174,41 +171,50 @@ pub fn frames(mut batch: &[u8]) -> impl Iterator<Item = &[u8]> {
         }
         let (len, rest) = batch
             .split_first_chunk::<4>()
-            .expect("not a batch: a truncated frame length");
+            .expect("not a pool: a truncated buffer length");
         let (frame, rest) = rest
             .split_at_checked(u32::from_le_bytes(*len) as usize)
-            .expect("not a batch: a frame past the end");
+            .expect("not a pool: a buffer past the end");
         batch = rest;
         Some(frame)
     })
 }
 
-fn pool_len(pool_dir: &Path) -> usize {
-    let manifest = pool_dir.join("pool.txt");
-    let text = String::from_utf8(read(&manifest)).unwrap_or_default();
-    match text.trim().parse() {
-        Ok(n) if n > 0 => n,
-        _ => panic!("bad pool count in {manifest:?}"),
-    }
+/// The buffer lengths of the `.pool` file `path`, read without loading the buffers.
+fn frame_lens(path: &Path) -> Vec<u64> {
+    let walk = || -> std::io::Result<Vec<u64>> {
+        let file = std::fs::File::open(path)?;
+        let size = file.metadata()?.len();
+        let mut file = std::io::BufReader::new(file);
+        let (mut lens, mut at) = (Vec::new(), 0);
+        while at < size {
+            let mut len = [0u8; 4];
+            file.read_exact(&mut len)?;
+            let len = u32::from_le_bytes(len);
+            file.seek_relative(i64::from(len))?;
+            at += 4 + u64::from(len);
+            lens.push(u64::from(len));
+        }
+        assert_eq!(at, size, "{path:?} is not a pool: a buffer past the end");
+        Ok(lens)
+    };
+    walk().unwrap_or_else(|e| panic!("cannot read pool {path:?}: {e}"))
 }
 
-/// [`Inputs::bytes`] from the file sizes alone -- for a caller that must state a throughput before it
-/// loads the input (criterion).
+/// [`Inputs::bytes`] without loading the input -- for a caller that must state a throughput before it
+/// loads it (criterion).
 pub fn bytes_per_call(dir: &Path, source: &Source) -> f64 {
-    let len = |p: PathBuf| {
-        std::fs::metadata(&p)
-            .unwrap_or_else(|e| panic!("cannot stat payload {p:?}: {e}"))
-            .len() as f64
-    };
     let path = source.path(dir);
     if !source.is_pool() {
-        return len(path);
+        return std::fs::metadata(&path)
+            .unwrap_or_else(|e| panic!("cannot stat payload {path:?}: {e}"))
+            .len() as f64;
     }
-    let n = pool_len(&path);
-    let total: f64 = (0..n).map(|i| len(path.join(format!("{i}.bin")))).sum();
+    let lens = frame_lens(&path);
+    let total = lens.iter().sum::<u64>() as f64;
     match source {
         Source::Batch(_) => total,
-        _ => total / n as f64,
+        _ => total / lens.len() as f64,
     }
 }
 

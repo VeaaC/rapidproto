@@ -810,7 +810,7 @@ bool dump(const char* dir) {
     const std::filesystem::path out = std::filesystem::path(dir) / "external";
     return rpbench::write_payload(out / "osm_file.bin", data.file) &&
            rpbench::write_sum(out / "osm_file.sum", sum) &&
-           rpbench::write_pool(out / "osm_blocks", data.payloads) &&
+           rpbench::write_pool(out / "osm_blocks.pool", data.payloads) &&
            rpbench::write_sum(out / "osm_blocks.sum", sum);
 }
 

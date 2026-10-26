@@ -9,10 +9,10 @@
 //!
 //! Timing: `ROUNDS` samples per arm. Within a round every supported arm runs once, in an order rotated
 //! per round to cancel slot bias, and an arm's cost is its median sample. A sample is whole passes over
-//! the scenario's buffers, as many as make the baseline's sample take ~10 ms: a median is only
-//! meaningful when every sample is the same workload. Throughput is [`Inputs::bytes`] over the median
-//! time per call, in decimal GB/s as the C++ benches print. There are no in-process counters: read
-//! instructions/byte with `perf stat -e instructions:u` over the `perf_*` examples.
+//! the scenario's buffers ([`Decode::pass`]), as many as make the baseline's sample take ~10 ms: a
+//! median is only meaningful when every sample is the same workload. Throughput is [`Inputs::bytes`]
+//! over the median time per call, in decimal GB/s as the C++ benches print. There are no in-process
+//! counters: read instructions/byte with `perf stat -e instructions:u` over the `perf_*` examples.
 //!
 //! Comparing with C++: the C++ harness times one call per sample (two clock reads and a
 //! `std::function` call, ~20 ns), a pool's call being one pass over all its buffers, and adds rounds
@@ -128,28 +128,16 @@ fn median(xs: &[f64]) -> f64 {
     }
 }
 
-/// The checksum of one pass over every input buffer -- what the agreement gate compares.
-fn pool_checksum(f: &mut Decode, inputs: &Inputs) -> u64 {
-    inputs
-        .buffers
-        .iter()
-        .fold(0u64, |s, b| s.wrapping_add(f(b)))
-}
-
 // The baseline sample's target duration when `ITERS` is unset.
 const TARGET_SAMPLE_NS: f64 = 10e6;
 
 /// Passes over the buffers per sample: enough for `ITERS` decode calls, else for the baseline's sample
 /// to take ~10 ms. Whole passes, so every sample of a pool is the same workload.
-fn calibrate(base: &mut Decode, inputs: &Inputs, fixed: Option<usize>) -> usize {
+fn calibrate(base: &mut dyn Decode, inputs: &Inputs, fixed: Option<usize>) -> usize {
     let n = inputs.buffers.len();
     let calls = fixed.unwrap_or_else(|| {
         let t0 = Instant::now();
-        let mut acc = 0u64;
-        for b in &inputs.buffers {
-            acc = acc.wrapping_add(base(black_box(b)));
-        }
-        black_box(acc);
+        black_box(base.pass(black_box(&inputs.buffers)));
         let per_call = t0.elapsed().as_nanos() as f64 / n as f64;
         ((TARGET_SAMPLE_NS / per_call.max(1.0)).ceil() as usize).clamp(1, 10_000_000)
     });
@@ -167,9 +155,7 @@ fn measure(arms: &mut [Arm], inputs: &Inputs, rounds: usize, passes: usize) -> V
     for &i in &sup {
         let f = arms[i].decoder().unwrap();
         for _ in 0..3 {
-            for b in bufs {
-                black_box(f(black_box(b)));
-            }
+            black_box(f.pass(black_box(bufs)));
         }
     }
     let mut samples: Vec<Vec<f64>> = vec![Vec::with_capacity(rounds); arms.len()];
@@ -180,9 +166,7 @@ fn measure(arms: &mut [Arm], inputs: &Inputs, rounds: usize, passes: usize) -> V
             let t0 = Instant::now();
             let mut acc = 0u64;
             for _ in 0..passes {
-                for b in bufs {
-                    acc = acc.wrapping_add(f(black_box(b)));
-                }
+                acc = acc.wrapping_add(f.pass(black_box(bufs)));
             }
             let ns = t0.elapsed().as_nanos() as f64 / calls as f64;
             black_box(acc);
@@ -221,10 +205,10 @@ fn report_mem(sc: &Scenario, inputs: &Inputs, cpp: &str, json: bool, decoder: &s
 }
 
 /// The loop the `perf_*` examples run under `perf stat -e instructions:u`: decode the scenario named
-/// `SCENARIO` with arm `ARM` (default `default_arm`) `ITERS` times, rotating over a pool, then report
-/// the bytes decoded -- instructions over those bytes is the instructions/byte to set beside the C++
-/// bench's `ins/B`. `ITERS` defaults to ~2 GB of input, so loading the payload stays a small share of
-/// the count.
+/// `SCENARIO` with arm `ARM` (default `default_arm`) `ITERS` times, rounded up to whole passes over a
+/// pool, then report the bytes decoded -- instructions over those bytes is the instructions/byte to set
+/// beside the C++ bench's `ins/B`. `ITERS` defaults to ~2 GB of input, so loading the payload stays a
+/// small share of the count.
 pub fn perf(scenarios: Vec<Scenario>, default_arm: &str) {
     let name = std::env::var("SCENARIO").expect("set SCENARIO to a scenario name (e.g. records)");
     let arm_name = std::env::var("ARM").unwrap_or_else(|_| default_arm.to_string());
@@ -243,11 +227,14 @@ pub fn perf(scenarios: Vec<Scenario>, default_arm: &str) {
         .decoder()
         .unwrap_or_else(|| panic!("arm {arm_name:?} is unsupported for {name:?}"));
     let bytes = inputs.bytes;
-    let iters = env_usize("ITERS").unwrap_or(((2e9 / bytes).ceil() as usize).max(1));
     let bufs = &inputs.buffers;
+    let passes = env_usize("ITERS")
+        .unwrap_or(((2e9 / bytes).ceil() as usize).max(1))
+        .div_ceil(bufs.len());
+    let iters = passes * bufs.len();
     let mut checksum = 0u64;
-    for i in 0..iters {
-        checksum = checksum.wrapping_add(black_box(f(black_box(&bufs[i % bufs.len()]))));
+    for _ in 0..passes {
+        checksum = checksum.wrapping_add(f.pass(black_box(bufs)));
     }
     eprintln!(
         "scenario={name} arm={arm_name} iters={iters} bytes/iter={bytes:.0} total={:.0} \
@@ -314,7 +301,7 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
         // but excluded from the gate.
         let sums: Vec<Option<u64>> = arms
             .iter_mut()
-            .map(|a| a.decoder().map(|d| pool_checksum(d, &inputs)))
+            .map(|a| a.decoder().map(|d| d.pass(&inputs.buffers)))
             .collect();
         let agreed: Vec<u64> = sums.iter().filter_map(|&s| s).collect();
         // Every arm agreeing on 0 means the input decodes to nothing: an empty or mislabelled payload

@@ -1617,7 +1617,7 @@ int scenario_two_tier() {
 
 int main() {
     // Generator mode: write every scenario's input into the given directory (stream/<stem>.bin, and
-    // rv/<stem>/<i>.bin per sweep pool -- bench_payloads.hpp) and exit WITHOUT benching. Run it once,
+    // rv/<stem>.pool per sweep pool -- bench_payloads.hpp) and exit WITHOUT benching. Run it once,
     // then point this bench and the Rust streaming bench at the directory via RAPIDPROTO_BENCH_DIR so
     // they decode byte-identical input.
     if (const char* const dir = std::getenv("RAPIDPROTO_BENCH_DUMP_DIR")) {

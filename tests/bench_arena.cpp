@@ -699,7 +699,7 @@ int main() {
                 return 1;
             }
         }
-        // The repeated-varint sweeps' pools (rv/<stem>/<i>.bin), the same set the sweeps measure.
+        // The repeated-varint sweeps' pools (rv/<stem>.pool), the same set the sweeps measure.
         for (const auto& dist : rpbench::varint_dists()) {
             for (const int count : rpbench::varint_lengths()) {
                 if (!rpbench::dump_varint_pool(

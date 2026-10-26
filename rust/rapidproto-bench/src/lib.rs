@@ -52,10 +52,29 @@ pub mod stream;
 use payloads::Source;
 use runner::Scenario;
 
-/// Decode `input` and return the fairness checksum (one decoder's whole job, boxed so arms of
-/// different decoders share a type). `FnMut`, so an arm owns its reused state (a warm arena, a
-/// buffer) with no runtime borrow check per call.
-pub type Decode = Box<dyn FnMut(&[u8]) -> u64>;
+/// One decoder's whole job: decode an input and return the fairness checksum. Any
+/// `FnMut(&[u8]) -> u64` is one, so an arm owns its reused state (a warm arena, a buffer) with no
+/// runtime borrow check per call. Arms are boxed as `dyn Decode` so arms of different decoders share
+/// a type.
+pub trait Decode {
+    /// Decode `input` and return its checksum.
+    fn decode(&mut self, input: &[u8]) -> u64;
+
+    /// Decode every buffer once and return the wrapping sum of the checksums. A timed sample is whole
+    /// passes, so a boxed arm costs one dynamic call per pass, not per buffer, as with the C++ benches'
+    /// `pool_pass`.
+    fn pass(&mut self, buffers: &[Vec<u8>]) -> u64 {
+        buffers
+            .iter()
+            .fold(0u64, |sum, b| sum.wrapping_add(self.decode(b)))
+    }
+}
+
+impl<F: FnMut(&[u8]) -> u64> Decode for F {
+    fn decode(&mut self, input: &[u8]) -> u64 {
+        self(input)
+    }
+}
 
 /// Builds the arms for a scenario (arm 0 = baseline), so several scenarios can share one builder.
 pub type ArmsFn = fn() -> Vec<Arm>;
@@ -63,7 +82,7 @@ pub type ArmsFn = fn() -> Vec<Arm>;
 /// How an arm handles a given scenario.
 pub enum ArmRun {
     /// Decodes the payload and returns the fairness checksum.
-    Supported(Decode),
+    Supported(Box<dyn Decode>),
     /// The arm cannot decode this scenario's schema (a feature gap, e.g. femtopb has no `map` support
     /// so it cannot decode `dataset`). The string is the reason, shown in the table. An unsupported
     /// arm is still LISTED and flagged in the output, never silently dropped, but it is excluded from
@@ -95,9 +114,9 @@ impl Arm {
     }
 
     /// The decoder, or `None` if this arm is unsupported for its scenario.
-    pub fn decoder(&mut self) -> Option<&mut Decode> {
+    pub fn decoder(&mut self) -> Option<&mut dyn Decode> {
         match &mut self.run {
-            ArmRun::Supported(d) => Some(d),
+            ArmRun::Supported(d) => Some(d.as_mut()),
             ArmRun::Unsupported(_) => None,
         }
     }

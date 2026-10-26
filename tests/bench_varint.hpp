@@ -164,13 +164,17 @@ inline std::string make_packed_i64(const std::vector<std::int64_t>& values, int 
     return buf;
 }
 
+// The fewest elements a pool holds. On fewer, the branch predictor learns the pool's width sequence:
+// `rv mix13 10` read 4x faster on 64 buffers (640 elements) than on unseen data, and pools of 2^17
+// elements and more read within ~1% of each other.
+constexpr long kPoolElements = 1L << 17;
+
 // A pool of distinct-seed packed-varint buffers with one shape, plus their total size -- what every
 // sweep decodes, a whole pass per sample (rpbench::pool_pass), so no arm replays a single memorized
-// width sequence. Pool size: ~64 MB budget, >= 8 buffers (defeat the predictor at small counts),
-// <= 64 (bound setup). Each element is <= 10 bytes, so count*10 over-estimates a buffer; that only
-// makes the pool smaller, never unsafe. Returns the strings ONLY -- the caller builds its ByteView
-// vector over them after the vector is fully populated (a returned view container would dangle on SSO
-// buffers).
+// width sequence. Pool size: enough buffers for kPoolElements, and >= 64; within a ~64 MB budget,
+// and >= 8. Each element is <= 10 bytes, so count*10 over-estimates a buffer; that only makes the pool
+// smaller, never unsafe. Returns the strings ONLY -- the caller builds its ByteView vector over them
+// after the vector is fully populated (a returned view container would dangle on SSO buffers).
 // This arithmetic existed in three copies across the two benches before it lived here.
 struct VarintPool {
     std::vector<std::string> buffers;
@@ -178,7 +182,8 @@ struct VarintPool {
 };
 inline VarintPool build_varint_pool(const VarintDist& dist, int count, int field_number = 1) {
     const long est = static_cast<long>(count) * 10 + 16;
-    const int pool_n = static_cast<int>(std::min<long>(64, std::max<long>(8, (64L << 20) / est)));
+    const long wanted = std::max<long>(64, (kPoolElements + count - 1) / count);
+    const int pool_n = static_cast<int>(std::max<long>(8, std::min(wanted, (64L << 20) / est)));
     VarintPool pool;
     pool.buffers.reserve(static_cast<std::size_t>(pool_n));
     for (int s = 0; s < pool_n; ++s) {

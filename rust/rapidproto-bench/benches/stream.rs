@@ -62,7 +62,7 @@ fn stream_bench(c: &mut Criterion) {
                 b.iter(|| {
                     let buf = &inputs.buffers[at % inputs.buffers.len()];
                     at += 1;
-                    black_box(generated(black_box(buf.as_slice())))
+                    black_box(generated.decode(black_box(buf)))
                 });
             });
         }

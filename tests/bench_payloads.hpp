@@ -9,10 +9,10 @@
 // in-process. Layout:
 //   <dir>/<name>.bin           an arena scenario, protoc-serialized (bench_arena.cpp)
 //   <dir>/stream/<stem>.bin    a streaming scenario (bench_streamgen.cpp)
-//   <dir>/rv/<stem>/<i>.bin    buffer i of a varint-sweep pool (both benches; bench_varint.hpp)
-//   <dir>/rv/<stem>/pool.txt   the pool's buffer count, written last: a pool without it is incomplete
-//   <dir>/external/<stem>.bin  a real-world dataset's input (osm_blocks: the pool <stem>/)
+//   <dir>/rv/<stem>.pool       a varint-sweep pool (both benches; bench_varint.hpp)
+//   <dir>/external/<stem>.bin  a real-world dataset's input (osm_blocks: the pool <stem>.pool)
 //   <dir>/external/<stem>.sum  the checksum the C++ arms agree on over that input
+// A .pool file holds a pool's buffers in order, each a 4-byte little-endian length and its bytes.
 // external/ holds only the datasets this arena-bench build has, and only the Rust runners read it:
 // the C++ arms load the datasets from their own sources. The Rust runners build none of these
 // files, so they are the runners' whole contract.
@@ -76,50 +76,78 @@ inline bool write_sum(const std::filesystem::path& path, std::uint64_t sum) {
     return write_payload(path, std::to_string(sum) + "\n");
 }
 
-// A varint-sweep pool's directory under the payload root.
+// A varint-sweep pool's file under the payload root.
 inline std::filesystem::path rv_pool_path(const char* dir, const std::string& stem) {
-    return std::filesystem::path(dir) / "rv" / stem;
+    return std::filesystem::path(dir) / "rv" / (stem + ".pool");
 }
 
-// The varint-sweep pool `stem` -- (dist, count, field_number) -- loaded from <dir>/rv/<stem>/ when
-// RAPIDPROTO_BENCH_DIR is set (exactly the buffers its pool.txt counts), else built.
+// The buffers of the .pool file `path`, fatal on a malformed file or an empty buffer.
+inline std::vector<std::string> read_pool(const std::string& path) {
+    const std::string file = read_payload(path);
+    std::vector<std::string> buffers;
+    std::size_t at = 0;
+    while (at < file.size()) {
+        std::uint32_t len = 0;
+        for (std::size_t i = 0; i < 4 && at + i < file.size(); ++i) {
+            len |= static_cast<std::uint32_t>(static_cast<unsigned char>(file[at + i])) << (8 * i);
+        }
+        if (file.size() - at < 4 || len == 0 || len > file.size() - at - 4) {
+            std::fprintf(stderr, "bench: '%s' is not a pool (bad buffer at byte %zu)\n",
+                         path.c_str(), at);
+            std::exit(1);
+        }
+        buffers.emplace_back(file, at + 4, len);
+        at += 4 + len;
+    }
+    return buffers;
+}
+
+// The varint-sweep pool `stem` -- (dist, count, field_number) -- loaded from <dir>/rv/<stem>.pool when
+// RAPIDPROTO_BENCH_DIR is set, else built.
 inline VarintPool load_varint_pool(const std::string& stem, const VarintDist& dist, int count,
                                    int field_number = 1) {
     const char* const dir = payload_dir();
     if (dir == nullptr) {
         return build_varint_pool(dist, count, field_number);
     }
-    const std::filesystem::path pool_dir = rv_pool_path(dir, stem);
-    const std::string manifest = read_payload((pool_dir / "pool.txt").string());
-    const long n = std::strtol(manifest.c_str(), nullptr, 10);
-    if (n <= 0) {
-        std::fprintf(stderr, "bench: bad pool count in '%s'\n",
-                     (pool_dir / "pool.txt").string().c_str());
-        std::exit(1);
-    }
     VarintPool pool;
-    for (long i = 0; i < n; ++i) {
-        pool.buffers.push_back(read_payload((pool_dir / (std::to_string(i) + ".bin")).string()));
-        pool.total_bytes += static_cast<double>(pool.buffers.back().size());
+    pool.buffers = read_pool(rv_pool_path(dir, stem).string());
+    for (const std::string& b : pool.buffers) {
+        pool.total_bytes += static_cast<double>(b.size());
     }
     return pool;
 }
 
-// Write `buffers` as the pool <pool_dir>/<i>.bin, replacing what a previous dump left there, and its
-// pool.txt last, so an interrupted dump leaves no loadable pool.
-inline bool write_pool(const std::filesystem::path& pool_dir,
-                       const std::vector<std::string>& buffers) {
-    std::error_code ec;
-    std::filesystem::remove_all(pool_dir, ec);
-    for (std::size_t i = 0; i < buffers.size(); ++i) {
-        if (!write_payload(pool_dir / (std::to_string(i) + ".bin"), buffers[i])) {
+// Write `buffers` as the .pool file `path`, through a temporary file renamed into place, so an
+// interrupted dump leaves no loadable pool.
+inline bool write_pool(const std::filesystem::path& path, const std::vector<std::string>& buffers) {
+    std::string file;
+    for (const std::string& b : buffers) {
+        if (b.empty() || b.size() > UINT32_MAX) {
+            std::fprintf(stderr, "bench: a pool buffer for '%s' is empty or over 4 GiB\n",
+                         path.string().c_str());
             return false;
         }
+        for (int i = 0; i < 4; ++i) {
+            file.push_back(static_cast<char>((b.size() >> (8 * i)) & 0xFFU));
+        }
+        file += b;
     }
-    return write_payload(pool_dir / "pool.txt", std::to_string(buffers.size()) + "\n");
+    std::filesystem::path tmp = path;
+    tmp += ".tmp";
+    if (!write_payload(tmp, file)) {
+        return false;
+    }
+    std::error_code ec;
+    std::filesystem::rename(tmp, path, ec);
+    if (ec) {
+        std::fprintf(stderr, "bench: cannot write '%s'\n", path.string().c_str());
+        return false;
+    }
+    return true;
 }
 
-// Write the varint-sweep pool `stem` -- (dist, count, field_number) -- to <dir>/rv/<stem>/.
+// Write the varint-sweep pool `stem` -- (dist, count, field_number) -- to <dir>/rv/<stem>.pool.
 inline bool dump_varint_pool(const char* dir, const std::string& stem, const VarintDist& dist,
                              int count, int field_number = 1) {
     return write_pool(rv_pool_path(dir, stem),
