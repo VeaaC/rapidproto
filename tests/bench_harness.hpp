@@ -302,6 +302,21 @@ inline Cost sample(Counters cnt, const Work& f, std::uint64_t& out) {
     return {ns_since(t0), -1.0, -1.0, -1.0};
 }
 
+// An arm over a POOL of buffers: each call decodes the whole pool once and sums the checksums. run()
+// reports the median sample, which only means something when every sample is the same workload; one
+// buffer per sample from a pool whose buffers differ in cost would report its most common buffer, not
+// the pool. Pass the pool's total size as run()'s `byte_size`. `pool` must outlive the arm.
+template <class Buffer, class Decode>
+Work pool_pass(const std::vector<Buffer>& pool, Decode decode) {
+    return [&pool, decode]() mutable {
+        std::uint64_t sum = 0;
+        for (const Buffer& b : pool) {
+            sum += decode(b);
+        }
+        return sum;
+    };
+}
+
 struct Stat {
     double mean;
     double median;

@@ -108,22 +108,19 @@ template <std::size_t N>
     return rpbench::run(scenario, static_cast<double>(bytes.size()), wrapped);
 }
 
-// Like run(), but each arm rotates over a POOL of distinct-seed buffers (one decode per call), so no
-// arm replays a single memorized width sequence -- production decodes each buffer once on fresh data,
-// and a replayed byte loop otherwise looks artificially fast. `views` must outlive the call. Every arm
-// keeps its own index; the harness calls all arms the same number of times, so they stay in lockstep
-// and the per-round checksum cross-check still holds. `avg_bytes` is the pool's mean buffer size.
+// Like run(), but over a POOL of distinct-seed buffers, each sample decoding the whole pool
+// (rpbench::pool_pass), so no arm replays a single memorized width sequence -- production decodes each
+// buffer once on fresh data, and a replayed byte loop otherwise looks artificially fast. `views` must
+// outlive the call. `total_bytes` is the pool's total size.
 template <std::size_t N>
 [[nodiscard]] int run_pool(const char* scenario, const std::vector<ByteView>& views,
-                           double avg_bytes, const Arm (&arms)[N]) {
+                           double total_bytes, const Arm (&arms)[N]) {
     std::vector<rpbench::Arm> wrapped;
     wrapped.reserve(N);
     for (const auto& a : arms) {
-        wrapped.push_back({a.label, [fn = a.fn, &views, i = std::size_t{0}]() mutable {
-                               return fn(views[i++ % views.size()]);
-                           }});
+        wrapped.push_back({a.label, rpbench::pool_pass(views, a.fn)});
     }
-    return rpbench::run(scenario, avg_bytes, wrapped);
+    return rpbench::run(scenario, total_bytes, wrapped);
 }
 
 constexpr int kN = 2'000'000;
@@ -770,12 +767,11 @@ int scenario_repeated_varint() {
             if (!rpbench::scenario_selected(name.c_str())) {
                 continue;
             }
-            // Distinct-seed pool, rotated so no arm replays one memorized width sequence
-            // (arithmetic + rationale: bench_varint.hpp).
+            // Distinct-seed pool, decoded whole per sample so no arm replays one memorized width
+            // sequence (arithmetic + rationale: bench_varint.hpp).
             const rpbench::VarintPool built =
                 rpbench::load_varint_pool(rpbench::payload_stem(name), dist, count);
             const std::vector<std::string>& pool = built.buffers;
-            const double avg_bytes = built.avg_bytes;
             std::vector<ByteView> views;
             views.reserve(pool.size());
             for (const auto& b : pool) {
@@ -849,7 +845,7 @@ int scenario_repeated_varint() {
                  }},
 #endif
             };
-            bad += run_pool(name.c_str(), views, avg_bytes, arms);
+            bad += run_pool(name.c_str(), views, built.total_bytes, arms);
         }
     }
     return bad;

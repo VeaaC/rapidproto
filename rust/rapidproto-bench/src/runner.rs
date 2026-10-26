@@ -9,16 +9,17 @@
 //!
 //! Timing: `ROUNDS` samples per arm. Within a round every supported arm runs once, in an order rotated
 //! per round to cancel slot bias, and an arm's cost is its median sample. A sample is `inner`
-//! consecutive decode calls (a pool's calls rotate over its buffers, all arms in lockstep), `inner`
-//! calibrated so the baseline's sample takes ~10 ms. Throughput is [`Inputs::bytes`] over the median
-//! time per call, in decimal GB/s as the C++ benches print. There are no in-process counters: read
-//! instructions/byte with `perf stat -e instructions:u` over the `perf_*` examples.
+//! consecutive decode calls, `inner` calibrated so the baseline's sample takes ~10 ms and rounded up to
+//! whole passes over a pool's buffers: a median is only meaningful when every sample is the same
+//! workload. Throughput is [`Inputs::bytes`] over the median time per call, in decimal GB/s as the C++
+//! benches print. There are no in-process counters: read instructions/byte with
+//! `perf stat -e instructions:u` over the `perf_*` examples.
 //!
-//! Comparing with C++: the C++ harness times every call separately (two clock reads and a
-//! `std::function` call, ~20 ns per sample) and adds rounds until its ratios are significant; this
-//! runner times ~10 ms batches over a fixed number of rounds. On the sweeps' `rv <dist> 10` and `100`
-//! rows the C++ per-call overhead dominates its GB/s and ins/B, so a Rust/C++ ratio there compares the
-//! harnesses, not the decoders. The NDJSON `cpp_scenario` and `cpp_arm` name the C++ row a record
+//! Comparing with C++: the C++ harness times one call per sample (two clock reads and a
+//! `std::function` call, ~20 ns), a pool's call being one pass over all its buffers, and adds rounds
+//! until its ratios are significant; this runner times ~10 ms batches over a fixed number of rounds. On
+//! a small single buffer the C++ per-call overhead still weighs on its GB/s and ins/B. The NDJSON
+//! `cpp_scenario` and `cpp_arm` name the C++ row a record
 //! corresponds to (null where C++ has none); `vs_base_pct` compares arms within this runner only.
 //!
 //! Run discipline, or the numbers lie: pinned (`taskset -c N`), aligned (`RUSTFLAGS=
@@ -31,7 +32,8 @@
 //! NDJSON line per measurement (`cyc_b`/`ins_b` are null) and one `rec:"mem"` line per memory report;
 //! `RAPIDPROTO_BENCH_ONLY=<substring>` run only the scenarios whose Rust or C++ name contains it;
 //! `ARMS` a comma-separated arm allowlist (arm 0, the baseline, is always kept); `ITERS` decode calls
-//! per sample (default: calibrated); `ROUNDS` samples per arm (default 20).
+//! per sample, rounded up to whole pool passes (default: calibrated); `ROUNDS` samples per arm
+//! (default 20).
 
 use std::hint::black_box;
 use std::path::PathBuf;
@@ -138,20 +140,21 @@ fn pool_checksum(f: &mut Decode, inputs: &Inputs) -> u64 {
 // The baseline sample's target duration when `ITERS` is unset.
 const TARGET_SAMPLE_NS: f64 = 10e6;
 
-/// Decode calls per sample: `ITERS`, else enough for the baseline's sample to take ~10 ms.
+/// Decode calls per sample: `ITERS`, else enough for the baseline's sample to take ~10 ms, rounded up
+/// to whole passes over the buffers so every sample of a pool is the same workload.
 fn calibrate(base: &mut Decode, inputs: &Inputs, fixed: Option<usize>) -> usize {
-    if let Some(n) = fixed {
-        return n.max(1);
-    }
     let n = inputs.buffers.len();
-    let t0 = Instant::now();
-    let mut acc = 0u64;
-    for b in &inputs.buffers {
-        acc = acc.wrapping_add(base(black_box(b)));
-    }
-    black_box(acc);
-    let per_call = t0.elapsed().as_nanos() as f64 / n as f64;
-    ((TARGET_SAMPLE_NS / per_call.max(1.0)).ceil() as usize).clamp(1, 10_000_000)
+    let calls = fixed.unwrap_or_else(|| {
+        let t0 = Instant::now();
+        let mut acc = 0u64;
+        for b in &inputs.buffers {
+            acc = acc.wrapping_add(base(black_box(b)));
+        }
+        black_box(acc);
+        let per_call = t0.elapsed().as_nanos() as f64 / n as f64;
+        ((TARGET_SAMPLE_NS / per_call.max(1.0)).ceil() as usize).clamp(1, 10_000_000)
+    });
+    calls.max(1).div_ceil(n) * n
 }
 
 /// Median ns per decode call for each arm (`None` for an arm unsupported for this scenario).

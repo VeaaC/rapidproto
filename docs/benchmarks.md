@@ -307,7 +307,8 @@ The LLC is shared by every core, so ambient activity anywhere evicts the benchma
 arms appear to be
 those whose
 live footprint is *comparable to* the LLC - evictable, but small enough that residency matters. Both
-sweeps rotate a pool of buffers, so the live set is much larger than one buffer and is arm-specific:
+sweeps decode a whole pool of buffers per sample, so the live set is much larger than one buffer and
+is arm-specific:
 `rv fx1 1M` / `arena-warm` holds 8 input buffers of ~1 MB plus ~8 MB of decoded arena, and is the
 least stable arm in the suite at ~14% on a quiesced box, with 3× outliers under load. The same
 scenario's `protozero` arm materializes nothing, touches only the 8 MB pool, and stays under 1%.
