@@ -120,8 +120,7 @@ template <std::size_t N>
     for (const auto& a : arms) {
         wrapped.push_back({a.label, rpbench::pool_pass(views, a.fn)});
     }
-    return rpbench::run(scenario, total_bytes, wrapped, rpbench::kDefaultBudgetNs,
-                        rpbench::kPoolMinRounds);
+    return rpbench::run(scenario, total_bytes, wrapped);
 }
 
 constexpr int kN = 2'000'000;

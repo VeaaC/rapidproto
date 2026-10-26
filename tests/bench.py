@@ -126,7 +126,7 @@ def build_and_run(build_dir, core, repeat=DEFAULT_REPEAT):
     `repeat` times, returning (records, protobuf_version) with every record tagged by its decoder.
 
     Why repeat at all: one run's converged number is not reproducible ACROSS PROCESS LAUNCHES. Each
-    run already medians >=30 rotated rounds to a confident CI (bench_harness.hpp), but a few arms
+    run already medians many rotated rounds to a confident CI (bench_harness.hpp), but a few arms
     still land ~14% apart run to run on a quiesced box, so at repeat=1 two snapshots of
     IDENTICAL code differ by ~14% (p95) -- above any threshold worth gating on. Bootstrapped from 40
     repeated runs of the worst arm, that identical-code p95 falls to ~9% at 3 runs, ~8% at 5, ~6% at
@@ -468,11 +468,10 @@ def table(args):
 
 def overhead_dominated(scenario):
     """The repeated-varint sweep's tiniest rows (n<=100 -> buffers of tens to hundreds of bytes) are
-    excluded from pass/fail (still shown in the report): their GB/s swung far more than the placement
-    floor when a sample timed a single buffer, dominated by per-op timer overhead. A sample is now a
-    whole pool pass, which amortizes that overhead; their spread has not been re-measured since. The
-    deterministic ins/B column compares them fine. Only the sweep uses this `rv <dist> <count>`
-    naming."""
+    excluded from pass/fail (still shown in the report): with one buffer per sample, per-op timer
+    overhead dominated their GB/s, which swung far more than the placement floor. Whole-pool samples
+    amortize that overhead, but their spread under them is unmeasured. The deterministic ins/B column
+    compares them fine. Only the sweep uses this `rv <dist> <count>` naming."""
     return scenario.startswith("rv ") and scenario.rsplit(" ", 1)[-1] in ("10", "100")
 
 

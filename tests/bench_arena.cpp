@@ -618,8 +618,7 @@ int sweep_repeated_varint() {
                      views, [](rapidproto::ByteView b) { return rpbaseline::protozero_big(b); })},
 #endif
             };
-            bad += rpbench::run(name.c_str(), built.total_bytes, arms, rpbench::kDefaultBudgetNs,
-                                rpbench::kPoolMinRounds);
+            bad += rpbench::run(name.c_str(), built.total_bytes, arms);
         }
     }
     return bad;
@@ -667,8 +666,7 @@ int sweep_repeated_varint_types() {
              rpbench::pool_pass(views, [&](rapidproto::ByteView b) { return protozero_sum(b); })},
 #endif
         };
-        return rpbench::run(name.c_str(), built.total_bytes, arms, rpbench::kDefaultBudgetNs,
-                            rpbench::kPoolMinRounds);
+        return rpbench::run(name.c_str(), built.total_bytes, arms);
     };
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
     const auto zz_pz = rpbaseline::protozero_big_zz;
