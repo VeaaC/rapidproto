@@ -28,6 +28,7 @@
 //! the no-allocator path can still be unit-tested with `--no-default-features`.
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
 #![forbid(unsafe_op_in_unsafe_fn)]
+#![deny(clippy::undocumented_unsafe_blocks)]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -82,14 +83,15 @@ pub use alloc::boxed::Box;
 /// # Safety of the emitted `unsafe impl`
 /// A generated message borrows the input/arena only through shared `&'a` references (scalars,
 /// `PackedStr`, `PackedSlice`, `MapView`, by-value or `&` sub-messages): it is covariant in `'a`,
-/// layout-identical at every lifetime, and free of interior mutability over the borrow — exactly
-/// [`ArenaDecode`]'s contract. Only invoke this for a type with those properties (every `rustgen`
-/// message has them).
+/// layout-identical at every lifetime, free of interior mutability over the borrow, and holds no
+/// reference to the `Arena` value itself — exactly [`ArenaDecode`]'s contract. Only invoke this for
+/// a type with those properties (every `rustgen` message has them).
 #[macro_export]
 #[doc(hidden)]
 macro_rules! impl_decode_owned {
     ($msg:ident) => {
         #[cfg(feature = "alloc")]
+        // SAFETY: `$msg` is a generated message, which meets the contract (see the macro's docs).
         unsafe impl $crate::ArenaDecode for $msg<'static> {
             type Message<'a> = $msg<'a>;
             fn decode_borrowed<'a>(

@@ -31,9 +31,10 @@ impl<T> Clone for PackedSlice<'_, T> {
 }
 impl<T> Copy for PackedSlice<'_, T> {}
 
-// SAFETY: a `PackedSlice<'a, T>` is a `&'a [T]` in another layout, so it may cross or be shared
-// between threads exactly when the slice reference may: when `T: Sync`.
+// SAFETY: a `PackedSlice<'a, T>` is a `&'a [T]` in another layout, so it may cross threads exactly
+// when the slice reference may: when `T: Sync`.
 unsafe impl<T: Sync> Send for PackedSlice<'_, T> {}
+// SAFETY: as for `Send`, it may be shared between threads exactly when `&'a [T]` may.
 unsafe impl<T: Sync> Sync for PackedSlice<'_, T> {}
 
 impl<'a, T> PackedSlice<'a, T> {

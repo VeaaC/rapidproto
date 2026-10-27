@@ -97,9 +97,7 @@ impl<'a, T> DecodeVec<'a, T> {
         }
         // SAFETY: after `grow` (or when already non-full) `len < cap`, so `ptr + len` is the in-bounds
         // next slot -- aligned storage for one `T`, valid to write, owned by this `DecodeVec`.
-        let slot = unsafe {
-            crate::decode_slot::Slot::new(NonNull::new_unchecked(self.ptr.as_ptr().add(self.len)))
-        };
+        let slot = unsafe { crate::decode_slot::Slot::new(self.ptr.add(self.len)) };
         // `f` returns `Init<'id>` of this slot's fresh brand, obtainable only by `Slot::write`-ing
         // this slot (unforgeable), so an `Ok` is a compile-time proof the tail slot is initialized --
         // then publish it. On `Err`, `len` is unchanged, so the unwritten slot never reaches
@@ -135,8 +133,13 @@ impl<'a, T> DecodeVec<'a, T> {
         if self.cap > self.len {
             let size = core::mem::size_of::<T>();
             if size != 0 {
-                self.arena
-                    .shrink_last(self.ptr.cast::<u8>(), self.cap * size, self.len * size);
+                // SAFETY: `ptr` starts this array, one arena allocation of exactly `cap * size`
+                // bytes (`grow_to`). The slots past `len` hold nothing, and with `cap = len` below
+                // this `DecodeVec` never touches them again.
+                unsafe {
+                    self.arena
+                        .shrink_last(self.ptr.cast::<u8>(), self.cap * size, self.len * size);
+                }
             }
             self.cap = self.len;
         }

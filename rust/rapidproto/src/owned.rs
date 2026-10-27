@@ -25,10 +25,12 @@ use crate::{Arena, DecodeError};
 /// - **covariant** in `'a` (so `Message<'static>` can be read as `Message<'shorter>`),
 /// - **layout-identical** at every lifetime (the erasure is an address reinterpret), and
 /// - free of **interior mutability over the `'a` borrow** (no `Cell<&'a _>` / `&'a mut _` reachable),
-///   so a short-lived `&self` view cannot store a short reference into a `'static`-typed slot.
+///   so a short-lived `&self` view cannot store a short reference into a `'static`-typed slot, and
+/// - free of references to the **`Arena` value itself** (only to memory it allocated): `Owned` moves
+///   the arena after the decode, and its chunks stay put but the `Arena` struct does not.
 ///
 /// Every generated message satisfies this (borrowed/by-value fields only, no interior mutability).
-/// Do not implement this trait by hand without upholding all three.
+/// Do not implement this trait by hand without upholding all four.
 pub unsafe trait ArenaDecode {
     /// The decoded message, borrowing the input and arena for `'a`.
     type Message<'a>: 'a;
@@ -62,7 +64,7 @@ pub struct Owned<D: ArenaDecode> {
     // ignores Drop) would flag it.
     #[allow(dead_code)]
     arena: Arena<'static>,
-    // The input bytes, owned as a RAW pointer (from `Box::into_raw`), not a `Box`: a `Box` asserts
+    // The input bytes, owned as a RAW pointer (from `Box::leak`), not a `Box`: a `Box` asserts
     // unique access, so moving this struct would retag the heap block and invalidate the root's
     // borrow into it (Miri/Stacked Borrows). A raw pointer makes the ownership move-safe -- the same
     // trick the arena uses for its chunks. Freed once in `Drop`.
@@ -71,7 +73,7 @@ pub struct Owned<D: ArenaDecode> {
 
 impl<D: ArenaDecode> Drop for Owned<D> {
     fn drop(&mut self) {
-        // SAFETY: `input` came from `Box::into_raw` in `decode_owned` and is reclaimed exactly once,
+        // SAFETY: `input` came from `Box::leak` in `decode_owned` and is reclaimed exactly once,
         // here; `root` (which points into it) is never used after drop begins.
         drop(unsafe { Box::from_raw(self.input.as_ptr()) });
     }
@@ -105,10 +107,8 @@ where
     D: ArenaDecode,
 {
     // Own the input as a raw pointer BEFORE decoding, so the decode borrow derives from the raw
-    // pointer (not from a `Box` whose later move would invalidate it). `Box::into_raw` never returns
-    // null.
-    let input: NonNull<[u8]> =
-        NonNull::new(Box::into_raw(input.into())).expect("Box ptr is non-null");
+    // pointer (not from a `Box` whose later move would invalidate it).
+    let input: NonNull<[u8]> = NonNull::from(Box::leak(input.into()));
     let arena = Arena::new();
     // SAFETY: `input` points to the live heap slice just created; the borrow is read-only and does
     // not escape this function (only the address, erased below, is kept).
@@ -117,6 +117,7 @@ where
         Ok(message) => message,
         Err(e) => {
             // Decode failed: reclaim the input (the arena drops itself) and surface the error.
+            // SAFETY: `input` came from `Box::leak` above and nothing borrows it any more.
             drop(unsafe { Box::from_raw(input.as_ptr()) });
             return Err(e);
         }
@@ -144,8 +145,8 @@ mod tests {
         DecodeError::new(crate::ErrorKind::InputTooLarge, 0)
     }
 
-    // SAFETY: `Mock<'a>` holds only `&'a` shared references -- covariant, layout-stable, no interior
-    // mutability over `'a`.
+    // SAFETY: `Mock<'a>` holds only `&'a` shared references, into the input and into arena-allocated
+    // memory -- covariant, layout-stable, no interior mutability over `'a`, no `&Arena`.
     unsafe impl ArenaDecode for MockDecoder {
         type Message<'a> = Mock<'a>;
         fn decode_borrowed<'a>(
