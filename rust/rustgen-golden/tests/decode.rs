@@ -1,17 +1,20 @@
 //! Decode round-trip tests for the Rust generator's emitted `decode` bodies.
 //!
-//! These decode the SAME global corpus schemas the C++ arena decode test (`tests/test_arena_decode.cpp`)
-//! uses, plus the wire-fixture schema tests/wire_fixtures/wire_all.proto -- there are no Rust-local
-//! fixture protos -- and assert the same behaviors, so the two languages stay in lockstep. Where the
-//! C++ test decodes a checked-in protoc-encoded fixture (tests/wire_fixtures/*.bin), so does this one,
-//! from the very same bytes. The generated code under test is the committed goldens (included by the
-//! crate's `lib.rs`); the tiny wire encoders below are test scaffolding, not the system under test.
+//! These decode the schemas the C++ tests use (the global corpus, plus the wire-fixture schema
+//! tests/wire_fixtures/wire_all.proto) -- there are no Rust-local fixture protos -- and assert the
+//! behaviors the C++ arena decode test (`tests/test_arena_decode.cpp`) asserts, so the two languages
+//! stay in lockstep. Where the C++ test decodes a checked-in protoc-encoded fixture
+//! (tests/wire_fixtures/*.bin), so does this one, from the very same bytes. The generated code under
+//! test is the committed goldens (included by the crate's `lib.rs`); the tiny wire encoders below are
+//! test scaffolding, not the system under test.
 //!
 //! Coverage by message:
 //!   p3::Msg          -- presence (implicit/explicit), singular message + recursion cap, repeated
 //!                       scalar/enum (packed + unpacked), maps (scalar keys/values, bool key), oneof
 //!                       (scalar/string/bool/double), skip + error edges.
 //!   xp::Expanded     -- sint64 (zigzag), fixed64, sfixed32, bool, enum element conversions.
+//!   p2::Scalars      -- every scalar type (the protoc fixture + hand-built edge values), `required`
+//!                       read bare, absent optionals None (proto2 defaults not materialized).
 //!   p2::Container    -- message-valued map, enum-valued map, oneof with a message variant, repeated
 //!                       message, the in-entry repeated-singular-message rejection.
 //!   mr::ManyRequired -- proto2 `required`: all-present ok, a missing field -> MissingRequired.
@@ -592,8 +595,10 @@ fn oneof_repeated_message_member_is_rejected() {
 
 #[test]
 fn proto2_every_scalar_type_set_on_the_wire() {
-    // p2.Scalars carries every scalar type (with proto2 defaults); set each explicitly here so the
-    // per-type wire read + conversion is exercised end to end. Field 1 (i32) is `required`.
+    // p2.Scalars carries every scalar type (with proto2 defaults). Unlike the protoc fixture's mild
+    // values, these sit at the edges of each conversion: a u32 above i32::MAX, a negative i64 (a
+    // ten-byte varint), large zigzag magnitudes, a fixed32 with the high bit set, and `b = false`
+    // over its `default = true`. Field 1 (i32) is `required`.
     let mut buf = Vec::new();
     put_var(&mut buf, 1, 300); // i32
     put_var(&mut buf, 2, (-5i64) as u64); // i64 (negative -> 10-byte varint)
