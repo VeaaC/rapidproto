@@ -26,8 +26,9 @@ use crate::{Arena, DecodeError};
 /// - **layout-identical** at every lifetime (the erasure is an address reinterpret), and
 /// - free of **interior mutability over the `'a` borrow** (no `Cell<&'a _>` / `&'a mut _` reachable),
 ///   so a short-lived `&self` view cannot store a short reference into a `'static`-typed slot, and
-/// - free of references to the **`Arena` value itself** (only to memory it allocated): `Owned` moves
-///   the arena after the decode, and its chunks stay put but the `Arena` struct does not.
+/// - never pointing at the **`Arena` value itself**: the reference `decode_borrowed` returns, and
+///   everything reachable from it, point only into `input`, memory `arena` allocated, or `'static`
+///   data. `Owned` moves the arena after the decode; its chunks stay put but the `Arena` does not.
 ///
 /// Every generated message satisfies this (borrowed/by-value fields only, no interior mutability).
 /// Do not implement this trait by hand without upholding all four.
@@ -97,6 +98,9 @@ impl<D: ArenaDecode> Owned<D> {
 ///
 /// `input` is taken by value (a `Vec<u8>`, `Box<[u8]>`, or a `&[u8]` it will copy). Prefer the
 /// generated `T::decode_owned` for a named message; this is the type-parameter form.
+///
+/// Copying a `&[u8]`, or dropping a `Vec`'s spare capacity, allocates as `Box` does: it aborts if
+/// the host is out of memory. A `Box<[u8]>` is taken as is.
 ///
 /// # Errors
 /// Returns the decoder's [`DecodeError`] (and drops the bytes/arena) for malformed or over-nested

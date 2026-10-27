@@ -86,6 +86,9 @@ pub struct Arena<'buf> {
     // Hot bump state (plain `Cell`s so the fast path never borrows the chunk list).
     cur: Cell<NonNull<u8>>,
     limit: Cell<NonNull<u8>>,
+    // Where the active chunk's usable region starts. `shrink_last` reclaims only inside it: a block
+    // ending at `cur` may also be in an earlier chunk that ends where the active one begins.
+    start: Cell<NonNull<u8>>,
     used: Cell<usize>,
     reserved: Cell<usize>,
     #[cfg(feature = "alloc")]
@@ -134,6 +137,7 @@ impl<'buf> Arena<'buf> {
         Arena {
             cur: Cell::new(cur),
             limit: Cell::new(limit),
+            start: Cell::new(cur),
             used: Cell::new(0),
             reserved: Cell::new(reserved),
             #[cfg(feature = "alloc")]
@@ -243,27 +247,35 @@ impl<'buf> Arena<'buf> {
     }
 
     /// Reclaim the unused tail of the **most-recent** allocation, shrinking it from `old_bytes` to
-    /// `new_bytes` (`new_bytes <= old_bytes`). A no-op unless `ptr` is still the last allocation —
-    /// its end is exactly the bump cursor, i.e. nothing has been allocated since.
+    /// `new_bytes` (`new_bytes <= old_bytes`). A no-op unless the `old_bytes` block at `ptr` lies in
+    /// the active chunk and ends at the bump cursor.
     ///
-    /// Packed decode uses this (through [`DecodeVec::shrink_to_fit`](crate::DecodeVec)): pre-size an
-    /// array to an upper bound, fill it (allocating nothing in between), then trim the over-estimate
-    /// to the exact element count.
+    /// Packed decode uses this (through
+    /// [`DecodeVec::shrink_to_fit`](crate::DecodeVec::shrink_to_fit)): pre-size an array to an upper
+    /// bound, fill it (allocating nothing in between), then trim the over-estimate to the exact
+    /// element count.
     ///
     /// # Safety
     /// `ptr` and `old_bytes` must be the start and the exact size of one allocation from this arena.
-    /// If it is still the last allocation, its bytes past `new_bytes` must not be used afterwards:
+    /// When it reclaims, no byte from `ptr + new_bytes` to `ptr + old_bytes` may be used afterwards:
     /// the next allocation reuses them.
+    // `#[inline]`: every packed fill ends here, and generated decoders instantiate the fill in their
+    // own crate, where an un-hinted call would stay out of line.
+    #[inline]
     pub(crate) unsafe fn shrink_last(&self, ptr: NonNull<u8>, old_bytes: usize, new_bytes: usize) {
         if new_bytes > old_bytes {
             return;
         }
-        // Integer comparison, never `ptr.add(old_bytes)`: forming that pointer would be
-        // out-of-bounds (hence UB) if `ptr` were not actually the last allocation.
-        if ptr.as_ptr().addr().wrapping_add(old_bytes) == self.cur.get().as_ptr().addr() {
-            // SAFETY: by the contract `ptr` starts an `old_bytes` allocation of this arena, and
-            // `new_bytes <= old_bytes` keeps `ptr + new_bytes` within it.
-            self.cur.set(unsafe { ptr.add(new_bytes) });
+        let cur = self.cur.get();
+        let addr = ptr.as_ptr().addr();
+        // Addresses only, never `ptr.add(old_bytes)`: forming that pointer would be out-of-bounds
+        // (hence UB) if `ptr` were not actually the last allocation. The block must lie in the
+        // active chunk: one in an earlier chunk can end where the active one starts.
+        if addr + old_bytes == cur.as_ptr().addr() && addr >= self.start.get().as_ptr().addr() {
+            // SAFETY: the block is an allocation (the contract), so `ptr + old_bytes` does not
+            // wrap; it ends at `cur` and starts at or after `start`, so moving the cursor back by
+            // `old_bytes - new_bytes` keeps it in the active chunk, between `start` and `cur`.
+            self.cur.set(unsafe { cur.sub(old_bytes - new_bytes) });
             self.used.set(self.used.get() - (old_bytes - new_bytes));
         }
     }
@@ -296,33 +308,23 @@ impl<'buf> Arena<'buf> {
     pub fn reset(&mut self) {
         self.used.set(0);
         #[cfg(feature = "alloc")]
-        {
+        let first = {
             let g = self.grow.get_mut();
             g.cursor = 0;
-            match &g.head {
-                Some(head) => {
-                    self.cur.set(head.data);
-                    self.limit.set(head.limit);
-                }
-                None => {
-                    let d = NonNull::<u8>::dangling();
-                    self.cur.set(d);
-                    self.limit.set(d);
-                }
-            }
-        }
+            g.head.as_ref().map(|head| (head.data, head.limit))
+        };
         #[cfg(not(feature = "alloc"))]
-        match self.seed.get() {
-            Some((data, limit)) => {
-                self.cur.set(data);
-                self.limit.set(limit);
-            }
-            None => {
-                let d = NonNull::<u8>::dangling();
-                self.cur.set(d);
-                self.limit.set(d);
-            }
-        }
+        let first = self.seed.get();
+        let d = NonNull::<u8>::dangling();
+        let (data, limit) = first.unwrap_or((d, d));
+        self.enter(data, limit);
+    }
+
+    /// Make `[data, limit)` the active region.
+    fn enter(&self, data: NonNull<u8>, limit: NonNull<u8>) {
+        self.start.set(data);
+        self.cur.set(data);
+        self.limit.set(limit);
     }
 
     /// `align` must be a power of two (`alloc_bytes` checks it).
@@ -365,8 +367,7 @@ impl<'buf> Arena<'buf> {
                 .map(|c| (c.data, c.limit));
             if let Some((data, limit)) = next {
                 g.cursor += 1;
-                self.cur.set(data);
-                self.limit.set(limit);
+                self.enter(data, limit);
             } else {
                 self.grow_chunk(&mut g, bytes, align)?;
             }
@@ -419,8 +420,7 @@ impl<'buf> Arena<'buf> {
             g.cursor += 1;
         }
         self.reserved.set(reserved + usable);
-        self.cur.set(data);
-        self.limit.set(limit);
+        self.enter(data, limit);
         if g.next_chunk < MAX_CHUNK {
             g.next_chunk = (g.next_chunk << 1).min(MAX_CHUNK);
         }
@@ -446,6 +446,7 @@ impl Arena<'static> {
         Arena {
             cur: Cell::new(dangling),
             limit: Cell::new(dangling),
+            start: Cell::new(dangling),
             used: Cell::new(0),
             reserved: Cell::new(0),
             grow: RefCell::new(Grow {
@@ -567,7 +568,7 @@ mod tests {
         let a = Arena::with_buffer(&mut buf);
         let p = a.alloc_bytes(64, 1).unwrap();
         assert_eq!(a.bytes_used(), 64);
-        // SAFETY: `p` is the last allocation, of 64 bytes; its tail past 16 is not used again.
+        // SAFETY: `p` is a 64-byte allocation of `a`; its bytes past 16 are not used again.
         unsafe { a.shrink_last(p, 64, 16) }; // keep 16, give back 48
         assert_eq!(a.bytes_used(), 16);
         let q = a.alloc_bytes(8, 1).unwrap();
@@ -581,7 +582,7 @@ mod tests {
         let p = a.alloc_bytes(64, 1).unwrap();
         // `p` is no longer the last allocation.
         let r = a.alloc_bytes(8, 1).unwrap();
-        // SAFETY: `p` starts a 64-byte allocation of `a` (not the last one, so nothing is reclaimed).
+        // SAFETY: `p` is a 64-byte allocation of `a`; its bytes past 16 are not used again.
         unsafe { a.shrink_last(p, 64, 16) }; // must not move the cursor
         let s = a.alloc_bytes(8, 1).unwrap();
         assert_eq!(
@@ -596,11 +597,11 @@ mod tests {
         let mut buf = [0u8; 256];
         let a = Arena::with_buffer(&mut buf);
         let p = a.alloc_bytes(32, 1).unwrap();
-        // SAFETY: `p` is the last allocation, of 32 bytes (growing it is a no-op).
+        // SAFETY: `p` is a 32-byte allocation of `a`; growing reclaims nothing.
         unsafe { a.shrink_last(p, 32, 48) }; // new > old → no-op
         let q = a.alloc_bytes(8, 1).unwrap();
         assert_eq!(q.as_ptr().addr(), p.as_ptr().addr() + 32, "no-op on growth");
-        // SAFETY: `q` is the last allocation, of 8 bytes, and is not used again.
+        // SAFETY: `q` is an 8-byte allocation of `a`, not used again.
         unsafe { a.shrink_last(q, 8, 0) }; // trim the whole last alloc
         let t = a.alloc_bytes(8, 1).unwrap();
         assert_eq!(
@@ -686,6 +687,44 @@ mod tests {
             reserved,
             "reused the held chunks without growing"
         );
+    }
+
+    // A grow after `reset` inserts the new chunk right after the active one; the held chunks behind
+    // it are still reused.
+    #[cfg(feature = "alloc")]
+    fn regrow_mid_list(mut a: Arena<'_>) {
+        for n in [4000, 8000, 16000] {
+            a.alloc_bytes(n, 1).unwrap();
+        }
+        a.reset();
+        a.alloc_bytes(4000, 1).unwrap();
+        let before = a.bytes_reserved();
+        a.alloc_bytes(30000, 1).unwrap(); // fits no held successor: a chunk is inserted
+        let grown = a.bytes_reserved();
+        assert!(grown > before);
+        a.alloc_bytes(grown - before - 30000, 1).unwrap(); // fill the new chunk exactly
+        a.alloc_bytes(8000, 1).unwrap();
+        a.alloc_bytes(16000, 1).unwrap();
+        assert_eq!(
+            a.bytes_reserved(),
+            grown,
+            "reused the chunks behind the inserted one"
+        );
+        a.reset();
+        for n in [4000, 30000, 8000, 16000] {
+            a.alloc_bytes(n, 1).unwrap();
+        }
+        assert_eq!(a.bytes_reserved(), grown);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn a_grow_after_reset_inserts_the_chunk_mid_list() {
+        regrow_mid_list(Arena::new());
+        let mut buf = [0u8; 4200];
+        regrow_mid_list(Arena::with_buffer(&mut buf));
+        let mut tiny = [0u8; 16]; // too small for a region: no chunk until the first grow
+        regrow_mid_list(Arena::with_buffer(&mut tiny));
     }
 
     #[cfg(feature = "alloc")]

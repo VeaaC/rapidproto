@@ -134,8 +134,8 @@ impl<'a, T> DecodeVec<'a, T> {
             let size = core::mem::size_of::<T>();
             if size != 0 {
                 // SAFETY: `ptr` starts this array, one arena allocation of exactly `cap * size`
-                // bytes (`grow_to`). The slots past `len` hold nothing, and with `cap = len` below
-                // this `DecodeVec` never touches them again.
+                // bytes (`grow_to`). The slots past `len` hold no published element, and with
+                // `cap = len` below this `DecodeVec` never touches them again.
                 unsafe {
                     self.arena
                         .shrink_last(self.ptr.cast::<u8>(), self.cap * size, self.len * size);

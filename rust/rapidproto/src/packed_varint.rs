@@ -307,7 +307,7 @@ unsafe fn fixed_fill_wide<const W: usize, T, F: FnMut(u64) -> T>(
             }
             value |= u64::from(b8 & 0x7F) << 56;
         } else {
-            // SAFETY: W == 10 bytes remain, so q[9] is in range.
+            // SAFETY: >= W = 10 bytes remain, so q[9] is in range.
             let b9 = unsafe { *q.add(9) };
             if (b8 & 0x80) == 0 || (b9 & 0x80) != 0 {
                 break; // not exactly 10 bytes

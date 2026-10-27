@@ -83,9 +83,10 @@ pub use alloc::boxed::Box;
 /// # Safety of the emitted `unsafe impl`
 /// A generated message borrows the input/arena only through shared `&'a` references (scalars,
 /// `PackedStr`, `PackedSlice`, `MapView`, by-value or `&` sub-messages): it is covariant in `'a`,
-/// layout-identical at every lifetime, free of interior mutability over the borrow, and holds no
-/// reference to the `Arena` value itself — exactly [`ArenaDecode`]'s contract. Only invoke this for
-/// a type with those properties (every `rustgen` message has them).
+/// layout-identical at every lifetime, free of interior mutability over the borrow, and points only
+/// into the input, arena-allocated memory or `'static` data, never at the `Arena` value — exactly
+/// [`ArenaDecode`]'s contract. Only invoke this for a type with those properties (every `rustgen`
+/// message has them).
 #[macro_export]
 #[doc(hidden)]
 macro_rules! impl_decode_owned {
