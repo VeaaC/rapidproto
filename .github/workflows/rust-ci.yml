@@ -3,9 +3,10 @@
 # wasm-blob staleness gate, the native generator on macOS and Windows, Miri (arena
 # provenance/borrows), and a libFuzzer+ASan smoke over the arena decoder.
 #
-# The `rapidproto` runtime crate's no_std tiers are tested, linted and run under Miri on their own
-# (`-p rapidproto`): in a workspace build, rustgen-golden's dev-dependency on `rapidproto` (default
-# features) turns `std` back on for every target that builds dev-dependencies.
+# The `rapidproto` runtime crate's no_std tiers are tested and linted on their own
+# (`-p rapidproto`), and its no-alloc tier also runs under Miri: in a workspace command that builds
+# tests, rustgen-golden's dev-dependency on `rapidproto` (default features) turns `std` back on for
+# the whole command.
 name: Rust CI
 
 on:

@@ -591,33 +591,12 @@ mod tests {
         v.into_slice().to_vec()
     }
 
-    // The reference: a plain byte loop over a well-formed span, which the kernels must match for
-    // every input. It walks the span once: Miri retags the whole slice on every call that takes it,
-    // so a reader called per element on the rest of the span would make it quadratic under Miri.
-    fn reference(span: &[u8]) -> alloc::vec::Vec<u64> {
-        let mut out = alloc::vec::Vec::new();
-        let (mut raw, mut shift) = (0u64, 0);
-        for &b in span {
-            raw |= u64::from(b & 0x7F) << shift;
-            if b < 0x80 {
-                out.push(raw);
-                (raw, shift) = (0, 0);
-            } else {
-                shift += 7;
-            }
-        }
-        assert_eq!(shift, 0, "the span ends inside a varint");
-        out
-    }
-
     fn check(values: &[u64]) {
         let mut span = alloc::vec::Vec::new();
         for &x in values {
             put_varint(&mut span, x);
         }
-        let got = decode_u64(&span);
-        assert_eq!(got, values, "span len {}", span.len());
-        assert_eq!(got, reference(&span));
+        assert_eq!(decode_u64(&span), values, "span len {}", span.len());
     }
 
     // Miri runs these tests orders of magnitude slower than native code, so under it the long runs
@@ -700,13 +679,16 @@ mod tests {
         span
     }
 
-    // A Swar span of 1-byte values with every third one 10 bytes wide.
+    // 1-byte values with every third one 10 bytes wide.
+    fn swar_prefix_values() -> alloc::vec::Vec<u64> {
+        (0..100u64)
+            .map(|i| if i % 3 == 0 { u64::MAX } else { i })
+            .collect()
+    }
+
+    // The Swar span of `swar_prefix_values`.
     fn swar_prefix() -> alloc::vec::Vec<u8> {
-        swar_span(
-            &(0..100u64)
-                .map(|i| if i % 3 == 0 { u64::MAX } else { i })
-                .collect::<alloc::vec::Vec<_>>(),
-        )
+        swar_span(&swar_prefix_values())
     }
 
     #[test]
@@ -778,20 +760,22 @@ mod tests {
 
     #[test]
     fn swar_non_canonical_padding() {
-        // Zero-padded encodings (1 as 0x81 0x80 0x80 0x00, 300 as 0xac 0x82 0x00) decode like the byte
-        // loop reads them.
+        // Zero-padded encodings (1 as 0x81 0x80 0x80 0x00, 300 as 0xac 0x82 0x00) decode to their
+        // values.
         let mut span = swar_prefix();
+        let mut expected = swar_prefix_values();
         for _ in 0..50 {
             span.extend_from_slice(&[0x81, 0x80, 0x80, 0x00, 0xac, 0x82, 0x00, 0x07]);
+            expected.extend([1, 300, 7]);
         }
-        assert_eq!(decode_u64(&span), reference(&span));
+        assert_eq!(decode_u64(&span), expected);
     }
 
     #[test]
     fn re_classify_across_regime_change() {
         // A long homogeneous run (forces a kernel) followed by a different regime, long enough to
-        // re-classify (> 4096 bytes of traction, then > 512 remaining). The first run therefore keeps
-        // its length under Miri.
+        // re-classify (>= 4096 bytes of traction, then >= 512 remaining). The first run therefore
+        // keeps its length under Miri.
         let mut vals: alloc::vec::Vec<u64> = (0..6000u64).map(|_| 1).collect(); // 1-byte run
         vals.extend((0..runs(3000)).map(|i| 128 + (i % 16000))); // 2-byte run
         vals.extend((0..runs(3000)).map(|i| if i % 7 == 0 { u64::MAX } else { i % 50 }));

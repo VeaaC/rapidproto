@@ -11,11 +11,11 @@ members = ["rapidproto", "rapidproto-build", "rapidproto-diff", "rustgen-golden"
 exclude = ["rapidproto-bench-upb"]
 
 # rapidproto-build's tests run the wasm generator in wasmi, which unoptimized takes minutes for the
-# goldens: optimize the interpreter in this workspace's debug builds. Profiles apply only to the
-# workspace that is built, so builds that depend on rapidproto-build are unaffected.
+# goldens: optimize the interpreter in this workspace's debug builds. Cargo reads profiles from the
+# root manifest of the workspace being built, so a consumer's own workspace is unaffected.
 [profile.dev.package.wasmi]
-opt-level = 1
+opt-level = 3
 [profile.dev.package.wasmi_core]
-opt-level = 1
+opt-level = 3
 [profile.dev.package.wasmi_ir]
-opt-level = 1
+opt-level = 3
