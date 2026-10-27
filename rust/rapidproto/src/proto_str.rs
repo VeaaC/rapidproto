@@ -14,10 +14,9 @@ use crate::PackedSlice;
 /// Decoding does not validate (matching the C++ runtime, which trusts the schema), so a `&ProtoStr`
 /// always borrows the input directly and costs nothing to produce. The caller picks the cost it
 /// wants: [`as_bytes`](ProtoStr::as_bytes) is free, [`to_str`](ProtoStr::to_str) validates and can
-/// fail, and [`to_str_lossy`](ProtoStr::to_str_lossy) (with `alloc`) never fails. `Display` writes
-/// the text, substituting U+FFFD for any invalid sequence. Proto `bytes` values do not use this
-/// type: a getter returns `&[u8]`, or a [`PackedSlice<'a, u8>`](PackedSlice) cell inside a repeated
-/// field, map or oneof.
+/// fail, and `to_str_lossy` (with `alloc`) never fails. `Display` writes the text, substituting
+/// U+FFFD for any invalid sequence. Proto `bytes` values do not use this type: a getter returns
+/// `&[u8]`, or a [`PackedSlice<'a, u8>`](PackedSlice) cell inside a repeated field, map or oneof.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct ProtoStr([u8]);

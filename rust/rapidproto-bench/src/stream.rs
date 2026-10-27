@@ -1,7 +1,6 @@
 //! The streaming decoder's scenarios: those of the C++ streaming bench (`rapidproto_bench`,
 //! `tests/bench_streamgen.cpp`), under the same names, over the same bytes (`<dir>/stream/<stem>.bin`
-//! and the varint sweep's pools, see [`payloads`](crate::payloads)). Each has the C++ bench's two
-//! RapidProto arms:
+//! and the varint sweep's pools, see [`payloads`]). Each has the C++ bench's two RapidProto arms:
 //!
 //! - `generated` (arm 0, the baseline): the generated streaming decoder driven by its `*_stream!`
 //!   macros, each handler summing exactly what its C++ lambda does -- so on the same bytes the checksum
