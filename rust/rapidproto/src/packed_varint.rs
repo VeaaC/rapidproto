@@ -182,18 +182,23 @@ unsafe fn read_one(q: *const u8, end: *const u8) -> Result<(u64, *const u8), Err
 /// `q <= end` in one span, with at least 8 bytes in `[q, end)`.
 #[inline(always)]
 unsafe fn read_one_swar(q: *const u8, end: *const u8) -> Result<(u64, *const u8), ErrorKind> {
-    // SAFETY: >= 8 bytes remain at q.
+    // SAFETY: >= 8 bytes remain at q (the caller's contract).
     let b = unsafe { *q };
     if b < 0x80 {
+        // SAFETY: as above, `q + 1` is within the span.
         return Ok((u64::from(b), unsafe { q.add(1) }));
     }
+    // SAFETY: >= 8 bytes remain at q.
     let w = unsafe { swar::load64(q) };
     let stop = !w & swar::MSB; // the MSB of each terminating byte
     if stop == 0 {
+        // SAFETY: `q <= end` in one span, `read_one`'s contract.
         return unsafe { read_one(q, end) };
     }
     let len = (stop.trailing_zeros() >> 3) as usize + 1;
-    let mask = stop ^ (stop - 1); // every bit up to and including the first terminator's MSB
+    // Every bit up to and including the first terminator's MSB.
+    let mask = stop ^ (stop - 1);
+    // SAFETY: the terminator is among the 8 bytes at q, so `q + len <= q + 8 <= end`.
     Ok((swar::compact7(w & mask & swar::LOW7), unsafe { q.add(len) }))
 }
 
@@ -229,7 +234,7 @@ unsafe fn fixed_fill<const W: usize, T, F: FnMut(u64) -> T>(
         // Two W-byte varints (2W <= 8) fit in one load -> decode both per load.
         let msb2 = msb_w | (msb_w << (8 * W));
         let two_varints = one_varint | (one_varint << (8 * W));
-        while (end as usize).wrapping_sub(q as usize) >= 8 {
+        while end.addr().wrapping_sub(q.addr()) >= 8 {
             // SAFETY: >= 8 bytes remain at q.
             let w = unsafe { swar::load64(q) };
             if (w & msb2) == two_varints {
@@ -241,26 +246,31 @@ unsafe fn fixed_fill<const W: usize, T, F: FnMut(u64) -> T>(
                     put(out, *n + 1, r1, conv);
                 }
                 *n += 2;
+                // SAFETY: the two varints span `2W <= 8` of the bytes left.
                 q = unsafe { q.add(2 * W) };
             } else if (w & msb_w) == one_varint {
                 let r = swar::compact7(w & len_mask & swar::LOW7);
+                // SAFETY: *n is within capacity (<= span bytes).
                 unsafe { put(out, *n, r, conv) };
                 *n += 1;
+                // SAFETY: the varint spans `W <= 8` of the bytes left.
                 q = unsafe { q.add(W) };
             } else {
                 break;
             }
         }
     } else {
-        while (end as usize).wrapping_sub(q as usize) >= 8 {
+        while end.addr().wrapping_sub(q.addr()) >= 8 {
             // SAFETY: >= 8 bytes remain at q.
             let w = unsafe { swar::load64(q) };
             if (w & msb_w) != one_varint {
                 break;
             }
             let r = swar::compact7(w & len_mask & swar::LOW7);
+            // SAFETY: *n is within capacity (<= span bytes).
             unsafe { put(out, *n, r, conv) };
             *n += 1;
+            // SAFETY: the varint spans `W <= 8` of the bytes left.
             q = unsafe { q.add(W) };
         }
     }
@@ -281,13 +291,15 @@ unsafe fn fixed_fill_wide<const W: usize, T, F: FnMut(u64) -> T>(
     conv: &mut F,
 ) -> *const u8 {
     debug_assert!(W == 9 || W == 10);
-    while (end as usize).wrapping_sub(q as usize) >= W {
-        // SAFETY: >= W >= 9 bytes remain, so the 8-byte load and q[8]/q[9] are in range.
+    while end.addr().wrapping_sub(q.addr()) >= W {
+        // SAFETY: >= W >= 9 bytes remain, so the 8-byte load is in range.
         let w0 = unsafe { swar::load64(q) };
         if (w0 & swar::MSB) != swar::MSB {
             break; // a byte in 0..7 terminates -> narrower than W
         }
-        let mut value = swar::compact7(w0 & swar::LOW7); // bits 0..55
+        // Bits 0..55.
+        let mut value = swar::compact7(w0 & swar::LOW7);
+        // SAFETY: >= 9 bytes remain, so q[8] is in range.
         let b8 = unsafe { *q.add(8) };
         if W == 9 {
             if (b8 & 0x80) != 0 {
@@ -295,6 +307,7 @@ unsafe fn fixed_fill_wide<const W: usize, T, F: FnMut(u64) -> T>(
             }
             value |= u64::from(b8 & 0x7F) << 56;
         } else {
+            // SAFETY: >= W = 10 bytes remain, so q[9] is in range.
             let b9 = unsafe { *q.add(9) };
             if (b8 & 0x80) == 0 || (b9 & 0x80) != 0 {
                 break; // not exactly 10 bytes
@@ -305,8 +318,10 @@ unsafe fn fixed_fill_wide<const W: usize, T, F: FnMut(u64) -> T>(
             value |= u64::from(b8 & 0x7F) << 56;
             value |= u64::from(b9) << 63;
         }
+        // SAFETY: *n is within capacity (<= span bytes).
         unsafe { put(out, *n, value, conv) };
         *n += 1;
+        // SAFETY: the varint spans the W bytes checked.
         q = unsafe { q.add(W) };
     }
     q
@@ -326,11 +341,10 @@ unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
     out: *mut T,
     conv: &mut F,
 ) -> Result<usize, (ErrorKind, usize)> {
-    let begin = span.as_ptr();
-    let end = unsafe { begin.add(span.len()) };
+    let core::ops::Range { start: begin, end } = span.as_ptr_range();
     let mut q = begin;
     let mut n = 0usize;
-    let avail = |q: *const u8| (end as usize).wrapping_sub(q as usize);
+    let avail = |q: *const u8| end.addr().wrapping_sub(q.addr());
 
     loop {
         let q_start = q;
@@ -341,13 +355,16 @@ unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
                 while avail(q) >= 64 {
                     let mut any = 0u64;
                     for j in 0..8usize {
+                        // SAFETY: >= 64 bytes remain at q, so 8 bytes at `q + 8j` (j < 8).
                         any |= unsafe { swar::load64(q.add(8 * j)) } & swar::MSB;
                     }
                     if any == 0 {
                         for i in 0..64usize {
-                            let byte = unsafe { *q.add(i) };
-                            unsafe { put(out, n + i, u64::from(byte), conv) };
+                            // SAFETY: byte `i < 64` of the 64 left is in range; the 64 1-byte
+                            // varints fill slots `n..n + 64`, within capacity (<= span bytes).
+                            unsafe { put(out, n + i, u64::from(*q.add(i)), conv) };
                         }
+                        // SAFETY: the 64 bytes just decoded remain at q.
                         q = unsafe { q.add(64) };
                         n += 64;
                     } else {
@@ -357,17 +374,20 @@ unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
             }
             Kernel::Bulk2 => {
                 while avail(q) >= 8 {
+                    // SAFETY: >= 8 bytes remain at q.
                     let w = unsafe { swar::load64(q) };
                     if (w & swar::MSB) == 0x0080_0080_0080_0080 {
                         let x = w & swar::LOW7;
                         let y = (x & 0x007F_007F_007F_007F) | ((x & 0x7F00_7F00_7F00_7F00) >> 1);
+                        // SAFETY: the four 2-byte varints fill slots `n..n + 4`, within capacity
+                        // (<= span bytes), and span the 8 bytes left at q.
                         unsafe {
                             put(out, n, u64::from(y as u16), conv);
                             put(out, n + 1, u64::from((y >> 16) as u16), conv);
                             put(out, n + 2, u64::from((y >> 32) as u16), conv);
                             put(out, n + 3, u64::from((y >> 48) as u16), conv);
+                            q = q.add(8);
                         }
-                        q = unsafe { q.add(8) };
                         n += 4;
                     } else {
                         break;
@@ -375,6 +395,8 @@ unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
                 }
             }
             Kernel::Fixed => {
+                // SAFETY: `[q, end)` is the rest of the span and `out` has a slot per span byte,
+                // the fill functions' contract.
                 q = unsafe {
                     match width {
                         3 => fixed_fill::<3, _, _>(q, end, &mut n, out, conv),
@@ -390,6 +412,7 @@ unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
             }
             Kernel::Struct => {
                 while avail(q) >= 72 {
+                    // SAFETY: >= 72 bytes remain at q, so 64 are readable.
                     let mut t = unsafe { swar::stopmask64(q) };
                     if t == 0 {
                         break;
@@ -401,18 +424,21 @@ unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
                         let len = (b - start + 1) as usize;
                         if len <= 8 {
                             let lenmask = swar::low_byte_mask(len);
+                            // SAFETY: `start <= b < 64` and 72 bytes remain at q, so 8 remain at
+                            // `q + start`.
                             let w = unsafe { swar::load64(q.add(start as usize)) };
                             let r = swar::compact7(w & lenmask & swar::LOW7);
+                            // SAFETY: slot `n` is within capacity (<= span bytes).
                             unsafe { put(out, n, r, conv) };
                             n += 1;
                         } else {
                             // 9/10-byte varint: decode and validate with the scalar reader.
-                            let (raw, _) = unsafe { read_one(q.add(start as usize), end) }
-                                .map_err(|k| {
-                                    (k, unsafe {
-                                        q.add(start as usize).offset_from(begin) as usize
-                                    })
-                                })?;
+                            // SAFETY: `start <= b < 64`, so `q + start` is among the 72 bytes left.
+                            let p = unsafe { q.add(start as usize) };
+                            // SAFETY: `p <= end` in the span, `read_one`'s contract.
+                            let (raw, _) = unsafe { read_one(p, end) }
+                                .map_err(|k| (k, p.addr() - begin.addr()))?;
+                            // SAFETY: slot `n` is within capacity (<= span bytes).
                             unsafe { put(out, n, raw, conv) };
                             n += 1;
                         }
@@ -421,14 +447,17 @@ unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
                             break;
                         }
                     }
+                    // SAFETY: `start <= 64` and 72 bytes remain at q.
                     q = unsafe { q.add(start as usize) };
                 }
             }
             Kernel::Swar => {
                 while avail(q) >= 8 {
+                    // SAFETY: `q <= end` with >= 8 bytes between, `read_one_swar`'s contract.
                     let (raw, next) = unsafe { read_one_swar(q, end) }
-                        .map_err(|k| (k, unsafe { q.offset_from(begin) as usize }))?;
+                        .map_err(|k| (k, q.addr() - begin.addr()))?;
                     q = next;
+                    // SAFETY: slot `n` is within capacity (<= span bytes).
                     unsafe { put(out, n, raw, conv) };
                     n += 1;
                 }
@@ -438,14 +467,14 @@ unsafe fn decode_kernel<T, F: FnMut(u64) -> T>(
         if avail(q) < 512 {
             break; // little left -> the scalar tail finishes it
         }
-        if (q as usize).wrapping_sub(q_start as usize) < 4096 {
+        if q.addr().wrapping_sub(q_start.addr()) < 4096 {
             break; // kernel got no traction (churny data / ByteLoop pick) -> scalar tail
         }
         // a homogeneous kernel ran a long stretch then hit a width change: re-classify remainder
     }
 
     // Finish the remainder after the kernel (or a ByteLoop pick) with the inline scalar loop.
-    let consumed = unsafe { q.offset_from(begin) } as usize;
+    let consumed = q.addr() - begin.addr();
     // SAFETY: `out + n` has room for the remaining elements (<= span.len() total); `consumed` bytes
     // were consumed, so the remaining span is `span[consumed..]`.
     let tail = unsafe { decode_scalar(&span[consumed..], out.add(n), conv) }
@@ -465,24 +494,26 @@ unsafe fn decode_scalar<T, F: FnMut(u64) -> T>(
     out: *mut T,
     conv: &mut F,
 ) -> Result<usize, (ErrorKind, usize)> {
-    let begin = span.as_ptr();
-    let end = unsafe { begin.add(span.len()) };
+    let core::ops::Range { start: begin, end } = span.as_ptr_range();
     let mut q = begin;
     let mut n = 0usize;
     while q < end {
         // A 1-byte value is read here directly; `read_one`'s slice-based reader would re-check the
         // remaining length and bound the advance on every element.
-        // SAFETY: `q < end`, so one byte is readable and `q + 1 <= end`.
+        // SAFETY: `q < end`, so one byte is readable.
         let b = unsafe { *q };
         let raw = if b < 0x80 {
+            // SAFETY: `q < end`, so `q + 1 <= end`.
             q = unsafe { q.add(1) };
             u64::from(b)
         } else {
-            let (raw, next) = unsafe { read_one(q, end) }
-                .map_err(|k| (k, unsafe { q.offset_from(begin) as usize }))?;
+            // SAFETY: `q < end` in the span, `read_one`'s contract.
+            let (raw, next) =
+                unsafe { read_one(q, end) }.map_err(|k| (k, q.addr() - begin.addr()))?;
             q = next;
             raw
         };
+        // SAFETY: slot `n` is within capacity (<= span bytes, each element takes at least one).
         unsafe { put(out, n, raw, conv) };
         n += 1;
     }
@@ -515,13 +546,15 @@ impl<'a, T> DecodeVec<'a, T> {
         self.reserve(span.len())
             .map_err(|_| DecodeError::new(ErrorKind::ArenaExhausted, 0))?;
         let tail = self.spare_capacity_ptr();
-        // SAFETY: `reserve(span.len())` guarantees `span.len()` free slots at `tail`, and the element
-        // count never exceeds `span.len()` (>= 1 byte each), so every write is in bounds. Small spans
-        // take the inline scalar loop (nothing to amortize an out-of-line call); large spans go
-        // through the out-of-line SWAR kernel. Mirrors C++ `emit_packed_fill`'s span-size split.
+        // Small spans take the inline scalar loop (nothing to amortize an out-of-line call); large
+        // spans go through the out-of-line SWAR kernel. Mirrors C++ `emit_packed_fill`'s span-size
+        // split. `reserve(span.len())` left `span.len()` free slots at `tail`, and the element count
+        // never exceeds `span.len()` (>= 1 byte each), so every write is in bounds.
         let written = if span.len() >= KERNEL_MIN_SPAN {
+            // SAFETY: `tail` has room for `span.len()` elements (above).
             unsafe { decode_kernel(span, tail, &mut conv) }
         } else {
+            // SAFETY: `tail` has room for `span.len()` elements (above).
             unsafe { decode_scalar(span, tail, &mut conv) }
         }
         .map_err(|(k, off)| DecodeError::new(k, base_off + off))?;
@@ -645,6 +678,7 @@ mod tests {
         for &x in values {
             put_varint(&mut span, x);
         }
+        // SAFETY: the whole span is readable at its start.
         assert!(unsafe { classify(span.as_ptr(), span.len()) }.0 == Kernel::Swar);
         span
     }

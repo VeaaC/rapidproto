@@ -98,7 +98,7 @@ where
 {
     let mut uninit = MaybeUninit::<T>::uninit();
     // SAFETY: `uninit` is aligned storage for one `T`, owned here, valid for the slot's use below.
-    let slot = unsafe { Slot::new(NonNull::new_unchecked(uninit.as_mut_ptr())) };
+    let slot = unsafe { Slot::new(NonNull::from(&mut uninit).cast()) };
     let _init: Init<'_> = f(slot)?;
     // SAFETY: `f` returned `Init<'id>` of the slot's brand, obtainable only via `Slot::write` on that
     // slot (the brand is fresh per call and cannot be forged), so `uninit` is initialized.
