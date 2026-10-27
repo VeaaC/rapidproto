@@ -4,12 +4,12 @@
 //! same checksum walk, ported field for field so the sums agree ACROSS languages -- the runner holds
 //! them to the C++ checksum the dump records beside each input:
 //!
-//! - `google_message1` / `google_message2` ([`messages`]): protobuf's published benchmark payloads
+//! - `google_message1` / `google_message2` (`messages`): protobuf's published benchmark payloads
 //!   (`tests/bench_arm_messages.hpp`). Their schemas come from the fetched corpus, so they are built
 //!   only when build.rs finds it (cfg `rp_bench_gm`).
 //! - `osm_blocks` / `osm_file` ([`osm`]): a pinned OpenStreetMap extract (`tests/bench_arm_osm.hpp`) --
 //!   its inflated blocks decoded per call, and the raw file (framing, zlib inflate, decode) per call.
-//! - `compute Instance` ([`compute`]): one googleapis compute.proto `Instance`, the large-schema arm
+//! - `compute Instance` (`compute`): one googleapis compute.proto `Instance`, the large-schema arm
 //!   (`tests/bench_arm_compute.hpp`). Behind the `compute` feature.
 //!
 //! A scenario this build has no decoder for is still listed, its one arm unsupported with the reason,
