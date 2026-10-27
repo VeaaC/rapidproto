@@ -29,7 +29,8 @@ rapidproto = { path = "../rapidproto", default-features = false }
 # The decode round-trip test (tests/decode.rs) decodes into a heap `Arena`, so it needs an
 # allocator; a dev-dependency with default features (std) provides it for test builds only -- the
 # plain `cargo build --no-default-features` compile-check still exercises the no_std path via the
-# normal dependency above.
+# normal dependency above. A command that builds tests here turns `rapidproto/std` on for everything
+# it builds, so CI tests the runtime's no_std tiers with `-p rapidproto` alone.
 [dev-dependencies]
 rapidproto = { path = "../rapidproto" }
 # Dev-only: the serde Serializer that renders a decoded message as the differential dump JSON. Used by
