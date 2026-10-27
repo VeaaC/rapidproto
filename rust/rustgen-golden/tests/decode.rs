@@ -1,8 +1,10 @@
 //! Decode round-trip tests for the Rust generator's emitted `decode` bodies.
 //!
 //! These decode the SAME global corpus schemas the C++ arena decode test (`tests/test_arena_decode.cpp`)
-//! uses -- there are no Rust-local fixture protos -- and assert the same behaviors, so the two
-//! languages stay in lockstep. The generated code under test is the committed goldens (included by the
+//! uses, plus the wire-fixture schema tests/wire_fixtures/wire_all.proto -- there are no Rust-local
+//! fixture protos -- and assert the same behaviors, so the two languages stay in lockstep. Where the
+//! C++ test decodes a checked-in protoc-encoded fixture (tests/wire_fixtures/*.bin), so does this one,
+//! from the very same bytes. The generated code under test is the committed goldens (included by the
 //! crate's `lib.rs`); the tiny wire encoders below are test scaffolding, not the system under test.
 //!
 //! Coverage by message:
@@ -20,6 +22,8 @@
 //!                       presence bit (always-present), present-ok + missing -> MissingRequired.
 //!   collide::Holder  -- names shaped like what generated code refers to (prelude and primitive type
 //!                       names, `V`, `type`, `Some`/`rp_out` fields), each reading back its own field.
+//!   wire::AllWire    -- every wire type, a nested message, packed varints, a group and a oneof, from
+//!                       the protoc-encoded fixture.
 
 use rapidproto::{Arena, ErrorKind, ProtoStr};
 
@@ -51,6 +55,15 @@ use rustgen_golden::proto3::arena::p3::Msg;
 use rustgen_golden::proto3::common::p3::State;
 // The field-modes golden: proto3's Msg generated under `drop name`, `raw self`, `unknown p3.Msg`.
 use rustgen_golden::proto3_modes::arena::p3::Msg as ModedMsg;
+use rustgen_golden::wire_all::arena::wire::all_wire::Pick as AllWirePick;
+use rustgen_golden::wire_all::arena::wire::AllWire;
+
+// The protoc-encoded fixtures the C++ test decodes too (tests/wire_fixtures/generate.py; the
+// `.txtpb` beside each is its source).
+const SCALARS_BIN: &[u8] = include_bytes!("../../../tests/wire_fixtures/scalars.bin");
+const MSG_BIN: &[u8] = include_bytes!("../../../tests/wire_fixtures/msg.bin");
+const CONTAINER_BIN: &[u8] = include_bytes!("../../../tests/wire_fixtures/container.bin");
+const ALL_WIRE_BIN: &[u8] = include_bytes!("../../../tests/wire_fixtures/all_wire.bin");
 
 // --- minimal protobuf wire encoders (the decoder is the system under test, not these) ---
 fn put_varint(b: &mut Vec<u8>, mut v: u64) {
@@ -976,6 +989,82 @@ fn raw_required_group_bearing_holder_rejects_missing_required() {
         ModedHolder::decode(&buf, &arena),
         Err(e) if e.kind() == ErrorKind::MissingRequired
     ));
+}
+
+// --- the protoc-encoded fixtures: each asserts every field its `.txtpb` sets -----------------------
+
+#[test]
+fn every_scalar_kind_from_the_protoc_fixture() {
+    // Mirrors C++ "protoc scalar fixture".
+    let arena = Arena::new();
+    let m = Scalars::decode(SCALARS_BIN, &arena).unwrap();
+    assert_eq!(m.i32(), -7);
+    assert_eq!(
+        (m.i64(), m.u32(), m.u64()),
+        (Some(42), Some(300), Some(1_000_000))
+    );
+    assert_eq!((m.s32(), m.s64()), (Some(-5), Some(-2)));
+    assert_eq!(
+        (m.f32(), m.f64()),
+        (Some(0x0102_0304), Some(0x0102_0304_0506_0708))
+    );
+    assert_eq!((m.sf32(), m.sf64()), (Some(-2), Some(-3)));
+    assert_eq!(m.b(), Some(true));
+    assert_eq!(m.s().map(|s| s.as_bytes()), Some(&b"hi"[..]));
+    assert_eq!(m.by(), Some(&b"\x00\x01\xff"[..]));
+    assert_eq!((m.fl(), m.db()), (Some(1.5), Some(-2.25)));
+    assert_eq!(m.color(), Some(Color::RED));
+    assert_eq!(m.packed_nums(), [1, 2, 300]);
+    assert_eq!(m.expanded_nums(), [3, 4]);
+}
+
+#[test]
+fn the_protoc_msg_fixture_decodes_enums_sub_messages_oneofs_and_maps() {
+    // Mirrors C++ "submessage, repeated, map, oneof fixture".
+    let arena = Arena::new();
+    let m = Msg::decode(MSG_BIN, &arena).unwrap();
+    assert_eq!((m.implicit_i(), m.explicit_i()), (10, Some(20)));
+    assert_eq!(m.name().as_bytes(), b"abc");
+    assert_eq!(m.state(), State::ON);
+    assert_eq!(m.self_().map(Msg::implicit_i), Some(99));
+    assert_eq!(m.nums(), [1, 2, 3]); // packed
+    assert_eq!(m.unpacked(), [4, 5]); // expanded
+    assert_eq!(m.states(), [State::ON, State::UNKNOWN]);
+    assert!(matches!(m.pick(), Some(Pick::A(7))));
+    assert_eq!(m.counts().len(), 2);
+    assert_eq!(m.counts().get("x"), Some(&1));
+    assert_eq!(m.counts().get("y"), Some(&2));
+}
+
+#[test]
+fn the_protoc_container_fixture_decodes_message_and_enum_valued_maps() {
+    // Mirrors C++ "message-value and enum-value maps fixture".
+    let arena = Arena::new();
+    let c = Container::decode(CONTAINER_BIN, &arena).unwrap();
+    assert_eq!(c.by_name().len(), 2);
+    assert_eq!(c.by_name().get("alpha").map(Nested::x), Some(Some(11)));
+    assert_eq!(c.by_name().get("beta").map(Nested::x), Some(Some(22)));
+    assert_eq!(c.by_id().len(), 2);
+    assert_eq!(c.by_id().get(&1), Some(&Color::RED));
+    assert_eq!(c.by_id().get(&2), Some(&Color::NEG)); // negative: a ten-byte varint on the wire
+}
+
+#[test]
+fn the_protoc_all_wire_fixture_decodes_every_wire_type() {
+    // Mirrors C++ "group (delimited) fixture".
+    let arena = Arena::new();
+    let m = AllWire::decode(ALL_WIRE_BIN, &arena).unwrap();
+    assert_eq!(m.zz(), Some(-1_234_567_890_123)); // sint64, zigzag
+    #[allow(clippy::approx_constant)] // all_wire.txtpb's literal, not an approximation of π
+    let db = 3.14159;
+    assert_eq!(m.db(), Some(db));
+    assert_eq!(m.fx(), Some(305_419_896));
+    assert_eq!(m.s().map(|s| s.as_bytes()), Some(&b"wire"[..]));
+    assert_eq!(m.by(), Some(&[0xde, 0xad, 0xbe, 0xef][..]));
+    assert_eq!(m.nested().and_then(|n| n.zz()), Some(7));
+    assert_eq!(m.packed(), [10, 20, 30]);
+    assert_eq!(m.g().and_then(|g| g.a()), Some(99)); // the group
+    assert!(matches!(m.pick(), Some(AllWirePick::Oi(5))));
 }
 
 // --- parity pendants for tests/test_arena_decode.cpp cases with no prior Rust coverage ------------
