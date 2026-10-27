@@ -57,15 +57,14 @@ jobs:
         run: cargo clippy -p rapidproto --all-targets --no-default-features --features alloc -- -D warnings
       - name: Clippy (no_std, no-alloc)
         run: cargo clippy -p rapidproto --all-targets --no-default-features -- -D warnings
-      # The runtime's no-alloc tier is documented on its own: a link to an alloc-gated item breaks
-      # only there.
+      # The no-alloc tier gets its own run because a link to an alloc-gated item breaks only there.
       - name: Docs
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
           cargo doc --workspace --exclude rapidproto-bench --no-deps --all-features
           cargo doc -p rapidproto-bench --no-deps
-          cargo doc -p rapidproto --no-deps --no-default-features
+          cargo doc -p rapidproto -p rustgen-golden --no-deps --no-default-features
 
   test:
     runs-on: ubuntu-latest

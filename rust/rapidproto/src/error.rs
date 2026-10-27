@@ -18,7 +18,9 @@ pub enum ErrorKind {
     VarintOverflow,
     /// A field's wire type is not one the decoder accepts for that position.
     InvalidWireType,
-    /// Nested-message or group recursion exceeded the decoder's depth cap.
+    /// Nesting exceeded a depth cap: [`MAX_DECODE_DEPTH`](crate::MAX_DECODE_DEPTH) for decoded
+    /// sub-messages and groups, [`MAX_GROUP_DEPTH`](crate::wire::MAX_GROUP_DEPTH) for groups the
+    /// wire reader skips or reads.
     DepthLimitExceeded,
     /// The arena could not satisfy an allocation (no allocator, or the host allocator failed).
     ArenaExhausted,

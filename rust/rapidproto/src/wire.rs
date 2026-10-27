@@ -86,9 +86,9 @@ pub struct Tag {
 /// C++ reader. (The 19000..=19999 reserved range is a schema rule, not a wire-decode one.)
 const MAX_FIELD_NUMBER: u32 = (1 << 29) - 1;
 
-/// The deepest group nesting [`skip`] and [`read_group`] accept. Deeper nesting fails with
-/// [`ErrorKind::DepthLimitExceeded`], so a run of group-start tags cannot drive unbounded
-/// recursion. Matches the C++ reader's `kMaxGroupDepth`.
+/// How deep [`skip`] and [`read_group`] let groups nest, counting the outermost group. Deeper
+/// nesting fails with [`ErrorKind::DepthLimitExceeded`], which bounds recursion on untrusted input.
+/// Matches the C++ reader's `kMaxGroupDepth`.
 pub const MAX_GROUP_DEPTH: u32 = 100;
 
 /// A read cursor over the input: the not-yet-consumed bytes, plus the original input length so an
@@ -208,10 +208,10 @@ impl<'a> Cursor<'a> {
         Ok(payload)
     }
 
-    /// Consume one field's value for the field whose `tag` was just read, for an unknown or dropped
-    /// field. A group is skipped to its matching end tag -- matched by field number -- with nested
-    /// groups recursing, capped by [`MAX_GROUP_DEPTH`]. Wrapper over the value-threaded [`skip`] free
-    /// function; a failure is reported at this field's start.
+    /// Skip the value of the field whose `tag` was just read, such as an unknown or dropped field. A
+    /// group is skipped through its matching end tag, the one with the same field number. Groups
+    /// nest at most [`MAX_GROUP_DEPTH`] deep. Wraps the value-threaded [`skip`]; a failure is
+    /// reported at this field's start.
     #[inline]
     pub fn skip(&mut self, tag: Tag) -> Result<(), DecodeError> {
         self.rest = skip(self.rest, tag).map_err(|k| self.err(k))?;
@@ -514,11 +514,10 @@ pub fn read_length_delimited<'a>(
     Ok(tail)
 }
 
-/// Consume one field's value for the field whose `tag` was just read (an unknown or dropped field),
-/// returning the slice past it. A group (wire type [`SGroup`](WireType::SGroup)) skips to the matching
-/// end tag -- the one whose field number equals the group's, as the C++ reader requires -- with nested
-/// groups recursing, capped by [`MAX_GROUP_DEPTH`]. Cold relative to the typed readers. `tag.field` is
-/// used only to match a group's end; for the scalar wire types it is ignored.
+/// Skip the value of the field whose `tag` was just read, such as an unknown or dropped field, and
+/// return the slice past it. A group ([`WireType::SGroup`]) is skipped through its matching end tag,
+/// the one with the same field number, as in the C++ reader. Groups nest at most
+/// [`MAX_GROUP_DEPTH`] deep. `tag.field` matters only for groups.
 pub fn skip(rest: &[u8], tag: Tag) -> Result<&[u8], ErrorKind> {
     skip_depth(rest, tag, 0)
 }
@@ -569,13 +568,12 @@ fn skip_depth(rest: &[u8], tag: Tag, depth: u32) -> Result<&[u8], ErrorKind> {
     }
 }
 
-/// Decode a proto2 group: `rest` is positioned just after the group's start tag (at the group body),
-/// and `field` is the group's field number. Scans to the matching end-group tag (field number ==
-/// `field`, nested groups recursing, capped by [`MAX_GROUP_DEPTH`]) and writes the group BODY span --
-/// everything between the start tag and the matching end tag -- to `out`, returning the slice past the
-/// end tag. The decoding counterpart of [`skip`]'s group case (which only advances), and the Rust
-/// mirror of C++ `wire::read_group`: the generated decoder then decodes `out` as the group message's
-/// body, exactly as it decodes a length-delimited payload.
+/// Read a proto2 group. `rest` starts at the group body, just past the start tag, and `field` is the
+/// group's field number. Scans to the matching end tag, the one with field number `field`; groups
+/// nest at most [`MAX_GROUP_DEPTH`] deep. Writes the group body, the bytes between the start tag and
+/// that end tag, to `out` and returns the slice past the end tag. The generated decoder then decodes
+/// `out` as the group message, as it decodes a length-delimited payload. Mirrors C++
+/// `wire::read_group`.
 #[inline]
 pub fn read_group<'a>(
     rest: &'a [u8],
@@ -980,26 +978,31 @@ mod tests {
                 .kind(),
             ErrorKind::DepthLimitExceeded
         );
+    }
 
-        // Exact boundary: the outer skip is depth 0, so reading N field-1 start tags (0x0b) descends
-        // to depth N. The cap rejects at depth == MAX_GROUP_DEPTH. With MAX_GROUP_DEPTH starts the
-        // deepest recursion hits the cap (DepthLimitExceeded); with one fewer it never does and instead
-        // runs out of input (Truncated) -- pinning the off-by-one (depth 99 allowed, 100 rejected).
-        let at_cap = vec![0x0b_u8; MAX_GROUP_DEPTH as usize];
-        let under_cap = vec![0x0b_u8; (MAX_GROUP_DEPTH as usize) - 1];
+    #[test]
+    fn groups_nest_up_to_max_group_depth() {
+        // `levels` nested field-1 groups, the outer start tag already read: the inner start tags
+        // (0x0b), then every end tag (0x0c).
+        let nested = |levels: usize| {
+            let mut buf = vec![0x0b_u8; levels - 1];
+            buf.resize(2 * levels - 1, 0x0c);
+            buf
+        };
+        let (at_cap, over_cap) = (
+            nested(MAX_GROUP_DEPTH as usize),
+            nested(MAX_GROUP_DEPTH as usize + 1),
+        );
+        let mut body: &[u8] = &[];
+        assert_eq!(skip(&at_cap, tag(1, WireType::SGroup)), Ok(&[][..]));
+        assert_eq!(read_group(&at_cap, 1, &mut body), Ok(&[][..]));
         assert_eq!(
-            Cursor::new(&at_cap)
-                .skip(tag(1, WireType::SGroup))
-                .unwrap_err()
-                .kind(),
-            ErrorKind::DepthLimitExceeded
+            skip(&over_cap, tag(1, WireType::SGroup)),
+            Err(ErrorKind::DepthLimitExceeded)
         );
         assert_eq!(
-            Cursor::new(&under_cap)
-                .skip(tag(1, WireType::SGroup))
-                .unwrap_err()
-                .kind(),
-            ErrorKind::Truncated
+            read_group(&over_cap, 1, &mut body),
+            Err(ErrorKind::DepthLimitExceeded)
         );
     }
 
