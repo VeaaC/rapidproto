@@ -134,7 +134,7 @@ inline std::string rv_type_scenario_name(const char* tag, const VarintDist& dist
 }
 
 // A scenario name as a file-name stem: spaces become `-` ("rv fx1 10" -> "rv-fx1-10"). Names the
-// pool's directory in the shared payload layout (bench_payloads.hpp), which the Rust bench mirrors.
+// pool's file in the shared payload layout (bench_payloads.hpp), which the Rust bench mirrors.
 inline std::string payload_stem(std::string name) {
     std::replace(name.begin(), name.end(), ' ', '-');
     return name;
@@ -164,10 +164,16 @@ inline std::string make_packed_i64(const std::vector<std::int64_t>& values, int 
     return buf;
 }
 
+// The fewest elements a pool holds, so the branch predictor cannot learn its width sequence. On 64
+// buffers of 10 elements, the streaming bench's `rv mix13 10` read 4x faster than on unseen data;
+// pools of 2^17 elements and more read within ~1% of each other.
+constexpr long kPoolElements = 1L << 17;
+
 // A pool of distinct-seed packed-varint buffers with one shape, plus their total size -- what every
 // sweep decodes, a whole pass per sample (rpbench::pool_pass), so no arm replays a single memorized
-// width sequence. Pool size: ~64 MB budget, >= 8 buffers (defeat the predictor at small counts),
-// <= 64 (bound setup). Each element is <= 10 bytes, so count*10 over-estimates a buffer; that only
+// width sequence. Pool size: enough buffers for kPoolElements, within a ~64 MB budget; the floors of
+// 64 and 8 buffers keep the pools of 10k elements and more as they were (8 buffers of 1M 10-byte
+// elements are 80 MB). Each element is <= 10 bytes, so count*10 over-estimates a buffer; that only
 // makes the pool smaller, never unsafe. Returns the strings ONLY -- the caller builds its ByteView
 // vector over them after the vector is fully populated (a returned view container would dangle on SSO
 // buffers).
@@ -178,7 +184,8 @@ struct VarintPool {
 };
 inline VarintPool build_varint_pool(const VarintDist& dist, int count, int field_number = 1) {
     const long est = static_cast<long>(count) * 10 + 16;
-    const int pool_n = static_cast<int>(std::min<long>(64, std::max<long>(8, (64L << 20) / est)));
+    const long wanted = std::max<long>(64, (kPoolElements + count - 1) / count);
+    const int pool_n = static_cast<int>(std::max<long>(8, std::min(wanted, (64L << 20) / est)));
     VarintPool pool;
     pool.buffers.reserve(static_cast<std::size_t>(pool_n));
     for (int s = 0; s < pool_n; ++s) {

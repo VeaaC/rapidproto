@@ -15,7 +15,7 @@ fn all_agree(mut arms: Vec<Arm>, bytes: &[u8]) -> u64 {
         .iter_mut()
         .filter_map(|a| {
             let name = a.name;
-            a.decoder().map(|d| (name, d(bytes)))
+            a.decoder().map(|d| (name, d.decode(bytes)))
         })
         .collect();
     assert!(

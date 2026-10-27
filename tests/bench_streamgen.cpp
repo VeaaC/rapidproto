@@ -762,7 +762,7 @@ int scenario_repeated_varint() {
     for (const auto& dist : rpbench::varint_dists()) {
         for (const int count : rpbench::varint_lengths()) {
             // Name first, so a scenario filter can skip the POOL BUILD below, not merely the
-            // measurement -- the pool is up to 64 MB and dominates a filtered run otherwise.
+            // measurement -- the pool is up to 80 MB and dominates a filtered run otherwise.
             const std::string name = rpbench::rv_scenario_name(dist, count);
             if (!rpbench::scenario_selected(name.c_str())) {
                 continue;
@@ -1617,7 +1617,7 @@ int scenario_two_tier() {
 
 int main() {
     // Generator mode: write every scenario's input into the given directory (stream/<stem>.bin, and
-    // rv/<stem>/<i>.bin per sweep pool -- bench_payloads.hpp) and exit WITHOUT benching. Run it once,
+    // rv/<stem>.pool per sweep pool -- bench_payloads.hpp) and exit WITHOUT benching. Run it once,
     // then point this bench and the Rust streaming bench at the directory via RAPIDPROTO_BENCH_DIR so
     // they decode byte-identical input.
     if (const char* const dir = std::getenv("RAPIDPROTO_BENCH_DUMP_DIR")) {
