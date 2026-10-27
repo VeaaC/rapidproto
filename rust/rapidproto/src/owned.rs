@@ -99,8 +99,8 @@ impl<D: ArenaDecode> Owned<D> {
 /// `input` is taken by value (a `Vec<u8>`, `Box<[u8]>`, or a `&[u8]` it will copy). Prefer the
 /// generated `T::decode_owned` for a named message; this is the type-parameter form.
 ///
-/// Copying a `&[u8]`, or dropping a `Vec`'s spare capacity, allocates as `Box` does: it aborts if
-/// the host is out of memory. A `Box<[u8]>` is taken as is.
+/// Converting `input` allocates unless it is already a `Box<[u8]>` or a `Vec` with no spare
+/// capacity, and that allocation aborts if the host is out of memory, as `Box` does.
 ///
 /// # Errors
 /// Returns the decoder's [`DecodeError`] (and drops the bytes/arena) for malformed or over-nested

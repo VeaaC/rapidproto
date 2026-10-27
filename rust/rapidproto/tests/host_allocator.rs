@@ -1,7 +1,7 @@
 //! The arena under a controlled host allocator: a refused allocation surfaces as `Err`, and chunks
 //! the allocator places back to back stay separate. A global allocator is per binary, so these tests
 //! have their own.
-#![cfg(feature = "std")]
+#![cfg(feature = "alloc")]
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::{Cell, UnsafeCell};
@@ -16,6 +16,8 @@ enum Mode {
     System,
     /// Refuse every allocation.
     Fail,
+    /// Refuse the arena's chunk list (aligned like a pointer) but not its byte-aligned chunks.
+    FailAligned,
     /// Serve blocks back to back from `BUMP`, never freeing them.
     Bump,
 }
@@ -38,11 +40,14 @@ static BUMP_NEXT: AtomicUsize = AtomicUsize::new(0);
 fn bump(layout: Layout) -> *mut u8 {
     let mut next = BUMP_NEXT.load(Ordering::Relaxed);
     loop {
-        let start = next.next_multiple_of(layout.align());
-        let end = start + layout.size();
-        if end > BUMP_SIZE {
+        // Checked: a panic inside the global allocator aborts.
+        let Some((start, end)) = next
+            .checked_next_multiple_of(layout.align())
+            .and_then(|start| Some((start, start.checked_add(layout.size())?)))
+            .filter(|&(_, end)| end <= BUMP_SIZE)
+        else {
             return ptr::null_mut();
-        }
+        };
         match BUMP_NEXT.compare_exchange(next, end, Ordering::Relaxed, Ordering::Relaxed) {
             Ok(_) => return BUMP.0.get().cast::<u8>().wrapping_add(start),
             Err(seen) => next = seen,
@@ -60,6 +65,9 @@ unsafe impl GlobalAlloc for Host {
             // SAFETY: the caller upholds `GlobalAlloc::alloc`'s contract, which `System` shares.
             Mode::System => unsafe { System.alloc(layout) },
             Mode::Fail => ptr::null_mut(),
+            Mode::FailAligned if layout.align() > 1 => ptr::null_mut(),
+            // SAFETY: as for `Mode::System`.
+            Mode::FailAligned => unsafe { System.alloc(layout) },
             Mode::Bump => bump(layout),
         }
     }
@@ -98,10 +106,12 @@ fn a_refused_first_chunk_is_an_error() {
 fn a_refused_chunk_list_is_an_error() {
     let a = Arena::new();
     a.alloc_bytes(1, 1).unwrap(); // chunk 0 only: no list yet
+    let reserved = a.bytes_reserved();
     assert_eq!(
-        with_host(Mode::Fail, || a.alloc_bytes(5000, 1)),
+        with_host(Mode::FailAligned, || a.alloc_bytes(5000, 1)),
         Err(ArenaExhausted)
     );
+    assert_eq!(a.bytes_reserved(), reserved);
     assert!(a.alloc_bytes(5000, 1).is_ok());
 }
 

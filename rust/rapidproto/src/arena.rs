@@ -256,7 +256,8 @@ impl<'buf> Arena<'buf> {
     /// element count.
     ///
     /// # Safety
-    /// `ptr` and `old_bytes` must be the start and the exact size of one allocation from this arena.
+    /// `ptr` and `old_bytes` must be the start and the exact size of one allocation from this arena,
+    /// made since the last `reset`.
     /// When it reclaims, no byte from `ptr + new_bytes` to `ptr + old_bytes` may be used afterwards:
     /// the next allocation reuses them.
     // `#[inline]`: every packed fill ends here, and generated decoders instantiate the fill in their
