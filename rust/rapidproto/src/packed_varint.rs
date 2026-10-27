@@ -569,7 +569,6 @@ impl<'a, T> DecodeVec<'a, T> {
 mod tests {
     use super::*;
     use crate::arena::Arena;
-    use crate::wire::read_varint;
 
     // Encode `v` as a LEB128 varint into `out`.
     fn put_varint(out: &mut alloc::vec::Vec<u8>, mut v: u64) {
@@ -592,15 +591,22 @@ mod tests {
         v.into_slice().to_vec()
     }
 
-    // The reference: the plain scalar loop, which the kernels must match for every input.
+    // The reference: a plain byte loop over a well-formed span, which the kernels must match for
+    // every input. It walks the span once: Miri retags the whole slice on every call that takes it,
+    // so a reader called per element on the rest of the span would make it quadratic under Miri.
     fn reference(span: &[u8]) -> alloc::vec::Vec<u64> {
         let mut out = alloc::vec::Vec::new();
-        let mut rest = span;
-        while !rest.is_empty() {
-            let mut raw = 0u64;
-            rest = read_varint(rest, &mut raw).unwrap();
-            out.push(raw);
+        let (mut raw, mut shift) = (0u64, 0);
+        for &b in span {
+            raw |= u64::from(b & 0x7F) << shift;
+            if b < 0x80 {
+                out.push(raw);
+                (raw, shift) = (0, 0);
+            } else {
+                shift += 7;
+            }
         }
+        assert_eq!(shift, 0, "the span ends inside a varint");
         out
     }
 
@@ -609,8 +615,19 @@ mod tests {
         for &x in values {
             put_varint(&mut span, x);
         }
-        assert_eq!(decode_u64(&span), values, "span len {}", span.len());
-        assert_eq!(decode_u64(&span), reference(&span));
+        let got = decode_u64(&span);
+        assert_eq!(got, values, "span len {}", span.len());
+        assert_eq!(got, reference(&span));
+    }
+
+    // Miri runs these tests orders of magnitude slower than native code, so under it the long runs
+    // are cut to a tenth, still long enough for the kernel each test targets.
+    fn runs(n: u64) -> u64 {
+        if cfg!(miri) {
+            n / 10
+        } else {
+            n
+        }
     }
 
     #[test]
@@ -633,7 +650,7 @@ mod tests {
     #[test]
     fn homogeneous_2_byte_bulk2() {
         // Values 128..=16383 all encode in 2 bytes -> Bulk2.
-        let vals: alloc::vec::Vec<u64> = (0..2000u64).map(|i| 128 + (i % 16000)).collect();
+        let vals: alloc::vec::Vec<u64> = (0..runs(2000)).map(|i| 128 + (i % 16000)).collect();
         check(&vals);
     }
 
@@ -651,7 +668,7 @@ mod tests {
             (10, 1 << 63),
         ];
         for (w, base) in per_width {
-            let vals: alloc::vec::Vec<u64> = (0..1500u64).map(|i| base + (i & 0x3F)).collect();
+            let vals: alloc::vec::Vec<u64> = (0..runs(1500)).map(|i| base + (i & 0x3F)).collect();
             check(&vals);
             let _ = w;
         }
@@ -660,7 +677,7 @@ mod tests {
     #[test]
     fn narrow_mixed_struct() {
         // Mixed small widths (1..=5 bytes), max <= 5 -> Struct.
-        let vals: alloc::vec::Vec<u64> = (0..3000u64)
+        let vals: alloc::vec::Vec<u64> = (0..runs(3000))
             .map(|i| match i % 5 {
                 0 => i % 100,           // 1 byte
                 1 => 200 + (i % 10000), // 2-3 bytes
@@ -696,7 +713,7 @@ mod tests {
     fn wide_mixed_swar() {
         // Mix in wide values (max width > 5) -> Swar. The classifier only samples the first 64-byte
         // window, so a representative mix must appear up front for this to engage Swar.
-        let vals: alloc::vec::Vec<u64> = (0..3000u64)
+        let vals: alloc::vec::Vec<u64> = (0..runs(3000))
             .map(|i| if i % 7 == 0 { u64::MAX - i } else { i % 50 })
             .collect();
         swar_span(&vals);
@@ -707,7 +724,7 @@ mod tests {
     fn wide_mixed_swar_every_width() {
         // Widths 1..=10 in turn: the Swar kernel's word read decodes every 2..=8-byte width, and the
         // 9/10-byte ones fall back to the validating reader.
-        let vals: alloc::vec::Vec<u64> = (0..3000u64)
+        let vals: alloc::vec::Vec<u64> = (0..runs(3000))
             .map(|i| match i % 10 {
                 9 => u64::MAX - i,
                 w => (1u64 << (7 * w)) + i % 7, // exactly w + 1 bytes
@@ -773,10 +790,11 @@ mod tests {
     #[test]
     fn re_classify_across_regime_change() {
         // A long homogeneous run (forces a kernel) followed by a different regime, long enough to
-        // re-classify (> 4096 bytes of traction, then > 512 remaining).
+        // re-classify (> 4096 bytes of traction, then > 512 remaining). The first run therefore keeps
+        // its length under Miri.
         let mut vals: alloc::vec::Vec<u64> = (0..6000u64).map(|_| 1).collect(); // 1-byte run
-        vals.extend((0..3000u64).map(|i| 128 + (i % 16000))); // 2-byte run
-        vals.extend((0..3000u64).map(|i| if i % 7 == 0 { u64::MAX } else { i % 50 }));
+        vals.extend((0..runs(3000)).map(|i| 128 + (i % 16000))); // 2-byte run
+        vals.extend((0..runs(3000)).map(|i| if i % 7 == 0 { u64::MAX } else { i % 50 }));
         check(&vals);
     }
 

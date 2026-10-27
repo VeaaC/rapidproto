@@ -1,7 +1,11 @@
 # Rust support CI — runs only on the `rust` feature branch and PRs targeting it, so `main`'s C++
-# gate is untouched. Kept light for the public 4-core runners: fmt, clippy, test, and a
-# no_std-no-alloc build, plus the wasm-blob staleness gate, Miri (arena provenance/borrows), and a
-# libFuzzer+ASan smoke over the arena decoder.
+# gate is untouched. Lint, tests and the ecosystem bench's tests run as parallel jobs, beside the
+# wasm-blob staleness gate, the native generator on macOS and Windows, Miri (arena
+# provenance/borrows), and a libFuzzer+ASan smoke over the arena decoder.
+#
+# The `rapidproto` runtime crate's no_std tiers are tested, linted and run under Miri on their own
+# (`-p rapidproto`): in a workspace build, rustgen-golden's dev-dependency on `rapidproto` (default
+# features) turns `std` back on for every target that builds dev-dependencies.
 name: Rust CI
 
 on:
@@ -22,35 +26,70 @@ defaults:
     working-directory: rust
 
 jobs:
-  check:
+  # std+alloc covers the whole workspace, including rapidproto-build (both generator backends and its
+  # golden dogfooding gate, run through each), consumer-example (whose build.rs runs the generator end
+  # to end), osm-pbf-example (the OSM showcase + its golden fixture test) and rapidproto-diff (the
+  # differential Serializer). rapidproto-bench is linted and tested SEPARATELY at its DEFAULT
+  # features, NOT via the blanket `--all-features` runs: its off-by-default `google-upb` arm pulls
+  # Google's upb `protobuf` crate, which needs an exact-version protoc + a C toolchain this runner
+  # lacks, so `--all-features` would fail to build it.
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      # Dependencies only (the workspace's own crates always rebuild), saved from `rust` pushes so
+      # a PR starts from its base branch's cache.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          save-if: ${{ github.ref == 'refs/heads/rust' }}
       - name: Format
         run: cargo fmt --all --check
-      # std+alloc covers the whole workspace, including rapidproto-build (both generator backends and
-      # its golden dogfooding gate, run through each), consumer-example (whose build.rs runs the
-      # generator end to end), osm-pbf-example (the OSM showcase + its golden fixture test) and
-      # rapidproto-diff (the differential Serializer). rapidproto-bench is linted and tested
-      # SEPARATELY (below) at its DEFAULT features, NOT via the blanket `--all-features` runs: its
-      # off-by-default `google-upb` arm pulls Google's upb `protobuf` crate, which needs an exact-version
-      # protoc + a C toolchain this runner lacks, so `--all-features` would fail to build it. The
-      # no_std/no-alloc tiers exercise the `rapidproto` runtime crate's embedded tiers, so they --exclude
-      # all of these: each is a std-only build tool / demo / bench, meaningless under no_std and costly
-      # to recompile per tier on the 4-core runners.
       - name: Clippy (std + alloc)
         run: cargo clippy --workspace --exclude rapidproto-bench --all-targets --all-features -- -D warnings
       - name: Clippy (rapidproto-bench, default features)
         run: cargo clippy -p rapidproto-bench --all-targets -- -D warnings
       - name: Clippy (no_std + alloc)
-        run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --all-targets --no-default-features --features alloc -- -D warnings
+        run: cargo clippy -p rapidproto --all-targets --no-default-features --features alloc -- -D warnings
       - name: Clippy (no_std, no-alloc)
-        run: cargo clippy --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --all-targets --no-default-features -- -D warnings
+        run: cargo clippy -p rapidproto --all-targets --no-default-features -- -D warnings
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          save-if: ${{ github.ref == 'refs/heads/rust' }}
       - name: Test (std + alloc)
         run: cargo test --workspace --exclude rapidproto-bench --all-features
+      - name: Run the consumer example (build.rs -> generator -> decode)
+        run: cargo run -p consumer-example
+      - name: Test (no_std + alloc)
+        run: cargo test -p rapidproto --no-default-features --features alloc
+      - name: Test (no_std, no-alloc)
+        # The test harness keeps std (crate is no_std only outside tests), while the `alloc`
+        # feature is off — so this exercises the arena's no-allocator / exhaustion path.
+        run: cargo test -p rapidproto --no-default-features
+      # A plain build leaves dev-dependencies out, so the generated decoders build on the no_std tiers
+      # here too.
+      - name: Build no_std + alloc tier
+        run: cargo build -p rapidproto -p rustgen-golden --no-default-features --features alloc
+      - name: Build no_std (no-alloc embedded tier)
+        run: cargo build -p rapidproto -p rustgen-golden --no-default-features
+      # The generated serde Serialize impls must also stay no_std-clean (alloc and no-alloc), since a
+      # consumer may enable rapidproto/serde on an embedded target. (--all-features above covers std.)
+      - name: Build generated serde impls on the no_std tiers
+        run: |
+          cargo build -p rustgen-golden --no-default-features --features alloc,serde
+          cargo build -p rustgen-golden --no-default-features --features serde
       # rapidproto-build with one generator backend at a time (`wasm` alone: no C++ compiler needed;
       # `native` alone: no interpreter).
       - name: rapidproto-build with only the wasm generator, then only the native one
@@ -59,9 +98,22 @@ jobs:
           cargo test -p rapidproto-build --no-default-features --features wasm --test smoke
           cargo clippy -p rapidproto-build --all-targets --no-default-features --features native -- -D warnings
           cargo test -p rapidproto-build --no-default-features --features native --test smoke
-      # rapidproto-bench is excluded above (its off-by-default `google-upb` arm would need protoc under
-      # `--all-features`), so test it on its own at DEFAULT features -- debug here (the agreement tests
-      # + the debug-only quick-protobuf drop path) and release below.
+      # Last, since changing CXX rebuilds rapidproto-build's C++: a failing compiler must fall back
+      # to the wasm generator (the smoke test checks that it did).
+      - name: rapidproto-build falls back to the wasm generator when the C++ build fails
+        run: CXX=false RAPIDPROTO_EXPECT_FALLBACK=1 cargo test -p rapidproto-build --test smoke
+
+  bench:
+    # rapidproto-bench at its DEFAULT features (see above): debug (the agreement tests + the
+    # debug-only quick-protobuf drop path), then release.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          save-if: ${{ github.ref == 'refs/heads/rust' }}
       - name: Test the ecosystem bench (debug, default features)
         run: cargo test -p rapidproto-bench
       # rapidproto-bench's quick-protobuf arm decodes `Big.reals` (repeated double) by borrowing the
@@ -71,28 +123,6 @@ jobs:
       # runs it; this release step exercises it (the UB-check is compiled out, correct on this x86 host).
       - name: Test the ecosystem bench in release (exercises the release-only quick-protobuf arm)
         run: cargo test -p rapidproto-bench --release
-      - name: Run the consumer example (build.rs -> generator -> decode)
-        run: cargo run -p consumer-example
-      - name: Test (no_std + alloc)
-        run: cargo test --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features --features alloc
-      - name: Test (no_std, no-alloc)
-        # The test harness keeps std (crate is no_std only outside tests), while the `alloc`
-        # feature is off — so this exercises the arena's no-allocator / exhaustion path.
-        run: cargo test --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features
-      - name: Build no_std + alloc tier
-        run: cargo build --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features --features alloc
-      - name: Build no_std (no-alloc embedded tier)
-        run: cargo build --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features
-      # The generated serde Serialize impls must also stay no_std-clean (alloc and no-alloc), since a
-      # consumer may enable rapidproto/serde on an embedded target. (--all-features above covers std.)
-      - name: Build generated serde impls on the no_std tiers
-        run: |
-          cargo build -p rustgen-golden --no-default-features --features alloc,serde
-          cargo build -p rustgen-golden --no-default-features --features serde
-      # Last, since changing CXX rebuilds rapidproto-build's C++: a failing compiler must fall back
-      # to the wasm generator (the smoke test checks that it did).
-      - name: rapidproto-build falls back to the wasm generator when the C++ build fails
-        run: CXX=false RAPIDPROTO_EXPECT_FALLBACK=1 cargo test -p rapidproto-build --test smoke
 
   native-generator:
     # rapidproto-build compiles its generator with the platform's C++ compiler. Native only, so a
@@ -165,10 +195,11 @@ jobs:
 
   miri:
     # The arena hands out `&mut` from `&self` and does raw-pointer bumping; Miri checks that
-    # against strict provenance and Stacked/Tree Borrows. Runs on both the alloc and no-alloc tiers.
-    # rapidproto-build, consumer-example and osm-pbf-example are --exclude'd: they run the generator
-    # (a native C++ library Miri cannot execute, or the wasmi interpreter) and do filesystem I/O
-    # (osm-pbf-example also spawns its binary), which Miri's isolation forbids.
+    # against strict provenance and Stacked/Tree Borrows. Runs the runtime crate and the generated
+    # decoders on the std tier, and the runtime crate alone on the no-alloc tier. rapidproto-build
+    # and the examples are left out: they run the generator (a native C++ library Miri cannot
+    # execute, or the wasmi interpreter) and do filesystem I/O (osm-pbf-example also spawns its
+    # binary), which Miri's isolation forbids.
     runs-on: ubuntu-latest
     env:
       # Actively enforce the arena's strict-provenance claim (it uses no int→ptr casts).
@@ -179,6 +210,6 @@ jobs:
         with:
           components: miri
       - name: Miri (std + alloc)
-        run: cargo miri test --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --all-features
+        run: cargo miri test -p rapidproto -p rustgen-golden --all-features
       - name: Miri (no_std, no-alloc)
-        run: cargo miri test --workspace --exclude rapidproto-build --exclude consumer-example --exclude osm-pbf-example --exclude rapidproto-diff --exclude rapidproto-bench --no-default-features
+        run: cargo miri test -p rapidproto --no-default-features

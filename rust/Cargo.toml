@@ -9,3 +9,13 @@ members = ["rapidproto", "rapidproto-build", "rapidproto-diff", "rustgen-golden"
 # it requires an exact-version `protoc` (36.2) + a C toolchain, and is compiled only when
 # `rapidproto-bench --features google-upb` opts in. See rapidproto-bench-upb/Cargo.toml.
 exclude = ["rapidproto-bench-upb"]
+
+# rapidproto-build's tests run the wasm generator in wasmi, which unoptimized takes minutes for the
+# goldens: optimize the interpreter in this workspace's debug builds. Profiles apply only to the
+# workspace that is built, so builds that depend on rapidproto-build are unaffected.
+[profile.dev.package.wasmi]
+opt-level = 1
+[profile.dev.package.wasmi_core]
+opt-level = 1
+[profile.dev.package.wasmi_ir]
+opt-level = 1
