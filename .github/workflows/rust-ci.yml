@@ -1,7 +1,7 @@
 # Rust support CI — runs only on the `rust` feature branch and PRs targeting it, so `main`'s C++
 # gate is untouched. Lint, tests and the ecosystem bench's tests run as parallel jobs, beside the
-# docs.rs build, the wasm-blob staleness gate, the native generator on macOS and Windows, Miri (arena
-# provenance/borrows), and a libFuzzer+ASan smoke over the arena decoder.
+# docs.rs build, the wasm-blob staleness gate, the native generator on macOS and Windows, Miri
+# (arena provenance/borrows), and a libFuzzer+ASan smoke over the arena decoder.
 #
 # The `rapidproto` runtime crate's no_std tiers are tested and linted on their own
 # (`-p rapidproto`), and its no-alloc tier also runs under Miri: in a workspace command that builds
@@ -104,9 +104,8 @@ jobs:
         run: cargo test -p rapidproto --no-default-features --features alloc
       - name: Test (no_std, no-alloc)
         # The test harness keeps std (crate is no_std only outside tests), while the `alloc`
-        # feature is off — so this exercises the arena's no-allocator / exhaustion path. `--tests`
-        # leaves out the doc examples, which are written for an arena with an allocator.
-        run: cargo test -p rapidproto --no-default-features --tests
+        # feature is off — so this exercises the arena's no-allocator / exhaustion path.
+        run: cargo test -p rapidproto --no-default-features
       # A plain build leaves dev-dependencies out, so the generated decoders build on the no_std tiers
       # here too, including their serde Serialize impls.
       - name: Build no_std + alloc tier
@@ -235,4 +234,4 @@ jobs:
       - name: Miri (std + alloc)
         run: cargo miri test -p rapidproto -p rustgen-golden
       - name: Miri (no_std, no-alloc)
-        run: cargo miri test -p rapidproto --no-default-features --tests
+        run: cargo miri test -p rapidproto --no-default-features

@@ -44,9 +44,9 @@ wasmi_wasi = { version = "2.0.0", optional = true }
 # Compiles the generator's C++ for the `native` feature, its translation units in parallel.
 cc = { version = "1", optional = true, features = ["parallel"] }
 
-# The public API is the same with either generator, so docs.rs builds the one that needs no C++ compile.
-# A DOCS_RS check in build.rs would not do: docs.rs also builds this crate for crates that depend on
-# it, and their build scripts do run the generator.
+# The public API is the same with either generator, so docs.rs builds the one that needs no C++
+# compile. A DOCS_RS check in build.rs would not do: docs.rs also builds this crate for crates that
+# depend on it, and their build scripts do run the generator.
 [package.metadata.docs.rs]
 no-default-features = true
 features = ["wasm"]

@@ -167,7 +167,7 @@ std::string golden_stem(std::string_view rel) {
 // types are pulled in), then plan layouts and emit one file over the whole set. Sharing that tail is
 // what keeps native generation and the blob byte-identical by construction. The include path is the
 // schema's own directory.
-std::string gen_file(const std::string& path, const rustgen::RustOptions& options = {}) {
+std::string gen_file(const std::string& path, const rustgen::RustOptions& options) {
     cli::Options opts;
     opts.config.include_paths = {std::filesystem::path(path).parent_path().string()};
     const auto resolved = cli::resolve_and_analyze({path}, opts.config);

@@ -28,6 +28,8 @@
 //! the no-allocator path can still be unit-tested with `--no-default-features`.
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+// `PackedSlice` shows `[T]`'s methods, and a few would carry a standard library label.
+#![cfg_attr(docsrs, doc(auto_cfg(hide(no_global_oom_handling))))]
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![deny(clippy::undocumented_unsafe_blocks)]
 
@@ -52,7 +54,8 @@ pub mod wire;
 // The generated code in `example` names this crate `::rapidproto`, as it does in a user's crate.
 #[cfg(doc)]
 extern crate self as rapidproto;
-#[cfg(doc)]
+// Its doc examples call `Arena::new`, so without `alloc` they stay out of the doctests.
+#[cfg(all(doc, any(not(doctest), feature = "alloc")))]
 pub mod example;
 
 /// Re-export of `serde`, available with the `serde` feature. Generated `Serialize` impls name it, so a
