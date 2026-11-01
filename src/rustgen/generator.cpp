@@ -2863,13 +2863,12 @@ std::string stream_export_name(std::string_view prefix, const MessageNode& msg) 
 // what it reaches must live in this module: `rp_rt`, the runtime's module of that name re-exported so
 // the expansion can name it from a crate with no direct `rapidproto` dependency (two globs of it are
 // the same item, so it never clashes itself), and one alias per FOREIGN type `msgs` reference (enum
-// newtype / cross-module child handle). `rp_rt` is not the crate itself, because re-exporting that does
-// not compile in a crate that writes `extern crate rapidproto;`. An alias is a `pub type` with an
-// `rp_`-prefixed name because a `pub type` RHS
-// resolves as a TYPE path (local items first) -- unlike a `use` path, where a leading module segment
-// like `std` would be read as the extern crate (the adversarial naming corpus has such packages). The
-// same relative paths the arena tree uses thus resolve. The alias name `rp_stream_ty_<n>` only needs to
-// be unique within the module: the expansion always names it through a scope. Returns path -> alias.
+// newtype / cross-module child handle). An alias is a `pub type` with an `rp_`-prefixed name because a
+// `pub type` RHS resolves as a TYPE path (local items first) -- unlike a `use` path, where a leading
+// module segment like `std` would be read as the extern crate (the adversarial naming corpus has such
+// packages). The same relative paths the arena tree uses thus resolve. The alias name
+// `rp_stream_ty_<n>` only needs to be unique within the module: the expansion always names it through
+// a scope. Returns path -> alias.
 StreamAliases emit_stream_reexports(Printer& printer, const NameTable& table,
                                     const std::vector<const MessageNode*>& msgs,
                                     const std::vector<std::string>& current_mod) {

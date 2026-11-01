@@ -70,9 +70,9 @@ pub use proto_str::{PackedStr, ProtoStr};
 #[doc(hidden)]
 pub use alloc::boxed::Box;
 
-// This crate's public items, under one module. Generated stream modules re-export it as `rp_rt`, so a
-// stream macro can name the runtime from a crate that does not depend on it directly. They cannot
-// re-export the crate itself: that does not compile in a crate that writes `extern crate rapidproto;`.
+// This crate's public items, under one module. Generated stream modules re-export it, so a stream
+// macro can name the runtime from a crate that does not depend on it directly. They cannot re-export
+// the crate itself: that does not compile in a crate that writes `extern crate rapidproto;`.
 #[doc(hidden)]
 pub mod rp_rt {
     pub use crate::*;
