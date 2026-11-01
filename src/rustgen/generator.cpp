@@ -3576,6 +3576,17 @@ void emit_stream_node(Printer& printer, const NameTable& table, const PkgTrie& n
     }
 }
 
+// Goes on every top-level generated module, so that including a generated file adds no diagnostics to
+// the consumer's crate. `warnings` covers every lint the crate has at warning level. The other names
+// cover a crate that raises a lint to `deny`: the lints a private include trips, and the two that this
+// attribute itself trips. Nothing else is named, because naming a lint the crate forbids is a hard
+// error (E0453) even if the lint would not fire. A crate that denies an unnamed lint, such as
+// `missing_docs` on a public include, can add its own allow around the include.
+constexpr const char* kModuleLints =
+    "#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, "
+    "unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, "
+    "clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]\n";
+
 }  // namespace
 
 std::string generate_common(const std::vector<const FileNode*>& files) {
@@ -3586,6 +3597,7 @@ std::string generate_common(const std::vector<const FileNode*>& files) {
     }();
     const NameTable table = build_name_table(root);
     Printer printer;
+    printer.print(kModuleLints);
     printer.print("pub mod common {\n");
     printer.indent();
     emit_common_node(printer, table, root);
@@ -3624,6 +3636,7 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
     assign_emitted_names(root);
     const NameTable table = build_name_table(root);
     Printer printer;
+    printer.print(kModuleLints);
     printer.print("pub mod arena {\n");
     printer.indent();
     std::vector<std::string> current_mod;
@@ -3639,6 +3652,7 @@ std::string generate_stream(const std::vector<const FileNode*>& files,
     assign_emitted_names(root);
     const NameTable table = build_name_table(root);
     Printer printer;
+    printer.print(kModuleLints);
     printer.print("pub mod stream {\n");
     printer.indent();
     std::vector<std::string> current_mod;

@@ -80,9 +80,6 @@ fn main() {
 // (`cargo clean -p rapidproto-bench`).
 fn external() {
     println!("cargo::rustc-check-cfg=cfg(rp_bench_gm)");
-    // The generated code gates its serde and owning-handle surfaces on the INCLUDING crate's features;
-    // this crate declares neither, so name them for the cfg check.
-    println!("cargo::rustc-check-cfg=cfg(feature, values(\"serde\", \"alloc\"))");
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let generate = |includes: &[&Path], entries: &[PathBuf], stream: bool| {
         let mut cfg = rapidproto_build::Config::new().stream(stream);

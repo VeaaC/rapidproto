@@ -6,6 +6,7 @@
 //   raw .p3.Msg.self
 //   unknown .p3.Msg
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod p3 {
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
@@ -48,6 +49,7 @@ pub mod common {
   }
 }
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod arena {
 
   pub mod p3 {

@@ -362,7 +362,6 @@ fn shared_state_form_with_no_fields_is_valid() {
 fn a_visitor_type_can_be_hand_implemented() {
     // The macro is sugar over the generated trait; a consumer may implement it directly.
     struct Count(u32);
-    #[allow(non_upper_case_globals)] // the generated `WANT_<field>` consts
     impl<'a> MsgVisitor<'a> for &mut Count {
         const WANT_nums: bool = true;
         fn on_nums(&mut self, _v: i32) -> Result<Flow, DecodeError> {
@@ -426,13 +425,6 @@ fn the_same_message_from_two_generated_files_keeps_both_macros() {
 // since the code is `include!`d). Its own module, since a second copy of package `p3` globbed beside
 // the file-level one would make the two copies' names ambiguous.
 mod included_here {
-    #[allow(
-        clippy::all,
-        unused,
-        non_camel_case_types,
-        non_snake_case,
-        non_upper_case_globals
-    )]
     mod proto3 {
         include!("../goldens/proto3.rs");
     }

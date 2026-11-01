@@ -10,12 +10,6 @@ edition = "2021"
 license = "Apache-2.0"
 publish = false
 
-[features]
-# Declared (like the consumer example) so the generated code's `#[cfg(feature = ...)]` are known cfgs
-# even when left off; the showcase does not need the owning-handle or serde surfaces.
-serde = ["rapidproto/serde"]
-alloc = ["rapidproto/alloc"]
-
 [dependencies]
 # RapidProto runtime + the generated OSM decoders (via build.rs).
 rapidproto = { path = "../../rapidproto" }

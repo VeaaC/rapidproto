@@ -5,13 +5,6 @@
 // message, but materialize a chosen sub-message with the arena model from its bytes.
 
 // The generated module: one file covers the whole schema (imports included).
-#[allow(
-    clippy::all,
-    unused,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals
-)]
 mod schema {
     include!(concat!(env!("OUT_DIR"), "/message.rs"));
 }

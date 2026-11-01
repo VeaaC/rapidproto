@@ -3,13 +3,6 @@
 //! and `stream::OSMPBF` (the streaming visitor model, used by [`walk_stream`](crate::walk_stream)).
 //! The same workload is run through both -- the point of the example.
 
-#[allow(
-    clippy::all,
-    unused,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals
-)]
 mod generated {
     include!(concat!(env!("OUT_DIR"), "/fileformat.rs"));
 }

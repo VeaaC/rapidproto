@@ -2,13 +2,6 @@
 //! one googleapis compute.proto `Instance`, the payload its dump writes. Arms: cold (the baseline) and
 //! warm, as in C++ (which has no streaming decoder for compute.proto).
 
-#[allow(
-    clippy::all,
-    unused,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals
-)]
 mod generated {
     include!(concat!(env!("OUT_DIR"), "/compute.rs"));
 }

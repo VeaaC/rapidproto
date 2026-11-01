@@ -1026,17 +1026,7 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
             "// (`Option`, `Result`) or a caller's macro (`matches!`) can shadow the bare name: "
             "without\n"
             "// the prelude, an unqualified use fails to compile here.\n"
-            "#![no_implicit_prelude]\n"
-            "#![allow(clippy::all)]\n"
-            "// Generated code: `unused` covers dead_code and the stubbed `decode`'s unused "
-            "params;\n"
-            "// the casing allows fire only for schemas whose own proto names are unconventional "
-            "(the\n"
-            "// emitter preserves proto names rather than re-casing them).\n"
-            "#![allow(unused)]\n"
-            "#![allow(non_camel_case_types)]\n"
-            "#![allow(non_snake_case)]\n"
-            "#![allow(non_upper_case_globals)]\n\n";
+            "#![no_implicit_prelude]\n\n";
         for (const std::string& stem : stems) {
             lib += "pub mod " + rustgen::escape_rust_ident(stem) +
                    " {\n    include!(\"../goldens/" + stem + ".rs\");\n}\n\n";

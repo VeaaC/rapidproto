@@ -15,15 +15,6 @@
 //! guarantees nothing) and consumes every column the arena walk reads, and both streaming arms reuse
 //! one string-table vector across blocks.
 
-#![allow(non_upper_case_globals)] // the stream macros' generated `WANT_<field>` consts
-
-#[allow(
-    clippy::all,
-    unused,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals
-)]
 mod generated {
     include!(concat!(env!("OUT_DIR"), "/fileformat.rs"));
 }
