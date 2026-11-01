@@ -272,7 +272,7 @@ NameTable build_name_table(const PkgTrie& root) {
 // Storage is the raw `i32` (open enum, full range); the classify enum is the ergonomic match
 // surface and `classify()` fuses to a branchless switch at the call site. The newtype and Class names
 // come from the name table (deduped against everything else in the enum's common scope).
-void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node) {
+void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node, bool serde) {
     const EnumNames& names = table.enums.at(node.fqn);
     const std::vector<std::string> consts = enum_const_names(node);
     const std::vector<std::string> variants = enum_variant_names(node);
@@ -289,24 +289,26 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node) {
     printer.print("#[repr(transparent)]\n");
     printer.print("pub struct $T$(pub i32);\n\n");
 
-    // serde (behind the `serde` feature): an open enum serializes as its raw `i32`, preserving any
-    // value the schema does not name -- the lossless choice for a forward-compatible enum.
-    printer.print("#[cfg(feature = \"serde\")]\n");
-    printer.print("impl ::rapidproto::serde::Serialize for $T$ {\n");
-    printer.indent();
-    printer.print(
-        "fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>\n");
-    printer.print("where\n");
-    printer.indent();
-    printer.print("RpS: ::rapidproto::serde::Serializer,\n");
-    printer.outdent();
-    printer.print("{\n");
-    printer.indent();
-    printer.print("rp_ser.serialize_i32(self.0)\n");
-    printer.outdent();
-    printer.print("}\n");
-    printer.outdent();
-    printer.print("}\n\n");
+    if (serde) {
+        // An open enum serializes as its raw `i32`, preserving any value the schema does not name --
+        // the lossless choice for a forward-compatible enum.
+        printer.print("impl ::rapidproto::serde::Serialize for $T$ {\n");
+        printer.indent();
+        printer.print(
+            "fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, "
+            "RpS::Error>\n");
+        printer.print("where\n");
+        printer.indent();
+        printer.print("RpS: ::rapidproto::serde::Serializer,\n");
+        printer.outdent();
+        printer.print("{\n");
+        printer.indent();
+        printer.print("rp_ser.serialize_i32(self.0)\n");
+        printer.outdent();
+        printer.print("}\n");
+        printer.outdent();
+        printer.print("}\n\n");
+    }
 
     printer.print("impl $T$ {\n");
     printer.indent();
@@ -947,15 +949,17 @@ void emit_field_accessor(Printer& printer, const NameTable& table,
     const RustStore store = rust_store(member, field);
     const bool masked = field_mode(modes, field) != arenagen::FieldMode::Raw &&
                         !field.is_repeated && member != nullptr;
+    // A field with no plan has neither bit.
+    const int presence_bit = member != nullptr ? member->presence_bit : -1;
+    const int value_bit = member != nullptr ? member->value_bit : -1;
     // Only an Explicit field carries a resting presence bit (planner `needs_presence`); an Implicit
     // bool (value bit only) or a Required inlined message has `presence_bit == -1`, so computing the
     // test would emit `1 << -1`. Leave it empty there -- the branches that lack a presence bit never
     // read `pbit`.
     // A present-iff-bit getter is `(<bit test>).then_some(<value>)`: the value is a field read or a
     // bit test, so evaluating it eagerly costs nothing.
-    const std::string pbit = (masked && member->presence_bit >= 0)
-                                 ? mask_test("self.rp_presence", member->presence_bit, mask_bits)
-                                 : "";
+    const std::string pbit =
+        (masked && presence_bit >= 0) ? mask_test("self.rp_presence", presence_bit, mask_bits) : "";
     // The stored value as the getter returns it: a `PackedSlice` hands back its plain slice and a
     // `PackedStr` its `&ProtoStr`, for the full `'a`.
     std::string value = "self." + accessor;
@@ -968,7 +972,7 @@ void emit_field_accessor(Printer& printer, const NameTable& table,
     }
     switch (store) {
         case RustStore::MaskedBool: {
-            const std::string vtest = mask_test("self.rp_presence", member->value_bit, mask_bits);
+            const std::string vtest = mask_test("self.rp_presence", value_bit, mask_bits);
             if (field.presence == FieldPresence::Explicit) {
                 printer.print("($p$).then_some($v$)\n", {{"p", pbit}, {"v", vtest}});
             } else {
@@ -980,7 +984,7 @@ void emit_field_accessor(Printer& printer, const NameTable& table,
             printer.print("($p$).then_some($v$)\n", {{"p", pbit}, {"v", value}});
             break;
         case RustStore::InlineMsg:
-            if (member->presence_bit >= 0) {
+            if (presence_bit >= 0) {
                 printer.print("($p$).then_some(&self.$a$)\n", {{"p", pbit}, {"a", accessor}});
             } else {
                 // A Required inlined message has no resting presence bit (validated via
@@ -2339,7 +2343,7 @@ void emit_message_accessors(Printer& printer, const NameTable& table,
     printer.print("}\n");
 }
 
-// --- serde Serialize (behind the `serde` feature) --------------------------------------------------
+// --- serde Serialize (the `serde` option) -----------------------------------------------------------
 // A message serializes as a map keyed by PROTO field names, carrying exactly the fields the debug
 // dumper prints (so the two agree): explicit => when set; proto3 implicit => when non-default;
 // required => always; repeated/map => when non-empty; a oneof => its active member as a direct entry.
@@ -2494,7 +2498,6 @@ void emit_map_serialize(Printer& printer, const MapFieldNode& map, const std::st
 void emit_message_serialize(Printer& printer, const NameTable& table, const MessageNode& msg,
                             const FieldModes& modes, const AccessorNames& accessors,
                             const std::string& submodule) {
-    printer.print("#[cfg(feature = \"serde\")]\n");
     printer.print("impl<'a> ::rapidproto::serde::Serialize for $M$<'a> {\n");
     printer.indent();
     // The generic `RpS` shadows any schema type of that name inside the impl, which is harmless: the
@@ -2530,20 +2533,20 @@ void emit_message_serialize(Printer& printer, const NameTable& table, const Mess
     printer.print("}\n\n");
 }
 
-// The owning-handle API (behind `alloc`): one runtime macro expands to the `ArenaDecode` tag impl on
-// `$M$<'static>` (no separate marker type) + the `$M$::decode_owned` convenience over the runtime
+// The owning-handle API: one runtime macro expands to the `ArenaDecode` tag impl on `$M$<'static>` (no
+// separate marker type) + the `$M$::decode_owned` convenience over the runtime
 // `::rapidproto::decode_owned` -- the Rust pendant of C++'s `decode_owned`. Emitting the macro call,
 // not the boilerplate, keeps each message to one line and the SAFETY rationale in one place (the
-// macro definition). The macro `alloc`-gates its own output, so no `#[cfg]` is emitted here. Ends
-// with a single newline (no trailing blank): the caller separates items with its own blank lines.
-// `$M$` is set by the caller.
+// macro definition). Without the runtime's `alloc` feature the macro expands to nothing. Ends with a
+// single newline (no trailing blank): the caller separates items with its own blank lines. `$M$` is
+// set by the caller.
 void emit_message_owned(Printer& printer) {
     printer.print("::rapidproto::impl_decode_owned!($M$);\n");
 }
 
 void emit_message(Printer& printer, const NameTable& table,
                   const std::vector<std::string>& current_mod, const MessageNode& msg,
-                  const FieldModes& modes, const LayoutSet& layouts) {
+                  const FieldModes& modes, const LayoutSet& layouts, bool serde) {
     printer.set("M", table.messages.at(msg.fqn).type_name);
     const arenagen::MessageLayout* layout = layouts.find(msg.fqn);
     const AccessorNames accessors = message_accessor_names(msg);
@@ -2553,9 +2556,11 @@ void emit_message(Printer& printer, const NameTable& table,
     // ([`emit_message_decode`]) so a reader skims the whole getter API without the wire-loop bodies in
     // between.
     emit_message_accessors(printer, table, current_mod, msg, modes, accessors, submodule, layout);
-    // The `serde::Serialize` impl (behind the `serde` feature) reads those same getters.
-    emit_message_serialize(printer, table, msg, modes, accessors, submodule);
-    // The owning-handle API (`decode_owned`, behind `alloc`).
+    // The `serde::Serialize` impl reads those same getters.
+    if (serde) {
+        emit_message_serialize(printer, table, msg, modes, accessors, submodule);
+    }
+    // The owning-handle API (`decode_owned`).
     emit_message_owned(printer);
 }
 
@@ -2584,12 +2589,12 @@ void emit_message_decode(Printer& printer, const NameTable& table,
 void emit_arena_messages(Printer& printer, const NameTable& table,
                          const std::vector<const MessageNode*>& msgs,
                          std::vector<std::string>& current_mod, const FieldModes& modes,
-                         const LayoutSet& layouts) {
+                         const LayoutSet& layouts, bool serde) {
     for (std::size_t i = 0; i < msgs.size(); ++i) {
         if (i != 0) {
             printer.print("\n");
         }
-        emit_message(printer, table, current_mod, *msgs[i], modes, layouts);
+        emit_message(printer, table, current_mod, *msgs[i], modes, layouts, serde);
         const bool has_submodule = !msgs[i]->nested_messages.empty() || !msgs[i]->oneofs.empty();
         if (has_submodule) {
             const std::string& sub = table.messages.at(msgs[i]->fqn).submodule;
@@ -2606,7 +2611,7 @@ void emit_arena_messages(Printer& printer, const NameTable& table,
                 printer.print("\n");  // separate the oneof enums from the nested messages
             }
             emit_arena_messages(printer, table, addrs(msgs[i]->nested_messages), current_mod, modes,
-                                layouts);
+                                layouts, serde);
             current_mod.pop_back();
             printer.outdent();
             printer.print("}\n");
@@ -2623,7 +2628,7 @@ void emit_arena_messages(Printer& printer, const NameTable& table,
 // Recursively emit nested enums into the common tree: a message holding enums gets a `pub mod <snake>`
 // (the same table-assigned submodule name as the arena tree) with its own enums plus the recursion.
 void emit_common_message_enums(Printer& printer, const NameTable& table,
-                               const std::vector<const MessageNode*>& msgs) {
+                               const std::vector<const MessageNode*>& msgs, bool serde) {
     for (const MessageNode* msg : msgs) {
         if (!codegen::holds_enum(*msg)) {
             continue;
@@ -2634,9 +2639,9 @@ void emit_common_message_enums(Printer& printer, const NameTable& table,
             if (i != 0) {
                 printer.print("\n");
             }
-            emit_enum(printer, table, msg->enums[i]);
+            emit_enum(printer, table, msg->enums[i], serde);
         }
-        emit_common_message_enums(printer, table, addrs(msg->nested_messages));
+        emit_common_message_enums(printer, table, addrs(msg->nested_messages), serde);
         printer.outdent();
         printer.print("}\n");
     }
@@ -2665,19 +2670,19 @@ std::vector<const EnumNode*> node_enums(const PkgTrie& node) {
 // Emit the `common` subtree for one package node: this package's enums (its files', plus the per-
 // message nested-enum mirror), then a `pub mod <component>` per sub-package. `current_mod` tracks the
 // emitted package path so blank-line separation matches the per-item rules.
-void emit_common_node(Printer& printer, const NameTable& table, const PkgTrie& node) {
+void emit_common_node(Printer& printer, const NameTable& table, const PkgTrie& node, bool serde) {
     const std::vector<const EnumNode*> enums = node_enums(node);
     for (std::size_t i = 0; i < enums.size(); ++i) {
         if (i != 0) {
             printer.print("\n");
         }
-        emit_enum(printer, table, *enums[i]);
+        emit_enum(printer, table, *enums[i], serde);
     }
-    emit_common_message_enums(printer, table, node_messages(node));
+    emit_common_message_enums(printer, table, node_messages(node), serde);
     for (const auto& [component, child] : node.children) {
         printer.print("pub mod $m$ {\n", {{"m", child.emitted}});
         printer.indent();
-        emit_common_node(printer, table, child);
+        emit_common_node(printer, table, child, serde);
         printer.outdent();
         printer.print("}\n");
     }
@@ -2687,13 +2692,13 @@ void emit_common_node(Printer& printer, const NameTable& table, const PkgTrie& n
 // `pub mod <component>` per sub-package. `current_mod` is the node's emitted package path.
 void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& node,
                      std::vector<std::string>& current_mod, const FieldModes& modes,
-                     const LayoutSet& layouts) {
-    emit_arena_messages(printer, table, node_messages(node), current_mod, modes, layouts);
+                     const LayoutSet& layouts, bool serde) {
+    emit_arena_messages(printer, table, node_messages(node), current_mod, modes, layouts, serde);
     for (const auto& [component, child] : node.children) {
         printer.print("\npub mod $m$ {\n", {{"m", child.emitted}});
         printer.indent();
         current_mod.push_back(child.emitted);
-        emit_arena_node(printer, table, child, current_mod, modes, layouts);
+        emit_arena_node(printer, table, child, current_mod, modes, layouts, serde);
         current_mod.pop_back();
         printer.outdent();
         printer.print("}\n");
@@ -3589,7 +3594,7 @@ constexpr const char* kModuleLints =
 
 }  // namespace
 
-std::string generate_common(const std::vector<const FileNode*>& files) {
+std::string generate_common(const std::vector<const FileNode*>& files, bool serde) {
     const PkgTrie root = [&] {
         PkgTrie trie = build_pkg_trie(files);
         assign_emitted_names(trie);
@@ -3600,7 +3605,7 @@ std::string generate_common(const std::vector<const FileNode*>& files) {
     printer.print(kModuleLints);
     printer.print("pub mod common {\n");
     printer.indent();
-    emit_common_node(printer, table, root);
+    emit_common_node(printer, table, root, serde);
     printer.outdent();
     printer.print("}\n");
     return printer.str();
@@ -3631,7 +3636,7 @@ std::vector<std::pair<std::string, std::string>> arena_type_paths(
 }
 
 std::string generate_arena(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
-                           const FieldModes& modes) {
+                           const FieldModes& modes, bool serde) {
     PkgTrie root = build_pkg_trie(files);
     assign_emitted_names(root);
     const NameTable table = build_name_table(root);
@@ -3640,7 +3645,7 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
     printer.print("pub mod arena {\n");
     printer.indent();
     std::vector<std::string> current_mod;
-    emit_arena_node(printer, table, root, current_mod, modes, layouts);
+    emit_arena_node(printer, table, root, current_mod, modes, layouts, serde);
     printer.outdent();
     printer.print("}\n");
     return printer.str();
@@ -3663,7 +3668,7 @@ std::string generate_stream(const std::vector<const FileNode*>& files,
 }
 
 std::string generate_file(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
-                          const FieldModes& modes, const RustModels& models) {
+                          const FieldModes& modes, const RustOptions& options) {
     // A header comment records the active field-modes profile (its id + canonical drop/raw/unknown
     // lines) for traceability. Rust needs no ODR-style identity guard: a generated file is included
     // once as a self-contained module tree, so two differently-profiled generations cannot silently
@@ -3678,12 +3683,12 @@ std::string generate_file(const std::vector<const FileNode*>& files, const Layou
     // `common` (shared enum/newtype defs) is emitted whenever any decoder model is, since both the
     // arena and stream trees reference it. At least one model is always selected (the caller enforces
     // it); default is arena only, preserving every existing arena-only consumer byte-for-byte.
-    std::string out = banner + "\n" + generate_common(files);
-    if (models.arena) {
-        out += "\n" + generate_arena(files, layouts, modes);
+    std::string out = banner + "\n" + generate_common(files, options.serde);
+    if (options.arena) {
+        out += "\n" + generate_arena(files, layouts, modes, options.serde);
     }
-    if (models.stream) {
-        out += "\n" + generate_stream(files, models.stream_export_prefix);
+    if (options.stream) {
+        out += "\n" + generate_stream(files, options.stream_export_prefix);
     }
     return out;
 }

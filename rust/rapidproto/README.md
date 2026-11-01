@@ -12,7 +12,8 @@ from committed generated code.
 - **`no_std`-ready.** `default = ["std"]`; `alloc` alone is the no_std + allocator tier; neither
   feature is the no_std-no-alloc embedded tier (a caller-seeded arena). No third-party deps in the
   default build.
-- **Optional `serde`.** Off by default; enables generated serialize-only `Serialize` impls.
+- **Optional `serde`.** Off by default. With this feature and `rapidproto-build`'s `Config::serde`,
+  decoded messages implement `Serialize`.
 
 > **Status:** work in progress, developed on the `rust` branch; the public API is not yet stable and
 > the crate is **not yet published**.

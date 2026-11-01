@@ -37,15 +37,17 @@ using arenagen::LayoutSet;
 // Emit the `common` module body for `files`: a Rust open-enum newtype plus a classify enum for each
 // enum (top-level and nested), under `pub mod common` with one `pub mod` per package component. Enums
 // are model-agnostic (plain `i32` newtypes), identical whichever decoder model is also generated.
-// Same-package files merge into one module scope; nested enums live in a per-message submodule.
-std::string generate_common(const std::vector<const FileNode*>& files);
+// Same-package files merge into one module scope; nested enums live in a per-message submodule. `serde`
+// also implements `serde::Serialize` for each enum.
+std::string generate_common(const std::vector<const FileNode*>& files, bool serde = false);
 
 // Emit the `arena` module body for `files`: the arena decoder's message structs (nested messages in
 // per-message submodules, oneofs as native enums), under `pub mod arena` with one `pub mod` per
 // package component. `modes` selects per-field drop/raw and per-message unknown-fields handling;
 // default (inactive) materializes everything. Enum-typed fields reference the sibling `common` tree.
+// `serde` also implements `serde::Serialize` for each message.
 std::string generate_arena(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
-                           const FieldModes& modes = {});
+                           const FieldModes& modes = {}, bool serde = false);
 
 // Emit the `stream` module body for `files`, under `pub mod stream` mirroring `arena`'s module
 // structure: per message a reader handle `<Msg><'a>` (`Msg::new(bytes).decode(visitor)`), a
@@ -76,24 +78,26 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 std::string generate_stream(const std::vector<const FileNode*>& files,
                             const std::string& export_prefix = {});
 
-// Which decoder model(s) `generate_file` emits. `common` is always emitted (both models reference it).
-// Default is arena only -- byte-for-byte what every existing arena consumer gets. At least one model
+// What `generate_file` emits. `common` is always emitted (both decoder models reference it). Default
+// is the arena model only -- byte-for-byte what every existing arena consumer gets. At least one model
 // must be set; the caller enforces that, and that `stream_export_prefix` comes with `stream`.
-struct RustModels {
+struct RustOptions {
     bool arena = true;
     bool stream = false;
     // Non-empty: make every `*_stream!` macro callable from another crate, defined at the including
     // crate's root under this prefix (see generate_stream). Empty (default): `pub(crate)` macros.
     std::string stream_export_prefix;
+    // Implement `serde::Serialize` for the enums and arena messages. The output then needs the
+    // runtime's `serde` feature.
+    bool serde = false;
 };
 
 // The full generated Rust source for `files`: the `common` tree, then the selected decoder tree(s)
 // (`arena` and/or `stream`), all siblings included together under one parent module. This is the single
 // source of truth for an invocation's `.rs` content -- the CLI writes it and the golden test compares
-// against it. `modes` is the resolved field-modes profile (default: materialize everything); `models`
-// selects which decoder model(s) to emit (default: arena only).
+// against it. `modes` is the resolved field-modes profile (default: materialize everything).
 std::string generate_file(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
-                          const FieldModes& modes = {}, const RustModels& models = {});
+                          const FieldModes& modes = {}, const RustOptions& options = {});
 
 // The absolute arena type path (e.g. `arena::pkg::Msg`) for every message in `files`, keyed by its
 // protobuf FQN -- the path that `include!`-ing the generated `.rs` exposes. The differential test's

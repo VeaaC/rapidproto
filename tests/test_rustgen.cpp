@@ -162,7 +162,7 @@ std::string golden_stem(std::string_view rel) {
 // types are pulled in), then plan layouts and emit one file over the whole set. Sharing that tail is
 // what keeps native generation and the blob byte-identical by construction. The include path is the
 // schema's own directory.
-std::string gen_corpus(std::string_view rel, const rustgen::RustModels& models = {}) {
+std::string gen_corpus(std::string_view rel, const rustgen::RustOptions& options = {}) {
     const std::string path = std::string(RAPIDPROTO_CORPUS_DIR) + "/" + std::string(rel);
     cli::Options opts;
     opts.config.include_paths = {std::filesystem::path(path).parent_path().string()};
@@ -170,7 +170,7 @@ std::string gen_corpus(std::string_view rel, const rustgen::RustModels& models =
     REQUIRE(resolved.has_value());
     // NOLINTNEXTLINE(bugprone-unchecked-optional-access): guarded by the REQUIRE above
     const auto& analyzed_set = resolved.value();
-    return rustgen::generate_rust(analyzed_set.first, analyzed_set.second, {}, models);
+    return rustgen::generate_rust(analyzed_set.first, analyzed_set.second, {}, options);
 }
 
 // Generate a corpus schema under a resolved field-modes profile (drop/raw/unknown). Modes are a
@@ -186,7 +186,11 @@ std::string gen_corpus_modes(std::string_view rel, const arenagen::FieldModesSpe
     const auto& analyzed_set = resolved.value();
     auto modes = arenagen::resolve_field_modes(spec, analyzed_set.first, analyzed_set.second);
     REQUIRE(modes.is_ok());
-    return rustgen::generate_rust(analyzed_set.first, analyzed_set.second, modes.value());
+    // Arena only (field modes are arena-storage options), with the `Serialize` impls every golden has.
+    return rustgen::generate_rust(
+        analyzed_set.first, analyzed_set.second, modes.value(),
+        rustgen::RustOptions{/*arena=*/true, /*stream=*/false,
+                             /*stream_export_prefix=*/{}, /*serde=*/true});
 }
 
 // The field-modes golden: proto3 under a drop/raw/unknown profile, compiled by the golden crate and
@@ -955,9 +959,11 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // stream macros under its stem (`Config::export_stream_macros`), so the golden crate's
     // integration tests drive them cross-crate as they do the arena types -- and since many goldens
     // carry the same imported messages (`dep.Dep` in both `dep` and `main`), only those prefixes keep
-    // the crate-root names apart.
+    // the crate-root names apart. Every golden also has the `Serialize` impls, so they compile and run
+    // over the whole corpus too; output without them has its own test case below.
     const auto both = [](const std::string& stem) {
-        return rustgen::RustModels{/*arena=*/true, /*stream=*/true, /*stream_export_prefix=*/stem};
+        return rustgen::RustOptions{/*arena=*/true, /*stream=*/true, /*stream_export_prefix=*/stem,
+                                    /*serde=*/true};
     };
     std::vector<std::string> stems;
     for (const std::string& rel : corpus_schemas()) {
@@ -1001,8 +1007,9 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // macros are NOT exported, pinning that default (`pub(crate)`) form; the consumer and OSM examples
     // drive it at runtime.
     check_golden("streamonly", gen_corpus("nsedge/nestenum.proto",
-                                          rustgen::RustModels{/*arena=*/false, /*stream=*/true,
-                                                              /*stream_export_prefix=*/{}}));
+                                          rustgen::RustOptions{/*arena=*/false, /*stream=*/true,
+                                                               /*stream_export_prefix=*/{},
+                                                               /*serde=*/true}));
     stems.emplace_back("streamonly");
     // Golden file names (and lib.rs module names) are the bare stems, so they must be distinct across
     // subdirs -- otherwise two schemas (e.g. nsedge/foo + imports/foo) would silently share one
@@ -1047,7 +1054,7 @@ namespace {
 
 // Builds a frame field by field, as the rapidproto-build crate encodes one.
 struct FrameBuilder {
-    std::string bytes = "RPWF3\n";
+    std::string bytes = "RPWF4\n";
     FrameBuilder& u32(std::uint32_t value) {
         for (unsigned i = 0; i < 4; ++i) {
             bytes.push_back(static_cast<char>((value >> (8U * i)) & 0xFFU));
@@ -1070,6 +1077,7 @@ struct FrameOptions {
     bool stream = false;
     std::string_view export_prefix;  // exported when non-empty
     std::string_view modes;
+    bool serde = false;
 };
 
 // A frame generating `body` as its one entry, `a.proto`.
@@ -1077,7 +1085,7 @@ std::string frame_for(std::string_view body, const FrameOptions& options = {}) {
     FrameBuilder frame;
     frame.u32(1).str("a.proto");
     frame.u32(1).str("a.proto").str(body);
-    frame.str(options.modes).u8(false).u8(options.arena).u8(options.stream);
+    frame.str(options.modes).u8(false).u8(options.arena).u8(options.stream).u8(options.serde);
     frame.u8(!options.export_prefix.empty()).str(options.export_prefix);
     return frame.bytes;
 }
@@ -1103,8 +1111,8 @@ TEST_CASE("rustgen frame: a malformed frame fails with its first error") {
         CHECK(result.status == FrameStatus::kBadFrame);
         CHECK(has(result.text, message));
     };
-    bad_frame("", "not a RPWF3 frame");
-    bad_frame("RPWF2\n", "not a RPWF3 frame");
+    bad_frame("", "not a RPWF4 frame");
+    bad_frame("RPWF3\n", "not a RPWF4 frame");
     bad_frame(valid.substr(0, valid.size() - 1), "truncated");  // the last length prefix cut short
     bad_frame(valid + "x", "trailing bytes");
     // A count far past the data stops at the first failed read (and reserves only what fits).
@@ -1125,4 +1133,20 @@ TEST_CASE("rustgen frame: bad options, an unresolved schema and a bad profile ea
 
     const auto profile = run_frame(frame_for(kFrameSchema, {true, false, "", "drop t.Nope\n"}));
     CHECK(profile.status == FrameStatus::kModesError);
+}
+
+TEST_CASE("rustgen frame: Serialize impls are opt-in, and no output reads a cargo feature") {
+    constexpr std::string_view kSchema =
+        R"(syntax = "proto3"; package t; enum E { A = 0; } message M { E e = 1; })";
+
+    const auto plain = run_frame(frame_for(kSchema));
+    REQUIRE(plain.status == FrameStatus::kOk);
+    CHECK_FALSE(has(plain.text, "serde"));
+    CHECK_FALSE(has(plain.text, "feature"));
+
+    const auto serde = run_frame(frame_for(kSchema, {true, false, "", "", /*serde=*/true}));
+    REQUIRE(serde.status == FrameStatus::kOk);
+    CHECK(has(serde.text, "impl ::rapidproto::serde::Serialize for E {"));
+    CHECK(has(serde.text, "impl<'a> ::rapidproto::serde::Serialize for M<'a> {"));
+    CHECK_FALSE(has(serde.text, "feature"));
 }

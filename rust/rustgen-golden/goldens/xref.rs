@@ -7,7 +7,6 @@ pub mod common {
     #[repr(transparent)]
     pub struct Version(pub i32);
 
-    #[cfg(feature = "serde")]
     impl ::rapidproto::serde::Serialize for Version {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -45,7 +44,6 @@ pub mod common {
     #[repr(transparent)]
     pub struct Mixed(pub i32);
 
-    #[cfg(feature = "serde")]
     impl ::rapidproto::serde::Serialize for Mixed {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -83,7 +81,6 @@ pub mod common {
     #[repr(transparent)]
     pub struct Stream(pub i32);
 
-    #[cfg(feature = "serde")]
     impl ::rapidproto::serde::Serialize for Stream {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -122,7 +119,6 @@ pub mod common {
         #[repr(transparent)]
         pub struct Kind(pub i32);
 
-        #[cfg(feature = "serde")]
         impl ::rapidproto::serde::Serialize for Kind {
           fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
           where
@@ -162,7 +158,6 @@ pub mod common {
       #[repr(transparent)]
       pub struct Tag(pub i32);
 
-      #[cfg(feature = "serde")]
       impl ::rapidproto::serde::Serialize for Tag {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -216,7 +211,6 @@ pub mod arena {
         self.id
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for A<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -250,7 +244,6 @@ pub mod arena {
         self.a
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for B<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -274,7 +267,6 @@ pub mod arena {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for Nested<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -330,7 +322,6 @@ pub mod arena {
           self.pick.as_ref()
         }
       }
-      #[cfg(feature = "serde")]
       impl<'a> ::rapidproto::serde::Serialize for User<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -416,7 +407,6 @@ pub mod arena {
           self.n
         }
       }
-      #[cfg(feature = "serde")]
       impl<'a> ::rapidproto::serde::Serialize for Def<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -452,7 +442,6 @@ pub mod arena {
             self.s.get()
           }
         }
-        #[cfg(feature = "serde")]
         impl<'a> ::rapidproto::serde::Serialize for Inner<'a> {
           fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
           where
@@ -547,7 +536,6 @@ pub mod arena {
           self.q
         }
       }
-      #[cfg(feature = "serde")]
       impl<'a> ::rapidproto::serde::Serialize for P<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -575,7 +563,6 @@ pub mod arena {
           self.p
         }
       }
-      #[cfg(feature = "serde")]
       impl<'a> ::rapidproto::serde::Serialize for Q<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -1291,7 +1278,6 @@ pub mod arena {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for FwdMsg<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -1327,7 +1313,6 @@ pub mod arena {
           self.pick.as_ref()
         }
       }
-      #[cfg(feature = "serde")]
       impl<'a> ::rapidproto::serde::Serialize for Ref<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -1382,7 +1367,6 @@ pub mod arena {
           self.n
         }
       }
-      #[cfg(feature = "serde")]
       impl<'a> ::rapidproto::serde::Serialize for Target<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -1738,7 +1722,6 @@ pub mod arena {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for CousinA<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -1770,7 +1753,6 @@ pub mod arena {
           self.tag
         }
       }
-      #[cfg(feature = "serde")]
       impl<'a> ::rapidproto::serde::Serialize for Use<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -1916,7 +1898,6 @@ pub mod arena {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for CousinB<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -1940,7 +1921,6 @@ pub mod arena {
           self.s.get()
         }
       }
-      #[cfg(feature = "serde")]
       impl<'a> ::rapidproto::serde::Serialize for Thing<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -2061,7 +2041,6 @@ pub mod arena {
         self.read
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for ReservedNames<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -2128,7 +2107,6 @@ pub mod arena {
         self.value
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for IntWrap<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -2159,7 +2137,6 @@ pub mod arena {
         (self.rp_presence & (1 << 0)) != 0
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for BoolWrap<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -2188,7 +2165,6 @@ pub mod arena {
         self.value.as_slice()
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for BytesWrap<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where

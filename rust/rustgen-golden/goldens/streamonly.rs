@@ -8,7 +8,6 @@ pub mod common {
       #[repr(transparent)]
       pub struct Kind(pub i32);
 
-      #[cfg(feature = "serde")]
       impl ::rapidproto::serde::Serialize for Kind {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -46,7 +45,6 @@ pub mod common {
         #[repr(transparent)]
         pub struct Deep(pub i32);
 
-        #[cfg(feature = "serde")]
         impl ::rapidproto::serde::Serialize for Deep {
           fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
           where

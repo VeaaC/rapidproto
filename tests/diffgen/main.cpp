@@ -306,10 +306,13 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // The Rust decoders (one merged module tree for the whole closure), under the default profile --
-    // same output the shipping blob/CLI would emit, generated natively here. Only when --rust-out set.
+    // The Rust decoders (one merged module tree for the whole closure), under the default profile, with
+    // the `Serialize` impls the Rust harness prints through. Only when --rust-out set.
     if (!rust_out_path.empty()) {
-        const std::string rust = rapidproto::rustgen::generate_rust(set, analyzed->second, {});
+        rapidproto::rustgen::RustOptions rust_options;
+        rust_options.serde = true;
+        const std::string rust =
+            rapidproto::rustgen::generate_rust(set, analyzed->second, {}, rust_options);
         std::ofstream rust_out(rust_out_path, std::ios::binary);
         if (!rust_out) {
             std::cerr << "error: cannot write " << rust_out_path << '\n';

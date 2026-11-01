@@ -58,6 +58,27 @@ fn generates_rust_for_the_consumer_example() {
     }
 }
 
+#[test]
+fn serialize_impls_are_opt_in() {
+    let request = |serde: bool| Request {
+        entries: vec!["message.proto".to_owned()],
+        sources: vec![proto("message.proto"), proto("types.proto")],
+        serde,
+        ..Request::default()
+    };
+    for result in generate_each(&request(false)) {
+        let rust = result.expect("generation succeeds");
+        assert!(!rust.contains("serde"), "no serde by default:\n{rust}");
+    }
+    for result in generate_each(&request(true)) {
+        let rust = result.expect("generation succeeds");
+        assert!(
+            rust.contains("::rapidproto::serde::Serialize for"),
+            "expected the Serialize impls:\n{rust}"
+        );
+    }
+}
+
 fn check_consumer_output(rust: &str) {
     assert!(
         rust.contains("mod demo"),

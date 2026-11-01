@@ -79,6 +79,8 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/rust' }}
       - name: Test (std + alloc)
         run: cargo test --workspace --exclude rapidproto-bench --all-features
+      # Selected alone, so neither the generated code nor rapidproto has serde here. The goldens turn
+      # it on for rapidproto in the workspace runs.
       - name: Run the consumer example (build.rs -> generator -> decode)
         run: cargo run -p consumer-example
       - name: Test (no_std + alloc)
@@ -88,17 +90,11 @@ jobs:
         # feature is off — so this exercises the arena's no-allocator / exhaustion path.
         run: cargo test -p rapidproto --no-default-features
       # A plain build leaves dev-dependencies out, so the generated decoders build on the no_std tiers
-      # here too.
+      # here too, including their serde Serialize impls.
       - name: Build no_std + alloc tier
         run: cargo build -p rapidproto -p rustgen-golden --no-default-features --features alloc
       - name: Build no_std (no-alloc embedded tier)
         run: cargo build -p rapidproto -p rustgen-golden --no-default-features
-      # The generated serde Serialize impls must also stay no_std-clean (alloc and no-alloc), since a
-      # consumer may enable rapidproto/serde on an embedded target. (--all-features above covers std.)
-      - name: Build generated serde impls on the no_std tiers
-        run: |
-          cargo build -p rustgen-golden --no-default-features --features alloc,serde
-          cargo build -p rustgen-golden --no-default-features --features serde
       # rapidproto-build with one generator backend at a time (`wasm` alone: no C++ compiler needed;
       # `native` alone: no interpreter).
       - name: rapidproto-build with only the wasm generator, then only the native one

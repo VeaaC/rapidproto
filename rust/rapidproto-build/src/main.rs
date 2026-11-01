@@ -29,6 +29,7 @@ usage: rapidproto-rust [options] <entry.proto>...
   --export-stream-macros <prefix>
                         make the <msg>_stream! macros callable from other crates (needs --stream)
   --no-arena            omit the arena model (combine with --stream for stream-only output)
+  --serde               implement serde::Serialize (the output needs rapidproto's `serde` feature)
   -h, --help            show this help";
 
 fn main() -> ExitCode {
@@ -121,6 +122,7 @@ fn parse_args() -> Result<Option<Args>, String> {
                     config.export_stream_macros(take(inline.as_deref(), "--export-stream-macros")?)
             }
             "--no-arena" => config = config.arena(false),
+            "--serde" => config = config.serde(true),
             other if other.starts_with('-') && other != "-" => {
                 return Err(format!("unknown option '{other}'"));
             }

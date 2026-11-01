@@ -20,7 +20,7 @@
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
-#include "rapidproto/rustgen/generator.hpp"  // RustModels
+#include "rapidproto/rustgen/generator.hpp"  // RustOptions
 #include "rapidproto/rustgen/pipeline.hpp"
 #include "rapidproto/source.hpp"
 
@@ -40,10 +40,10 @@ public:
     explicit FrameReader(std::string_view data) : m_data(data) {}
 
     void expect_magic() {
-        static constexpr std::string_view kMagic = "RPWF3\n";
+        static constexpr std::string_view kMagic = "RPWF4\n";
         // substr clamps to what is present, so a short input simply compares unequal -- no throw.
         if (m_data.substr(m_pos, kMagic.size()) != kMagic) {
-            fail("input is not a RPWF3 frame");
+            fail("input is not a RPWF4 frame");
             return;
         }
         m_pos += kMagic.size();
@@ -130,6 +130,7 @@ struct Request {
     bool unknown_all = false;
     bool emit_arena = false;
     bool emit_stream = false;
+    bool emit_serde = false;
     bool export_macros = false;
     std::string export_prefix;
 };
@@ -162,6 +163,7 @@ std::optional<std::string> read_request(std::string_view frame, Request& request
     request.unknown_all = reader.u8() != 0;
     request.emit_arena = reader.u8() != 0;
     request.emit_stream = reader.u8() != 0;
+    request.emit_serde = reader.u8() != 0;
     request.export_macros = reader.u8() != 0;
     request.export_prefix = reader.bytes();
     reader.expect_end();
@@ -251,8 +253,9 @@ FrameResult generate(const Request& request) {
 
     // Plan layouts and emit the merged module tree through the shared post-analysis pipeline, the
     // exact tail native rustgen runs (see rustgen/pipeline.hpp) -- so the two cannot drift.
-    const RustModels models{request.emit_arena, request.emit_stream, request.export_prefix};
-    return FrameResult{FrameStatus::kOk, generate_rust(set, symbols, modes, models)};
+    const RustOptions options{request.emit_arena, request.emit_stream, request.export_prefix,
+                              request.emit_serde};
+    return FrameResult{FrameStatus::kOk, generate_rust(set, symbols, modes, options)};
 }
 
 }  // namespace

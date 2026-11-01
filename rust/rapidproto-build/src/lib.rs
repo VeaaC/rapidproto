@@ -88,6 +88,8 @@ pub struct Request {
     pub arena: bool,
     /// Emit the `stream` visitor model (default off; see [`Config::stream`]).
     pub stream: bool,
+    /// Implement `serde::Serialize` (default off; see [`Config::serde`]).
+    pub serde: bool,
     /// Make the `<msg>_stream!` macros callable from other crates, under this prefix (default
     /// `None`; needs `stream`; see [`Config::export_stream_macros`]).
     pub export_stream_macros: Option<String>,
@@ -104,6 +106,7 @@ impl Default for Request {
             unknown_all: false,
             arena: true,
             stream: false,
+            serde: false,
             export_stream_macros: None,
         }
     }
@@ -131,12 +134,12 @@ impl std::fmt::Display for GenError {
 
 impl std::error::Error for GenError {}
 
-/// Encodes a [`Request`] into the byte frame the generator takes, through either backend: a `RPWF3`
+/// Encodes a [`Request`] into the byte frame the generator takes, through either backend: a `RPWF4`
 /// magic, then little-endian-u32-counted entry names, u32-counted `{name, body}` sources, the
-/// `.modes` text, a one-byte unknown-all flag, two one-byte model flags (arena, stream), and the
-/// stream-macro export: a one-byte present flag then the prefix (empty when absent). Bodies are
-/// length-prefixed, so a proto's newlines/quotes need no escaping. The generator validates the
-/// options; the decode side is `rapidproto/rustgen/frame.hpp` in the repository.
+/// `.modes` text, a one-byte unknown-all flag, two one-byte model flags (arena, stream), a one-byte
+/// serde flag, and the stream-macro export: a one-byte present flag then the prefix (empty when
+/// absent). Bodies are length-prefixed, so a proto's newlines/quotes need no escaping. The generator
+/// validates the options; the decode side is `rapidproto/rustgen/frame.hpp` in the repository.
 mod frame {
     use super::{GenError, Request};
 
@@ -159,7 +162,7 @@ mod frame {
 
     pub(super) fn encode(request: &Request) -> Result<Vec<u8>, GenError> {
         let mut buf = Vec::new();
-        buf.extend_from_slice(b"RPWF3\n");
+        buf.extend_from_slice(b"RPWF4\n");
         put_len(&mut buf, request.entries.len())?;
         for entry in &request.entries {
             put_bytes(&mut buf, entry.as_bytes())?;
@@ -173,6 +176,7 @@ mod frame {
         buf.push(u8::from(request.unknown_all));
         buf.push(u8::from(request.arena));
         buf.push(u8::from(request.stream));
+        buf.push(u8::from(request.serde));
         let export = request.export_stream_macros.as_deref();
         buf.push(u8::from(export.is_some()));
         put_bytes(&mut buf, export.unwrap_or("").as_bytes())?;
@@ -403,6 +407,7 @@ pub struct Config {
     unknown_all: bool,
     arena: bool,
     stream: bool,
+    serde: bool,
     export_stream_macros: Option<String>,
     backend: Backend,
 }
@@ -417,6 +422,7 @@ impl Default for Config {
             unknown_all: false,
             arena: true,
             stream: false,
+            serde: false,
             export_stream_macros: None,
             backend: BACKENDS[0],
         }
@@ -478,6 +484,25 @@ impl Config {
         self
     }
 
+    /// Implement `serde::Serialize` for the generated enums and `arena` messages, so that any serde
+    /// serializer can write out a decoded message. Off by default. The generated code then needs the
+    /// `serde` feature of `rapidproto`, and compilation fails without it.
+    ///
+    /// To make this optional in your own crate, declare a feature that enables `rapidproto/serde`,
+    /// and read it in `build.rs`:
+    ///
+    /// ```no_run
+    /// // build.rs
+    /// rapidproto_build::Config::new()
+    ///     .serde(std::env::var_os("CARGO_FEATURE_SERDE").is_some())
+    ///     .compile(&["message.proto"])
+    ///     .expect("generate decoders");
+    /// ```
+    pub fn serde(mut self, yes: bool) -> Self {
+        self.serde = yes;
+        self
+    }
+
     /// Generate through `backend` instead of the default one -- for checking that the backends agree.
     #[doc(hidden)]
     pub fn backend(mut self, backend: Backend) -> Self {
@@ -530,6 +555,7 @@ impl Config {
             unknown_all: self.unknown_all,
             arena: self.arena,
             stream: self.stream,
+            serde: self.serde,
             export_stream_macros: self.export_stream_macros.clone(),
         };
         generate_with(self.backend, &request)

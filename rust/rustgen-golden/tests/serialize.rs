@@ -1,10 +1,8 @@
 //! Exercises the generated `serde::Serialize` impls through the differential dump serializer
 //! (`rapidproto-diff`), asserting the exact one-line JSON contract the Python differential compares.
-//! Compiled only with `--features serde` (the generated impls are behind that feature).
 //!
 //! This is the fast in-tree check that the emitter + the dump serializer agree on the contract;
 //! `tests/differential.py`'s Rust arm is the schema-sweeping enforcement against protobuf.
-#![cfg(feature = "serde")]
 
 use rapidproto::Arena;
 use rapidproto_diff::to_line;

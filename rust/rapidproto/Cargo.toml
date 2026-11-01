@@ -17,10 +17,10 @@ default = ["std"]
 # build.
 std = ["alloc"]
 alloc = []
-# Optional, OFF by default: enables the generated `Serialize` impls (serialize-only; decode-only, no
-# `Deserialize`). A default build pulls in no serde and stays dependency-free; the generated code
-# references `::rapidproto::serde` (re-exported in lib.rs), so a consumer only enables
-# `rapidproto/serde`.
+# Optional, OFF by default: what the generated `Serialize` impls (`Config::serde` in rapidproto-build)
+# need (serialize-only; decode-only, no `Deserialize`). A default build pulls in no serde and stays
+# dependency-free; the generated code references `::rapidproto::serde` (re-exported in lib.rs), so a
+# consumer does not depend on serde itself.
 serde = ["dep:serde"]
 
 [dependencies]

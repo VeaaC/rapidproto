@@ -1643,8 +1643,6 @@ fn names_shaped_like_generated_references_decode_into_their_own_fields() {
     assert_eq!(h.sub().unwrap().v(), 17);
 }
 
-// The owning handle (§4 decode_owned): the deferred parity N/A, now covered. `alloc`-gated.
-#[cfg(feature = "alloc")]
 #[test]
 fn decode_owned_is_self_contained() {
     // self (field 5) wrapping { implicit_i: 7, name: "deep" }, with the outer implicit_i = 1.

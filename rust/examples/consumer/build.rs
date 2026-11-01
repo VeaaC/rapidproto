@@ -6,6 +6,8 @@ fn main() {
         // Emit BOTH decode models into the one generated file: the arena tree (`schema::arena`) and the
         // streaming visitor (`schema::stream`). main.rs decodes the same buffer with each.
         .stream(true)
+        // `serde::Serialize` impls, with this crate's optional `serde` feature.
+        .serde(std::env::var_os("CARGO_FEATURE_SERDE").is_some())
         .include("proto")
         .compile(&["proto/message.proto"])
         .expect("generate decoders");
