@@ -1035,7 +1035,9 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
             "// (`Option`, `Result`) or a caller's macro (`matches!`) can shadow the bare name: "
             "without\n"
             "// the prelude, an unqualified use fails to compile here.\n"
-            "#![no_implicit_prelude]\n\n";
+            "#![no_implicit_prelude]\n\n"
+            "// Generated code must also compile in a crate that declares the runtime this way.\n"
+            "extern crate rapidproto;\n\n";
         for (const std::string& stem : stems) {
             lib += "pub mod " + rustgen::escape_rust_ident(stem) +
                    " {\n    include!(\"../goldens/" + stem + ".rs\");\n}\n\n";

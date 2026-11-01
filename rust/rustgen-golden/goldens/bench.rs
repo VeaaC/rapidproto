@@ -3185,7 +3185,7 @@ pub mod stream {
 
   pub mod bench {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0 = super::super::common::bench::Kind;
 

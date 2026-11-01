@@ -113,7 +113,7 @@ pub mod stream {
 
   pub mod sib {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
 
     /// Streaming visitor for `logging`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `logging_stream` macro does both); a field left at the default

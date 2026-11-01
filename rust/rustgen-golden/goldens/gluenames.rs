@@ -1545,7 +1545,7 @@ pub mod stream {
 
   pub mod gluenames {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0<'a> = rp__rt_::X<'a>;
     #[doc(hidden)]
@@ -1674,7 +1674,7 @@ pub mod stream {
 
     pub mod rp__rt_ {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `X`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `x_stream` macro does both); a field left at the default
@@ -2750,7 +2750,7 @@ pub mod stream {
 
     pub mod foo_stream {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `In`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `in_stream` macro does both); a field left at the default
@@ -3129,7 +3129,7 @@ pub mod stream {
 
     pub mod rp__rt {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `rp__rt`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `rp__rt_stream` macro does both); a field left at the default

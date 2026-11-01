@@ -113,7 +113,7 @@ pub mod stream {
 
   pub mod escdedup {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
 
     /// Streaming visitor for `decode_`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `decode__stream` macro does both); a field left at the default

@@ -971,7 +971,7 @@ pub mod stream {
 
   pub mod fm {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0 = super::super::common::fm::blob::Kind;
     #[doc(hidden)]
@@ -1904,7 +1904,7 @@ pub mod stream {
 
     pub mod holder {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `Grp`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `grp_stream` macro does both); a field left at the default

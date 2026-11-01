@@ -117,7 +117,7 @@ pub mod stream {
 
   pub mod wd {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
 
     /// Streaming visitor for `WDep`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `w_dep_stream` macro does both); a field left at the default

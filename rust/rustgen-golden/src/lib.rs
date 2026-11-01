@@ -9,6 +9,9 @@
 // the prelude, an unqualified use fails to compile here.
 #![no_implicit_prelude]
 
+// Generated code must also compile in a crate that declares the runtime this way.
+extern crate rapidproto;
+
 pub mod arena_layout {
     include!("../goldens/arena_layout.rs");
 }

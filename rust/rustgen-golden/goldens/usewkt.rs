@@ -1931,7 +1931,7 @@ pub mod stream {
 
     pub mod protobuf {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
       #[doc(hidden)]
       pub type rp_stream_ty_0 = super::super::super::common::google::protobuf::Syntax;
       #[doc(hidden)]
@@ -3830,7 +3830,7 @@ pub mod stream {
 
   pub mod uw {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0<'a> = super::google::protobuf::Timestamp<'a>;
     #[doc(hidden)]

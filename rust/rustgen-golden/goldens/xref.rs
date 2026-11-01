@@ -2925,7 +2925,7 @@ pub mod stream {
 
   pub mod xr {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
 
     /// Streaming visitor for `A`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `a_stream` macro does both); a field left at the default
@@ -3286,7 +3286,7 @@ pub mod stream {
 
     pub mod nested {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
       #[doc(hidden)]
       pub type rp_stream_ty_0 = super::super::super::common::xr::nested::def::Kind;
       #[doc(hidden)]
@@ -4098,7 +4098,7 @@ pub mod stream {
 
       pub mod def {
         #[doc(hidden)]
-        pub use ::rapidproto as rp_rt;
+        pub use ::rapidproto::rp_rt;
 
         /// Streaming visitor for `Inner`. Select a field by overriding its `WANT_<field>` const AND
         /// its `on_<field>` method (the `inner_stream` macro does both); a field left at the default
@@ -4546,7 +4546,7 @@ pub mod stream {
 
     pub mod fwd_msg {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `Ref`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `ref_stream` macro does both); a field left at the default
@@ -5100,7 +5100,7 @@ pub mod stream {
 
     pub mod cousin_a {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
       #[doc(hidden)]
       pub type rp_stream_ty_0<'a> = super::cousin_b::Thing<'a>;
       #[doc(hidden)]
@@ -5381,7 +5381,7 @@ pub mod stream {
 
     pub mod cousin_b {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `Thing`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `thing_stream` macro does both); a field left at the default

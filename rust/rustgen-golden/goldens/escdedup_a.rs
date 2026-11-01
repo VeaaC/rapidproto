@@ -282,7 +282,7 @@ pub mod stream {
 
   pub mod escdedup {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0 = super::super::common::escdedup::decode;
 
