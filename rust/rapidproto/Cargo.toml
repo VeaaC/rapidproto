@@ -32,6 +32,11 @@ serde = { version = "1", default-features = false, optional = true }
 [dev-dependencies]
 criterion = { version = "0.3", default-features = false }
 
+# Shows the `serde` items too. lib.rs labels each item behind a feature with that feature.
+[package.metadata.docs.rs]
+features = ["serde"]
+targets = ["x86_64-unknown-linux-gnu"]
+
 # The wire bench is std-only (criterion needs std), so the no_std CI tiers skip it via
 # required-features. Run it with `cargo bench -p rapidproto`.
 [[bench]]
