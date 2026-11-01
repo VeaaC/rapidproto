@@ -8,7 +8,7 @@ target, `fuzz_arena`, decodes each input through five generated decoders whose a
 profile with a deferred raw-payload decode).
 
 The decoders under test are the committed goldens in `../goldens/` (included by `rustgen-golden`),
-so this fuzzes exactly the code a consumer compiles.
+so this fuzzes the decoders a consumer compiles.
 
 ## Run
 

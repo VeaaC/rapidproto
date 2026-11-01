@@ -52,7 +52,6 @@ pub mod arena {
         self.pick.as_ref()
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for AllWire<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -131,7 +130,6 @@ pub mod arena {
           ((self.rp_presence & (1 << 0)) != 0).then_some(self.a)
         }
       }
-      #[cfg(feature = "serde")]
       impl<'a> ::rapidproto::serde::Serialize for G<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where

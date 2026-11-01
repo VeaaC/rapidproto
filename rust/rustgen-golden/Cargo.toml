@@ -15,16 +15,13 @@ publish = false
 # otherwise force rapidproto/std on via this edge) — and proves the generated code is no_std-clean.
 [features]
 default = ["std"]
-# `std` implies the local `alloc` (as rapidproto's does), so the generated alloc-gated code (the
-# owning-handle `decode_owned`) is present under a default build.
-std = ["rapidproto/std", "alloc"]
+std = ["rapidproto/std"]
 alloc = ["rapidproto/alloc"]
-# Compile-checks the generated `#[cfg(feature = "serde")]` Serialize impls (the generated code reads
-# the including crate's `serde` feature, and turns on rapidproto's).
-serde = ["rapidproto/serde"]
 
+# `serde` because every golden has the generated Serialize impls. It turns on neither `std` nor
+# `alloc`, so the tiers above prove the impls no_std-clean too.
 [dependencies]
-rapidproto = { path = "../rapidproto", default-features = false }
+rapidproto = { path = "../rapidproto", default-features = false, features = ["serde"] }
 
 # The decode round-trip test (tests/decode.rs) decodes into a heap `Arena`, so it needs an
 # allocator; a dev-dependency with default features (std) provides it for test builds only -- the
@@ -34,7 +31,7 @@ rapidproto = { path = "../rapidproto", default-features = false }
 [dev-dependencies]
 rapidproto = { path = "../rapidproto" }
 # Dev-only: the serde Serializer that renders a decoded message as the differential dump JSON. Used by
-# tests/serialize.rs (run with `--features serde`) to exercise the generated Serialize impls.
+# tests/serialize.rs to exercise the generated Serialize impls.
 rapidproto-diff = { path = "../rapidproto-diff" }
 
 # Benchmarks live in the `rapidproto-bench` crate (it depends on this one for the generated decoders),

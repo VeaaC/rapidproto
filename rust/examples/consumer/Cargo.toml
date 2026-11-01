@@ -7,13 +7,10 @@ edition = "2021"
 license = "Apache-2.0"
 publish = false
 
-# Generated code checks these features on the crate that includes it, so a crate declares the ones it
-# wants.
 [features]
-# `Serialize` impls for decoded messages. main.rs then also prints the message as JSON.
+# Asks the generator for `Serialize` impls (see build.rs), which need `rapidproto/serde`. main.rs then
+# also prints the message as JSON.
 serde = ["rapidproto/serde", "dep:serde_json"]
-# The owning-handle API, `decode_owned`.
-alloc = ["rapidproto/alloc"]
 
 [dependencies]
 rapidproto = { path = "../../rapidproto" }

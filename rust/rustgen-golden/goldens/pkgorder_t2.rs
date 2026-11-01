@@ -21,7 +21,6 @@ pub mod arena {
         self.v
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for linux<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where

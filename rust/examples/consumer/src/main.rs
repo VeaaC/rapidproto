@@ -88,10 +88,9 @@ fn main() {
     assert_eq!(parts.sides_sum, sides_sum);
     println!("streamed the same demo.Shape; its fields agree with the arena decode");
 
-    // With the optional `serde` feature (serialize-only; RapidProto stays decode-only), a decoded
-    // message implements `serde::Serialize`, so any serde backend can serialize it. Run with
-    // `--features serde` to also print the shape as JSON. (serde_json can't represent a few protobuf
-    // shapes — non-string map keys, non-finite floats — but demo.Shape has none.)
+    // With this example's optional `serde` feature, build.rs generates `serde::Serialize` impls. Run
+    // with `--features serde` to also print the shape as JSON. serde_json cannot represent non-string
+    // map keys or non-finite floats, but demo.Shape has neither.
     #[cfg(feature = "serde")]
     {
         let json = serde_json::to_string(shape).expect("serialize demo.Shape");

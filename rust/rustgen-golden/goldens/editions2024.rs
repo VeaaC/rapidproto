@@ -24,7 +24,6 @@ pub mod arena {
         self.b.as_slice()
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for M<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where

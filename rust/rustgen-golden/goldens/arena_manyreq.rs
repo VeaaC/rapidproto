@@ -26,7 +26,6 @@ pub mod arena {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.y)
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for Small<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -65,7 +64,6 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.tag)
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for ReqInline<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -356,7 +354,6 @@ pub mod arena {
         self.f65
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for ManyRequired<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where

@@ -7,7 +7,6 @@ pub mod common {
     #[repr(transparent)]
     pub struct Color(pub i32);
 
-    #[cfg(feature = "serde")]
     impl ::rapidproto::serde::Serialize for Color {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -65,7 +64,6 @@ pub mod arena {
         self.y
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for Point<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -110,7 +108,6 @@ pub mod arena {
         self.c
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for Big<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -151,7 +148,6 @@ pub mod arena {
         self.s.get()
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for HasString<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -182,7 +178,6 @@ pub mod arena {
         (self.rp_presence & (1 << 0)) != 0
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for BoolWrap<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -215,7 +210,6 @@ pub mod arena {
         self.v
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for SelfRef<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -316,7 +310,6 @@ pub mod arena {
         self.choice.as_ref()
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for Layout<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where

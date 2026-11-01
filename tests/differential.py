@@ -659,7 +659,6 @@ def build_rust_harness(work: Path, meta: dict, tools: dict[str, Path]) -> Path |
     lib_dir = tools["rust_lib_dir"]
     rust_harness = work / "rust_harness"
     compiled = run([str(tools["rustc"]), "--edition", "2021", "-C", "opt-level=0",
-                    "--cfg", 'feature="serde"',
                     "--extern", f"rapidproto={lib_dir / 'librapidproto.rlib'}",
                     "--extern", f"rapidproto_diff={lib_dir / 'librapidproto_diff.rlib'}",
                     "-L", f"dependency={lib_dir / 'deps'}",

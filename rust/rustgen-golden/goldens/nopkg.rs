@@ -20,7 +20,6 @@ pub mod arena {
       self.self_
     }
   }
-  #[cfg(feature = "serde")]
   impl<'a> ::rapidproto::serde::Serialize for Root<'a> {
     fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
     where
@@ -56,7 +55,6 @@ pub mod arena {
         self.y
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for Sub<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where

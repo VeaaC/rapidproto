@@ -19,10 +19,10 @@
 //!
 //! This is an early stage: the generated code that uses these types is still being built out.
 //!
-//! With the optional `serde` feature (off by default), generated decoders implement
-//! `serde::Serialize` — serialize-only; RapidProto stays decode-only, so there is no
-//! `Deserialize`. A default build pulls in no serde. See the `serde_support` module (compiled only
-//! with that feature) for what the runtime types serialize to.
+//! Decoded messages can implement `serde::Serialize`. Ask for it with `rapidproto-build`'s
+//! `Config::serde`, and enable this crate's `serde` feature, which is off by default. RapidProto only
+//! decodes, so there is no `Deserialize`. The `serde_support` module, compiled only with that feature,
+//! documents what the runtime types serialize to.
 //!
 //! `no_std` outside of tests whenever the `std` feature is off; the test harness keeps `std` so
 //! the no-allocator path can still be unit-tested with `--no-default-features`.
@@ -48,8 +48,8 @@ pub mod serde_support;
 pub mod stream;
 pub mod wire;
 
-/// Re-export of `serde` (only with the `serde` feature), so generated `Serialize` impls can name
-/// `::rapidproto::serde` and a consumer need only enable `rapidproto/serde`, not add serde directly.
+/// Re-export of `serde`, available with the `serde` feature. Generated `Serialize` impls name it, so a
+/// crate using them needs no serde dependency of its own.
 #[cfg(feature = "serde")]
 pub use serde;
 
@@ -75,11 +75,6 @@ pub use alloc::boxed::Box;
 /// invokes this once per message instead of expanding the boilerplate into every file; `$msg`
 /// resolves at the call site. Internal to the generated glue, not a consumer-facing macro.
 ///
-/// The emitted items are themselves `#[cfg(feature = "alloc")]`-gated (on the *including* crate's
-/// feature), so the invocation needs no gate: without `alloc` it expands to nothing. Defined here at
-/// the crate root (not in the `alloc`-only `owned` module) so the macro resolves even in a no-`alloc`
-/// build, where it expands away.
-///
 /// # Safety of the emitted `unsafe impl`
 /// A generated message borrows the input/arena only through shared `&'a` references (scalars,
 /// `PackedStr`, `PackedSlice`, `MapView`, by-value or `&` sub-messages): it is covariant in `'a`,
@@ -87,11 +82,11 @@ pub use alloc::boxed::Box;
 /// into the input, arena-allocated memory or `'static` data, never at the `Arena` value — exactly
 /// [`ArenaDecode`]'s contract. Only invoke this for a type with those properties (every `rustgen`
 /// message has them).
+#[cfg(feature = "alloc")]
 #[macro_export]
 #[doc(hidden)]
 macro_rules! impl_decode_owned {
     ($msg:ident) => {
-        #[cfg(feature = "alloc")]
         // SAFETY: `$msg` is a generated message, which meets the contract (see the macro's docs).
         unsafe impl $crate::ArenaDecode for $msg<'static> {
             type Message<'a> = $msg<'a>;
@@ -103,7 +98,6 @@ macro_rules! impl_decode_owned {
             }
         }
 
-        #[cfg(feature = "alloc")]
         impl<'a> $msg<'a> {
             /// Decode `input` into a self-contained handle that owns the bytes and the arena; read
             /// the message with `Owned::get`. No external lifetime to manage.
@@ -114,6 +108,15 @@ macro_rules! impl_decode_owned {
             }
         }
     };
+}
+
+// Without `alloc` there is no owning handle: generated code invokes the macro on every tier, and it
+// expands to nothing here.
+#[cfg(not(feature = "alloc"))]
+#[macro_export]
+#[doc(hidden)]
+macro_rules! impl_decode_owned {
+    ($msg:ident) => {};
 }
 
 /// How deep a generated `decode` lets sub-messages and groups nest. Deeper nesting fails with

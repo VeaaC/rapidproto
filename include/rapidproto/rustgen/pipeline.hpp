@@ -28,16 +28,17 @@ namespace rapidproto::rustgen {
 // (a default/inactive `modes` means every field materializes). The whole import closure becomes ONE
 // file: every file in the set contributes its types to the single merged module tree.
 inline std::string generate_rust(const ResolvedFileSet& set, const SymbolTable& symbols,
-                                 const arenagen::FieldModes& modes, const RustModels& models = {}) {
-    arenagen::LayoutOptions options;
-    options.modes = &modes;
-    const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, options);
+                                 const arenagen::FieldModes& modes,
+                                 const RustOptions& options = {}) {
+    arenagen::LayoutOptions layout_options;
+    layout_options.modes = &modes;
+    const arenagen::LayoutSet layouts = arenagen::plan_layouts(set, symbols, layout_options);
     std::vector<const FileNode*> files;
     files.reserve(set.files.size());
     for (const FileNode& file : set.files) {
         files.push_back(&file);
     }
-    return generate_file(files, layouts, modes, models);
+    return generate_file(files, layouts, modes, options);
 }
 
 }  // namespace rapidproto::rustgen

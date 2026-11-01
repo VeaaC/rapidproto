@@ -7,7 +7,6 @@ pub mod common {
     #[repr(transparent)]
     pub struct WireType(pub i32);
 
-    #[cfg(feature = "serde")]
     impl ::rapidproto::serde::Serialize for WireType {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -42,7 +41,6 @@ pub mod common {
     #[repr(transparent)]
     pub struct DecodeStatus(pub i32);
 
-    #[cfg(feature = "serde")]
     impl ::rapidproto::serde::Serialize for DecodeStatus {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -90,7 +88,6 @@ pub mod arena {
         self.x
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for wire<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -121,7 +118,6 @@ pub mod arena {
         self.y
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for Arena<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -150,7 +146,6 @@ pub mod arena {
         self.s.get()
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for Tag<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -179,7 +174,6 @@ pub mod arena {
         self.b.as_slice()
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for ByteView<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where

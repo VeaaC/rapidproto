@@ -58,13 +58,15 @@ jobs:
       - name: Clippy (no_std, no-alloc)
         run: cargo clippy -p rapidproto --all-targets --no-default-features -- -D warnings
       # The no-alloc tier gets its own run because a link to an alloc-gated item breaks only there.
+      # rapidproto runs alone there, because rustgen-golden's dependency turns on its `serde`.
       - name: Docs
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
           cargo doc --workspace --exclude rapidproto-bench --no-deps --all-features
           cargo doc -p rapidproto-bench --no-deps
-          cargo doc -p rapidproto -p rustgen-golden --no-deps --no-default-features
+          cargo doc -p rapidproto --no-deps --no-default-features
+          cargo doc -p rustgen-golden --no-deps --no-default-features
 
   test:
     runs-on: ubuntu-latest
@@ -79,6 +81,8 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/rust' }}
       - name: Test (std + alloc)
         run: cargo test --workspace --exclude rapidproto-bench --all-features
+      # Selected alone, so neither the generated code nor rapidproto has serde here. In a workspace
+      # command, rustgen-golden's dependency turns on `rapidproto/serde`.
       - name: Run the consumer example (build.rs -> generator -> decode)
         run: cargo run -p consumer-example
       - name: Test (no_std + alloc)
@@ -88,17 +92,11 @@ jobs:
         # feature is off — so this exercises the arena's no-allocator / exhaustion path.
         run: cargo test -p rapidproto --no-default-features
       # A plain build leaves dev-dependencies out, so the generated decoders build on the no_std tiers
-      # here too.
+      # here too, including their serde Serialize impls.
       - name: Build no_std + alloc tier
         run: cargo build -p rapidproto -p rustgen-golden --no-default-features --features alloc
       - name: Build no_std (no-alloc embedded tier)
         run: cargo build -p rapidproto -p rustgen-golden --no-default-features
-      # The generated serde Serialize impls must also stay no_std-clean (alloc and no-alloc), since a
-      # consumer may enable rapidproto/serde on an embedded target. (--all-features above covers std.)
-      - name: Build generated serde impls on the no_std tiers
-        run: |
-          cargo build -p rustgen-golden --no-default-features --features alloc,serde
-          cargo build -p rustgen-golden --no-default-features --features serde
       # rapidproto-build with one generator backend at a time (`wasm` alone: no C++ compiler needed;
       # `native` alone: no interpreter).
       - name: rapidproto-build with only the wasm generator, then only the native one
@@ -219,6 +217,6 @@ jobs:
         with:
           components: miri
       - name: Miri (std + alloc)
-        run: cargo miri test -p rapidproto -p rustgen-golden --all-features
+        run: cargo miri test -p rapidproto -p rustgen-golden
       - name: Miri (no_std, no-alloc)
         run: cargo miri test -p rapidproto --no-default-features

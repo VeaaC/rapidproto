@@ -8,7 +8,6 @@ pub mod common {
       #[repr(transparent)]
       pub struct E(pub i32);
 
-      #[cfg(feature = "serde")]
       impl ::rapidproto::serde::Serialize for E {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -44,7 +43,6 @@ pub mod common {
       #[repr(transparent)]
       pub struct E(pub i32);
 
-      #[cfg(feature = "serde")]
       impl ::rapidproto::serde::Serialize for E {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -101,7 +99,6 @@ pub mod arena {
         self.f
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for linux__<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -257,7 +254,6 @@ pub mod arena {
           self.f
         }
       }
-      #[cfg(feature = "serde")]
       impl<'a> ::rapidproto::serde::Serialize for Sub<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where

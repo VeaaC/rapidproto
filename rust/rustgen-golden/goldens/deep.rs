@@ -9,7 +9,6 @@ pub mod common {
         #[repr(transparent)]
         pub struct Mode(pub i32);
 
-        #[cfg(feature = "serde")]
         impl ::rapidproto::serde::Serialize for Mode {
           fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
           where
@@ -73,7 +72,6 @@ pub mod arena {
             self.mode
           }
         }
-        #[cfg(feature = "serde")]
         impl<'a> ::rapidproto::serde::Serialize for Outer<'a> {
           fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
           where
@@ -115,7 +113,6 @@ pub mod arena {
               self.x
             }
           }
-          #[cfg(feature = "serde")]
           impl<'a> ::rapidproto::serde::Serialize for Inner<'a> {
             fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
             where

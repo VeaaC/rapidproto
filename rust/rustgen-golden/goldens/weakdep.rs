@@ -22,7 +22,6 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.v)
       }
     }
-    #[cfg(feature = "serde")]
     impl<'a> ::rapidproto::serde::Serialize for WDep<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where

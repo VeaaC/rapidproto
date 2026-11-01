@@ -44,10 +44,12 @@ fn check(stem: &str, generated: &str, backend: Backend, verified: &mut BTreeSet<
     verified.insert(stem.to_owned());
 }
 
-/// The config every golden starts from: the proto's own directory as the include path.
+/// The config every golden starts from: the proto's own directory as the include path, and the
+/// `Serialize` impls.
 fn config_for(proto: &Path, backend: Backend) -> Config {
     Config::new()
         .include(proto.parent().expect("proto has a parent dir"))
+        .serde(true)
         .backend(backend)
 }
 
