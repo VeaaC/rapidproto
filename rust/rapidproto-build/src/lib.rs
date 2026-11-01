@@ -484,12 +484,11 @@ impl Config {
         self
     }
 
-    /// Implement `serde::Serialize` for the generated enums and `arena` messages, so that any serde
-    /// serializer can write out a decoded message. Off by default. The generated code then needs the
-    /// `serde` feature of `rapidproto`, and compilation fails without it.
+    /// Implement `serde::Serialize` for the generated enums and `arena` messages. Off by default. The
+    /// generated code then needs the `serde` feature of `rapidproto`, and does not compile without it.
     ///
-    /// To make this optional in your own crate, declare a feature that enables `rapidproto/serde`,
-    /// and read it in `build.rs`:
+    /// To make this optional in your own crate, declare a `serde` feature that enables
+    /// `rapidproto/serde`, and read it in `build.rs`:
     ///
     /// ```no_run
     /// // build.rs

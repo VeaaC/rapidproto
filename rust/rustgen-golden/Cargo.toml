@@ -18,8 +18,8 @@ default = ["std"]
 std = ["rapidproto/std"]
 alloc = ["rapidproto/alloc"]
 
-# `serde` because every golden has the generated Serialize impls. It adds nothing to the tiers above,
-# so they prove the impls no_std-clean too.
+# `serde` because every golden has the generated Serialize impls. It turns on neither `std` nor
+# `alloc`, so the tiers above prove the impls no_std-clean too.
 [dependencies]
 rapidproto = { path = "../rapidproto", default-features = false, features = ["serde"] }
 

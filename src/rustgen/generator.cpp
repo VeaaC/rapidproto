@@ -3682,7 +3682,7 @@ std::string generate_file(const std::vector<const FileNode*>& files, const Layou
     }
     // `common` (shared enum/newtype defs) is emitted whenever any decoder model is, since both the
     // arena and stream trees reference it. At least one model is always selected (the caller enforces
-    // it); default is arena only, preserving every existing arena-only consumer byte-for-byte.
+    // it); default is arena only.
     std::string out = banner + "\n" + generate_common(files, options.serde);
     if (options.arena) {
         out += "\n" + generate_arena(files, layouts, modes, options.serde);

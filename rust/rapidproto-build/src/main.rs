@@ -29,7 +29,7 @@ usage: rapidproto-rust [options] <entry.proto>...
   --export-stream-macros <prefix>
                         make the <msg>_stream! macros callable from other crates (needs --stream)
   --no-arena            omit the arena model (combine with --stream for stream-only output)
-  --serde               implement serde::Serialize (the output needs rapidproto's `serde` feature)
+  --serde               implement serde::Serialize (the output needs rapidproto's serde feature)
   -h, --help            show this help";
 
 fn main() -> ExitCode {

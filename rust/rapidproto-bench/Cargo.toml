@@ -11,7 +11,7 @@ publish = false
 
 [dependencies]
 # Baseline: our runtime + the generated `bench` decoders (reused from the golden crate, so the
-# comparison runs the exact code a consumer compiles).
+# comparison runs the decoders a consumer compiles).
 rapidproto = { path = "../rapidproto" }
 rustgen-golden = { path = "../rustgen-golden" }
 # Competitor: prost (materializes into owned Vec/String; the checksum walk reads every field so the

@@ -443,11 +443,13 @@ TEST_CASE("rustgen arena: a group field decodes via read_group on the SGROUP key
 
 TEST_CASE("rustgen arena: accessor names dedup against decode and each other") {
     const std::string out = gen_arena(R"(syntax = "proto3";
-        message M { int32 decode = 1; int32 self = 2; int32 self_ = 3; })");
+        message M { int32 decode = 1; int32 self = 2; int32 self_ = 3; int32 decode_owned = 4; })");
     CHECK(has(out, "pub fn decode_(&self) -> i32 {"));  // field `decode` vs the decode() method
     CHECK(has(out, "pub fn self_(&self) -> i32 {"));    // `self` is raw-ineligible -> self_
     CHECK(has(out, "pub fn self__(&self) -> i32 {"));   // field `self_` collides -> self__
     CHECK(has(out, "pub fn decode(input: &'a [u8],"));  // the real decode method still present
+    // Field `decode_owned` vs the method impl_decode_owned! adds.
+    CHECK(has(out, "pub fn decode_owned_(&self) -> i32 {"));
 }
 
 TEST_CASE("rustgen arena: decode-body names stay apart from field names") {
@@ -959,8 +961,8 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // stream macros under its stem (`Config::export_stream_macros`), so the golden crate's
     // integration tests drive them cross-crate as they do the arena types -- and since many goldens
     // carry the same imported messages (`dep.Dep` in both `dep` and `main`), only those prefixes keep
-    // the crate-root names apart. Every golden also has the `Serialize` impls, so they compile and run
-    // over the whole corpus too; output without them has its own test case below.
+    // the crate-root names apart. Every golden also has the `Serialize` impls, so they compile over the
+    // whole corpus too. Output without them has its own test case below.
     const auto both = [](const std::string& stem) {
         return rustgen::RustOptions{/*arena=*/true, /*stream=*/true, /*stream_export_prefix=*/stem,
                                     /*serde=*/true};
@@ -1139,12 +1141,12 @@ TEST_CASE("rustgen frame: Serialize impls are opt-in, and no output reads a carg
     constexpr std::string_view kSchema =
         R"(syntax = "proto3"; package t; enum E { A = 0; } message M { E e = 1; })";
 
-    const auto plain = run_frame(frame_for(kSchema));
+    const auto plain = run_frame(frame_for(kSchema, {true, true, "", ""}));
     REQUIRE(plain.status == FrameStatus::kOk);
     CHECK_FALSE(has(plain.text, "serde"));
     CHECK_FALSE(has(plain.text, "feature"));
 
-    const auto serde = run_frame(frame_for(kSchema, {true, false, "", "", /*serde=*/true}));
+    const auto serde = run_frame(frame_for(kSchema, {true, true, "", "", /*serde=*/true}));
     REQUIRE(serde.status == FrameStatus::kOk);
     CHECK(has(serde.text, "impl ::rapidproto::serde::Serialize for E {"));
     CHECK(has(serde.text, "impl<'a> ::rapidproto::serde::Serialize for M<'a> {"));

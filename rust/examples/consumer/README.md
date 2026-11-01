@@ -18,9 +18,9 @@ Both agree field-for-field. It needs no `protoc` and no separate code generator.
 cargo run -p consumer-example
 ```
 
-The generator can also implement `serde::Serialize` for decoded messages (`Config::serde`), so any
-serde backend can serialize them. RapidProto only decodes, so there is no `Deserialize`. This example
-ties that to an optional `serde` feature, and then also prints the shape as JSON:
+The generator can also implement `serde::Serialize` for decoded messages (`Config::serde`). RapidProto
+only decodes, so there is no `Deserialize`. This example turns it on with its optional `serde` feature,
+and then also prints the shape as JSON:
 
 ```sh
 cargo run -p consumer-example --features serde

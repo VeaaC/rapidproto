@@ -19,10 +19,10 @@
 //!
 //! This is an early stage: the generated code that uses these types is still being built out.
 //!
-//! Decoded messages can implement `serde::Serialize`: ask for it with `rapidproto-build`'s
-//! `Config::serde`, and enable this crate's optional `serde` feature (off by default). RapidProto only
-//! decodes, so there is no `Deserialize`. A default build pulls in no serde. See the `serde_support`
-//! module (compiled only with that feature) for what the runtime types serialize to.
+//! Decoded messages can implement `serde::Serialize`. Ask for it with `rapidproto-build`'s
+//! `Config::serde`, and enable this crate's `serde` feature, which is off by default. RapidProto only
+//! decodes, so there is no `Deserialize`. The `serde_support` module, compiled only with that feature,
+//! documents what the runtime types serialize to.
 //!
 //! `no_std` outside of tests whenever the `std` feature is off; the test harness keeps `std` so
 //! the no-allocator path can still be unit-tested with `--no-default-features`.
@@ -48,8 +48,8 @@ pub mod serde_support;
 pub mod stream;
 pub mod wire;
 
-/// Re-export of `serde` (only with the `serde` feature), so generated `Serialize` impls can name
-/// `::rapidproto::serde` and a crate using them does not have to depend on serde itself.
+/// Re-export of `serde`, available with the `serde` feature. Generated `Serialize` impls name it, so a
+/// crate using them needs no serde dependency of its own.
 #[cfg(feature = "serde")]
 pub use serde;
 

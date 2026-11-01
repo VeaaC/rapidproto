@@ -8,8 +8,8 @@ license = "Apache-2.0"
 publish = false
 
 [features]
-# `Serialize` impls for decoded messages, which build.rs then asks the generator for. main.rs also
-# prints the message as JSON.
+# Asks the generator for `Serialize` impls (see build.rs), which need `rapidproto/serde`. main.rs then
+# also prints the message as JSON.
 serde = ["rapidproto/serde", "dep:serde_json"]
 
 [dependencies]

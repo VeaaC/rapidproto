@@ -79,8 +79,8 @@ std::string generate_stream(const std::vector<const FileNode*>& files,
                             const std::string& export_prefix = {});
 
 // What `generate_file` emits. `common` is always emitted (both decoder models reference it). Default
-// is the arena model only -- byte-for-byte what every existing arena consumer gets. At least one model
-// must be set; the caller enforces that, and that `stream_export_prefix` comes with `stream`.
+// is the arena model only. At least one model must be set; the caller enforces that, and that
+// `stream_export_prefix` comes with `stream`.
 struct RustOptions {
     bool arena = true;
     bool stream = false;
