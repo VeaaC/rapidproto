@@ -315,7 +315,7 @@ pub mod stream {
 
   pub mod ms {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0<'a> = outer::Container<'a>;
 
@@ -474,7 +474,7 @@ pub mod stream {
 
     pub mod outer {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `Container`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `container_stream` macro does both); a field left at the default

@@ -84,7 +84,7 @@ pub mod stream {
 
   pub mod ne {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0 = super::super::common::ne::outer::Kind;
     #[doc(hidden)]
@@ -242,7 +242,7 @@ pub mod stream {
 
     pub mod outer {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
       #[doc(hidden)]
       pub type rp_stream_ty_0 = super::super::super::common::ne::outer::inner::Deep;
 

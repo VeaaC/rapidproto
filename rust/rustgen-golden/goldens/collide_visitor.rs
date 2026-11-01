@@ -120,7 +120,7 @@ pub mod stream {
 
     pub mod NodeVisitor {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `X`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `x_stream` macro does both); a field left at the default

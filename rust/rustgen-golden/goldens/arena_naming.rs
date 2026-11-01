@@ -2087,7 +2087,7 @@ pub mod stream {
 
   pub mod an {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0<'a> = outer::Outer<'a>;
 
@@ -2574,7 +2574,7 @@ pub mod stream {
 
     pub mod collide {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `FooEntry`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `foo_entry_stream` macro does both); a field left at the default
@@ -3179,7 +3179,7 @@ pub mod stream {
 
     pub mod outer {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `Outer`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `outer_stream` macro does both); a field left at the default

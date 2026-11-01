@@ -1387,7 +1387,7 @@ pub mod stream {
 
   pub mod p3 {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0 = super::super::common::p3::State;
 

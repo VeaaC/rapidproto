@@ -347,7 +347,7 @@ pub mod stream {
 
   pub mod pa {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0 = super::super::common::pa::linux_::E;
     #[doc(hidden)]
@@ -544,7 +544,7 @@ pub mod stream {
 
     pub mod linux {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
       #[doc(hidden)]
       pub type rp_stream_ty_0 = super::super::super::common::pa::linux::E;
 

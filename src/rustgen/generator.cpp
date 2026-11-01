@@ -2860,21 +2860,22 @@ std::string stream_export_name(std::string_view prefix, const MessageNode& msg) 
 
 // Emit the module-level glue the `*_stream!` macros share, then return the foreign-type alias map.
 // A macro expansion names everything through its message's scope re-export (emit_stream_macro), so
-// what it reaches must live in this module: `rp_rt`, the runtime re-exported so the expansion can
-// name it from a crate with no direct `rapidproto` dependency (two globs of it are the same item, so it
-// never clashes itself), and one alias per FOREIGN type `msgs` reference (enum newtype / cross-module
-// child handle). An alias is a `pub type` with an `rp_`-prefixed name because a `pub type` RHS
-// resolves as a TYPE path (local items first) -- unlike a `use` path, where a leading module segment
-// like `std` would be read as the extern crate (the adversarial naming corpus has such packages). The
-// same relative paths the arena tree uses thus resolve. The alias name `rp_stream_ty_<n>` only needs to
-// be unique within the module: the expansion always names it through a scope. Returns path -> alias.
+// what it reaches must live in this module: `rp_rt`, the runtime's module of that name re-exported so
+// the expansion can name it from a crate with no direct `rapidproto` dependency (two globs of it are
+// the same item, so it never clashes itself), and one alias per FOREIGN type `msgs` reference (enum
+// newtype / cross-module child handle). An alias is a `pub type` with an `rp_`-prefixed name because a
+// `pub type` RHS resolves as a TYPE path (local items first) -- unlike a `use` path, where a leading
+// module segment like `std` would be read as the extern crate (the adversarial naming corpus has such
+// packages). The same relative paths the arena tree uses thus resolve. The alias name
+// `rp_stream_ty_<n>` only needs to be unique within the module: the expansion always names it through
+// a scope. Returns path -> alias.
 StreamAliases emit_stream_reexports(Printer& printer, const NameTable& table,
                                     const std::vector<const MessageNode*>& msgs,
                                     const std::vector<std::string>& current_mod) {
     if (msgs.empty()) {
         return {};  // no messages, so no macros and nothing to glue
     }
-    printer.print("#[doc(hidden)]\npub use ::rapidproto as rp_rt;\n");
+    printer.print("#[doc(hidden)]\npub use ::rapidproto::rp_rt;\n");
     std::vector<std::pair<std::string, bool>>
         order;  // (path, is_message), first-seen, deterministic
     StreamAliases aliases;

@@ -490,7 +490,7 @@ pub mod stream {
 
   pub mod wire {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0<'a> = all_wire::G<'a>;
 
@@ -948,7 +948,7 @@ pub mod stream {
 
     pub mod all_wire {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `G`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `g_stream` macro does both); a field left at the default

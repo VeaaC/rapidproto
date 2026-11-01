@@ -245,7 +245,7 @@ pub mod arena {
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
   #[doc(hidden)]
-  pub use ::rapidproto as rp_rt;
+  pub use ::rapidproto::rp_rt;
   #[doc(hidden)]
   pub type rp_stream_ty_0<'a> = root::Sub<'a>;
 
@@ -404,7 +404,7 @@ pub mod stream {
 
   pub mod root {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
 
     /// Streaming visitor for `Sub`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `sub_stream` macro does both); a field left at the default

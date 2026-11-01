@@ -134,7 +134,7 @@ pub mod stream {
 
         pub mod v1 {
           #[doc(hidden)]
-          pub use ::rapidproto as rp_rt;
+          pub use ::rapidproto::rp_rt;
 
           /// Streaming visitor for `Entry`. Select a field by overriding its `WANT_<field>` const AND
           /// its `on_<field>` method (the `entry_stream` macro does both); a field left at the default

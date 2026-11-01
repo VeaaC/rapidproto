@@ -823,7 +823,7 @@ pub mod stream {
 
   pub mod dep {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0 = super::super::common::dep::DepEnum;
 
@@ -983,7 +983,7 @@ pub mod stream {
 
   pub mod fwd {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
 
     /// Streaming visitor for `Fwd`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `fwd_stream` macro does both); a field left at the default
@@ -1107,7 +1107,7 @@ pub mod stream {
 
   pub mod main {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0<'a> = super::dep::Dep<'a>;
     #[doc(hidden)]
@@ -1567,7 +1567,7 @@ pub mod stream {
 
   pub mod r#pub {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
 
     /// Streaming visitor for `Pub`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `pub_stream` macro does both); a field left at the default

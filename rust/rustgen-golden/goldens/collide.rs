@@ -5011,7 +5011,7 @@ pub mod stream {
 
   pub mod collide {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
     #[doc(hidden)]
     pub type rp_stream_ty_0<'a> = search_response::Result<'a>;
     #[doc(hidden)]
@@ -5160,7 +5160,7 @@ pub mod stream {
 
     pub mod search_response {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `Result`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `result_stream` macro does both); a field left at the default
@@ -5862,7 +5862,7 @@ pub mod stream {
 
     pub mod response {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `Error`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `error_stream` macro does both); a field left at the default
@@ -6746,7 +6746,7 @@ pub mod stream {
 
     pub mod u8 {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `In`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `in_stream` macro does both); a field left at the default
@@ -6989,7 +6989,7 @@ pub mod stream {
 
     pub mod u32 {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `In`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `in_stream` macro does both); a field left at the default
@@ -7232,7 +7232,7 @@ pub mod stream {
 
     pub mod bool {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `In`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `in_stream` macro does both); a field left at the default
@@ -8177,7 +8177,7 @@ pub mod stream {
 
     pub mod tree {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `Node`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `node_stream` macro does both); a field left at the default
@@ -8692,7 +8692,7 @@ pub mod stream {
 
     pub mod r#type {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `X`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `x_stream` macro does both); a field left at the default
@@ -9887,7 +9887,7 @@ pub mod stream {
 
     pub mod NodeVisitor {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
 
       /// Streaming visitor for `X`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `x_stream` macro does both); a field left at the default
@@ -10011,7 +10011,7 @@ pub mod stream {
 
     pub mod Option {
       #[doc(hidden)]
-      pub use ::rapidproto as rp_rt;
+      pub use ::rapidproto::rp_rt;
       #[doc(hidden)]
       pub type rp_stream_ty_0<'a> = u8::In<'a>;
       #[doc(hidden)]
@@ -10259,7 +10259,7 @@ pub mod stream {
 
       pub mod u8 {
         #[doc(hidden)]
-        pub use ::rapidproto as rp_rt;
+        pub use ::rapidproto::rp_rt;
 
         /// Streaming visitor for `In`. Select a field by overriding its `WANT_<field>` const AND
         /// its `on_<field>` method (the `in_stream` macro does both); a field left at the default
@@ -10502,7 +10502,7 @@ pub mod stream {
 
       pub mod u32 {
         #[doc(hidden)]
-        pub use ::rapidproto as rp_rt;
+        pub use ::rapidproto::rp_rt;
 
         /// Streaming visitor for `In`. Select a field by overriding its `WANT_<field>` const AND
         /// its `on_<field>` method (the `in_stream` macro does both); a field left at the default
@@ -10745,7 +10745,7 @@ pub mod stream {
 
       pub mod bool {
         #[doc(hidden)]
-        pub use ::rapidproto as rp_rt;
+        pub use ::rapidproto::rp_rt;
 
         /// Streaming visitor for `In`. Select a field by overriding its `WANT_<field>` const AND
         /// its `on_<field>` method (the `in_stream` macro does both); a field left at the default

@@ -462,7 +462,7 @@ pub mod stream {
 
   pub mod rapidproto {
     #[doc(hidden)]
-    pub use ::rapidproto as rp_rt;
+    pub use ::rapidproto::rp_rt;
 
     /// Streaming visitor for `wire`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `wire_stream` macro does both); a field left at the default
