@@ -7,26 +7,10 @@
 //! widenings -- int32 zero-extends through `uint32_t`, int64 sign-extends, a float contributes the bits
 //! of its value widened to double, a string its length.
 
-#![allow(non_upper_case_globals)] // the stream macros' generated `WANT_<field>` consts
-
-#[allow(
-    clippy::all,
-    unused,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals
-)]
 mod gm1 {
     include!(concat!(env!("OUT_DIR"), "/benchmark_message1_proto2.rs"));
 }
 
-#[allow(
-    clippy::all,
-    unused,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals
-)]
 mod gm2 {
     include!(concat!(env!("OUT_DIR"), "/benchmark_message2.rs"));
 }

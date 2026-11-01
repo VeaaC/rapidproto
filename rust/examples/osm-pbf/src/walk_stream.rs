@@ -26,8 +26,6 @@
 //! materializes and resolves singular fields) it does not reject a missing `required` field and counts
 //! a duplicated singular message field more than once. Neither can crash or read out of bounds.
 
-#![allow(non_upper_case_globals)] // the generated `WANT_<field>` associated consts
-
 use rapidproto::ProtoStr;
 
 use crate::osm::stream::*;

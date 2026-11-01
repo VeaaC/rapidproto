@@ -59,7 +59,6 @@
 //!
 //! struct Collect(Vec<i64>);
 //! impl<'a> ExampleVisitor<'a> for Collect {
-//!     #[allow(non_upper_case_globals)]
 //!     const WANT_value: bool = true; // required, or `on_value` is never dispatched
 //!     fn on_value(&mut self, v: i64) -> Result<Flow, DecodeError> {
 //!         self.0.push(v);

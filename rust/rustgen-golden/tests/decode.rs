@@ -1518,14 +1518,9 @@ fn a_stray_end_group_tag_is_rejected_by_the_decode_loop() {
 // without it), and after caller macros named like the builtins generated code uses: generated code
 // naming one bare would expand the caller's. Its exported macros land at this test crate's root,
 // apart from the golden crate's.
-#[allow(
-    clippy::all,
-    unused,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals
-)]
 mod collide_with_prelude {
+    #![allow(unused_macros)] // expanding one is the failure this module catches
+
     macro_rules! cfg {
         ($($t:tt)*) => {
             compile_error!("generated code names `cfg!` unqualified")

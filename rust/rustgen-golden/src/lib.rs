@@ -8,14 +8,6 @@
 // (`Option`, `Result`) or a caller's macro (`matches!`) can shadow the bare name: without
 // the prelude, an unqualified use fails to compile here.
 #![no_implicit_prelude]
-#![allow(clippy::all)]
-// Generated code: `unused` covers dead_code and the stubbed `decode`'s unused params;
-// the casing allows fire only for schemas whose own proto names are unconventional (the
-// emitter preserves proto names rather than re-casing them).
-#![allow(unused)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-#![allow(non_upper_case_globals)]
 
 pub mod arena_layout {
     include!("../goldens/arena_layout.rs");
