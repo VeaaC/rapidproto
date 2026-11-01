@@ -54,8 +54,9 @@ pub mod wire;
 // The generated code in `example` names this crate `::rapidproto`, as it does in a user's crate.
 #[cfg(doc)]
 extern crate self as rapidproto;
-// Its doc examples call `Arena::new`, so without `alloc` they stay out of the doctests.
-#[cfg(all(doc, any(not(doctest), feature = "alloc")))]
+// One doc example calls `Arena::new`, so without `alloc` the module stays out of the doctests.
+#[cfg(doc)]
+#[cfg_attr(not(feature = "alloc"), cfg(not(doctest)))]
 pub mod example;
 
 /// Re-export of `serde`, available with the `serde` feature. Generated `Serialize` impls name it, so a

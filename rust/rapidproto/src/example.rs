@@ -1,7 +1,7 @@
 //! The code `rapidproto-build` generates for an example schema.
 //!
-//! This module exists only in the documentation, so you cannot import it from here. It shows the
-//! output for this `weather.proto`:
+//! This module exists only in the documentation, so your code cannot use `rapidproto::example`. It
+//! shows the output for this `weather.proto`:
 //!
 //! ```proto
 #![doc = include_str!("example/weather.proto")]
@@ -18,17 +18,17 @@
 //!     .expect("generate decoders");
 //! ```
 //!
-//! and include the result:
+//! then include the result:
 //!
 //! ```ignore
-//! mod example {
+//! pub mod example {
 //!     include!(concat!(env!("OUT_DIR"), "/weather.rs"));
 //! }
 //! ```
 //!
-//! `export_stream_macros` is only needed to call the stream macros from another crate.
+//! Leave out `export_stream_macros` unless your `tests/` or other crates call the stream macros.
 //!
-//! The generated code has three modules. Inside each, `weather` comes from the schema's package:
+//! The generated code has three modules, each with a `weather` module for the schema's package:
 //!
 //! - [`arena`]: messages decoded whole into an [`Arena`](crate::Arena) and read through accessors,
 //!   such as [`arena::weather::Report`].
@@ -57,8 +57,8 @@
 //! # }
 //! ```
 //!
-//! Reading only the station names, without building the messages. A stream macro needs the rest of
-//! its module in scope, so glob-import the module:
+//! Reading only the station names. A stream macro needs the rest of its module in scope, so
+//! glob-import it:
 //!
 //! ```
 //! # mod example { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/example/weather.rs")); }
@@ -68,7 +68,7 @@
 //!
 //! let mut names = Vec::new();
 //! Report::new(bytes).decode(report_stream! {
-//!     stations => |station: Station<'_>| station.decode(station_stream! {
+//!     stations => |station| station.decode(station_stream! {
 //!         name => |name| names.push(name),
 //!     }),
 //! })?;
@@ -77,5 +77,5 @@
 //! # }
 //! ```
 
-// tests/test_rustgen.cpp keeps this file in sync with weather.proto and regenerates it.
+// tests/test_rustgen.cpp checks weather.rs against weather.proto and regenerates it.
 include!("example/weather.rs");
