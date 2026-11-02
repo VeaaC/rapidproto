@@ -38,7 +38,7 @@ The blob embeds and statically links portions of the components below.
 ### LLVM C++ runtime — libc++, libc++abi, compiler-rt builtins
 
 - **Source:** <https://github.com/llvm/llvm-project> at the `llvm` revision above.
-- **Copyright:** the LLVM Project contributors. For code under the legacy license:
+- **Copyright:** the LLVM Project contributors. For code under the Legacy LLVM License:
   Copyright (c) 2009-2014 by the contributors listed in CREDITS.TXT (libc++, libc++abi);
   Copyright (c) 2009-2015 by the contributors listed in CREDITS.TXT (compiler-rt).
 - **License:** Apache License 2.0 **with LLVM exception** (the Apache-2.0 text is in
