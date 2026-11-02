@@ -21,7 +21,9 @@ consumer without a C++ compiler can generate decoders.
 inputs, same bytes — and `wasm/check-wasm.sh` is a CI gate that rebuilds the blob
 from the current generator source and byte-diffs it against the committed copy, so
 the two can never silently drift. To reproduce or audit the blob, install that
-wasi-sdk and run `wasm/build-wasm.sh`.
+wasi-sdk, check out the repository at the commit named in `.cargo_vcs_info.json`,
+and run `rust/rapidproto-build/wasm/build-wasm.sh`. The script needs the repository,
+so it does not run from the published crate alone.
 
 The blob embeds and statically links portions of the components below.
 
@@ -35,9 +37,14 @@ The blob embeds and statically links portions of the components below.
 
 ### LLVM C++ runtime — libc++, libc++abi, compiler-rt builtins
 
-- **Copyright:** the LLVM Project contributors.
+- **Source:** <https://github.com/llvm/llvm-project> at the `llvm` revision above.
+- **Copyright:** the LLVM Project contributors. For code under the legacy license:
+  Copyright (c) 2009-2014 by the contributors listed in CREDITS.TXT (libc++, libc++abi);
+  Copyright (c) 2009-2015 by the contributors listed in CREDITS.TXT (compiler-rt).
 - **License:** Apache License 2.0 **with LLVM exception** (the Apache-2.0 text is in
-  `LICENSE`; the LLVM exception is under "License texts" below).
+  `LICENSE`; the LLVM exception is under "License texts" below). Each library's
+  `LICENSE.TXT` also carries the Legacy LLVM License, a choice of the University of
+  Illinois/NCSA license or MIT. Code under it is used here under MIT.
 
 ### wasi-libc
 
@@ -81,7 +88,8 @@ Software.
 
 ### MIT License
 
-Applies to musl, emmalloc, and wasi-libc under its MIT option.
+Applies to musl, emmalloc, wasi-libc under its MIT option, and LLVM C++ runtime code
+under the Legacy LLVM License.
 
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy of

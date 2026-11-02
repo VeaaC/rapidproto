@@ -2,6 +2,8 @@
 
 Generate [`rapidproto`] Rust decoders from `.proto` files in a build script, without `protoc`.
 
+> This is a test release. The API and the generated code will change.
+
 Use it from a build script:
 
 ```rust
@@ -17,13 +19,13 @@ fn main() {
 ```toml
 # Cargo.toml
 [dependencies]
-rapidproto = "0.1.0-alpha.1"
+rapidproto = "=0.1.0-alpha.1"
 
 [build-dependencies]
-rapidproto-build = "0.1.0-alpha.1"
+rapidproto-build = "=0.1.0-alpha.1"
 ```
 
-Keep both crates at the same version, because generated code targets the matching runtime.
+Pin both crates to the same version, because generated code targets the matching runtime.
 
 The decoders land in `OUT_DIR`; `include!` them from your crate. A CLI (`rapidproto-rust`) mirrors the
 same generation surface for committing generated code instead.
@@ -49,8 +51,6 @@ opt-level = 3
 [profile.release.build-override]
 opt-level = 3
 ```
-
-> This is a test release. The API and the generated code will change.
 
 Licensed under Apache-2.0 (see `LICENSE` and `NOTICE`). The crate distributes the prebuilt wasm
 generator, which statically links third-party code (wasi-libc, the LLVM C++ runtime); its license

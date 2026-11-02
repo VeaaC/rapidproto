@@ -4,6 +4,8 @@ Decode-only Protocol Buffers runtime for the decoders RapidProto generates. Mess
 bump [`Arena`] and the generated types are lightweight **views that borrow it** — a decode copies
 nothing, and scalar/packed fields are read straight out of the arena.
 
+> This is a test release. The API and the generated code will change.
+
 Decoders are generated at build time by the companion [`rapidproto-build`] crate (no `protoc`), or
 from committed generated code.
 
@@ -14,8 +16,6 @@ from committed generated code.
   default build.
 - **Optional `serde`.** Off by default. With this feature and `rapidproto-build`'s `Config::serde`,
   decoded messages implement `Serialize`.
-
-> This is a test release. The API and the generated code will change.
 
 Licensed under Apache-2.0 (see `LICENSE` and `NOTICE`).
 

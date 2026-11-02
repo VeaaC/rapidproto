@@ -23,9 +23,9 @@
 //! instead of a file, use [`Config::generate`]; to generate from sources already in memory, use
 //! [`generate`].
 //!
-//! The same generator is also available as a command-line tool, `rapidproto-rust` (install this crate
-//! with `cargo install` and run `rapidproto-rust --help`), for generating decoders outside a build
-//! script.
+//! The same generator is also available as a command-line tool, `rapidproto-rust`, for generating
+//! decoders outside a build script. Install it with
+//! `cargo install rapidproto-build --version 0.1.0-alpha.1` and run `rapidproto-rust --help`.
 //!
 //! # How the generator runs
 //!
