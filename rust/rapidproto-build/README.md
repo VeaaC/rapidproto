@@ -17,11 +17,13 @@ fn main() {
 ```toml
 # Cargo.toml
 [dependencies]
-rapidproto = "..."
+rapidproto = "0.1.0-alpha.1"
 
 [build-dependencies]
-rapidproto-build = "..."
+rapidproto-build = "0.1.0-alpha.1"
 ```
+
+Keep both crates at the same version, because generated code targets the matching runtime.
 
 The decoders land in `OUT_DIR`; `include!` them from your crate. A CLI (`rapidproto-rust`) mirrors the
 same generation surface for committing generated code instead.
@@ -48,7 +50,7 @@ opt-level = 3
 opt-level = 3
 ```
 
-> **Status:** work in progress, developed on the `rust` branch; **not yet published**.
+> This is a test release. The API and the generated code will change.
 
 Licensed under Apache-2.0 (see `LICENSE` and `NOTICE`). The crate distributes the prebuilt wasm
 generator, which statically links third-party code (wasi-libc, the LLVM C++ runtime); its license

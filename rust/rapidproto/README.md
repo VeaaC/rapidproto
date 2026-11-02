@@ -15,8 +15,7 @@ from committed generated code.
 - **Optional `serde`.** Off by default. With this feature and `rapidproto-build`'s `Config::serde`,
   decoded messages implement `Serialize`.
 
-> **Status:** work in progress, developed on the `rust` branch; the public API is not yet stable and
-> the crate is **not yet published**.
+> This is a test release. The API and the generated code will change.
 
 Licensed under Apache-2.0 (see `LICENSE` and `NOTICE`).
 
