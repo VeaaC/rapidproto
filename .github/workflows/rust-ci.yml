@@ -1,7 +1,7 @@
 # Rust support CI — runs only on the `rust` feature branch and PRs targeting it, so `main`'s C++
 # gate is untouched. Lint, tests and the ecosystem bench's tests run as parallel jobs, beside the
-# wasm-blob staleness gate, the native generator on macOS and Windows, Miri (arena
-# provenance/borrows), and a libFuzzer+ASan smoke over the arena decoder.
+# docs.rs build, the wasm-blob staleness gate, the native generator on macOS and Windows, Miri
+# (arena provenance/borrows), and a libFuzzer+ASan smoke over the arena decoder.
 #
 # The `rapidproto` runtime crate's no_std tiers are tested and linted on their own
 # (`-p rapidproto`), and its no-alloc tier also runs under Miri: in a workspace command that builds
@@ -67,6 +67,21 @@ jobs:
           cargo doc -p rapidproto-bench --no-deps
           cargo doc -p rapidproto --no-deps --no-default-features
           cargo doc -p rustgen-golden --no-deps --no-default-features
+
+  docs-rs:
+    # The published crates' docs as docs.rs builds them: on nightly, from each crate's
+    # `[package.metadata.docs.rs]`.
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/install@cargo-docs-rs
+      - name: Docs
+        run: |
+          cargo docs-rs -p rapidproto
+          cargo docs-rs -p rapidproto-build
 
   test:
     runs-on: ubuntu-latest

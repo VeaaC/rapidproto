@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package weather;
+
+enum Unit {
+  UNIT_UNSPECIFIED = 0;
+  UNIT_CELSIUS = 1;
+  UNIT_FAHRENHEIT = 2;
+}
+
+message Location {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message Station {
+  string name = 1;
+  Location location = 2;
+  Unit unit = 3;
+  repeated float temperatures = 4;
+  map<string, string> labels = 5;
+  oneof status {
+    string error = 6;
+    uint64 uptime_seconds = 7;
+  }
+  optional string note = 8;
+}
+
+message Report {
+  repeated Station stations = 1;
+}

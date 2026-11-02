@@ -27,6 +27,9 @@
 //! `no_std` outside of tests whenever the `std` feature is off; the test harness keeps `std` so
 //! the no-allocator path can still be unit-tested with `--no-default-features`.
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+// `PackedSlice` shows `[T]`'s methods, and a few would carry a standard library label.
+#![cfg_attr(docsrs, doc(auto_cfg(hide(no_global_oom_handling))))]
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![deny(clippy::undocumented_unsafe_blocks)]
 
@@ -47,6 +50,14 @@ mod proto_str;
 pub mod serde_support;
 pub mod stream;
 pub mod wire;
+
+// The generated code in `example` names this crate `::rapidproto`, as it does in a user's crate.
+#[cfg(doc)]
+extern crate self as rapidproto;
+// One doc example calls `Arena::new`, so without `alloc` the module stays out of the doctests.
+#[cfg(doc)]
+#[cfg_attr(not(feature = "alloc"), cfg(not(doctest)))]
+pub mod example;
 
 /// Re-export of `serde`, available with the `serde` feature. Generated `Serialize` impls name it, so a
 /// crate using them needs no serde dependency of its own.

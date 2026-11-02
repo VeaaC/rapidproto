@@ -13,3 +13,5 @@
 
 # rapidproto-build's copy of the generator sources (wasm/build-wasm.sh): collapsed in diffs.
 rust/rapidproto-build/cpp/** linguist-generated
+# The generated code of the rapidproto crate's documentation example: collapsed in diffs too.
+rust/rapidproto/src/example/weather.rs linguist-generated
