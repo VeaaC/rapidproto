@@ -1294,11 +1294,15 @@ fn a_truncated_value_errors_at_its_start_relative_to_its_message() {
         .decode(all_wire_stream! { nested => |n| n.decode(all_wire_stream! { fx => |_| () }) })
         .unwrap_err();
     assert_eq!((err.kind(), err.offset()), (ErrorKind::Truncated, 1));
-    // A group with no end tag fails at the value that follows its start tag.
-    let err = AllWire::new(&[0x08, 0x00, 0x43, 0x48])
-        .decode(all_wire_stream! {})
+    // A group with no end tag fails at the value that follows its start tag. Selected or skipped.
+    let group: &[u8] = &[0x08, 0x00, 0x43, 0x48];
+    let selected = AllWire::new(group)
+        .decode(all_wire_stream! { g => |_| () })
         .unwrap_err();
-    assert_eq!((err.kind(), err.offset()), (ErrorKind::Truncated, 3));
+    let skipped = AllWire::new(group).decode(all_wire_stream! {}).unwrap_err();
+    for err in [selected, skipped] {
+        assert_eq!((err.kind(), err.offset()), (ErrorKind::Truncated, 3));
+    }
 }
 
 #[test]
