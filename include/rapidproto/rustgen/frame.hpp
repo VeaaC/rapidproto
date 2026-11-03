@@ -10,7 +10,7 @@
 //
 // Frame (all lengths little-endian u32; bodies are raw bytes, so a proto's newlines/quotes need no
 // escaping):
-//   "RPWF4\n"                                     magic
+//   "RPWF5\n"                                     magic
 //   u32 n_entries   { u32 len, bytes }*n_entries  entry names (the import-closure roots)
 //   u32 n_files     { u32 len, name,              every source the host could offer (a superset);
 //                     u32 len, body }*n_files      the resolver pulls exactly the closure it needs
@@ -19,10 +19,8 @@
 //   u8  arena                                     1 => emit the random-access `arena` decoder model
 //   u8  stream                                    1 => emit the `stream` visitor decoder model
 //   u8  serde                                     1 => implement `serde::Serialize`
-//   u8  export_stream_macros                      1 => export the `*_stream!` macros, under:
-//   u32 len, export_prefix                        the export prefix ("" when not exporting)
-// At least one of arena/stream must be set; exporting needs stream and a prefix that is an identifier
-// ([A-Za-z_][A-Za-z0-9_]*). This is the one place those options are validated.
+//   u32 len, module_path                          where the file is included: `crate` or `crate::<path>`
+// At least one of arena/stream must be set. This is the one place the options are validated.
 
 #include <cstdint>
 #include <string>
@@ -34,7 +32,7 @@ namespace rapidproto::rustgen {
 // the message. The wasm command exits with these.
 enum class FrameStatus : std::uint8_t {
     kOk = 0,
-    kBadFrame = 2,      // not a well-formed RPWF4 frame
+    kBadFrame = 2,      // not a well-formed RPWF5 frame
     kResolveError = 3,  // an entry/import was missing or the schema failed to parse/analyze
     kModesError = 4,    // the `.modes` profile was malformed or named something that does not exist
 };

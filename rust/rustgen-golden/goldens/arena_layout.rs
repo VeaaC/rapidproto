@@ -198,12 +198,12 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(BoolWrap);
 
     pub struct SelfRef<'a> {
-      next: ::core::option::Option<&'a SelfRef<'a>>,
+      next: ::core::option::Option<&'a crate::arena_layout::arena::al::SelfRef<'a>>,
       v: i32,
     }
 
     impl<'a> SelfRef<'a> {
-      pub fn next(&self) -> ::core::option::Option<&'a SelfRef<'a>> {
+      pub fn next(&self) -> ::core::option::Option<&'a crate::arena_layout::arena::al::SelfRef<'a>> {
         self.next
       }
       pub fn v(&self) -> i32 {
@@ -240,18 +240,18 @@ pub mod arena {
       opt: i32,
       name: ::rapidproto::PackedStr<'a>,
       oname: ::rapidproto::PackedStr<'a>,
-      color: super::super::common::al::Color,
-      pt: Point<'a>,
-      bg: ::core::option::Option<&'a Big<'a>>,
-      hs: ::core::option::Option<&'a HasString<'a>>,
-      flag: BoolWrap<'a>,
+      color: crate::arena_layout::common::al::Color,
+      pt: crate::arena_layout::arena::al::Point<'a>,
+      bg: ::core::option::Option<&'a crate::arena_layout::arena::al::Big<'a>>,
+      hs: ::core::option::Option<&'a crate::arena_layout::arena::al::HasString<'a>>,
+      flag: crate::arena_layout::arena::al::BoolWrap<'a>,
       nums: ::rapidproto::PackedSlice<'a, i32>,
-      points: ::rapidproto::PackedSlice<'a, Point<'a>>,
+      points: ::rapidproto::PackedSlice<'a, crate::arena_layout::arena::al::Point<'a>>,
       labels: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
       rp_presence: u8,
       counts: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32>,
-      grid: ::rapidproto::MapView<'a, i32, Point<'a>>,
-      choice: ::core::option::Option<layout::Choice<'a>>,
+      grid: ::rapidproto::MapView<'a, i32, crate::arena_layout::arena::al::Point<'a>>,
+      choice: ::core::option::Option<crate::arena_layout::arena::al::layout::Choice<'a>>,
     }
 
     impl<'a> Layout<'a> {
@@ -276,25 +276,25 @@ pub mod arena {
       pub fn oname(&self) -> ::core::option::Option<&'a ::rapidproto::ProtoStr> {
         ((self.rp_presence & (1 << 3)) != 0).then_some(self.oname.get())
       }
-      pub fn color(&self) -> super::super::common::al::Color {
+      pub fn color(&self) -> crate::arena_layout::common::al::Color {
         self.color
       }
-      pub fn pt(&self) -> ::core::option::Option<&Point<'a>> {
+      pub fn pt(&self) -> ::core::option::Option<&crate::arena_layout::arena::al::Point<'a>> {
         ((self.rp_presence & (1 << 4)) != 0).then_some(&self.pt)
       }
-      pub fn bg(&self) -> ::core::option::Option<&'a Big<'a>> {
+      pub fn bg(&self) -> ::core::option::Option<&'a crate::arena_layout::arena::al::Big<'a>> {
         self.bg
       }
-      pub fn hs(&self) -> ::core::option::Option<&'a HasString<'a>> {
+      pub fn hs(&self) -> ::core::option::Option<&'a crate::arena_layout::arena::al::HasString<'a>> {
         self.hs
       }
-      pub fn flag(&self) -> ::core::option::Option<&BoolWrap<'a>> {
+      pub fn flag(&self) -> ::core::option::Option<&crate::arena_layout::arena::al::BoolWrap<'a>> {
         ((self.rp_presence & (1 << 5)) != 0).then_some(&self.flag)
       }
       pub fn nums(&self) -> &'a [i32] {
         self.nums.as_slice()
       }
-      pub fn points(&self) -> &'a [Point<'a>] {
+      pub fn points(&self) -> &'a [crate::arena_layout::arena::al::Point<'a>] {
         self.points.as_slice()
       }
       pub fn labels(&self) -> &'a [::rapidproto::PackedStr<'a>] {
@@ -303,10 +303,10 @@ pub mod arena {
       pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32> {
         self.counts
       }
-      pub fn grid(&self) -> ::rapidproto::MapView<'a, i32, Point<'a>> {
+      pub fn grid(&self) -> ::rapidproto::MapView<'a, i32, crate::arena_layout::arena::al::Point<'a>> {
         self.grid
       }
-      pub fn choice(&self) -> ::core::option::Option<&layout::Choice<'a>> {
+      pub fn choice(&self) -> ::core::option::Option<&crate::arena_layout::arena::al::layout::Choice<'a>> {
         self.choice.as_ref()
       }
     }
@@ -415,9 +415,9 @@ pub mod arena {
         }
         if let ::core::option::Option::Some(rp_o) = self.choice() {
           match rp_o {
-            layout::Choice::Ci(rp_v) => rp_map.serialize_entry("ci", rp_v)?,
-            layout::Choice::Cs(rp_v) => rp_map.serialize_entry("cs", rp_v)?,
-            layout::Choice::Cp(rp_v) => rp_map.serialize_entry("cp", rp_v)?,
+            crate::arena_layout::arena::al::layout::Choice::Ci(rp_v) => rp_map.serialize_entry("ci", rp_v)?,
+            crate::arena_layout::arena::al::layout::Choice::Cs(rp_v) => rp_map.serialize_entry("cs", rp_v)?,
+            crate::arena_layout::arena::al::layout::Choice::Cp(rp_v) => rp_map.serialize_entry("cp", rp_v)?,
           }
         }
         rp_map.end()
@@ -430,7 +430,7 @@ pub mod arena {
       pub enum Choice<'a> {
         Ci(i32),
         Cs(::rapidproto::PackedStr<'a>),
-        Cp(&'a super::Point<'a>),
+        Cp(&'a crate::arena_layout::arena::al::Point<'a>),
       }
     }
 
@@ -777,7 +777,7 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut rp_field_1: ::core::option::Option<&'a SelfRef<'a>> = ::core::option::Option::None;
+        let mut rp_field_1: ::core::option::Option<&'a crate::arena_layout::arena::al::SelfRef<'a>> = ::core::option::Option::None;
         let mut rp_field_2: i32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -790,7 +790,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_1 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| SelfRef::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+          rp_field_1 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::arena_layout::arena::al::SelfRef::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
         }
         if rp_rest.first() == ::core::option::Option::Some(&16u8) {
           rp_rest = &rp_rest[1..];
@@ -827,7 +827,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| SelfRef::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              rp_field_1 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::arena_layout::arena::al::SelfRef::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             16u32 => {
               let mut rp_v = 0u64;
@@ -873,17 +873,17 @@ pub mod arena {
         let mut rp_field_5: i32 = 0;
         let mut rp_field_6: &'a [u8] = &[];
         let mut rp_field_7: &'a [u8] = &[];
-        let mut rp_field_8: super::super::common::al::Color = super::super::common::al::Color(0);
-        let mut rp_field_9: Point<'a> = ::core::default::Default::default();
-        let mut rp_field_10: ::core::option::Option<&'a Big<'a>> = ::core::option::Option::None;
-        let mut rp_field_11: ::core::option::Option<&'a HasString<'a>> = ::core::option::Option::None;
-        let mut rp_field_12: BoolWrap<'a> = ::core::default::Default::default();
+        let mut rp_field_8: crate::arena_layout::common::al::Color = crate::arena_layout::common::al::Color(0);
+        let mut rp_field_9: crate::arena_layout::arena::al::Point<'a> = ::core::default::Default::default();
+        let mut rp_field_10: ::core::option::Option<&'a crate::arena_layout::arena::al::Big<'a>> = ::core::option::Option::None;
+        let mut rp_field_11: ::core::option::Option<&'a crate::arena_layout::arena::al::HasString<'a>> = ::core::option::Option::None;
+        let mut rp_field_12: crate::arena_layout::arena::al::BoolWrap<'a> = ::core::default::Default::default();
         let mut rp_acc_13 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_acc_14 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_acc_20 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_map_15 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_map_16 = ::rapidproto::DecodeVec::new(rp_arena);
-        let mut rp_oneof_0: ::core::option::Option<layout::Choice<'a>> = ::core::option::Option::None;
+        let mut rp_oneof_0: ::core::option::Option<crate::arena_layout::arena::al::layout::Choice<'a>> = ::core::option::Option::None;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -965,7 +965,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_8 = super::super::common::al::Color(rp_v as i32);
+          rp_field_8 = crate::arena_layout::common::al::Color(rp_v as i32);
         }
         if rp_rest.first() == ::core::option::Option::Some(&74u8) {
           rp_rest = &rp_rest[1..];
@@ -977,7 +977,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_9 = ::rapidproto::decode_value(|rp_out| Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_9 = ::rapidproto::decode_value(|rp_out| crate::arena_layout::arena::al::Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 4;
         }
         if rp_rest.first() == ::core::option::Option::Some(&82u8) {
@@ -990,7 +990,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_10 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Big::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+          rp_field_10 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::arena_layout::arena::al::Big::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
         }
         if rp_rest.first() == ::core::option::Option::Some(&90u8) {
           rp_rest = &rp_rest[1..];
@@ -1002,7 +1002,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_11 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| HasString::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+          rp_field_11 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::arena_layout::arena::al::HasString::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
         }
         if rp_rest.first() == ::core::option::Option::Some(&98u8) {
           rp_rest = &rp_rest[1..];
@@ -1014,7 +1014,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_12 = ::rapidproto::decode_value(|rp_out| BoolWrap::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_12 = ::rapidproto::decode_value(|rp_out| crate::arena_layout::arena::al::BoolWrap::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 5;
         }
         while rp_rest.first() == ::core::option::Option::Some(&104u8) {
@@ -1042,7 +1042,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_14.emplace(|rp_out| Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_acc_14.emplace(|rp_out| crate::arena_layout::arena::al::Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
         }
         while rp_rest.first() == ::core::option::Option::Some(&122u8) {
           rp_rest = &rp_rest[1..];
@@ -1107,7 +1107,7 @@ pub mod arena {
           };
           let rp_ent_body: &'a [u8] = rp_p;
           let mut rp_key: i32 = 0;
-          let mut rp_val: ::core::option::Option<Point<'a>> = ::core::option::Option::None;
+          let mut rp_val: ::core::option::Option<crate::arena_layout::arena::al::Point<'a>> = ::core::option::Option::None;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
             let rp_b = match rp_ent.first() {
@@ -1143,7 +1143,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_val = ::core::option::Option::Some(::rapidproto::decode_value(|rp_out| Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+                rp_val = ::core::option::Option::Some(::rapidproto::decode_value(|rp_out| crate::arena_layout::arena::al::Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
               }
               _ => {
                 rp_ent = match ::rapidproto::wire::skip_field(rp_ent, rp_tagkey) {
@@ -1155,7 +1155,7 @@ pub mod arena {
           }
           let rp_val = match rp_val {
             ::core::option::Option::Some(rp_sub) => rp_sub,
-            ::core::option::Option::None => ::rapidproto::decode_value(|rp_out| Point::rp_decode_into(rp_out, &[], rp_arena, rp_depth + 1))?,
+            ::core::option::Option::None => ::rapidproto::decode_value(|rp_out| crate::arena_layout::arena::al::Point::rp_decode_into(rp_out, &[], rp_arena, rp_depth + 1))?,
           };
           rp_map_16.push((rp_key, rp_val)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
@@ -1166,7 +1166,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(layout::Choice::Ci(rp_v as i32));
+          rp_oneof_0 = ::core::option::Option::Some(crate::arena_layout::arena::al::layout::Choice::Ci(rp_v as i32));
         }
         if rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[146u8, 1u8]) {
           rp_rest = &rp_rest[2..];
@@ -1175,11 +1175,11 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(layout::Choice::Cs(::rapidproto::PackedStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::arena_layout::arena::al::layout::Choice::Cs(::rapidproto::PackedStr::new(rp_p)));
         }
         if rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[154u8, 1u8]) {
           rp_rest = &rp_rest[2..];
-          if ::core::matches!(rp_oneof_0, ::core::option::Option::Some(layout::Choice::Cp(_))) {
+          if ::core::matches!(rp_oneof_0, ::core::option::Option::Some(crate::arena_layout::arena::al::layout::Choice::Cp(_))) {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(19));
           }
           let mut rp_p: &[u8] = &[];
@@ -1187,8 +1187,8 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          let rp_ptr = rp_arena.emplace(|rp_out| Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
-          rp_oneof_0 = ::core::option::Option::Some(layout::Choice::Cp(rp_ptr));
+          let rp_ptr = rp_arena.emplace(|rp_out| crate::arena_layout::arena::al::Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_oneof_0 = ::core::option::Option::Some(crate::arena_layout::arena::al::layout::Choice::Cp(rp_ptr));
         }
         while rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[162u8, 1u8]) {
           rp_rest = &rp_rest[2..];
@@ -1288,7 +1288,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_8 = super::super::common::al::Color(rp_v as i32);
+              rp_field_8 = crate::arena_layout::common::al::Color(rp_v as i32);
             }
             74u32 => {
               if (rp_presence & (1 << 4)) != 0 {
@@ -1299,7 +1299,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_9 = ::rapidproto::decode_value(|rp_out| Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_9 = ::rapidproto::decode_value(|rp_out| crate::arena_layout::arena::al::Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 4;
             }
             82u32 => {
@@ -1311,7 +1311,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_10 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Big::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              rp_field_10 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::arena_layout::arena::al::Big::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             90u32 => {
               if rp_field_11.is_some() {
@@ -1322,7 +1322,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_11 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| HasString::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              rp_field_11 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::arena_layout::arena::al::HasString::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             98u32 => {
               if (rp_presence & (1 << 5)) != 0 {
@@ -1333,7 +1333,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_12 = ::rapidproto::decode_value(|rp_out| BoolWrap::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_12 = ::rapidproto::decode_value(|rp_out| crate::arena_layout::arena::al::BoolWrap::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 5;
             }
             104u32 => {
@@ -1358,7 +1358,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_14.emplace(|rp_out| Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_acc_14.emplace(|rp_out| crate::arena_layout::arena::al::Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
             }
             162u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1429,7 +1429,7 @@ pub mod arena {
               };
               let rp_ent_body: &'a [u8] = rp_p;
               let mut rp_key: i32 = 0;
-              let mut rp_val: ::core::option::Option<Point<'a>> = ::core::option::Option::None;
+              let mut rp_val: ::core::option::Option<crate::arena_layout::arena::al::Point<'a>> = ::core::option::Option::None;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
                 let rp_b = match rp_ent.first() {
@@ -1465,7 +1465,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_val = ::core::option::Option::Some(::rapidproto::decode_value(|rp_out| Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+                    rp_val = ::core::option::Option::Some(::rapidproto::decode_value(|rp_out| crate::arena_layout::arena::al::Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
                   }
                   _ => {
                     rp_ent = match ::rapidproto::wire::skip_field(rp_ent, rp_tagkey) {
@@ -1477,7 +1477,7 @@ pub mod arena {
               }
               let rp_val = match rp_val {
                 ::core::option::Option::Some(rp_sub) => rp_sub,
-                ::core::option::Option::None => ::rapidproto::decode_value(|rp_out| Point::rp_decode_into(rp_out, &[], rp_arena, rp_depth + 1))?,
+                ::core::option::Option::None => ::rapidproto::decode_value(|rp_out| crate::arena_layout::arena::al::Point::rp_decode_into(rp_out, &[], rp_arena, rp_depth + 1))?,
               };
               rp_map_16.push((rp_key, rp_val)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
@@ -1487,7 +1487,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(layout::Choice::Ci(rp_v as i32));
+              rp_oneof_0 = ::core::option::Option::Some(crate::arena_layout::arena::al::layout::Choice::Ci(rp_v as i32));
             }
             146u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1495,10 +1495,10 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(layout::Choice::Cs(::rapidproto::PackedStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::arena_layout::arena::al::layout::Choice::Cs(::rapidproto::PackedStr::new(rp_p)));
             }
             154u32 => {
-              if ::core::matches!(rp_oneof_0, ::core::option::Option::Some(layout::Choice::Cp(_))) {
+              if ::core::matches!(rp_oneof_0, ::core::option::Option::Some(crate::arena_layout::arena::al::layout::Choice::Cp(_))) {
                 return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(19));
               }
               let mut rp_p: &[u8] = &[];
@@ -1506,8 +1506,8 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              let rp_ptr = rp_arena.emplace(|rp_out| Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
-              rp_oneof_0 = ::core::option::Option::Some(layout::Choice::Cp(rp_ptr));
+              let rp_ptr = rp_arena.emplace(|rp_out| crate::arena_layout::arena::al::Point::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_oneof_0 = ::core::option::Option::Some(crate::arena_layout::arena::al::layout::Choice::Cp(rp_ptr));
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1543,13 +1543,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod al {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-    #[doc(hidden)]
-    pub type rp_stream_ty_0 = super::super::common::al::Color;
-
     /// Streaming visitor for `Point`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `point_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -1685,20 +1683,18 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::al as rp_mod_2al5Point;
     /// Builds a `PointVisitor` from per-field closures: `point_stream! { field => |value| .. }`, or
     /// `point_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_12arena_layout_2al5Point {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2al5Point::point_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2al5Point::point_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_2al5Point::point_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { rp_mod_2al5Point::point_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al5Point::point_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al5Point::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_layout::stream::al::point_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_layout::stream::al::point_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::point_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::point_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::point_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_layout::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, y, unknown")) };
-      (@f $a:tt) => { rp_mod_2al5Point::rp_rt::stream_visitor!(rp_mod_2al5Point PointVisitor $a) };
+      (@f $a:tt) => { $crate::arena_layout::stream::rp_rt::stream_visitor!($crate::arena_layout::stream::al::PointVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_12arena_layout_2al5Point as point_stream;
@@ -1871,21 +1867,19 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::al as rp_mod_2al3Big;
     /// Builds a `BigVisitor` from per-field closures: `big_stream! { field => |value| .. }`, or
     /// `big_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_12arena_layout_2al3Big {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2al3Big::big_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2al3Big::big_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2al3Big::big_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::u64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_2al3Big::big_stream!(@f [$($a)* WANT_b on_b: ::core::primitive::u64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_2al3Big::big_stream!(@f [$($a)* WANT_c on_c: ::core::primitive::u64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al3Big::big_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al3Big::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_layout::stream::al::big_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_layout::stream::al::big_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::big_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::u64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::big_stream!(@f [$($a)* WANT_b on_b: ::core::primitive::u64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::big_stream!(@f [$($a)* WANT_c on_c: ::core::primitive::u64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::big_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_layout::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, b, c, unknown")) };
-      (@f $a:tt) => { rp_mod_2al3Big::rp_rt::stream_visitor!(rp_mod_2al3Big BigVisitor $a) };
+      (@f $a:tt) => { $crate::arena_layout::stream::rp_rt::stream_visitor!($crate::arena_layout::stream::al::BigVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_12arena_layout_2al3Big as big_stream;
@@ -1992,19 +1986,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::al as rp_mod_2al9HasString;
     /// Builds a `HasStringVisitor` from per-field closures: `has_string_stream! { field => |value| .. }`, or
     /// `has_string_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_12arena_layout_2al9HasString {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2al9HasString::has_string_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2al9HasString::has_string_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_2al9HasString::has_string_stream!(@f [$($a)* WANT_s on_s: &'rp_a rp_mod_2al9HasString::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al9HasString::has_string_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al9HasString::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_layout::stream::al::has_string_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_layout::stream::al::has_string_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::has_string_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::arena_layout::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::has_string_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_layout::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, unknown")) };
-      (@f $a:tt) => { rp_mod_2al9HasString::rp_rt::stream_visitor!(rp_mod_2al9HasString HasStringVisitor $a) };
+      (@f $a:tt) => { $crate::arena_layout::stream::rp_rt::stream_visitor!($crate::arena_layout::stream::al::HasStringVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_12arena_layout_2al9HasString as has_string_stream;
@@ -2111,19 +2103,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::al as rp_mod_2al8BoolWrap;
     /// Builds a `BoolWrapVisitor` from per-field closures: `bool_wrap_stream! { field => |value| .. }`, or
     /// `bool_wrap_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_12arena_layout_2al8BoolWrap {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2al8BoolWrap::bool_wrap_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2al8BoolWrap::bool_wrap_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_2al8BoolWrap::bool_wrap_stream!(@f [$($a)* WANT_value on_value: ::core::primitive::bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al8BoolWrap::bool_wrap_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al8BoolWrap::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_layout::stream::al::bool_wrap_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_layout::stream::al::bool_wrap_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::bool_wrap_stream!(@f [$($a)* WANT_value on_value: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::bool_wrap_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_layout::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: value, unknown")) };
-      (@f $a:tt) => { rp_mod_2al8BoolWrap::rp_rt::stream_visitor!(rp_mod_2al8BoolWrap BoolWrapVisitor $a) };
+      (@f $a:tt) => { $crate::arena_layout::stream::rp_rt::stream_visitor!($crate::arena_layout::stream::al::BoolWrapVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_12arena_layout_2al8BoolWrap as bool_wrap_stream;
@@ -2134,7 +2124,7 @@ pub mod stream {
     pub trait SelfRefVisitor<'a> {
       const WANT_next: bool = false;
       #[inline(always)]
-      fn on_next(&mut self, _rp_v: SelfRef<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_next(&mut self, _rp_v: crate::arena_layout::stream::al::SelfRef<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_v: bool = false;
       #[inline(always)]
       fn on_v(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2169,7 +2159,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_next(self::SelfRef::new(rp_p))? {
+            match rp_vis.on_next(crate::arena_layout::stream::al::SelfRef::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -2222,7 +2212,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_next(self::SelfRef::new(rp_p))? {
+              match rp_vis.on_next(crate::arena_layout::stream::al::SelfRef::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2263,20 +2253,18 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::al as rp_mod_2al7SelfRef;
     /// Builds a `SelfRefVisitor` from per-field closures: `self_ref_stream! { field => |value| .. }`, or
     /// `self_ref_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_12arena_layout_2al7SelfRef {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2al7SelfRef::self_ref_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2al7SelfRef::self_ref_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] next => $c:expr, $($r:tt)*) => { rp_mod_2al7SelfRef::self_ref_stream!(@f [$($a)* WANT_next on_next: rp_mod_2al7SelfRef::SelfRef<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_2al7SelfRef::self_ref_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al7SelfRef::self_ref_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al7SelfRef::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_layout::stream::al::self_ref_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_layout::stream::al::self_ref_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] next => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::self_ref_stream!(@f [$($a)* WANT_next on_next: $crate::arena_layout::stream::al::SelfRef<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::self_ref_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::self_ref_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_layout::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: next, v, unknown")) };
-      (@f $a:tt) => { rp_mod_2al7SelfRef::rp_rt::stream_visitor!(rp_mod_2al7SelfRef SelfRefVisitor $a) };
+      (@f $a:tt) => { $crate::arena_layout::stream::rp_rt::stream_visitor!($crate::arena_layout::stream::al::SelfRefVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_12arena_layout_2al7SelfRef as self_ref_stream;
@@ -2308,25 +2296,25 @@ pub mod stream {
       fn on_oname(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_color: bool = false;
       #[inline(always)]
-      fn on_color(&mut self, _rp_v: super::super::common::al::Color) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_color(&mut self, _rp_v: crate::arena_layout::common::al::Color) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_pt: bool = false;
       #[inline(always)]
-      fn on_pt(&mut self, _rp_v: Point<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_pt(&mut self, _rp_v: crate::arena_layout::stream::al::Point<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_bg: bool = false;
       #[inline(always)]
-      fn on_bg(&mut self, _rp_v: Big<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_bg(&mut self, _rp_v: crate::arena_layout::stream::al::Big<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_hs: bool = false;
       #[inline(always)]
-      fn on_hs(&mut self, _rp_v: HasString<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_hs(&mut self, _rp_v: crate::arena_layout::stream::al::HasString<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_flag: bool = false;
       #[inline(always)]
-      fn on_flag(&mut self, _rp_v: BoolWrap<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_flag(&mut self, _rp_v: crate::arena_layout::stream::al::BoolWrap<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_nums: bool = false;
       #[inline(always)]
       fn on_nums(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_points: bool = false;
       #[inline(always)]
-      fn on_points(&mut self, _rp_v: Point<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_points(&mut self, _rp_v: crate::arena_layout::stream::al::Point<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_labels: bool = false;
       #[inline(always)]
       fn on_labels(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2335,7 +2323,7 @@ pub mod stream {
       fn on_counts(&mut self, _rp_v: (&'a ::rapidproto::ProtoStr, i32)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_grid: bool = false;
       #[inline(always)]
-      fn on_grid(&mut self, _rp_v: (i32, Point<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_grid(&mut self, _rp_v: (i32, crate::arena_layout::stream::al::Point<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_ci: bool = false;
       #[inline(always)]
       fn on_ci(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2344,7 +2332,7 @@ pub mod stream {
       fn on_cs(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_cp: bool = false;
       #[inline(always)]
-      fn on_cp(&mut self, _rp_v: Point<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_cp(&mut self, _rp_v: crate::arena_layout::stream::al::Point<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2509,7 +2497,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_color(super::super::common::al::Color(rp_v as i32))? {
+            match rp_vis.on_color(crate::arena_layout::common::al::Color(rp_v as i32))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -2528,7 +2516,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_pt(self::Point::new(rp_p))? {
+            match rp_vis.on_pt(crate::arena_layout::stream::al::Point::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -2547,7 +2535,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_bg(self::Big::new(rp_p))? {
+            match rp_vis.on_bg(crate::arena_layout::stream::al::Big::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -2566,7 +2554,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_hs(self::HasString::new(rp_p))? {
+            match rp_vis.on_hs(crate::arena_layout::stream::al::HasString::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -2585,7 +2573,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_flag(self::BoolWrap::new(rp_p))? {
+            match rp_vis.on_flag(crate::arena_layout::stream::al::BoolWrap::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -2650,7 +2638,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_points(self::Point::new(rp_p))? {
+            match rp_vis.on_points(crate::arena_layout::stream::al::Point::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -2778,7 +2766,7 @@ pub mod stream {
                 }
               }
             }
-            match rp_vis.on_grid((rp_key, self::Point::new(rp_val)))? {
+            match rp_vis.on_grid((rp_key, crate::arena_layout::stream::al::Point::new(rp_val)))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -2835,7 +2823,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_cp(self::Point::new(rp_p))? {
+            match rp_vis.on_cp(crate::arena_layout::stream::al::Point::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -2965,7 +2953,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_color(super::super::common::al::Color(rp_v as i32))? {
+              match rp_vis.on_color(crate::arena_layout::common::al::Color(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2976,7 +2964,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_pt(self::Point::new(rp_p))? {
+              match rp_vis.on_pt(crate::arena_layout::stream::al::Point::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2987,7 +2975,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_bg(self::Big::new(rp_p))? {
+              match rp_vis.on_bg(crate::arena_layout::stream::al::Big::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2998,7 +2986,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_hs(self::HasString::new(rp_p))? {
+              match rp_vis.on_hs(crate::arena_layout::stream::al::HasString::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3009,7 +2997,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_flag(self::BoolWrap::new(rp_p))? {
+              match rp_vis.on_flag(crate::arena_layout::stream::al::BoolWrap::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3050,7 +3038,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_points(self::Point::new(rp_p))? {
+              match rp_vis.on_points(crate::arena_layout::stream::al::Point::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3173,7 +3161,7 @@ pub mod stream {
                   }
                 }
               }
-              match rp_vis.on_grid((rp_key, self::Point::new(rp_val)))? {
+              match rp_vis.on_grid((rp_key, crate::arena_layout::stream::al::Point::new(rp_val)))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3206,7 +3194,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_cp(self::Point::new(rp_p))? {
+              match rp_vis.on_cp(crate::arena_layout::stream::al::Point::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3236,38 +3224,36 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::al as rp_mod_2al6Layout;
     /// Builds a `LayoutVisitor` from per-field closures: `layout_stream! { field => |value| .. }`, or
     /// `layout_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_12arena_layout_2al6Layout {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2al6Layout::layout_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2al6Layout::layout_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] b1 => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_b1 on_b1: ::core::primitive::bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] big => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_big on_big: ::core::primitive::i64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] b2 => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_b2 on_b2: ::core::primitive::bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] small => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_small on_small: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] opt => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_opt on_opt: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_2al6Layout::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] oname => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_oname on_oname: &'rp_a rp_mod_2al6Layout::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] color => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_color on_color: rp_mod_2al6Layout::rp_stream_ty_0 = $c;] $($r)*) };
-      (@f [$($a:tt)*] pt => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_pt on_pt: rp_mod_2al6Layout::Point<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] bg => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_bg on_bg: rp_mod_2al6Layout::Big<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] hs => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_hs on_hs: rp_mod_2al6Layout::HasString<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] flag => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_flag on_flag: rp_mod_2al6Layout::BoolWrap<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] nums => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_nums on_nums: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] points => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_points on_points: rp_mod_2al6Layout::Point<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] labels => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_labels on_labels: &'rp_a rp_mod_2al6Layout::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_counts on_counts: (&'rp_a rp_mod_2al6Layout::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
-      (@f [$($a:tt)*] grid => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_grid on_grid: (::core::primitive::i32, rp_mod_2al6Layout::Point<'rp_a>) = $c;] $($r)*) };
-      (@f [$($a:tt)*] ci => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_ci on_ci: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] cs => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_cs on_cs: &'rp_a rp_mod_2al6Layout::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] cp => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_cp on_cp: rp_mod_2al6Layout::Point<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2al6Layout::layout_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2al6Layout::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_layout::stream::al::layout_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_layout::stream::al::layout_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] b1 => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_b1 on_b1: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] big => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_big on_big: ::core::primitive::i64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] b2 => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_b2 on_b2: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] small => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_small on_small: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] opt => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_opt on_opt: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::arena_layout::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] oname => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_oname on_oname: &'rp_a $crate::arena_layout::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] color => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_color on_color: $crate::arena_layout::common::al::Color = $c;] $($r)*) };
+      (@f [$($a:tt)*] pt => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_pt on_pt: $crate::arena_layout::stream::al::Point<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] bg => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_bg on_bg: $crate::arena_layout::stream::al::Big<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] hs => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_hs on_hs: $crate::arena_layout::stream::al::HasString<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] flag => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_flag on_flag: $crate::arena_layout::stream::al::BoolWrap<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] nums => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_nums on_nums: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] points => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_points on_points: $crate::arena_layout::stream::al::Point<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] labels => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_labels on_labels: &'rp_a $crate::arena_layout::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_counts on_counts: (&'rp_a $crate::arena_layout::stream::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] grid => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_grid on_grid: (::core::primitive::i32, $crate::arena_layout::stream::al::Point<'rp_a>) = $c;] $($r)*) };
+      (@f [$($a:tt)*] ci => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_ci on_ci: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] cs => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_cs on_cs: &'rp_a $crate::arena_layout::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] cp => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_cp on_cp: $crate::arena_layout::stream::al::Point<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_layout::stream::al::layout_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_layout::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: b1, big, b2, small, opt, name, oname, color, pt, bg, hs, flag, nums, points, labels, counts, grid, ci, cs, cp, unknown")) };
-      (@f $a:tt) => { rp_mod_2al6Layout::rp_rt::stream_visitor!(rp_mod_2al6Layout LayoutVisitor $a) };
+      (@f $a:tt) => { $crate::arena_layout::stream::rp_rt::stream_visitor!($crate::arena_layout::stream::al::LayoutVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_12arena_layout_2al6Layout as layout_stream;

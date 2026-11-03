@@ -332,30 +332,30 @@ pub mod arena {
 
       pub struct Type<'a> {
         name: ::rapidproto::PackedStr<'a>,
-        fields: ::rapidproto::PackedSlice<'a, Field<'a>>,
+        fields: ::rapidproto::PackedSlice<'a, crate::usewkt::arena::google::protobuf::Field<'a>>,
         oneofs: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
-        options: ::rapidproto::PackedSlice<'a, Option<'a>>,
-        source_context: ::core::option::Option<&'a SourceContext<'a>>,
-        syntax: super::super::super::common::google::protobuf::Syntax,
+        options: ::rapidproto::PackedSlice<'a, crate::usewkt::arena::google::protobuf::Option<'a>>,
+        source_context: ::core::option::Option<&'a crate::usewkt::arena::google::protobuf::SourceContext<'a>>,
+        syntax: crate::usewkt::common::google::protobuf::Syntax,
       }
 
       impl<'a> Type<'a> {
         pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
           self.name.get()
         }
-        pub fn fields(&self) -> &'a [Field<'a>] {
+        pub fn fields(&self) -> &'a [crate::usewkt::arena::google::protobuf::Field<'a>] {
           self.fields.as_slice()
         }
         pub fn oneofs(&self) -> &'a [::rapidproto::PackedStr<'a>] {
           self.oneofs.as_slice()
         }
-        pub fn options(&self) -> &'a [Option<'a>] {
+        pub fn options(&self) -> &'a [crate::usewkt::arena::google::protobuf::Option<'a>] {
           self.options.as_slice()
         }
-        pub fn source_context(&self) -> ::core::option::Option<&'a SourceContext<'a>> {
+        pub fn source_context(&self) -> ::core::option::Option<&'a crate::usewkt::arena::google::protobuf::SourceContext<'a>> {
           self.source_context
         }
-        pub fn syntax(&self) -> super::super::super::common::google::protobuf::Syntax {
+        pub fn syntax(&self) -> crate::usewkt::common::google::protobuf::Syntax {
           self.syntax
         }
       }
@@ -408,23 +408,23 @@ pub mod arena {
       ::rapidproto::impl_decode_owned!(Type);
 
       pub struct Field<'a> {
-        kind: super::super::super::common::google::protobuf::field::Kind,
-        cardinality: super::super::super::common::google::protobuf::field::Cardinality,
+        kind: crate::usewkt::common::google::protobuf::field::Kind,
+        cardinality: crate::usewkt::common::google::protobuf::field::Cardinality,
         number: i32,
         name: ::rapidproto::PackedStr<'a>,
         type_url: ::rapidproto::PackedStr<'a>,
         oneof_index: i32,
-        options: ::rapidproto::PackedSlice<'a, Option<'a>>,
+        options: ::rapidproto::PackedSlice<'a, crate::usewkt::arena::google::protobuf::Option<'a>>,
         json_name: ::rapidproto::PackedStr<'a>,
         default_value: ::rapidproto::PackedStr<'a>,
         rp_presence: u8,
       }
 
       impl<'a> Field<'a> {
-        pub fn kind(&self) -> super::super::super::common::google::protobuf::field::Kind {
+        pub fn kind(&self) -> crate::usewkt::common::google::protobuf::field::Kind {
           self.kind
         }
-        pub fn cardinality(&self) -> super::super::super::common::google::protobuf::field::Cardinality {
+        pub fn cardinality(&self) -> crate::usewkt::common::google::protobuf::field::Cardinality {
           self.cardinality
         }
         pub fn number(&self) -> i32 {
@@ -442,7 +442,7 @@ pub mod arena {
         pub fn packed(&self) -> bool {
           (self.rp_presence & (1 << 0)) != 0
         }
-        pub fn options(&self) -> &'a [Option<'a>] {
+        pub fn options(&self) -> &'a [crate::usewkt::arena::google::protobuf::Option<'a>] {
           self.options.as_slice()
         }
         pub fn json_name(&self) -> &'a ::rapidproto::ProtoStr {
@@ -527,26 +527,26 @@ pub mod arena {
 
       pub struct Enum<'a> {
         name: ::rapidproto::PackedStr<'a>,
-        enumvalue: ::rapidproto::PackedSlice<'a, EnumValue<'a>>,
-        options: ::rapidproto::PackedSlice<'a, Option<'a>>,
-        source_context: ::core::option::Option<&'a SourceContext<'a>>,
-        syntax: super::super::super::common::google::protobuf::Syntax,
+        enumvalue: ::rapidproto::PackedSlice<'a, crate::usewkt::arena::google::protobuf::EnumValue<'a>>,
+        options: ::rapidproto::PackedSlice<'a, crate::usewkt::arena::google::protobuf::Option<'a>>,
+        source_context: ::core::option::Option<&'a crate::usewkt::arena::google::protobuf::SourceContext<'a>>,
+        syntax: crate::usewkt::common::google::protobuf::Syntax,
       }
 
       impl<'a> Enum<'a> {
         pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
           self.name.get()
         }
-        pub fn enumvalue(&self) -> &'a [EnumValue<'a>] {
+        pub fn enumvalue(&self) -> &'a [crate::usewkt::arena::google::protobuf::EnumValue<'a>] {
           self.enumvalue.as_slice()
         }
-        pub fn options(&self) -> &'a [Option<'a>] {
+        pub fn options(&self) -> &'a [crate::usewkt::arena::google::protobuf::Option<'a>] {
           self.options.as_slice()
         }
-        pub fn source_context(&self) -> ::core::option::Option<&'a SourceContext<'a>> {
+        pub fn source_context(&self) -> ::core::option::Option<&'a crate::usewkt::arena::google::protobuf::SourceContext<'a>> {
           self.source_context
         }
-        pub fn syntax(&self) -> super::super::super::common::google::protobuf::Syntax {
+        pub fn syntax(&self) -> crate::usewkt::common::google::protobuf::Syntax {
           self.syntax
         }
       }
@@ -595,7 +595,7 @@ pub mod arena {
       pub struct EnumValue<'a> {
         name: ::rapidproto::PackedStr<'a>,
         number: i32,
-        options: ::rapidproto::PackedSlice<'a, Option<'a>>,
+        options: ::rapidproto::PackedSlice<'a, crate::usewkt::arena::google::protobuf::Option<'a>>,
       }
 
       impl<'a> EnumValue<'a> {
@@ -605,7 +605,7 @@ pub mod arena {
         pub fn number(&self) -> i32 {
           self.number
         }
-        pub fn options(&self) -> &'a [Option<'a>] {
+        pub fn options(&self) -> &'a [crate::usewkt::arena::google::protobuf::Option<'a>] {
           self.options.as_slice()
         }
       }
@@ -642,14 +642,14 @@ pub mod arena {
 
       pub struct Option<'a> {
         name: ::rapidproto::PackedStr<'a>,
-        value: ::core::option::Option<&'a Any<'a>>,
+        value: ::core::option::Option<&'a crate::usewkt::arena::google::protobuf::Any<'a>>,
       }
 
       impl<'a> Option<'a> {
         pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
           self.name.get()
         }
-        pub fn value(&self) -> ::core::option::Option<&'a Any<'a>> {
+        pub fn value(&self) -> ::core::option::Option<&'a crate::usewkt::arena::google::protobuf::Any<'a>> {
           self.value
         }
       }
@@ -1015,8 +1015,8 @@ pub mod arena {
           let mut rp_acc_2 = ::rapidproto::DecodeVec::new(rp_arena);
           let mut rp_acc_3 = ::rapidproto::DecodeVec::new(rp_arena);
           let mut rp_acc_4 = ::rapidproto::DecodeVec::new(rp_arena);
-          let mut rp_field_5: ::core::option::Option<&'a SourceContext<'a>> = ::core::option::Option::None;
-          let mut rp_field_6: super::super::super::common::google::protobuf::Syntax = super::super::super::common::google::protobuf::Syntax(0);
+          let mut rp_field_5: ::core::option::Option<&'a crate::usewkt::arena::google::protobuf::SourceContext<'a>> = ::core::option::Option::None;
+          let mut rp_field_6: crate::usewkt::common::google::protobuf::Syntax = crate::usewkt::common::google::protobuf::Syntax(0);
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -1034,7 +1034,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_acc_2.emplace(|rp_out| Field::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+            rp_acc_2.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Field::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           }
           while rp_rest.first() == ::core::option::Option::Some(&26u8) {
             rp_rest = &rp_rest[1..];
@@ -1052,7 +1052,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_acc_4.emplace(|rp_out| Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+            rp_acc_4.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           }
           if rp_rest.first() == ::core::option::Option::Some(&42u8) {
             rp_rest = &rp_rest[1..];
@@ -1064,7 +1064,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_5 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| SourceContext::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+            rp_field_5 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::usewkt::arena::google::protobuf::SourceContext::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
           }
           if rp_rest.first() == ::core::option::Option::Some(&48u8) {
             rp_rest = &rp_rest[1..];
@@ -1073,7 +1073,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_6 = super::super::super::common::google::protobuf::Syntax(rp_v as i32);
+            rp_field_6 = crate::usewkt::common::google::protobuf::Syntax(rp_v as i32);
           }
           loop {
             let rp_b = match rp_rest.first() {
@@ -1106,7 +1106,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_acc_2.emplace(|rp_out| Field::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+                rp_acc_2.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Field::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               }
               26u32 => {
                 let mut rp_p: &[u8] = &[];
@@ -1122,7 +1122,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_acc_4.emplace(|rp_out| Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+                rp_acc_4.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               }
               42u32 => {
                 if rp_field_5.is_some() {
@@ -1133,7 +1133,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_5 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| SourceContext::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+                rp_field_5 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::usewkt::arena::google::protobuf::SourceContext::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
               }
               48u32 => {
                 let mut rp_v = 0u64;
@@ -1141,7 +1141,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_6 = super::super::super::common::google::protobuf::Syntax(rp_v as i32);
+                rp_field_6 = crate::usewkt::common::google::protobuf::Syntax(rp_v as i32);
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1178,8 +1178,8 @@ pub mod arena {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
           let mut rp_presence: u8 = 0;
-          let mut rp_field_1: super::super::super::common::google::protobuf::field::Kind = super::super::super::common::google::protobuf::field::Kind(0);
-          let mut rp_field_2: super::super::super::common::google::protobuf::field::Cardinality = super::super::super::common::google::protobuf::field::Cardinality(0);
+          let mut rp_field_1: crate::usewkt::common::google::protobuf::field::Kind = crate::usewkt::common::google::protobuf::field::Kind(0);
+          let mut rp_field_2: crate::usewkt::common::google::protobuf::field::Cardinality = crate::usewkt::common::google::protobuf::field::Cardinality(0);
           let mut rp_field_3: i32 = 0;
           let mut rp_field_4: &'a [u8] = &[];
           let mut rp_field_6: &'a [u8] = &[];
@@ -1195,7 +1195,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_1 = super::super::super::common::google::protobuf::field::Kind(rp_v as i32);
+            rp_field_1 = crate::usewkt::common::google::protobuf::field::Kind(rp_v as i32);
           }
           if rp_rest.first() == ::core::option::Option::Some(&16u8) {
             rp_rest = &rp_rest[1..];
@@ -1204,7 +1204,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_2 = super::super::super::common::google::protobuf::field::Cardinality(rp_v as i32);
+            rp_field_2 = crate::usewkt::common::google::protobuf::field::Cardinality(rp_v as i32);
           }
           if rp_rest.first() == ::core::option::Option::Some(&24u8) {
             rp_rest = &rp_rest[1..];
@@ -1262,7 +1262,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_acc_9.emplace(|rp_out| Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+            rp_acc_9.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           }
           if rp_rest.first() == ::core::option::Option::Some(&82u8) {
             rp_rest = &rp_rest[1..];
@@ -1305,7 +1305,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_1 = super::super::super::common::google::protobuf::field::Kind(rp_v as i32);
+                rp_field_1 = crate::usewkt::common::google::protobuf::field::Kind(rp_v as i32);
               }
               16u32 => {
                 let mut rp_v = 0u64;
@@ -1313,7 +1313,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_2 = super::super::super::common::google::protobuf::field::Cardinality(rp_v as i32);
+                rp_field_2 = crate::usewkt::common::google::protobuf::field::Cardinality(rp_v as i32);
               }
               24u32 => {
                 let mut rp_v = 0u64;
@@ -1365,7 +1365,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_acc_9.emplace(|rp_out| Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+                rp_acc_9.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               }
               82u32 => {
                 let mut rp_p: &[u8] = &[];
@@ -1424,8 +1424,8 @@ pub mod arena {
           let mut rp_field_1: &'a [u8] = &[];
           let mut rp_acc_2 = ::rapidproto::DecodeVec::new(rp_arena);
           let mut rp_acc_3 = ::rapidproto::DecodeVec::new(rp_arena);
-          let mut rp_field_4: ::core::option::Option<&'a SourceContext<'a>> = ::core::option::Option::None;
-          let mut rp_field_5: super::super::super::common::google::protobuf::Syntax = super::super::super::common::google::protobuf::Syntax(0);
+          let mut rp_field_4: ::core::option::Option<&'a crate::usewkt::arena::google::protobuf::SourceContext<'a>> = ::core::option::Option::None;
+          let mut rp_field_5: crate::usewkt::common::google::protobuf::Syntax = crate::usewkt::common::google::protobuf::Syntax(0);
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -1443,7 +1443,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_acc_2.emplace(|rp_out| EnumValue::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+            rp_acc_2.emplace(|rp_out| crate::usewkt::arena::google::protobuf::EnumValue::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           }
           while rp_rest.first() == ::core::option::Option::Some(&26u8) {
             rp_rest = &rp_rest[1..];
@@ -1452,7 +1452,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_acc_3.emplace(|rp_out| Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+            rp_acc_3.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           }
           if rp_rest.first() == ::core::option::Option::Some(&34u8) {
             rp_rest = &rp_rest[1..];
@@ -1464,7 +1464,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_4 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| SourceContext::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+            rp_field_4 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::usewkt::arena::google::protobuf::SourceContext::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
           }
           if rp_rest.first() == ::core::option::Option::Some(&40u8) {
             rp_rest = &rp_rest[1..];
@@ -1473,7 +1473,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_5 = super::super::super::common::google::protobuf::Syntax(rp_v as i32);
+            rp_field_5 = crate::usewkt::common::google::protobuf::Syntax(rp_v as i32);
           }
           loop {
             let rp_b = match rp_rest.first() {
@@ -1506,7 +1506,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_acc_2.emplace(|rp_out| EnumValue::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+                rp_acc_2.emplace(|rp_out| crate::usewkt::arena::google::protobuf::EnumValue::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               }
               26u32 => {
                 let mut rp_p: &[u8] = &[];
@@ -1514,7 +1514,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_acc_3.emplace(|rp_out| Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+                rp_acc_3.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               }
               34u32 => {
                 if rp_field_4.is_some() {
@@ -1525,7 +1525,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_4 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| SourceContext::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+                rp_field_4 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::usewkt::arena::google::protobuf::SourceContext::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
               }
               40u32 => {
                 let mut rp_v = 0u64;
@@ -1533,7 +1533,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_5 = super::super::super::common::google::protobuf::Syntax(rp_v as i32);
+                rp_field_5 = crate::usewkt::common::google::protobuf::Syntax(rp_v as i32);
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1597,7 +1597,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_acc_3.emplace(|rp_out| Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+            rp_acc_3.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           }
           loop {
             let rp_b = match rp_rest.first() {
@@ -1638,7 +1638,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_acc_3.emplace(|rp_out| Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+                rp_acc_3.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Option::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1672,7 +1672,7 @@ pub mod arena {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
           let mut rp_field_1: &'a [u8] = &[];
-          let mut rp_field_2: ::core::option::Option<&'a Any<'a>> = ::core::option::Option::None;
+          let mut rp_field_2: ::core::option::Option<&'a crate::usewkt::arena::google::protobuf::Any<'a>> = ::core::option::Option::None;
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -1693,7 +1693,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Any::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+            rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Any::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
           }
           loop {
             let rp_b = match rp_rest.first() {
@@ -1729,7 +1729,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Any::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+                rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Any::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1750,20 +1750,20 @@ pub mod arena {
 
   pub mod uw {
     pub struct Event<'a> {
-      at: super::google::protobuf::Timestamp<'a>,
-      took: super::google::protobuf::Duration<'a>,
-      shape: ::core::option::Option<&'a super::google::protobuf::Type<'a>>,
+      at: crate::usewkt::arena::google::protobuf::Timestamp<'a>,
+      took: crate::usewkt::arena::google::protobuf::Duration<'a>,
+      shape: ::core::option::Option<&'a crate::usewkt::arena::google::protobuf::Type<'a>>,
       rp_presence: u8,
     }
 
     impl<'a> Event<'a> {
-      pub fn at(&self) -> ::core::option::Option<&super::google::protobuf::Timestamp<'a>> {
+      pub fn at(&self) -> ::core::option::Option<&crate::usewkt::arena::google::protobuf::Timestamp<'a>> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(&self.at)
       }
-      pub fn took(&self) -> ::core::option::Option<&super::google::protobuf::Duration<'a>> {
+      pub fn took(&self) -> ::core::option::Option<&crate::usewkt::arena::google::protobuf::Duration<'a>> {
         ((self.rp_presence & (1 << 1)) != 0).then_some(&self.took)
       }
-      pub fn shape(&self) -> ::core::option::Option<&'a super::google::protobuf::Type<'a>> {
+      pub fn shape(&self) -> ::core::option::Option<&'a crate::usewkt::arena::google::protobuf::Type<'a>> {
         self.shape
       }
     }
@@ -1811,9 +1811,9 @@ pub mod arena {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
         let mut rp_presence: u8 = 0;
-        let mut rp_field_1: super::google::protobuf::Timestamp<'a> = ::core::default::Default::default();
-        let mut rp_field_2: super::google::protobuf::Duration<'a> = ::core::default::Default::default();
-        let mut rp_field_3: ::core::option::Option<&'a super::google::protobuf::Type<'a>> = ::core::option::Option::None;
+        let mut rp_field_1: crate::usewkt::arena::google::protobuf::Timestamp<'a> = ::core::default::Default::default();
+        let mut rp_field_2: crate::usewkt::arena::google::protobuf::Duration<'a> = ::core::default::Default::default();
+        let mut rp_field_3: ::core::option::Option<&'a crate::usewkt::arena::google::protobuf::Type<'a>> = ::core::option::Option::None;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -1825,7 +1825,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_1 = ::rapidproto::decode_value(|rp_out| super::google::protobuf::Timestamp::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::usewkt::arena::google::protobuf::Timestamp::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 0;
         }
         if rp_rest.first() == ::core::option::Option::Some(&18u8) {
@@ -1838,7 +1838,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_2 = ::rapidproto::decode_value(|rp_out| super::google::protobuf::Duration::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_2 = ::rapidproto::decode_value(|rp_out| crate::usewkt::arena::google::protobuf::Duration::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 1;
         }
         if rp_rest.first() == ::core::option::Option::Some(&26u8) {
@@ -1851,7 +1851,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_3 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| super::google::protobuf::Type::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+          rp_field_3 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Type::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -1879,7 +1879,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = ::rapidproto::decode_value(|rp_out| super::google::protobuf::Timestamp::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::usewkt::arena::google::protobuf::Timestamp::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 0;
             }
             18u32 => {
@@ -1891,7 +1891,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_2 = ::rapidproto::decode_value(|rp_out| super::google::protobuf::Duration::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_2 = ::rapidproto::decode_value(|rp_out| crate::usewkt::arena::google::protobuf::Duration::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 1;
             }
             26u32 => {
@@ -1903,7 +1903,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_3 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| super::google::protobuf::Type::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              rp_field_3 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::usewkt::arena::google::protobuf::Type::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1926,19 +1926,13 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod google {
 
     pub mod protobuf {
-      #[doc(hidden)]
-      pub use ::rapidproto::rp_rt;
-      #[doc(hidden)]
-      pub type rp_stream_ty_0 = super::super::super::common::google::protobuf::Syntax;
-      #[doc(hidden)]
-      pub type rp_stream_ty_1 = super::super::super::common::google::protobuf::field::Kind;
-      #[doc(hidden)]
-      pub type rp_stream_ty_2 = super::super::super::common::google::protobuf::field::Cardinality;
-
       /// Streaming visitor for `Timestamp`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `timestamp_stream` macro does both); a field left at the default
       /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -2074,20 +2068,18 @@ pub mod stream {
         }
       }
 
-      #[doc(hidden)]
-      pub use super::protobuf as rp_mod_6google8protobuf9Timestamp;
       /// Builds a `TimestampVisitor` from per-field closures: `timestamp_stream! { field => |value| .. }`, or
       /// `timestamp_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf9Timestamp {
-        ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] seconds => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@f [$($a)* WANT_seconds on_seconds: ::core::primitive::i64 = $c;] $($r)*) };
-        (@f [$($a:tt)*] nanos => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@f [$($a)* WANT_nanos on_nanos: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9Timestamp::timestamp_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf9Timestamp::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::timestamp_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::timestamp_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] seconds => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::timestamp_stream!(@f [$($a)* WANT_seconds on_seconds: ::core::primitive::i64 = $c;] $($r)*) };
+        (@f [$($a:tt)*] nanos => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::timestamp_stream!(@f [$($a)* WANT_nanos on_nanos: ::core::primitive::i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::timestamp_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: seconds, nanos, unknown")) };
-        (@f $a:tt) => { rp_mod_6google8protobuf9Timestamp::rp_rt::stream_visitor!(rp_mod_6google8protobuf9Timestamp TimestampVisitor $a) };
+        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::TimestampVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf9Timestamp as timestamp_stream;
@@ -2227,20 +2219,18 @@ pub mod stream {
         }
       }
 
-      #[doc(hidden)]
-      pub use super::protobuf as rp_mod_6google8protobuf8Duration;
       /// Builds a `DurationVisitor` from per-field closures: `duration_stream! { field => |value| .. }`, or
       /// `duration_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf8Duration {
-        ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf8Duration::duration_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf8Duration::duration_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] seconds => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf8Duration::duration_stream!(@f [$($a)* WANT_seconds on_seconds: ::core::primitive::i64 = $c;] $($r)*) };
-        (@f [$($a:tt)*] nanos => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf8Duration::duration_stream!(@f [$($a)* WANT_nanos on_nanos: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf8Duration::duration_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf8Duration::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::duration_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::duration_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] seconds => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::duration_stream!(@f [$($a)* WANT_seconds on_seconds: ::core::primitive::i64 = $c;] $($r)*) };
+        (@f [$($a:tt)*] nanos => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::duration_stream!(@f [$($a)* WANT_nanos on_nanos: ::core::primitive::i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::duration_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: seconds, nanos, unknown")) };
-        (@f $a:tt) => { rp_mod_6google8protobuf8Duration::rp_rt::stream_visitor!(rp_mod_6google8protobuf8Duration DurationVisitor $a) };
+        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::DurationVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf8Duration as duration_stream;
@@ -2380,20 +2370,18 @@ pub mod stream {
         }
       }
 
-      #[doc(hidden)]
-      pub use super::protobuf as rp_mod_6google8protobuf3Any;
       /// Builds a `AnyVisitor` from per-field closures: `any_stream! { field => |value| .. }`, or
       /// `any_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf3Any {
-        ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf3Any::any_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf3Any::any_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf3Any::any_stream!(@f [$($a)* WANT_type_url on_type_url: &'rp_a rp_mod_6google8protobuf3Any::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf3Any::any_stream!(@f [$($a)* WANT_value on_value: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf3Any::any_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf3Any::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::any_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::any_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::any_stream!(@f [$($a)* WANT_type_url on_type_url: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::any_stream!(@f [$($a)* WANT_value on_value: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::any_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: type_url, value, unknown")) };
-        (@f $a:tt) => { rp_mod_6google8protobuf3Any::rp_rt::stream_visitor!(rp_mod_6google8protobuf3Any AnyVisitor $a) };
+        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::AnyVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf3Any as any_stream;
@@ -2500,19 +2488,17 @@ pub mod stream {
         }
       }
 
-      #[doc(hidden)]
-      pub use super::protobuf as rp_mod_6google8protobuf13SourceContext;
       /// Builds a `SourceContextVisitor` from per-field closures: `source_context_stream! { field => |value| .. }`, or
       /// `source_context_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf13SourceContext {
-        ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf13SourceContext::source_context_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf13SourceContext::source_context_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] file_name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf13SourceContext::source_context_stream!(@f [$($a)* WANT_file_name on_file_name: &'rp_a rp_mod_6google8protobuf13SourceContext::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf13SourceContext::source_context_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf13SourceContext::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::source_context_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::source_context_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] file_name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::source_context_stream!(@f [$($a)* WANT_file_name on_file_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::source_context_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: file_name, unknown")) };
-        (@f $a:tt) => { rp_mod_6google8protobuf13SourceContext::rp_rt::stream_visitor!(rp_mod_6google8protobuf13SourceContext SourceContextVisitor $a) };
+        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::SourceContextVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf13SourceContext as source_context_stream;
@@ -2526,19 +2512,19 @@ pub mod stream {
         fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_fields: bool = false;
         #[inline(always)]
-        fn on_fields(&mut self, _rp_v: Field<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_fields(&mut self, _rp_v: crate::usewkt::stream::google::protobuf::Field<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_oneofs: bool = false;
         #[inline(always)]
         fn on_oneofs(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_options: bool = false;
         #[inline(always)]
-        fn on_options(&mut self, _rp_v: Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_options(&mut self, _rp_v: crate::usewkt::stream::google::protobuf::Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_source_context: bool = false;
         #[inline(always)]
-        fn on_source_context(&mut self, _rp_v: SourceContext<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_source_context(&mut self, _rp_v: crate::usewkt::stream::google::protobuf::SourceContext<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_syntax: bool = false;
         #[inline(always)]
-        fn on_syntax(&mut self, _rp_v: super::super::super::common::google::protobuf::Syntax) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_syntax(&mut self, _rp_v: crate::usewkt::common::google::protobuf::Syntax) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2589,7 +2575,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_fields(self::Field::new(rp_p))? {
+              match rp_vis.on_fields(crate::usewkt::stream::google::protobuf::Field::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2627,7 +2613,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_options(self::Option::new(rp_p))? {
+              match rp_vis.on_options(crate::usewkt::stream::google::protobuf::Option::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2646,7 +2632,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_source_context(self::SourceContext::new(rp_p))? {
+              match rp_vis.on_source_context(crate::usewkt::stream::google::protobuf::SourceContext::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2665,7 +2651,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_syntax(super::super::super::common::google::protobuf::Syntax(rp_v as i32))? {
+              match rp_vis.on_syntax(crate::usewkt::common::google::protobuf::Syntax(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2710,7 +2696,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_fields(self::Field::new(rp_p))? {
+                match rp_vis.on_fields(crate::usewkt::stream::google::protobuf::Field::new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -2732,7 +2718,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_options(self::Option::new(rp_p))? {
+                match rp_vis.on_options(crate::usewkt::stream::google::protobuf::Option::new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -2743,7 +2729,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_source_context(self::SourceContext::new(rp_p))? {
+                match rp_vis.on_source_context(crate::usewkt::stream::google::protobuf::SourceContext::new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -2754,7 +2740,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_syntax(super::super::super::common::google::protobuf::Syntax(rp_v as i32))? {
+                match rp_vis.on_syntax(crate::usewkt::common::google::protobuf::Syntax(rp_v as i32))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -2784,24 +2770,22 @@ pub mod stream {
         }
       }
 
-      #[doc(hidden)]
-      pub use super::protobuf as rp_mod_6google8protobuf4Type;
       /// Builds a `TypeVisitor` from per-field closures: `type_stream! { field => |value| .. }`, or
       /// `type_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf4Type {
-        ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf4Type::type_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf4Type::type_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_6google8protobuf4Type::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] fields => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_fields on_fields: rp_mod_6google8protobuf4Type::Field<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] oneofs => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_oneofs on_oneofs: &'rp_a rp_mod_6google8protobuf4Type::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_options on_options: rp_mod_6google8protobuf4Type::Option<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] source_context => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_source_context on_source_context: rp_mod_6google8protobuf4Type::SourceContext<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] syntax => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_syntax on_syntax: rp_mod_6google8protobuf4Type::rp_stream_ty_0 = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Type::type_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf4Type::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] fields => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_fields on_fields: $crate::usewkt::stream::google::protobuf::Field<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] oneofs => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_oneofs on_oneofs: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_options on_options: $crate::usewkt::stream::google::protobuf::Option<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] source_context => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_source_context on_source_context: $crate::usewkt::stream::google::protobuf::SourceContext<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] syntax => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_syntax on_syntax: $crate::usewkt::common::google::protobuf::Syntax = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, fields, oneofs, options, source_context, syntax, unknown")) };
-        (@f $a:tt) => { rp_mod_6google8protobuf4Type::rp_rt::stream_visitor!(rp_mod_6google8protobuf4Type TypeVisitor $a) };
+        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::TypeVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf4Type as type_stream;
@@ -2812,10 +2796,10 @@ pub mod stream {
       pub trait FieldVisitor<'a> {
         const WANT_kind: bool = false;
         #[inline(always)]
-        fn on_kind(&mut self, _rp_v: super::super::super::common::google::protobuf::field::Kind) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_kind(&mut self, _rp_v: crate::usewkt::common::google::protobuf::field::Kind) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_cardinality: bool = false;
         #[inline(always)]
-        fn on_cardinality(&mut self, _rp_v: super::super::super::common::google::protobuf::field::Cardinality) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_cardinality(&mut self, _rp_v: crate::usewkt::common::google::protobuf::field::Cardinality) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_number: bool = false;
         #[inline(always)]
         fn on_number(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2833,7 +2817,7 @@ pub mod stream {
         fn on_packed(&mut self, _rp_v: bool) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_options: bool = false;
         #[inline(always)]
-        fn on_options(&mut self, _rp_v: Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_options(&mut self, _rp_v: crate::usewkt::stream::google::protobuf::Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_json_name: bool = false;
         #[inline(always)]
         fn on_json_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2871,7 +2855,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_kind(super::super::super::common::google::protobuf::field::Kind(rp_v as i32))? {
+              match rp_vis.on_kind(crate::usewkt::common::google::protobuf::field::Kind(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2890,7 +2874,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_cardinality(super::super::super::common::google::protobuf::field::Cardinality(rp_v as i32))? {
+              match rp_vis.on_cardinality(crate::usewkt::common::google::protobuf::field::Cardinality(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3004,7 +2988,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_options(self::Option::new(rp_p))? {
+              match rp_vis.on_options(crate::usewkt::stream::google::protobuf::Option::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3076,7 +3060,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_kind(super::super::super::common::google::protobuf::field::Kind(rp_v as i32))? {
+                match rp_vis.on_kind(crate::usewkt::common::google::protobuf::field::Kind(rp_v as i32))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -3087,7 +3071,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_cardinality(super::super::super::common::google::protobuf::field::Cardinality(rp_v as i32))? {
+                match rp_vis.on_cardinality(crate::usewkt::common::google::protobuf::field::Cardinality(rp_v as i32))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -3153,7 +3137,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_options(self::Option::new(rp_p))? {
+                match rp_vis.on_options(crate::usewkt::stream::google::protobuf::Option::new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -3205,28 +3189,26 @@ pub mod stream {
         }
       }
 
-      #[doc(hidden)]
-      pub use super::protobuf as rp_mod_6google8protobuf5Field;
       /// Builds a `FieldVisitor` from per-field closures: `field_stream! { field => |value| .. }`, or
       /// `field_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf5Field {
-        ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf5Field::field_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf5Field::field_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] kind => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_kind on_kind: rp_mod_6google8protobuf5Field::rp_stream_ty_1 = $c;] $($r)*) };
-        (@f [$($a:tt)*] cardinality => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_cardinality on_cardinality: rp_mod_6google8protobuf5Field::rp_stream_ty_2 = $c;] $($r)*) };
-        (@f [$($a:tt)*] number => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_number on_number: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_6google8protobuf5Field::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_type_url on_type_url: &'rp_a rp_mod_6google8protobuf5Field::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] oneof_index => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_oneof_index on_oneof_index: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] packed => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_packed on_packed: ::core::primitive::bool = $c;] $($r)*) };
-        (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_options on_options: rp_mod_6google8protobuf5Field::Option<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] json_name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_json_name on_json_name: &'rp_a rp_mod_6google8protobuf5Field::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] default_value => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_default_value on_default_value: &'rp_a rp_mod_6google8protobuf5Field::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf5Field::field_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf5Field::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] kind => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_kind on_kind: $crate::usewkt::common::google::protobuf::field::Kind = $c;] $($r)*) };
+        (@f [$($a:tt)*] cardinality => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_cardinality on_cardinality: $crate::usewkt::common::google::protobuf::field::Cardinality = $c;] $($r)*) };
+        (@f [$($a:tt)*] number => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_number on_number: ::core::primitive::i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_type_url on_type_url: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] oneof_index => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_oneof_index on_oneof_index: ::core::primitive::i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] packed => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_packed on_packed: ::core::primitive::bool = $c;] $($r)*) };
+        (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_options on_options: $crate::usewkt::stream::google::protobuf::Option<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] json_name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_json_name on_json_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] default_value => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_default_value on_default_value: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: kind, cardinality, number, name, type_url, oneof_index, packed, options, json_name, default_value, unknown")) };
-        (@f $a:tt) => { rp_mod_6google8protobuf5Field::rp_rt::stream_visitor!(rp_mod_6google8protobuf5Field FieldVisitor $a) };
+        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::FieldVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf5Field as field_stream;
@@ -3240,16 +3222,16 @@ pub mod stream {
         fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_enumvalue: bool = false;
         #[inline(always)]
-        fn on_enumvalue(&mut self, _rp_v: EnumValue<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_enumvalue(&mut self, _rp_v: crate::usewkt::stream::google::protobuf::EnumValue<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_options: bool = false;
         #[inline(always)]
-        fn on_options(&mut self, _rp_v: Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_options(&mut self, _rp_v: crate::usewkt::stream::google::protobuf::Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_source_context: bool = false;
         #[inline(always)]
-        fn on_source_context(&mut self, _rp_v: SourceContext<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_source_context(&mut self, _rp_v: crate::usewkt::stream::google::protobuf::SourceContext<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_syntax: bool = false;
         #[inline(always)]
-        fn on_syntax(&mut self, _rp_v: super::super::super::common::google::protobuf::Syntax) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_syntax(&mut self, _rp_v: crate::usewkt::common::google::protobuf::Syntax) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3300,7 +3282,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_enumvalue(self::EnumValue::new(rp_p))? {
+              match rp_vis.on_enumvalue(crate::usewkt::stream::google::protobuf::EnumValue::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3319,7 +3301,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_options(self::Option::new(rp_p))? {
+              match rp_vis.on_options(crate::usewkt::stream::google::protobuf::Option::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3338,7 +3320,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_source_context(self::SourceContext::new(rp_p))? {
+              match rp_vis.on_source_context(crate::usewkt::stream::google::protobuf::SourceContext::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3357,7 +3339,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_syntax(super::super::super::common::google::protobuf::Syntax(rp_v as i32))? {
+              match rp_vis.on_syntax(crate::usewkt::common::google::protobuf::Syntax(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3402,7 +3384,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_enumvalue(self::EnumValue::new(rp_p))? {
+                match rp_vis.on_enumvalue(crate::usewkt::stream::google::protobuf::EnumValue::new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -3413,7 +3395,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_options(self::Option::new(rp_p))? {
+                match rp_vis.on_options(crate::usewkt::stream::google::protobuf::Option::new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -3424,7 +3406,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_source_context(self::SourceContext::new(rp_p))? {
+                match rp_vis.on_source_context(crate::usewkt::stream::google::protobuf::SourceContext::new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -3435,7 +3417,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_syntax(super::super::super::common::google::protobuf::Syntax(rp_v as i32))? {
+                match rp_vis.on_syntax(crate::usewkt::common::google::protobuf::Syntax(rp_v as i32))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -3465,23 +3447,21 @@ pub mod stream {
         }
       }
 
-      #[doc(hidden)]
-      pub use super::protobuf as rp_mod_6google8protobuf4Enum;
       /// Builds a `EnumVisitor` from per-field closures: `enum_stream! { field => |value| .. }`, or
       /// `enum_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf4Enum {
-        ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_6google8protobuf4Enum::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] enumvalue => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [$($a)* WANT_enumvalue on_enumvalue: rp_mod_6google8protobuf4Enum::EnumValue<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [$($a)* WANT_options on_options: rp_mod_6google8protobuf4Enum::Option<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] source_context => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [$($a)* WANT_source_context on_source_context: rp_mod_6google8protobuf4Enum::SourceContext<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] syntax => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [$($a)* WANT_syntax on_syntax: rp_mod_6google8protobuf4Enum::rp_stream_ty_0 = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf4Enum::enum_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf4Enum::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] enumvalue => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_enumvalue on_enumvalue: $crate::usewkt::stream::google::protobuf::EnumValue<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_options on_options: $crate::usewkt::stream::google::protobuf::Option<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] source_context => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_source_context on_source_context: $crate::usewkt::stream::google::protobuf::SourceContext<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] syntax => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_syntax on_syntax: $crate::usewkt::common::google::protobuf::Syntax = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, enumvalue, options, source_context, syntax, unknown")) };
-        (@f $a:tt) => { rp_mod_6google8protobuf4Enum::rp_rt::stream_visitor!(rp_mod_6google8protobuf4Enum EnumVisitor $a) };
+        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::EnumVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf4Enum as enum_stream;
@@ -3498,7 +3478,7 @@ pub mod stream {
         fn on_number(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_options: bool = false;
         #[inline(always)]
-        fn on_options(&mut self, _rp_v: Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_options(&mut self, _rp_v: crate::usewkt::stream::google::protobuf::Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3568,7 +3548,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_options(self::Option::new(rp_p))? {
+              match rp_vis.on_options(crate::usewkt::stream::google::protobuf::Option::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3624,7 +3604,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_options(self::Option::new(rp_p))? {
+                match rp_vis.on_options(crate::usewkt::stream::google::protobuf::Option::new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -3654,21 +3634,19 @@ pub mod stream {
         }
       }
 
-      #[doc(hidden)]
-      pub use super::protobuf as rp_mod_6google8protobuf9EnumValue;
       /// Builds a `EnumValueVisitor` from per-field closures: `enum_value_stream! { field => |value| .. }`, or
       /// `enum_value_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf9EnumValue {
-        ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_6google8protobuf9EnumValue::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] number => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_number on_number: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_options on_options: rp_mod_6google8protobuf9EnumValue::Option<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf9EnumValue::enum_value_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf9EnumValue::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] number => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [$($a)* WANT_number on_number: ::core::primitive::i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [$($a)* WANT_options on_options: $crate::usewkt::stream::google::protobuf::Option<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, number, options, unknown")) };
-        (@f $a:tt) => { rp_mod_6google8protobuf9EnumValue::rp_rt::stream_visitor!(rp_mod_6google8protobuf9EnumValue EnumValueVisitor $a) };
+        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::EnumValueVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf9EnumValue as enum_value_stream;
@@ -3682,7 +3660,7 @@ pub mod stream {
         fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_value: bool = false;
         #[inline(always)]
-        fn on_value(&mut self, _rp_v: Any<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_value(&mut self, _rp_v: crate::usewkt::stream::google::protobuf::Any<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3733,7 +3711,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_value(self::Any::new(rp_p))? {
+              match rp_vis.on_value(crate::usewkt::stream::google::protobuf::Any::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3778,7 +3756,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_value(self::Any::new(rp_p))? {
+                match rp_vis.on_value(crate::usewkt::stream::google::protobuf::Any::new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -3808,20 +3786,18 @@ pub mod stream {
         }
       }
 
-      #[doc(hidden)]
-      pub use super::protobuf as rp_mod_6google8protobuf6Option;
       /// Builds a `OptionVisitor` from per-field closures: `option_stream! { field => |value| .. }`, or
       /// `option_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf6Option {
-        ($($f:ident => $c:expr),* $(,)?) => { rp_mod_6google8protobuf6Option::option_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_6google8protobuf6Option::option_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf6Option::option_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_6google8protobuf6Option::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf6Option::option_stream!(@f [$($a)* WANT_value on_value: rp_mod_6google8protobuf6Option::Any<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_6google8protobuf6Option::option_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_6google8protobuf6Option::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::option_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::option_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::option_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::option_stream!(@f [$($a)* WANT_value on_value: $crate::usewkt::stream::google::protobuf::Any<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::option_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, value, unknown")) };
-        (@f $a:tt) => { rp_mod_6google8protobuf6Option::rp_rt::stream_visitor!(rp_mod_6google8protobuf6Option OptionVisitor $a) };
+        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::OptionVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf6Option as option_stream;
@@ -3829,28 +3805,19 @@ pub mod stream {
   }
 
   pub mod uw {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-    #[doc(hidden)]
-    pub type rp_stream_ty_0<'a> = super::google::protobuf::Timestamp<'a>;
-    #[doc(hidden)]
-    pub type rp_stream_ty_1<'a> = super::google::protobuf::Duration<'a>;
-    #[doc(hidden)]
-    pub type rp_stream_ty_2<'a> = super::google::protobuf::Type<'a>;
-
     /// Streaming visitor for `Event`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `event_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait EventVisitor<'a> {
       const WANT_at: bool = false;
       #[inline(always)]
-      fn on_at(&mut self, _rp_v: super::google::protobuf::Timestamp<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_at(&mut self, _rp_v: crate::usewkt::stream::google::protobuf::Timestamp<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_took: bool = false;
       #[inline(always)]
-      fn on_took(&mut self, _rp_v: super::google::protobuf::Duration<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_took(&mut self, _rp_v: crate::usewkt::stream::google::protobuf::Duration<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_shape: bool = false;
       #[inline(always)]
-      fn on_shape(&mut self, _rp_v: super::google::protobuf::Type<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_shape(&mut self, _rp_v: crate::usewkt::stream::google::protobuf::Type<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3882,7 +3849,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_at(super::google::protobuf::Timestamp::new(rp_p))? {
+            match rp_vis.on_at(crate::usewkt::stream::google::protobuf::Timestamp::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -3901,7 +3868,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_took(super::google::protobuf::Duration::new(rp_p))? {
+            match rp_vis.on_took(crate::usewkt::stream::google::protobuf::Duration::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -3920,7 +3887,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_shape(super::google::protobuf::Type::new(rp_p))? {
+            match rp_vis.on_shape(crate::usewkt::stream::google::protobuf::Type::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -3954,7 +3921,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_at(super::google::protobuf::Timestamp::new(rp_p))? {
+              match rp_vis.on_at(crate::usewkt::stream::google::protobuf::Timestamp::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3965,7 +3932,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_took(super::google::protobuf::Duration::new(rp_p))? {
+              match rp_vis.on_took(crate::usewkt::stream::google::protobuf::Duration::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3976,7 +3943,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_shape(super::google::protobuf::Type::new(rp_p))? {
+              match rp_vis.on_shape(crate::usewkt::stream::google::protobuf::Type::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -4006,21 +3973,19 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::uw as rp_mod_2uw5Event;
     /// Builds a `EventVisitor` from per-field closures: `event_stream! { field => |value| .. }`, or
     /// `event_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_6usewkt_2uw5Event {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2uw5Event::event_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2uw5Event::event_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] at => $c:expr, $($r:tt)*) => { rp_mod_2uw5Event::event_stream!(@f [$($a)* WANT_at on_at: rp_mod_2uw5Event::rp_stream_ty_0<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] took => $c:expr, $($r:tt)*) => { rp_mod_2uw5Event::event_stream!(@f [$($a)* WANT_took on_took: rp_mod_2uw5Event::rp_stream_ty_1<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] shape => $c:expr, $($r:tt)*) => { rp_mod_2uw5Event::event_stream!(@f [$($a)* WANT_shape on_shape: rp_mod_2uw5Event::rp_stream_ty_2<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2uw5Event::event_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2uw5Event::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::uw::event_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::uw::event_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] at => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::uw::event_stream!(@f [$($a)* WANT_at on_at: $crate::usewkt::stream::google::protobuf::Timestamp<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] took => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::uw::event_stream!(@f [$($a)* WANT_took on_took: $crate::usewkt::stream::google::protobuf::Duration<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] shape => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::uw::event_stream!(@f [$($a)* WANT_shape on_shape: $crate::usewkt::stream::google::protobuf::Type<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::uw::event_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: at, took, shape, unknown")) };
-      (@f $a:tt) => { rp_mod_2uw5Event::rp_rt::stream_visitor!(rp_mod_2uw5Event EventVisitor $a) };
+      (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::uw::EventVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_6usewkt_2uw5Event as event_stream;

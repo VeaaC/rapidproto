@@ -133,6 +133,8 @@ struct EnumNames {
     std::string class_name;  // the `<Name>Class` classify-enum identifier
 };
 struct NameTable {
+    std::string root;  // the module the file is included at: `crate` or `crate::<path>`
+    std::string tree;  // the model tree being emitted: `arena` or `stream`
     std::unordered_map<std::string, MsgNames> messages;  // message FQN -> names
     std::unordered_map<std::string, EnumNames> enums;    // enum FQN -> names
     // A oneof's enum type name (e.g. `Payload`), keyed by the OneofNode (oneofs carry no FQN). The
@@ -245,8 +247,7 @@ void build_names_for_node(const PkgTrie& node, std::vector<std::string>& module,
 }
 
 // Build the name table over the whole generation (the import closure). Every type's module path +
-// name is recorded, so a reference across files or packages resolves through the same `super::`
-// machinery as an intra-file one.
+// name is recorded, so a reference across files or packages is written like an intra-file one.
 NameTable build_name_table(const PkgTrie& root) {
     NameTable table;
     std::vector<std::string> module;
@@ -388,65 +389,52 @@ std::string rust_scalar_type(std::string_view t) {
     return "()";  // defensive: not reached for a resolved scalar field
 }
 
-// `current_mod` is the module segment list of the message whose `impl` is being emitted, relative to
-// its model root (`arena`/`common`): package components + one snake module per enclosing message.
+// Every reference to a generated type is an absolute path from the module the file is included at, so
+// it reads the same from anywhere in the tree, and no schema name in between can capture it.
 //
 // The two path helpers look the target up in the name table. `.at`: every referenced type is in the
 // table, so a miss is a generator invariant breach (e.g. a cross-file reference before the table is
 // built over the import closure) and aborts rather than silently emitting a wrong path.
 
-// A reference from inside the arena tree (at `current_mod`) to an ENUM in the sibling `common` tree.
-// Climb `super` out to the shared include root (past the `arena` root + `current_mod`), then descend
-// `common`. Enum newtypes carry no lifetime.
-std::string common_type_path(const NameTable& table, const std::vector<std::string>& current_mod,
-                             const std::string& fqn) {
-    const EnumNames& loc = table.enums.at(fqn);
-    std::string out;
-    for (std::size_t i = 0; i < 1 + current_mod.size(); ++i) {
-        out += "super::";
-    }
-    out += "common";
-    for (const std::string& seg : loc.module) {
+// The path to a module of model tree `tree`.
+std::string tree_module_path(const NameTable& table, const std::string& tree,
+                             const std::vector<std::string>& module) {
+    std::string out = table.root + "::" + tree;
+    for (const std::string& seg : module) {
         out += "::";
         out += seg;
     }
-    out += "::";
-    out += loc.type_name;
     return out;
 }
 
-// A reference WITHIN the arena tree from `current_mod` to the message at `fqn`: climb `super` past the
-// non-shared tail of `current_mod`, then descend to the target. Same-module -> just the name.
-std::string arena_message_path(const NameTable& table, const std::vector<std::string>& current_mod,
-                               const std::string& fqn) {
+// The path to an ENUM, which lives in the `common` tree. Enum newtypes carry no lifetime.
+std::string common_type_path(const NameTable& table, const std::string& fqn) {
+    const EnumNames& loc = table.enums.at(fqn);
+    return tree_module_path(table, "common", loc.module) + "::" + loc.type_name;
+}
+
+// The path to a message in the tree being emitted, without its lifetime.
+std::string message_path(const NameTable& table, const std::string& fqn) {
     const MsgNames& loc = table.messages.at(fqn);
-    std::size_t common = 0;
-    while (common < current_mod.size() && common < loc.module.size() &&
-           current_mod[common] == loc.module[common]) {
-        ++common;
-    }
-    std::string out;
-    for (std::size_t i = common; i < current_mod.size(); ++i) {
-        out += "super::";
-    }
-    for (std::size_t i = common; i < loc.module.size(); ++i) {
-        out += loc.module[i];
-        out += "::";
-    }
-    out += loc.type_name;
-    return out;
+    return tree_module_path(table, table.tree, loc.module) + "::" + loc.type_name;
+}
+
+// The path to a oneof's enum, which lives in its message's submodule, without its lifetime.
+std::string oneof_path(const NameTable& table, const MessageNode& msg, const OneofNode& oneof) {
+    const MsgNames& loc = table.messages.at(msg.fqn);
+    return tree_module_path(table, table.tree, loc.module) + "::" + loc.submodule +
+           "::" + table.oneofs.at(&oneof);
 }
 
 // The Rust type of a field's singular VALUE as a decoded message stores it, ignoring repeated/presence
 // wrapping: scalar -> a Rust primitive, enum -> the common-tree path, string -> PackedStr<'a>, bytes ->
 // PackedSlice<'a, u8>, message -> the arena-tree path with its lifetime (`Inner<'a>`).
-std::string field_value_type(const NameTable& table, const std::vector<std::string>& current_mod,
-                             const FieldNode& field) {
+std::string field_value_type(const NameTable& table, const FieldNode& field) {
     if (field.is_message_type) {
-        return arena_message_path(table, current_mod, field.resolved_type_fqn) + "<'a>";
+        return message_path(table, field.resolved_type_fqn) + "<'a>";
     }
     if (field.is_enum_type) {
-        return common_type_path(table, current_mod, field.resolved_type_fqn);
+        return common_type_path(table, field.resolved_type_fqn);
     }
     return rust_scalar_type(field.type_name);
 }
@@ -460,25 +448,22 @@ bool is_string_or_bytes(const FieldNode& field) {
 
 // The type a singular getter returns for `field`'s value: a string or `bytes` cell is handed out as
 // the `&'a ProtoStr` / `&'a [u8]` it holds; any other value as stored.
-std::string public_value_type(const NameTable& table, const std::vector<std::string>& current_mod,
-                              const FieldNode& field) {
+std::string public_value_type(const NameTable& table, const FieldNode& field) {
     if (is_string_or_bytes(field)) {
         return field.type_name == "string" ? "&'a ::rapidproto::ProtoStr" : "&'a [u8]";
     }
-    return field_value_type(table, current_mod, field);
+    return field_value_type(table, field);
 }
 
 // The type carried by a oneof variant for `field`: a singular message is borrowed (`&'a T<'a>`, like
 // a singular message FIELD); everything else is the stored value type (PackedStr<'a>,
 // PackedSlice<'a, u8>, the enum newtype, or a scalar primitive). Oneof fields are never repeated or
 // maps.
-std::string variant_payload_type(const NameTable& table,
-                                 const std::vector<std::string>& current_mod,
-                                 const FieldNode& field) {
+std::string variant_payload_type(const NameTable& table, const FieldNode& field) {
     if (field.is_message_type) {
-        return "&'a " + field_value_type(table, current_mod, field);
+        return "&'a " + field_value_type(table, field);
     }
-    return field_value_type(table, current_mod, field);
+    return field_value_type(table, field);
 }
 
 // Does any variant of `oneof` borrow the input, so the enum needs a `<'a>`? Message, string and bytes
@@ -489,24 +474,22 @@ bool oneof_borrows(const OneofNode& oneof) {
     });
 }
 
-// Emit `pub enum <Name>['a] { Variant(T), .. }` for one oneof, in the owning message's arena submodule
-// (`current_mod` is that submodule, so variant type paths resolve from there). The enum is closed (not
+// Emit `pub enum <Name>['a] { Variant(T), .. }` for one oneof, in the owning message's arena submodule.
+// The enum is closed (not
 // `#[non_exhaustive]`): a oneof has a fixed variant set, and an off-list wire field is just an unknown
 // field, not a new case. The `<'a>` is present only when a variant borrows -- an enum cannot carry an
 // unused lifetime without a bogus phantom variant, unlike a struct's PhantomData field. No `Copy`
 // derive: the oneof getter hands back a borrow (`Option<&Payload>`), matching C++ (a reference into the
 // union, no copy) and keeping `Copy` off the public API -- deriving it would be a hard-to-revert
 // commitment, and `Copy` is for cheap integer-like values, not a sum type.
-void emit_oneof_enum(Printer& printer, const NameTable& table,
-                     const std::vector<std::string>& current_mod, const OneofNode& oneof) {
+void emit_oneof_enum(Printer& printer, const NameTable& table, const OneofNode& oneof) {
     const std::vector<std::string> variants = oneof_variant_names(oneof);
     printer.print("pub enum $n$$lt$ {\n",
                   {{"n", table.oneofs.at(&oneof)}, {"lt", oneof_borrows(oneof) ? "<'a>" : ""}});
     printer.indent();
     for (std::size_t i = 0; i < oneof.fields.size(); ++i) {
-        printer.print(
-            "$v$($t$),\n",
-            {{"v", variants[i]}, {"t", variant_payload_type(table, current_mod, oneof.fields[i])}});
+        printer.print("$v$($t$),\n",
+                      {{"v", variants[i]}, {"t", variant_payload_type(table, oneof.fields[i])}});
     }
     printer.outdent();
     printer.print("}\n");
@@ -733,12 +716,10 @@ bool slice_local(const FieldNode& field) {
 // its undecoded LEN payload instead of the decoded tree, in the `bytes` cell: `Option<PackedSlice<'a,
 // u8>>` singular (still 12 bytes, `None` being the null pointer), a `PackedSlice` of them repeated (the
 // consumer feeds a payload to the field type's `decode` itself).
-std::string field_storage_type(const NameTable& table, const std::vector<std::string>& current_mod,
-                               const FieldNode& field, const FieldModes& modes,
-                               const arenagen::MemberPlan* member) {
+std::string field_storage_type(const NameTable& table, const FieldNode& field,
+                               const FieldModes& modes, const arenagen::MemberPlan* member) {
     const bool raw = field_mode(modes, field) == arenagen::FieldMode::Raw;
-    std::string value =
-        raw ? rust_scalar_type("bytes") : field_value_type(table, current_mod, field);
+    std::string value = raw ? rust_scalar_type("bytes") : field_value_type(table, field);
     if (field.is_repeated) {
         return "::rapidproto::PackedSlice<'a, " + value + ">";
     }
@@ -759,17 +740,16 @@ std::string field_storage_type(const NameTable& table, const std::vector<std::st
 // -> the `&'a ProtoStr` / `&'a [u8]` it holds; repeated -> the plain slice its `PackedSlice` holds
 // (of cells, for strings and `bytes`); raw -> `Option<&'a [u8]>` singular, a slice of `bytes` cells
 // repeated.
-std::string field_getter_type(const NameTable& table, const std::vector<std::string>& current_mod,
-                              const FieldNode& field, const FieldModes& modes,
-                              const arenagen::MemberPlan* member) {
+std::string field_getter_type(const NameTable& table, const FieldNode& field,
+                              const FieldModes& modes, const arenagen::MemberPlan* member) {
     if (field_mode(modes, field) == arenagen::FieldMode::Raw) {
         return field.is_repeated ? "&'a [" + rust_scalar_type("bytes") + "]"
                                  : "::core::option::Option<&'a [u8]>";
     }
     if (field.is_repeated) {
-        return "&'a [" + field_value_type(table, current_mod, field) + "]";
+        return "&'a [" + field_value_type(table, field) + "]";
     }
-    std::string value = public_value_type(table, current_mod, field);
+    std::string value = public_value_type(table, field);
     switch (rust_store(member, field)) {
         case RustStore::PointerMsg:
             // A Copy arena borrow, outlives `&self`.
@@ -794,8 +774,8 @@ std::string field_getter_type(const NameTable& table, const std::vector<std::str
 // (shared by Bare and masked-with-a-presence-bit fields -- the presence bit, not the value, records
 // absence). A proto2 `[default = ...]` is not materialized (matching the C++ decoder). A bool has no
 // local (it lives in the mask). Repeated fields use a `DecodeVec`, not this.
-std::string field_default_expr(const NameTable& table, const std::vector<std::string>& current_mod,
-                               const FieldNode& field, const arenagen::MemberPlan* member) {
+std::string field_default_expr(const NameTable& table, const FieldNode& field,
+                               const arenagen::MemberPlan* member) {
     switch (rust_store(member, field)) {
         case RustStore::PointerMsg:
             return "::core::option::Option::None";
@@ -807,7 +787,7 @@ std::string field_default_expr(const NameTable& table, const std::vector<std::st
             break;
     }
     if (field.is_enum_type) {
-        return field_value_type(table, current_mod, field) + "(0)";
+        return field_value_type(table, field) + "(0)";
     }
     const std::string& t = field.type_name;
     if (t == "string") {
@@ -880,10 +860,9 @@ std::string raw_tag_key(std::int64_t number, const std::string& wire) {
 // The expression converting the just-read raw wire value (`rp_v`: u64 for Varint, u32 for I32, u64 for
 // I64; `rp_p`: &[u8] for Len) into the field's Rust value type, as a decoded message stores it (a
 // string or `bytes` value in its 12-byte cell; see `stream_convert_expr` for the streaming decoder).
-std::string scalar_convert_expr(const NameTable& table, const std::vector<std::string>& current_mod,
-                                const FieldNode& field) {
+std::string scalar_convert_expr(const NameTable& table, const FieldNode& field) {
     if (field.is_enum_type) {
-        return field_value_type(table, current_mod, field) + "(rp_v as i32)";
+        return field_value_type(table, field) + "(rp_v as i32)";
     }
     const std::string& t = field.type_name;
     // `rp_v` is u64 for a Varint field, u32 for an I32 (fixed32) field, u64 for an I64 (fixed64)
@@ -927,23 +906,21 @@ std::string scalar_convert_expr(const NameTable& table, const std::vector<std::s
 // `scalar_convert_expr` for the streaming decoder, whose handlers take a string as `&'a ProtoStr` and
 // `bytes` as `&'a [u8]`, never a 12-byte cell: a stream has no input size limit, so its lengths stay
 // full width.
-std::string stream_convert_expr(const NameTable& table, const std::vector<std::string>& current_mod,
-                                const FieldNode& field) {
+std::string stream_convert_expr(const NameTable& table, const FieldNode& field) {
     if (is_string_or_bytes(field)) {
         return field.type_name == "string" ? "::rapidproto::ProtoStr::new(rp_p)" : "rp_p";
     }
-    return scalar_convert_expr(table, current_mod, field);
+    return scalar_convert_expr(table, field);
 }
 
 // Emit a `pub fn <field>(&self) -> ...` accessor. The return type is the SEMANTIC presence-wrapped
 // type; the body reads the bare storage and -- for presence/bool-packed fields -- tests the
 // `rp_presence` mask (set-index == test-index, both from the shared planner's bit assignment).
 // `mask_bits` is the message's Rust mask width.
-void emit_field_accessor(Printer& printer, const NameTable& table,
-                         const std::vector<std::string>& current_mod, const FieldNode& field,
+void emit_field_accessor(Printer& printer, const NameTable& table, const FieldNode& field,
                          const std::string& accessor, const FieldModes& modes,
                          const arenagen::MemberPlan* member, int mask_bits) {
-    const std::string ret = field_getter_type(table, current_mod, field, modes, member);
+    const std::string ret = field_getter_type(table, field, modes, member);
     printer.print("pub fn $a$(&self) -> $t$ {\n", {{"a", accessor}, {"t", ret}});
     printer.indent();
     const RustStore store = rust_store(member, field);
@@ -1003,53 +980,46 @@ void emit_field_accessor(Printer& printer, const NameTable& table,
 
 // The struct storage (= getter return) type for one map field: a borrowed `MapView<'a, K, V>`. Keys
 // are scalar; a message value is stored inline by value (`Inner<'a>`), like a repeated-message element.
-std::string map_view_type(const NameTable& table, const std::vector<std::string>& current_mod,
-                          const MapFieldNode& map) {
+std::string map_view_type(const NameTable& table, const MapFieldNode& map) {
     const std::string key = rust_scalar_type(map.key_type);
     std::string value;
     if (map.value_is_message) {
-        value = arena_message_path(table, current_mod, map.resolved_value_type_fqn) + "<'a>";
+        value = message_path(table, map.resolved_value_type_fqn) + "<'a>";
     } else if (map.value_is_enum) {
-        value = common_type_path(table, current_mod, map.resolved_value_type_fqn);
+        value = common_type_path(table, map.resolved_value_type_fqn);
     } else {
         value = rust_scalar_type(map.value_type);
     }
     return "::rapidproto::MapView<'a, " + key + ", " + value + ">";
 }
 
-// The struct storage (= getter return) type for one oneof: `Option<<submodule>::<Enum>['a]>` (None =
-// unset). The `<'a>` is present only when a variant borrows (matching the enum definition). `submodule`
-// is the owning message's (always non-empty, since a message with a oneof has a submodule).
-std::string oneof_storage_type(const NameTable& table, const OneofNode& oneof,
-                               const std::string& submodule) {
-    return "::core::option::Option<" + submodule + "::" + table.oneofs.at(&oneof) +
+// The struct storage (= getter return) type for one oneof: `Option<<Enum>['a]>` (None = unset). The
+// `<'a>` is present only when a variant borrows (matching the enum definition).
+std::string oneof_storage_type(const NameTable& table, const MessageNode& msg,
+                               const OneofNode& oneof) {
+    return "::core::option::Option<" + oneof_path(table, msg, oneof) +
            (oneof_borrows(oneof) ? "<'a>" : "") + ">";
 }
 
 // Emit a `pub fn <map>(&self) -> MapView<'a, K, V>` accessor reading the stored view. `accessor` is
 // the pre-deduped name.
-void emit_map_accessor(Printer& printer, const NameTable& table,
-                       const std::vector<std::string>& current_mod, const MapFieldNode& map,
+void emit_map_accessor(Printer& printer, const NameTable& table, const MapFieldNode& map,
                        const std::string& accessor) {
     printer.print("pub fn $a$(&self) -> $t$ {\n",
-                  {{"a", accessor}, {"t", map_view_type(table, current_mod, map)}});
+                  {{"a", accessor}, {"t", map_view_type(table, map)}});
     printer.indent();
     printer.print("self.$a$\n", {{"a", accessor}});
     printer.outdent();
     printer.print("}\n");
 }
 
-// Emit a `pub fn <oneof>(&self) -> Option<&<submodule>::Payload['a]>` accessor (None = unset),
-// borrowing the stored enum (`as_ref`). The getter hands back a reference -- the oneof is not `Copy`
-// (see `emit_oneof_enum`) -- so matching binds the variant payloads by reference. The oneof enum lives
-// in this message's own submodule. `accessor` is the pre-deduped method name.
-// NOLINTBEGIN(bugprone-easily-swappable-parameters): accessor (method name) vs submodule (module path)
-void emit_oneof_accessor(Printer& printer, const NameTable& table, const OneofNode& oneof,
-                         const std::string& accessor, const std::string& submodule) {
-    // NOLINTEND(bugprone-easily-swappable-parameters)
-    const std::string ret = "::core::option::Option<&" + submodule +
-                            "::" + table.oneofs.at(&oneof) + (oneof_borrows(oneof) ? "<'a>" : "") +
-                            ">";
+// Emit a `pub fn <oneof>(&self) -> Option<&Payload['a]>` accessor (None = unset), borrowing the stored
+// enum (`as_ref`). The getter hands back a reference -- the oneof is not `Copy` (see `emit_oneof_enum`)
+// -- so matching binds the variant payloads by reference. `accessor` is the pre-deduped method name.
+void emit_oneof_accessor(Printer& printer, const NameTable& table, const MessageNode& msg,
+                         const OneofNode& oneof, const std::string& accessor) {
+    const std::string ret = "::core::option::Option<&" + oneof_path(table, msg, oneof) +
+                            (oneof_borrows(oneof) ? "<'a>" : "") + ">";
     printer.print("pub fn $a$(&self) -> $t$ {\n", {{"a", accessor}, {"t", ret}});
     printer.indent();
     printer.print("self.$a$.as_ref()\n", {{"a", accessor}});
@@ -1223,11 +1193,10 @@ void emit_peek_hub(Printer& printer, const ReadAt& at, const std::string& tag) {
 // IS the native byte image), else a per-element read reports an exact truncation error.
 // Body of the packed (length-delimited run) decode for a repeated numeric field (no arm wrapper),
 // shared by the hub `(n,Len)` arm and the threaded prologue's packed probe.
-void emit_packed_body(Printer& printer, const NameTable& table,
-                      const std::vector<std::string>& current_mod, const FieldNode& field) {
+void emit_packed_body(Printer& printer, const NameTable& table, const FieldNode& field) {
     const std::string acc = "rp_acc_" + std::to_string(field.number);
     const std::string wire = scalar_wire_variant(field);
-    const std::string conv = scalar_convert_expr(table, current_mod, field);
+    const std::string conv = scalar_convert_expr(table, field);
     emit_len_read(printer, loop_read());
     if (wire == "Varint") {
         // Packed varint: the width-classified SWAR kernel (large spans) / scalar loop (small) reserves
@@ -1263,11 +1232,10 @@ void emit_packed_body(Printer& printer, const NameTable& table,
 // Emit the packed arm for a repeated numeric field (body shared with the threaded prologue). Pre-sizes
 // the accumulator from the span before the fill -- the Rust mirror of the C++ decoder's standalone
 // `emit_packed_fill`.
-void emit_packed_arm(Printer& printer, const NameTable& table,
-                     const std::vector<std::string>& current_mod, const FieldNode& field) {
+void emit_packed_arm(Printer& printer, const NameTable& table, const FieldNode& field) {
     printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
     printer.indent();
-    emit_packed_body(printer, table, current_mod, field);
+    emit_packed_body(printer, table, field);
     printer.outdent();
     printer.print("}\n");
 }
@@ -1276,12 +1244,10 @@ void emit_packed_arm(Printer& printer, const NameTable& table,
 // the accumulator -- a numeric value, a string/bytes payload, or a sub-message decoded into the growable
 // slot. Shared by the hub arm and the threaded prologue's element self-loop (both read `rp_rest` via
 // `loop_read()`), so the element decode cannot drift.
-void emit_repeated_native_body(Printer& printer, const NameTable& table,
-                               const std::vector<std::string>& current_mod,
-                               const FieldNode& field) {
+void emit_repeated_native_body(Printer& printer, const NameTable& table, const FieldNode& field) {
     const std::string acc = "rp_acc_" + std::to_string(field.number);
     if (field.is_message_type) {
-        const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
+        const std::string path = message_path(table, field.resolved_type_fqn);
         emit_msg_payload_read(printer, field, loop_read());
         printer.print(
             "$acc$.emplace(|rp_out| $p$::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;\n",
@@ -1289,7 +1255,7 @@ void emit_repeated_native_body(Printer& printer, const NameTable& table,
         return;
     }
     const std::string wire = scalar_wire_variant(field);
-    const std::string conv = scalar_convert_expr(table, current_mod, field);
+    const std::string conv = scalar_convert_expr(table, field);
     if (wire == "Len") {
         emit_len_read(printer, loop_read());
     } else {
@@ -1316,12 +1282,11 @@ std::string map_local(const MapFieldNode& map) {
 // behind a pointer (`emplace`, presence = `Option` is `Some`) -- and record presence/required. Shared
 // by the hub `(n,Len)` arm and the threaded prologue; both operate on `rp_rest` (`loop_read()`), so the
 // body is identical either way.
-void emit_singular_message_body(Printer& printer, const NameTable& table,
-                                const std::vector<std::string>& current_mod, const FieldNode& field,
+void emit_singular_message_body(Printer& printer, const NameTable& table, const FieldNode& field,
                                 bool required, const arenagen::MemberPlan* member, int mask_bits) {
     const std::string local = field_local(field);
     const std::string nstr = std::to_string(field.number);
-    const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
+    const std::string path = message_path(table, field.resolved_type_fqn);
     const bool inlined = rust_store(member, field) == RustStore::InlineMsg;
     const bool inlined_masked =
         inlined && member->presence_bit >= 0;  // Explicit: mask-bit presence
@@ -1372,12 +1337,11 @@ void emit_singular_message_body(Printer& printer, const NameTable& table,
 
 // Emit the `(n, Len) => { .. }` arm for a singular materialized message field (body shared with the
 // threaded prologue). A second occurrence is rejected (matching C++).
-void emit_singular_message_arm(Printer& printer, const NameTable& table,
-                               const std::vector<std::string>& current_mod, const FieldNode& field,
+void emit_singular_message_arm(Printer& printer, const NameTable& table, const FieldNode& field,
                                bool required, const arenagen::MemberPlan* member, int mask_bits) {
     printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, message_field_wire(field))}});
     printer.indent();
-    emit_singular_message_body(printer, table, current_mod, field, required, member, mask_bits);
+    emit_singular_message_body(printer, table, field, required, member, mask_bits);
     printer.outdent();
     printer.print("}\n");
 }
@@ -1387,14 +1351,12 @@ void emit_singular_message_arm(Printer& printer, const NameTable& table,
 // if explicit, presence) mask bits. Then set the proto2 `required` seen-flag. Shared by the general
 // match arm and the threaded prologue so the two cannot drift on storage semantics;
 // `member`/`mask_bits` drive the presence/bool mask.
-void emit_singular_scalar_store(Printer& printer, const NameTable& table,
-                                const std::vector<std::string>& current_mod, const FieldNode& field,
+void emit_singular_scalar_store(Printer& printer, const NameTable& table, const FieldNode& field,
                                 bool required, const arenagen::MemberPlan* member, int mask_bits,
                                 const ReadAt& at) {
     const std::string local = field_local(field);
     // A string/bytes local holds the slice it read (see `slice_local`).
-    const std::string conv =
-        slice_local(field) ? "rp_p" : scalar_convert_expr(table, current_mod, field);
+    const std::string conv = slice_local(field) ? "rp_p" : scalar_convert_expr(table, field);
     const auto set_bit = [&](int bit) {
         return mask_word_at("rp_presence", bit, mask_bits) + " |= 1 << " +
                std::to_string(mask_bit_pos(bit, mask_bits)) + ";\n";
@@ -1446,8 +1408,7 @@ void emit_singular_scalar_store(Printer& printer, const NameTable& table,
 // into the field's local (field_local) or pushing into its accumulator (`rp_acc_<n>`). A singular
 // message is decoded in place (see emit_singular_message_arm); a repeated message's element is decoded
 // into the growable array slot. A singular message seen twice is rejected (matching C++).
-void emit_field_arms(Printer& printer, const NameTable& table,
-                     const std::vector<std::string>& current_mod, const FieldNode& field,
+void emit_field_arms(Printer& printer, const NameTable& table, const FieldNode& field,
                      bool required, const FieldModes& modes, const arenagen::MemberPlan* member,
                      int mask_bits) {
     const std::string nstr = std::to_string(field.number);
@@ -1492,13 +1453,13 @@ void emit_field_arms(Printer& printer, const NameTable& table,
     }
 
     if (field.is_message_type && !field.is_repeated) {
-        emit_singular_message_arm(printer, table, current_mod, field, required, member, mask_bits);
+        emit_singular_message_arm(printer, table, field, required, member, mask_bits);
         return;
     }
     if (field.is_message_type && field.is_repeated) {
         printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, message_field_wire(field))}});
         printer.indent();
-        emit_repeated_native_body(printer, table, current_mod, field);  // one element -> array slot
+        emit_repeated_native_body(printer, table, field);  // one element -> array slot
         printer.outdent();
         printer.print("}\n");
         return;
@@ -1510,16 +1471,16 @@ void emit_field_arms(Printer& printer, const NameTable& table,
         // length-delimited run of values). proto permits mixing both on the wire.
         printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
         printer.indent();
-        emit_repeated_native_body(printer, table, current_mod, field);
+        emit_repeated_native_body(printer, table, field);
         printer.outdent();
         printer.print("}\n");
-        emit_packed_arm(printer, table, current_mod, field);
+        emit_packed_arm(printer, table, field);
         return;
     }
     if (field.is_repeated) {  // repeated string/bytes (wire == Len, not packable)
         printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
         printer.indent();
-        emit_repeated_native_body(printer, table, current_mod, field);
+        emit_repeated_native_body(printer, table, field);
         printer.outdent();
         printer.print("}\n");
         return;
@@ -1527,8 +1488,7 @@ void emit_field_arms(Printer& printer, const NameTable& table,
     // Singular scalar / enum / string / bytes.
     printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
     printer.indent();
-    emit_singular_scalar_store(printer, table, current_mod, field, required, member, mask_bits,
-                               loop_read());
+    emit_singular_scalar_store(printer, table, field, required, member, mask_bits, loop_read());
     printer.outdent();
     printer.print("}\n");
 }
@@ -1561,17 +1521,16 @@ FieldNode map_value_field(const MapFieldNode& map) {
 // occurrences of the same sub-message would be merged by protobuf, which a read-only tree cannot do, so
 // last-wins there would hand back a value differing from protobuf (matching the C++ decoder and the
 // singular-message-field / map-value rules). An intervening different member clears the slot, so that
-// later occurrence starts fresh and keeps the plain last-wins. `enum_path` is the `<submodule>::<Enum>`
-// prefix; a message variant carries a borrowed `&'a T` (arena-allocated).
+// later occurrence starts fresh and keeps the plain last-wins. `enum_path` is the path to the oneof's
+// enum; a message variant carries a borrowed `&'a T` (arena-allocated).
 // Body of one oneof member decode (no arm wrapper), shared by the hub arm and the threaded prologue
 // (both read from `rp_rest` via `loop_read()`).
-void emit_oneof_body(Printer& printer, const NameTable& table,
-                     const std::vector<std::string>& current_mod, const FieldNode& field,
+void emit_oneof_body(Printer& printer, const NameTable& table, const FieldNode& field,
                      const std::string& oneof_local, const std::string& enum_path,
                      const std::string& variant) {
     const std::string nstr = std::to_string(field.number);
     if (field.is_message_type) {
-        const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
+        const std::string path = message_path(table, field.resolved_type_fqn);
         printer.print("if ::core::matches!($l$, ::core::option::Option::Some($e$::$v$(_))) {\n",
                       {{"l", oneof_local}, {"e", enum_path}, {"v", variant}});
         printer.indent();
@@ -1593,7 +1552,7 @@ void emit_oneof_body(Printer& printer, const NameTable& table,
         return;
     }
     const std::string wire = scalar_wire_variant(field);
-    const std::string conv = scalar_convert_expr(table, current_mod, field);
+    const std::string conv = scalar_convert_expr(table, field);
     if (wire == "Len") {
         emit_len_read(printer, loop_read());
     } else {
@@ -1609,17 +1568,16 @@ void emit_oneof_body(Printer& printer, const NameTable& table,
 // occurrences of the same sub-message would be merged by protobuf, which a read-only tree cannot do, so
 // last-wins there would hand back a value differing from protobuf (matching the C++ decoder and the
 // singular-message-field / map-value rules). An intervening different member clears the slot, so that
-// later occurrence starts fresh and keeps the plain last-wins. `enum_path` is the `<submodule>::<Enum>`
-// prefix; a message variant carries a borrowed `&'a T` (arena-allocated).
-void emit_oneof_arm(Printer& printer, const NameTable& table,
-                    const std::vector<std::string>& current_mod, const FieldNode& field,
+// later occurrence starts fresh and keeps the plain last-wins. `enum_path` is the path to the oneof's
+// enum; a message variant carries a borrowed `&'a T` (arena-allocated).
+void emit_oneof_arm(Printer& printer, const NameTable& table, const FieldNode& field,
                     const std::string& oneof_local, const std::string& enum_path,
                     const std::string& variant) {
     const std::string wire =
         field.is_message_type ? message_field_wire(field) : scalar_wire_variant(field);
     printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
     printer.indent();
-    emit_oneof_body(printer, table, current_mod, field, oneof_local, enum_path, variant);
+    emit_oneof_body(printer, table, field, oneof_local, enum_path, variant);
     printer.outdent();
     printer.print("}\n");
 }
@@ -1628,11 +1586,10 @@ void emit_oneof_arm(Printer& printer, const NameTable& table,
 // / `rp_val`) at `at` (entry-relative offsets). A message value is decoded by value and, seen twice in
 // one entry, rejected (`RepeatedSingularMessage`, keyed to the map field `map_number`) -- matching C++;
 // a scalar key/value silently last-wins.
-void emit_map_component(Printer& printer, const NameTable& table,
-                        const std::vector<std::string>& current_mod, const FieldNode& field,
+void emit_map_component(Printer& printer, const NameTable& table, const FieldNode& field,
                         const std::string& local, const ReadAt& at, std::int32_t map_number) {
     if (field.is_message_type) {  // the value field; held in an `Option` (None = not yet seen)
-        const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
+        const std::string path = message_path(table, field.resolved_type_fqn);
         printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, "Len")}});
         printer.indent();
         printer.print("if $l$.is_some() {\n", {{"l", local}});
@@ -1655,7 +1612,7 @@ void emit_map_component(Printer& printer, const NameTable& table,
         return;
     }
     const std::string wire = scalar_wire_variant(field);
-    const std::string conv = scalar_convert_expr(table, current_mod, field);
+    const std::string conv = scalar_convert_expr(table, field);
     printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, wire)}});
     printer.indent();
     if (wire == "Len") {
@@ -1673,26 +1630,24 @@ void emit_map_component(Printer& printer, const NameTable& table,
 // The entry is its own decode frame -- offsets inside it are entry-relative (matching C++'s map
 // re-anchor). Shared by the hub `(n,Len)` arm and the threaded prologue's map self-loop; both read the
 // entry from `rp_rest` (`loop_read()`), so one call decodes exactly one entry.
-void emit_map_body(Printer& printer, const NameTable& table,
-                   const std::vector<std::string>& current_mod, const MapFieldNode& map) {
+void emit_map_body(Printer& printer, const NameTable& table, const MapFieldNode& map) {
     const FieldNode key = map_key_field(map);
     const FieldNode val = map_value_field(map);
     const ReadAt entry_at{"rp_ent", "rp_ent_body.len() - rp_ent.len()"};
     emit_len_read(printer, loop_read());  // the entry payload -> rp_p
     printer.print("let rp_ent_body: &'a [u8] = rp_p;\n");
-    printer.print("let mut rp_key: $t$ = $d$;\n",
-                  {{"t", field_value_type(table, current_mod, key)},
-                   {"d", field_default_expr(table, current_mod, key, nullptr)}});
+    printer.print("let mut rp_key: $t$ = $d$;\n", {{"t", field_value_type(table, key)},
+                                                   {"d", field_default_expr(table, key, nullptr)}});
     // A message value is stored by value (no `Option`), so it is accumulated in an `Option` here --
     // `None` until seen -- and filled with the default (empty) message if the entry omits field 2.
     if (val.is_message_type) {
         printer.print(
             "let mut rp_val: ::core::option::Option<$t$> = ::core::option::Option::None;\n",
-            {{"t", field_value_type(table, current_mod, val)}});
+            {{"t", field_value_type(table, val)}});
     } else {
-        printer.print("let mut rp_val: $t$ = $d$;\n",
-                      {{"t", field_value_type(table, current_mod, val)},
-                       {"d", field_default_expr(table, current_mod, val, nullptr)}});
+        printer.print(
+            "let mut rp_val: $t$ = $d$;\n",
+            {{"t", field_value_type(table, val)}, {"d", field_default_expr(table, val, nullptr)}});
     }
     printer.print("let mut rp_ent: &'a [u8] = rp_ent_body;\n");
     printer.print("loop {\n");
@@ -1700,8 +1655,8 @@ void emit_map_body(Printer& printer, const NameTable& table,
     emit_peek_hub(printer, entry_at, "rp_etag");
     printer.print("match rp_tagkey {\n");
     printer.indent();
-    emit_map_component(printer, table, current_mod, key, "rp_key", entry_at, map.number);
-    emit_map_component(printer, table, current_mod, val, "rp_val", entry_at, map.number);
+    emit_map_component(printer, table, key, "rp_key", entry_at, map.number);
+    emit_map_component(printer, table, val, "rp_val", entry_at, map.number);
     printer.print("_ => {\n");
     printer.indent();
     emit_skip_field_body(printer, entry_at);
@@ -1715,7 +1670,7 @@ void emit_map_body(Printer& printer, const NameTable& table,
         // An entry that omitted field 2 gets the default (empty) message. (On non-protoc input where
         // the value message has `required` fields, this empty decode surfaces MissingRequired rather
         // than C++'s zero-init; protoc always serializes field 2, so protoc-valid input is unaffected.)
-        const std::string path = arena_message_path(table, current_mod, val.resolved_type_fqn);
+        const std::string path = message_path(table, val.resolved_type_fqn);
         printer.print("let rp_val = match rp_val {\n");
         printer.indent();
         printer.print("::core::option::Option::Some(rp_sub) => rp_sub,\n");
@@ -1730,11 +1685,10 @@ void emit_map_body(Printer& printer, const NameTable& table,
 }
 
 // Emit the match arm for one map field (body shared with the threaded prologue's map self-loop).
-void emit_map_arm(Printer& printer, const NameTable& table,
-                  const std::vector<std::string>& current_mod, const MapFieldNode& map) {
+void emit_map_arm(Printer& printer, const NameTable& table, const MapFieldNode& map) {
     printer.print("$k$ => {\n", {{"k", raw_tag_key(map.number, "Len")}});
     printer.indent();
-    emit_map_body(printer, table, current_mod, map);
+    emit_map_body(printer, table, map);
     printer.outdent();
     printer.print("}\n");
 }
@@ -1749,11 +1703,9 @@ void emit_map_arm(Printer& printer, const NameTable& table,
 // The decode locals: a repeated field / map accumulates into a `DecodeVec`; a oneof holds its enum
 // (None until a member is seen); a proto2 `required` field a transient seen-flag; `unknown-fields` a
 // bool; the rest plain values at their proto3 zero / None default. A dropped field/map has no local
-// (it is skip-validated and discarded). `submodule` names the message's own oneof-enum submodule.
-void emit_decode_locals(Printer& printer, const NameTable& table,
-                        const std::vector<std::string>& current_mod, const MessageNode& msg,
-                        const FieldModes& modes, const std::string& submodule,
-                        const arenagen::MessageLayout* layout) {
+// (it is skip-validated and discarded).
+void emit_decode_locals(Printer& printer, const NameTable& table, const MessageNode& msg,
+                        const FieldModes& modes, const arenagen::MessageLayout* layout) {
     const int mask_bits = layout != nullptr ? rust_mask_bits(*layout) : 0;
     if (mask_bits > 0) {
         // The presence/bool mask, built up as fields decode and stored in the construct. A `[u64; N]`
@@ -1787,8 +1739,8 @@ void emit_decode_locals(Printer& printer, const NameTable& table,
                 type = "::core::option::Option<&'a [u8]>";
                 init = "::core::option::Option::None";
             } else {
-                type = field_storage_type(table, current_mod, field, modes, member);
-                init = field_default_expr(table, current_mod, field, member);
+                type = field_storage_type(table, field, modes, member);
+                init = field_default_expr(table, field, member);
             }
             printer.print("let mut $l$: $t$ = $d$;\n",
                           {{"l", field_local(field)}, {"t", type}, {"d", init}});
@@ -1809,7 +1761,7 @@ void emit_decode_locals(Printer& printer, const NameTable& table,
     for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
         printer.print(
             "let mut rp_oneof_$i$: $t$ = ::core::option::Option::None;\n",
-            {{"i", std::to_string(i)}, {"t", oneof_storage_type(table, msg.oneofs[i], submodule)}});
+            {{"i", std::to_string(i)}, {"t", oneof_storage_type(table, msg, msg.oneofs[i])}});
     }
 }
 
@@ -1821,10 +1773,8 @@ void emit_decode_locals(Printer& printer, const NameTable& table,
 // dropped field/map/oneof member arriving with the wrong wire type) is skipped silently, an undeclared
 // one trips the unknown-fields bit -- matching C++ (which flags only unrecognized field numbers, never
 // a known number with a wrong wire type).
-void emit_decode_arms(Printer& printer, const NameTable& table,
-                      const std::vector<std::string>& current_mod, const MessageNode& msg,
-                      const FieldModes& modes, const std::string& submodule,
-                      const arenagen::MessageLayout* layout) {
+void emit_decode_arms(Printer& printer, const NameTable& table, const MessageNode& msg,
+                      const FieldModes& modes, const arenagen::MessageLayout* layout) {
     const bool wants_unknown = modes.wants_unknown(&msg);
     const int mask_bits = layout != nullptr ? rust_mask_bits(*layout) : 0;
     // Every declared field number (regular -- kept OR dropped -- plus map and oneof-member numbers)
@@ -1838,25 +1788,23 @@ void emit_decode_arms(Printer& printer, const NameTable& table,
         known_numbers += std::to_string(number) + "u32";
     };
     for (const FieldNode& field : msg.fields) {
-        emit_field_arms(printer, table, current_mod, field,
-                        field.presence == FieldPresence::Required, modes, member_for(layout, field),
-                        mask_bits);
+        emit_field_arms(printer, table, field, field.presence == FieldPresence::Required, modes,
+                        member_for(layout, field), mask_bits);
         note_known(field.number);
     }
     for (const MapFieldNode& map : msg.map_fields) {
         if (map_mode(modes, map) != arenagen::FieldMode::Drop) {
-            emit_map_arm(printer, table, current_mod, map);
+            emit_map_arm(printer, table, map);
         }
         note_known(map.number);
     }
     for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
         const OneofNode& oneof = msg.oneofs[i];
-        const std::string enum_path = submodule + "::" + table.oneofs.at(&oneof);
+        const std::string enum_path = oneof_path(table, msg, oneof);
         const std::vector<std::string> variants = oneof_variant_names(oneof);
         const std::string local = "rp_oneof_" + std::to_string(i);
         for (std::size_t j = 0; j < oneof.fields.size(); ++j) {
-            emit_oneof_arm(printer, table, current_mod, oneof.fields[j], local, enum_path,
-                           variants[j]);
+            emit_oneof_arm(printer, table, oneof.fields[j], local, enum_path, variants[j]);
             note_known(oneof.fields[j].number);
         }
     }
@@ -1988,10 +1936,10 @@ void append_map_threaded_items(const MessageNode& msg, const FieldModes& modes,
 // Append the threadable oneof members of `msg` to `items` (each oneof member shares the field-number
 // space, so they interleave with regular fields once the caller sorts).
 void append_oneof_threaded_items(const NameTable& table, const MessageNode& msg,
-                                 const std::string& submodule, std::vector<ThreadItem>& items) {
+                                 std::vector<ThreadItem>& items) {
     for (std::size_t oi = 0; oi < msg.oneofs.size(); ++oi) {
         const OneofNode& oneof = msg.oneofs[oi];
-        const std::string enum_path = submodule + "::" + table.oneofs.at(&oneof);
+        const std::string enum_path = oneof_path(table, msg, oneof);
         const std::vector<std::string> variants = oneof_variant_names(oneof);
         const std::string local = "rp_oneof_" + std::to_string(oi);
         for (std::size_t j = 0; j < oneof.fields.size(); ++j) {
@@ -2010,7 +1958,6 @@ void append_oneof_threaded_items(const NameTable& table, const MessageNode& msg,
 // and oneof members are gathered together; the caller sorts by field number before emitting.
 std::vector<ThreadItem> collect_threaded_items(const NameTable& table, const MessageNode& msg,
                                                const FieldModes& modes,
-                                               const std::string& submodule,
                                                const arenagen::MessageLayout* layout) {
     std::vector<ThreadItem> items;
     for (const FieldNode& f : msg.fields) {
@@ -2038,7 +1985,7 @@ std::vector<ThreadItem> collect_threaded_items(const NameTable& table, const Mes
         }
     }
     append_map_threaded_items(msg, modes, items);
-    append_oneof_threaded_items(table, msg, submodule, items);
+    append_oneof_threaded_items(table, msg, items);
     return items;
 }
 
@@ -2096,12 +2043,10 @@ void emit_probe_close(Printer& printer) {
 // hub. A well-ordered message (fields <= 2047) thus stays on the fast path end to end, except past a
 // group or a raw field, which still end threading. Decoded output is unchanged either way (threading
 // is a pure fast path; the hub decodes whatever the prologue did not).
-void emit_threaded_prologue(Printer& printer, const NameTable& table,
-                            const std::vector<std::string>& current_mod, const MessageNode& msg,
-                            const FieldModes& modes, const std::string& submodule,
-                            const arenagen::MessageLayout* layout) {
+void emit_threaded_prologue(Printer& printer, const NameTable& table, const MessageNode& msg,
+                            const FieldModes& modes, const arenagen::MessageLayout* layout) {
     const int mask_bits = layout != nullptr ? rust_mask_bits(*layout) : 0;
-    std::vector<ThreadItem> items = collect_threaded_items(table, msg, modes, submodule, layout);
+    std::vector<ThreadItem> items = collect_threaded_items(table, msg, modes, layout);
     // Probe in ascending field-number order to match the typical ascending wire order.
     std::sort(items.begin(), items.end(),
               [](const ThreadItem& a, const ThreadItem& b) { return a.number < b.number; });
@@ -2112,22 +2057,22 @@ void emit_threaded_prologue(Printer& printer, const NameTable& table,
         emit_probe_open(printer, it.number, it.wire, self_loop);
         switch (it.kind) {
             case ThreadKind::Scalar:
-                emit_singular_scalar_store(printer, table, current_mod, *it.field, it.required,
-                                           it.member, mask_bits, loop_read());
+                emit_singular_scalar_store(printer, table, *it.field, it.required, it.member,
+                                           mask_bits, loop_read());
                 break;
             case ThreadKind::Message:
-                emit_singular_message_body(printer, table, current_mod, *it.field, it.required,
-                                           it.member, mask_bits);
+                emit_singular_message_body(printer, table, *it.field, it.required, it.member,
+                                           mask_bits);
                 break;
             case ThreadKind::Oneof:
-                emit_oneof_body(printer, table, current_mod, *it.field, it.oneof_local,
-                                it.enum_path, it.variant);
+                emit_oneof_body(printer, table, *it.field, it.oneof_local, it.enum_path,
+                                it.variant);
                 break;
             case ThreadKind::Repeated:
-                emit_repeated_native_body(printer, table, current_mod, *it.field);
+                emit_repeated_native_body(printer, table, *it.field);
                 break;
             case ThreadKind::Map:
-                emit_map_body(printer, table, current_mod, *it.map);
+                emit_map_body(printer, table, *it.map);
                 break;
             case ThreadKind::Skip:
                 emit_skip_field_body(printer, loop_read(), raw_tag_key(it.number, it.wire));
@@ -2141,15 +2086,14 @@ void emit_threaded_prologue(Printer& printer, const NameTable& table,
             if (it.kind == ThreadKind::Skip) {
                 emit_skip_field_body(printer, loop_read(), raw_tag_key(it.number, "Len"));
             } else {
-                emit_packed_body(printer, table, current_mod, *it.field);
+                emit_packed_body(printer, table, *it.field);
             }
             emit_probe_close(printer);
         }
     }
 }
 
-void emit_decode(Printer& printer, const NameTable& table,
-                 const std::vector<std::string>& current_mod, const MessageNode& msg,
+void emit_decode(Printer& printer, const NameTable& table, const MessageNode& msg,
                  const AccessorNames& accessors, const FieldModes& modes,
                  const arenagen::MessageLayout* layout) {
     printer.print(
@@ -2203,19 +2147,15 @@ void emit_decode(Printer& printer, const NameTable& table,
         "::rapidproto::ErrorKind::DepthLimitExceeded, 0));\n");
     printer.outdent();
     printer.print("}\n");
-    // The decode impl is emitted at the end of the message's OWN module, so the oneof enum -- in the
-    // message's child submodule -- is reached by its bare submodule name.
-    const std::string submodule =
-        msg.oneofs.empty() ? std::string() : table.messages.at(msg.fqn).submodule;
-    emit_decode_locals(printer, table, current_mod, msg, modes, submodule, layout);
+    emit_decode_locals(printer, table, msg, modes, layout);
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
-    emit_threaded_prologue(printer, table, current_mod, msg, modes, submodule, layout);
+    emit_threaded_prologue(printer, table, msg, modes, layout);
     printer.print("loop {\n");
     printer.indent();
     emit_peek_hub(printer, loop_read(), "rp_tag");
     printer.print("match rp_tagkey {\n");
     printer.indent();
-    emit_decode_arms(printer, table, current_mod, msg, modes, submodule, layout);
+    emit_decode_arms(printer, table, msg, modes, layout);
     printer.outdent();
     printer.print("}\n");  // match
     printer.outdent();
@@ -2240,13 +2180,11 @@ void emit_decode(Printer& printer, const NameTable& table,
     printer.print("}\n");
 }
 
-// Emit `pub struct Msg<'a> { .. }` -- the storage fields (= getters' return types). `current_mod` is
-// the module the struct is emitted in, used to compute cross-references. A dropped field/map has no
-// storage; a `raw` message field stores its payload bytes; `unknown-fields` adds the bit.
-void emit_message_struct(Printer& printer, const NameTable& table,
-                         const std::vector<std::string>& current_mod, const MessageNode& msg,
+// Emit `pub struct Msg<'a> { .. }` -- the storage fields (= getters' return types). A dropped field/map
+// has no storage; a `raw` message field stores its payload bytes; `unknown-fields` adds the bit.
+void emit_message_struct(Printer& printer, const NameTable& table, const MessageNode& msg,
                          const FieldModes& modes, const AccessorNames& accessors,
-                         const std::string& submodule, const arenagen::MessageLayout* layout) {
+                         const arenagen::MessageLayout* layout) {
     // A fixed-size message can `derive(Default)` (all fields are scalars/enum newtypes/nested fixed
     // messages/the mask word, all `Default`), giving the zero value an absent inlined sub-message uses.
     if (layout != nullptr && layout->fixed_size) {
@@ -2263,23 +2201,21 @@ void emit_message_struct(Printer& printer, const NameTable& table,
         if (!field.is_repeated && rust_store(member, field) == RustStore::MaskedBool) {
             continue;  // a packed bool has no struct field (it lives in `rp_presence`)
         }
-        printer.print("$l$: $t$,\n",
-                      {{"l", accessors.fields[i]},
-                       {"t", field_storage_type(table, current_mod, field, modes, member)}});
+        printer.print("$l$: $t$,\n", {{"l", accessors.fields[i]},
+                                      {"t", field_storage_type(table, field, modes, member)}});
     }
     if (layout != nullptr && rust_mask_bits(*layout) > 0) {
         printer.print("rp_presence: $t$,\n", {{"t", mask_word_type(rust_mask_bits(*layout))}});
     }
     for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
         if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
-            printer.print("$l$: $t$,\n",
-                          {{"l", accessors.maps[i]},
-                           {"t", map_view_type(table, current_mod, msg.map_fields[i])}});
+            printer.print("$l$: $t$,\n", {{"l", accessors.maps[i]},
+                                          {"t", map_view_type(table, msg.map_fields[i])}});
         }
     }
     for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
         printer.print("$l$: $t$,\n", {{"l", accessors.oneofs[i]},
-                                      {"t", oneof_storage_type(table, msg.oneofs[i], submodule)}});
+                                      {"t", oneof_storage_type(table, msg, msg.oneofs[i])}});
     }
     if (modes.wants_unknown(&msg)) {
         printer.print("rp_unknown: bool,\n");  // has_unknown_fields() storage
@@ -2308,10 +2244,9 @@ bool message_has_accessors(const MessageNode& msg, const FieldModes& modes) {
 
 // Emit `impl<'a> Msg<'a> { <getters> }` (skipped when nothing is exposed). A dropped field/map has no
 // getter; `unknown-fields` adds `has_unknown_fields()`. The decode impl is emitted separately, later.
-void emit_message_accessors(Printer& printer, const NameTable& table,
-                            const std::vector<std::string>& current_mod, const MessageNode& msg,
+void emit_message_accessors(Printer& printer, const NameTable& table, const MessageNode& msg,
                             const FieldModes& modes, const AccessorNames& accessors,
-                            const std::string& submodule, const arenagen::MessageLayout* layout) {
+                            const arenagen::MessageLayout* layout) {
     if (!message_has_accessors(msg, modes)) {
         return;
     }
@@ -2320,17 +2255,17 @@ void emit_message_accessors(Printer& printer, const NameTable& table,
     printer.indent();
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
         if (field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
-            emit_field_accessor(printer, table, current_mod, msg.fields[i], accessors.fields[i],
-                                modes, member_for(layout, msg.fields[i]), mask_bits);
+            emit_field_accessor(printer, table, msg.fields[i], accessors.fields[i], modes,
+                                member_for(layout, msg.fields[i]), mask_bits);
         }
     }
     for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
         if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
-            emit_map_accessor(printer, table, current_mod, msg.map_fields[i], accessors.maps[i]);
+            emit_map_accessor(printer, table, msg.map_fields[i], accessors.maps[i]);
         }
     }
     for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
-        emit_oneof_accessor(printer, table, msg.oneofs[i], accessors.oneofs[i], submodule);
+        emit_oneof_accessor(printer, table, msg, msg.oneofs[i], accessors.oneofs[i]);
     }
     if (modes.wants_unknown(&msg)) {
         printer.print("pub fn has_unknown_fields(&self) -> bool {\n");
@@ -2447,12 +2382,10 @@ void emit_field_serialize(Printer& printer, const FieldNode& field, const std::s
     printer.print("}\n");
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters): accessor (method name) vs submodule (module path)
-void emit_oneof_serialize(Printer& printer, const NameTable& table, const OneofNode& oneof,
-                          const std::string& accessor, const std::string& submodule) {
-    // NOLINTEND(bugprone-easily-swappable-parameters)
+void emit_oneof_serialize(Printer& printer, const NameTable& table, const MessageNode& msg,
+                          const OneofNode& oneof, const std::string& accessor) {
     const std::vector<std::string> variants = oneof_variant_names(oneof);
-    const std::string enum_path = submodule + "::" + table.oneofs.at(&oneof);
+    const std::string enum_path = oneof_path(table, msg, oneof);
     printer.print("if let ::core::option::Option::Some(rp_o) = self.$a$() {\n", {{"a", accessor}});
     printer.indent();
     printer.print("match rp_o {\n");
@@ -2496,13 +2429,9 @@ void emit_map_serialize(Printer& printer, const MapFieldNode& map, const std::st
 }
 
 void emit_message_serialize(Printer& printer, const NameTable& table, const MessageNode& msg,
-                            const FieldModes& modes, const AccessorNames& accessors,
-                            const std::string& submodule) {
+                            const FieldModes& modes, const AccessorNames& accessors) {
     printer.print("impl<'a> ::rapidproto::serde::Serialize for $M$<'a> {\n");
     printer.indent();
-    // The generic `RpS` shadows any schema type of that name inside the impl, which is harmless: the
-    // body's only relative path starts at the message's submodule, whose snake-cased name has no
-    // uppercase letter.
     printer.print(
         "fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>\n");
     printer.print("where\n");
@@ -2524,7 +2453,7 @@ void emit_message_serialize(Printer& printer, const NameTable& table, const Mess
         }
     }
     for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
-        emit_oneof_serialize(printer, table, msg.oneofs[i], accessors.oneofs[i], submodule);
+        emit_oneof_serialize(printer, table, msg, msg.oneofs[i], accessors.oneofs[i]);
     }
     printer.print("rp_map.end()\n");
     printer.outdent();
@@ -2544,75 +2473,69 @@ void emit_message_owned(Printer& printer) {
     printer.print("::rapidproto::impl_decode_owned!($M$);\n");
 }
 
-void emit_message(Printer& printer, const NameTable& table,
-                  const std::vector<std::string>& current_mod, const MessageNode& msg,
+void emit_message(Printer& printer, const NameTable& table, const MessageNode& msg,
                   const FieldModes& modes, const LayoutSet& layouts, bool serde) {
     printer.set("M", table.messages.at(msg.fqn).type_name);
     const arenagen::MessageLayout* layout = layouts.find(msg.fqn);
     const AccessorNames accessors = message_accessor_names(msg);
-    const std::string& submodule = table.messages.at(msg.fqn).submodule;
-    emit_message_struct(printer, table, current_mod, msg, modes, accessors, submodule, layout);
+    emit_message_struct(printer, table, msg, modes, accessors, layout);
     // The `decode`/`rp_decode_into` impl is emitted at the end of the arena module
     // ([`emit_message_decode`]) so a reader skims the whole getter API without the wire-loop bodies in
     // between.
-    emit_message_accessors(printer, table, current_mod, msg, modes, accessors, submodule, layout);
+    emit_message_accessors(printer, table, msg, modes, accessors, layout);
     // The `serde::Serialize` impl reads those same getters.
     if (serde) {
-        emit_message_serialize(printer, table, msg, modes, accessors, submodule);
+        emit_message_serialize(printer, table, msg, modes, accessors);
     }
     // The owning-handle API (`decode_owned`).
     emit_message_owned(printer);
 }
 
-// Emit the `decode` + `rp_decode_into` impl for one message, in its OWN module (`current_mod`) but
+// Emit the `decode` + `rp_decode_into` impl for one message, in its OWN module but
 // after that module's structs/getters and submodules, so a reader skims the getters first and the
 // wire-loop bodies sit at the bottom of each module. It must stay in the message's module:
 // `rp_decode_into` constructs the struct from its PRIVATE storage fields, which only the defining
 // module may do.
-void emit_message_decode(Printer& printer, const NameTable& table,
-                         const std::vector<std::string>& current_mod, const MessageNode& msg,
+void emit_message_decode(Printer& printer, const NameTable& table, const MessageNode& msg,
                          const FieldModes& modes, const LayoutSet& layouts) {
     printer.set("M", table.messages.at(msg.fqn).type_name);
     printer.print("impl<'a> $M$<'a> {\n");
     printer.indent();
     const AccessorNames accessors = message_accessor_names(msg);
-    emit_decode(printer, table, current_mod, msg, accessors, modes, layouts.find(msg.fqn));
+    emit_decode(printer, table, msg, accessors, modes, layouts.find(msg.fqn));
     printer.outdent();
     printer.print("}\n");
 }
 
-// Recursively emit arena message structs: each message as a struct+impl in `current_mod`, then -- in a
+// Recursively emit arena message structs: each message as a struct+impl, then -- in a
 // `pub mod <snake>` one level deeper -- its oneof enums followed by its nested messages. The submodule
 // name comes from the name table (deduped against sibling messages and struct/oneof-enum names), so it
 // matches the paths referring in. The submodule is emitted when the message has nested messages OR
 // oneofs (both live there).
 void emit_arena_messages(Printer& printer, const NameTable& table,
-                         const std::vector<const MessageNode*>& msgs,
-                         std::vector<std::string>& current_mod, const FieldModes& modes,
+                         const std::vector<const MessageNode*>& msgs, const FieldModes& modes,
                          const LayoutSet& layouts, bool serde) {
     for (std::size_t i = 0; i < msgs.size(); ++i) {
         if (i != 0) {
             printer.print("\n");
         }
-        emit_message(printer, table, current_mod, *msgs[i], modes, layouts, serde);
+        emit_message(printer, table, *msgs[i], modes, layouts, serde);
         const bool has_submodule = !msgs[i]->nested_messages.empty() || !msgs[i]->oneofs.empty();
         if (has_submodule) {
             const std::string& sub = table.messages.at(msgs[i]->fqn).submodule;
             printer.print("\npub mod $m$ {\n", {{"m", sub}});
             printer.indent();
-            current_mod.push_back(sub);
             for (std::size_t k = 0; k < msgs[i]->oneofs.size(); ++k) {
                 if (k != 0) {
                     printer.print("\n");
                 }
-                emit_oneof_enum(printer, table, current_mod, msgs[i]->oneofs[k]);
+                emit_oneof_enum(printer, table, msgs[i]->oneofs[k]);
             }
             if (!msgs[i]->oneofs.empty() && !msgs[i]->nested_messages.empty()) {
                 printer.print("\n");  // separate the oneof enums from the nested messages
             }
-            emit_arena_messages(printer, table, addrs(msgs[i]->nested_messages), current_mod, modes,
-                                layouts, serde);
-            current_mod.pop_back();
+            emit_arena_messages(printer, table, addrs(msgs[i]->nested_messages), modes, layouts,
+                                serde);
             printer.outdent();
             printer.print("}\n");
         }
@@ -2621,7 +2544,7 @@ void emit_arena_messages(Printer& printer, const NameTable& table,
     // submodules above), so the getters read uninterrupted. Each stays in its message's own module.
     for (const MessageNode* msg : msgs) {
         printer.print("\n");
-        emit_message_decode(printer, table, current_mod, *msg, modes, layouts);
+        emit_message_decode(printer, table, *msg, modes, layouts);
     }
 }
 
@@ -2668,8 +2591,7 @@ std::vector<const EnumNode*> node_enums(const PkgTrie& node) {
 }
 
 // Emit the `common` subtree for one package node: this package's enums (its files', plus the per-
-// message nested-enum mirror), then a `pub mod <component>` per sub-package. `current_mod` tracks the
-// emitted package path so blank-line separation matches the per-item rules.
+// message nested-enum mirror), then a `pub mod <component>` per sub-package.
 void emit_common_node(Printer& printer, const NameTable& table, const PkgTrie& node, bool serde) {
     const std::vector<const EnumNode*> enums = node_enums(node);
     for (std::size_t i = 0; i < enums.size(); ++i) {
@@ -2689,17 +2611,14 @@ void emit_common_node(Printer& printer, const NameTable& table, const PkgTrie& n
 }
 
 // Emit the `arena` subtree for one package node: this package's message structs, then a
-// `pub mod <component>` per sub-package. `current_mod` is the node's emitted package path.
+// `pub mod <component>` per sub-package.
 void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& node,
-                     std::vector<std::string>& current_mod, const FieldModes& modes,
-                     const LayoutSet& layouts, bool serde) {
-    emit_arena_messages(printer, table, node_messages(node), current_mod, modes, layouts, serde);
+                     const FieldModes& modes, const LayoutSet& layouts, bool serde) {
+    emit_arena_messages(printer, table, node_messages(node), modes, layouts, serde);
     for (const auto& [component, child] : node.children) {
         printer.print("\npub mod $m$ {\n", {{"m", child.emitted}});
         printer.indent();
-        current_mod.push_back(child.emitted);
-        emit_arena_node(printer, table, child, current_mod, modes, layouts, serde);
-        current_mod.pop_back();
+        emit_arena_node(printer, table, child, modes, layouts, serde);
         printer.outdent();
         printer.print("}\n");
     }
@@ -2728,11 +2647,8 @@ void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& no
 // (`message_field_wire` / `emit_msg_payload_read`).
 //
 // Enum- and message-typed fields deliver their generated type (the enum newtype, the child's reader
-// handle). Those types live elsewhere in the tree, and the `*_stream!` macro expands at the CONSUMER'S
-// call site where a tree-relative path is invalid, so each such foreign type is RE-EXPORTED into the
-// message's stream module under a local alias (`emit_stream_reexports`), which the macro names through
-// the message's scope re-export (`emit_stream_macro`); a consumer glob-imports the stream module to
-// bring the handle, trait, macro and that scope into scope together.
+// handle). The `*_stream!` macro expands at the CONSUMER'S call site, so it names everything through
+// `$crate` and the module the file is included at (`emit_stream_macro`).
 
 // One selectable field on a message's stream visitor: the escaped proto field name (names `WANT_<name>`,
 // `on_<name>` -- which the built visitor also uses as its field and type parameter -- and the macro
@@ -2789,26 +2705,6 @@ std::vector<StreamSlot> collect_stream_slots(const MessageNode& msg) {
     return slots;
 }
 
-// The tree-relative path of a field's FOREIGN generated type -- one that lives in another module and so
-// must be re-exported for the macro to name it at the consumer's call site -- or "" when the value type
-// is a builtin, a `::rapidproto::` type, or a SAME-MODULE sibling handle (already in scope). An enum is
-// always foreign (its newtype is in the `common` tree); a message/group field's child handle is foreign
-// only when it is not a bare same-module name.
-std::string stream_foreign_path(const NameTable& table, const std::vector<std::string>& current_mod,
-                                const FieldNode& field) {
-    if (field.is_message_type) {
-        const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
-        return path.find("::") == std::string::npos ? std::string() : path;
-    }
-    if (field.is_enum_type) {
-        return common_type_path(table, current_mod, field.resolved_type_fqn);
-    }
-    return {};
-}
-
-using StreamAliases =
-    std::map<std::string, std::string>;  // foreign relative path -> local alias name
-
 // Append `seg` as its length then its text. A sequence of identifiers encoded this way is injective
 // (an identifier never starts with a digit, so each length ends where the name begins).
 void append_length_prefixed(std::string& out, std::string_view seg) {
@@ -2816,8 +2712,8 @@ void append_length_prefixed(std::string& out, std::string_view seg) {
     out += seg;
 }
 
-// A message's identity in the stream glue names below: its proto FQN, length-prefixed segment by
-// segment (`.p3.Msg` -> `2p33Msg`). Unique per message, and stable across schema edits elsewhere.
+// A message's identity in the macro names below: its proto FQN, length-prefixed segment by segment
+// (`.p3.Msg` -> `2p33Msg`). Unique per message, and stable across schema edits elsewhere.
 std::string encoded_fqn(const MessageNode& msg) {
     const std::string_view fqn = msg.fqn;
     std::string out;
@@ -2832,122 +2728,51 @@ std::string encoded_fqn(const MessageNode& msg) {
     return out;
 }
 
-// The glue names of `msg`'s `*_stream!` macro, keyed by the message (not its module) so they differ
-// between two generated files that share a package. Like all glue they start `rp_` followed by a
-// letter, a shape no schema-derived module-scope name has (reserve_rp_prefix turns `rp_x` into
-// `rp__x`), so they never clash with one -- not even when the encoded FQN ends in a schema name:
-//   `rp_mod_<fqn>` -- the message's stream module, re-exported under a per-message name, which the
-//                     expansion names everything through (emit_stream_macro);
-//   `rp_mac_<fqn>` -- the `macro_rules!` definition, re-exported under its friendly name
-//                     (emit_stream_macro).
-std::string stream_scope_name(const MessageNode& msg) {
-    return "rp_mod_" + encoded_fqn(msg);
-}
-std::string stream_macro_def_name(const MessageNode& msg) {
-    return "rp_mac_" + encoded_fqn(msg);
-}
-
-// The crate-root name of `msg`'s macro under `export_stream_macros`: `__rp_<prefix>_<fqn>`, with the
-// consumer's prefix length-prefixed. The prefix is per generated file, so two exported files in one
-// crate get distinct `#[macro_export]` names as long as their prefixes differ.
-std::string stream_export_name(std::string_view prefix, const MessageNode& msg) {
+// The crate-root name of `msg`'s macro: `__rp_<path>_<fqn>`, with the segments of the module path after
+// `crate` length-prefixed, raw prefixes dropped. Two generated files in one crate can share a message,
+// so the path keeps their names apart. A schema-derived name cannot clash: this name is only ever at the
+// crate root, where the generated file adds nothing else of its own.
+std::string stream_export_name(std::string_view root, const MessageNode& msg) {
     std::string name = "__rp_";
-    append_length_prefixed(name, prefix);
+    std::size_t pos = std::min(root.find("::"), root.size());
+    while (pos < root.size()) {
+        pos += 2;
+        const std::size_t sep = std::min(root.find("::", pos), root.size());
+        std::string_view seg = root.substr(pos, sep - pos);
+        if (seg.rfind("r#", 0) == 0) {
+            seg.remove_prefix(2);
+        }
+        append_length_prefixed(name, seg);
+        pos = sep;
+    }
     name += '_';
     name += encoded_fqn(msg);
     return name;
 }
 
-// Emit the module-level glue the `*_stream!` macros share, then return the foreign-type alias map.
-// A macro expansion names everything through its message's scope re-export (emit_stream_macro), so
-// what it reaches must live in this module: `rp_rt`, the runtime's module of that name re-exported so
-// the expansion can name it from a crate with no direct `rapidproto` dependency (two globs of it are
-// the same item, so it never clashes itself), and one alias per FOREIGN type `msgs` reference (enum
-// newtype / cross-module child handle). An alias is a `pub type` with an `rp_`-prefixed name because a
-// `pub type` RHS resolves as a TYPE path (local items first) -- unlike a `use` path, where a leading
-// module segment like `std` would be read as the extern crate (the adversarial naming corpus has such
-// packages). The same relative paths the arena tree uses thus resolve. The alias name
-// `rp_stream_ty_<n>` only needs to be unique within the module: the expansion always names it through
-// a scope. Returns path -> alias.
-StreamAliases emit_stream_reexports(Printer& printer, const NameTable& table,
-                                    const std::vector<const MessageNode*>& msgs,
-                                    const std::vector<std::string>& current_mod) {
-    if (msgs.empty()) {
-        return {};  // no messages, so no macros and nothing to glue
-    }
-    printer.print("#[doc(hidden)]\npub use ::rapidproto::rp_rt;\n");
-    std::vector<std::pair<std::string, bool>>
-        order;  // (path, is_message), first-seen, deterministic
-    StreamAliases aliases;
-    const auto consider = [&](const FieldNode& field) {
-        const std::string path = stream_foreign_path(table, current_mod, field);
-        if (path.empty() || aliases.count(path) != 0) {
-            return;
-        }
-        aliases[path] = "rp_stream_ty_" + std::to_string(order.size());
-        order.emplace_back(path, field.is_message_type);
-    };
-    for (const MessageNode* msg : msgs) {
-        for (const FieldNode& field : msg->fields) {
-            consider(field);
-        }
-        // A map VALUE can be an enum newtype or a cross-module child handle (a map KEY is always a
-        // scalar, never foreign); the synthetic value field resolves it like any other field.
-        for (const MapFieldNode& map : msg->map_fields) {
-            consider(map_value_field(map));
-        }
-        for (const OneofNode& oneof : msg->oneofs) {
-            for (const FieldNode& field : oneof.fields) {
-                consider(field);
-            }
-        }
-    }
-    for (const auto& [path, is_message] : order) {
-        // `#[doc(hidden)]`: these aliases exist ONLY so the `*_stream!` macro can name a foreign type
-        // at the caller's call site; the trait and driver use the real path, so the alias is pure
-        // macro glue and should not surface in the consumer's rustdoc. A message handle carries `<'a>`;
-        // an enum newtype has no lifetime.
-        printer.print("#[doc(hidden)]\n");
-        if (is_message) {
-            printer.print("pub type $a$<'a> = $p$<'a>;\n", {{"a", aliases.at(path)}, {"p", path}});
-        } else {
-            printer.print("pub type $a$ = $p$;\n", {{"a", aliases.at(path)}, {"p", path}});
-        }
-    }
-    printer.print("\n");
-    return aliases;
+// How a macro expansion names the runtime (see generate_stream).
+std::string stream_runtime_path(const NameTable& table) {
+    return "$" + table.root + "::stream::rp_rt";
 }
 
 // The handler value type for a field, with its borrow written as lifetime `lt`: message/group -> the
 // child reader handle `Child<lt>`; enum -> the newtype (no lifetime); string -> `&<lt> ProtoStr`;
-// bytes -> `&<lt> [u8]`; scalar -> a primitive. With an empty `scope` (the trait and driver, which live
-// in the stream module) a type is written by its real tree-relative path, so the hand-implementable
-// surface shows the real type name. With the module's `scope` name set (the macro, which expands at
-// the caller's call site, where a tree-relative path is invalid) every named type goes through that
-// scope: a foreign type via its re-export alias, a same-module child handle by its bare name, and
-// `ProtoStr` via the `rp_rt` runtime re-export (see emit_stream_reexports). A primitive there is
-// `::core::primitive::*`: a module named like one (a sub-package `u32`, a `message U32`'s nested-type
-// submodule) yields to the primitive in the generated module, but two stream modules globbed at the
-// call site that each hold one make the bare name ambiguous.
-std::string stream_value_type(const NameTable& table, const std::vector<std::string>& current_mod,
-                              const FieldNode& field, const std::string& lt,
-                              const StreamAliases& aliases, const std::string& scope) {
-    const bool in_macro = !scope.empty();
+// bytes -> `&<lt> [u8]`; scalar -> a primitive. `in_macro` is for the macro, which expands at the
+// caller's call site: a generated type's path starts at `$crate`, the runtime is reached through the
+// `rp_rt` re-export (see generate_stream), since the caller's crate may not depend on it directly, and
+// a primitive is `::core::primitive::*`, since the caller's scope can hold an item of that name.
+std::string stream_value_type(const NameTable& table, const FieldNode& field, const std::string& lt,
+                              bool in_macro) {
+    const std::string dollar = in_macro ? "$" : "";
     if (field.is_message_type) {
-        const std::string path = arena_message_path(table, current_mod, field.resolved_type_fqn);
-        const bool foreign = path.find("::") != std::string::npos;
-        if (!in_macro) {
-            return path + "<" + lt + ">";
-        }
-        return scope + "::" + (foreign ? aliases.at(path) : path) + "<" + lt + ">";
+        return dollar + message_path(table, field.resolved_type_fqn) + "<" + lt + ">";
     }
     if (field.is_enum_type) {
-        const std::string path = common_type_path(table, current_mod, field.resolved_type_fqn);
-        return in_macro ? scope + "::" + aliases.at(path) : path;
+        return dollar + common_type_path(table, field.resolved_type_fqn);
     }
     const std::string& t = field.type_name;
     if (t == "string") {
-        return "&" + lt + " " + (in_macro ? scope + "::rp_rt" : std::string("::rapidproto")) +
+        return "&" + lt + " " + (in_macro ? stream_runtime_path(table) : "::rapidproto") +
                "::ProtoStr";
     }
     const std::string prim = in_macro ? "::core::primitive::" : "";
@@ -2959,17 +2784,15 @@ std::string stream_value_type(const NameTable& table, const std::vector<std::str
 
 // The handler value type for a whole slot: a regular/oneof field's value type, or -- for a map slot --
 // the `(key, value)` tuple a map entry delivers (key always scalar; value scalar/enum/child handle).
-std::string stream_slot_value_type(const NameTable& table,
-                                   const std::vector<std::string>& current_mod,
-                                   const StreamSlot& slot, const std::string& lt,
-                                   const StreamAliases& aliases, const std::string& scope) {
+std::string stream_slot_value_type(const NameTable& table, const StreamSlot& slot,
+                                   const std::string& lt, bool in_macro) {
     if (slot.map != nullptr) {
         const FieldNode key = map_key_field(*slot.map);
         const FieldNode val = map_value_field(*slot.map);
-        return "(" + stream_value_type(table, current_mod, key, lt, aliases, scope) + ", " +
-               stream_value_type(table, current_mod, val, lt, aliases, scope) + ")";
+        return "(" + stream_value_type(table, key, lt, in_macro) + ", " +
+               stream_value_type(table, val, lt, in_macro) + ")";
     }
-    return stream_value_type(table, current_mod, *slot.field, lt, aliases, scope);
+    return stream_value_type(table, *slot.field, lt, in_macro);
 }
 
 // `pub trait <Msg>Visitor<'a> { const WANT_<f>: bool = false; fn on_<f>(&mut self, V) -> Result<Flow>
@@ -2977,8 +2800,7 @@ std::string stream_slot_value_type(const NameTable& table,
 // overrides. Every const defaults false and every method to a no-op continue, so an un-overridden field
 // is genuinely unselected (its read compiles away, leaving only its skip). The `<'a>` is always present.
 void emit_stream_visitor_trait(Printer& printer, const NameTable& table,
-                               const std::vector<std::string>& current_mod,
-                               const std::vector<StreamSlot>& slots, const StreamAliases& aliases) {
+                               const std::vector<StreamSlot>& slots) {
     // A short doc comment steers the reader to the macro and pins the one hand-impl footgun: a field is
     // selected by overriding BOTH `WANT_<field>` and `on_<field>` -- the macro always emits the pair,
     // but a hand-impl that sets only `on_<field>` leaves `WANT_<field>` false, so the field is silently
@@ -2999,8 +2821,7 @@ void emit_stream_visitor_trait(Printer& printer, const NameTable& table,
             "::core::result::Result<::rapidproto::stream::Flow, "
             "::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::"
             "Continue) }\n",
-            {{"n", slot.name},
-             {"t", stream_slot_value_type(table, current_mod, slot, "'a", aliases, "")}});
+            {{"n", slot.name}, {"t", stream_slot_value_type(table, slot, "'a", false)}});
     }
     // The unknown-field handler: fires for a field number the schema does not declare (a declared
     // number with a wrong wire type is skipped, not delivered), when selected.
@@ -3073,8 +2894,7 @@ std::string stream_scalar_default(const FieldNode& field) {
 // Read one map-entry component (field 1 = key, field 2 = value) from `rp_ent` into `local`: a
 // length-delimited key/value (string/bytes) or a scalar/enum, last-wins on a repeat. A message value is
 // NOT read here (it is captured as payload bytes by the caller's own arm).
-void emit_stream_map_component(Printer& printer, const NameTable& table,
-                               const std::vector<std::string>& current_mod, const FieldNode& field,
+void emit_stream_map_component(Printer& printer, const NameTable& table, const FieldNode& field,
                                const std::string& local, const ReadAt& at) {
     printer.print("$k$ => {\n", {{"k", raw_tag_key(field.number, scalar_wire_variant(field))}});
     printer.indent();
@@ -3083,19 +2903,9 @@ void emit_stream_map_component(Printer& printer, const NameTable& table,
     } else {
         emit_scalar_value_read(printer, field, at, VarintRead::Inline);
     }
-    printer.print("$l$ = $c$;\n",
-                  {{"l", local}, {"c", stream_convert_expr(table, current_mod, field)}});
+    printer.print("$l$ = $c$;\n", {{"l", local}, {"c", stream_convert_expr(table, field)}});
     printer.outdent();
     printer.print("}\n");
-}
-
-// The path to a child handle as written inside the decode driver `decode<V: ..>`, whose type parameter
-// shadows a schema type or module named `V` for any relative path starting with it (a message `V`, a
-// sub-package `V`): a path not starting at `super::` is anchored at `self::`.
-std::string driver_handle_path(const NameTable& table, const std::vector<std::string>& current_mod,
-                               const std::string& fqn) {
-    const std::string path = arena_message_path(table, current_mod, fqn);
-    return path.rfind("super::", 0) == 0 ? path : "self::" + path;
 }
 
 // Open the `match rp_tagkey` arm for raw key `key`, guarded by the slot's `V::WANT_<name>`. The guard
@@ -3116,8 +2926,7 @@ void emit_stream_arm_close(Printer& printer) {
 // the handler -- the Rust mirror of C++ streamgen's per-entry map callback. A scalar/enum value is
 // delivered by value; a message value as the child's reader handle over the (possibly empty) value
 // payload. Shared by the map's `match` arm and its threaded probe.
-void emit_stream_map_body(Printer& printer, const NameTable& table,
-                          const std::vector<std::string>& current_mod, const StreamSlot& slot) {
+void emit_stream_map_body(Printer& printer, const NameTable& table, const StreamSlot& slot) {
     const MapFieldNode& map = *slot.map;
     const FieldNode key = map_key_field(map);
     const FieldNode val = map_value_field(map);
@@ -3125,17 +2934,17 @@ void emit_stream_map_body(Printer& printer, const NameTable& table,
 
     emit_len_read(printer, loop_read());  // the entry payload -> rp_p
     printer.print("let rp_ent_body: &'a [u8] = rp_p;\n");
-    printer.print("let mut rp_key: $t$ = $d$;\n",
-                  {{"t", stream_value_type(table, current_mod, key, "'a", {}, "")},
-                   {"d", stream_scalar_default(key)}});
+    printer.print(
+        "let mut rp_key: $t$ = $d$;\n",
+        {{"t", stream_value_type(table, key, "'a", false)}, {"d", stream_scalar_default(key)}});
     if (val.is_message_type) {
         // A message value is handed over as a child reader handle; capture its payload bytes (empty
         // when the entry omits field 2 -> an empty child).
         printer.print("let mut rp_val: &'a [u8] = &[];\n");
     } else {
-        printer.print("let mut rp_val: $t$ = $d$;\n",
-                      {{"t", stream_value_type(table, current_mod, val, "'a", {}, "")},
-                       {"d", stream_scalar_default(val)}});
+        printer.print(
+            "let mut rp_val: $t$ = $d$;\n",
+            {{"t", stream_value_type(table, val, "'a", false)}, {"d", stream_scalar_default(val)}});
     }
     printer.print("let mut rp_ent: &'a [u8] = rp_ent_body;\n");
     printer.print("loop {\n");
@@ -3143,7 +2952,7 @@ void emit_stream_map_body(Printer& printer, const NameTable& table,
     emit_peek_hub(printer, entry_at, "rp_etag");
     printer.print("match rp_tagkey {\n");
     printer.indent();
-    emit_stream_map_component(printer, table, current_mod, key, "rp_key", entry_at);
+    emit_stream_map_component(printer, table, key, "rp_key", entry_at);
     if (val.is_message_type) {
         printer.print("$k$ => {\n", {{"k", raw_tag_key(val.number, message_field_wire(val))}});
         printer.indent();
@@ -3152,7 +2961,7 @@ void emit_stream_map_body(Printer& printer, const NameTable& table,
         printer.outdent();
         printer.print("}\n");
     } else {
-        emit_stream_map_component(printer, table, current_mod, val, "rp_val", entry_at);
+        emit_stream_map_component(printer, table, val, "rp_val", entry_at);
     }
     printer.print("_ => {\n");
     printer.indent();
@@ -3164,20 +2973,18 @@ void emit_stream_map_body(Printer& printer, const NameTable& table,
     printer.outdent();
     printer.print("}\n");  // loop
     const std::string value_expr =
-        val.is_message_type
-            ? driver_handle_path(table, current_mod, val.resolved_type_fqn) + "::new(rp_val)"
-            : "rp_val";
+        val.is_message_type ? message_path(table, val.resolved_type_fqn) + "::new(rp_val)"
+                            : "rp_val";
     emit_stream_dispatch(printer, slot.name, "(rp_key, " + value_expr + ")");
 }
 
 // One occurrence of a non-map field, its tag consumed: read the value and deliver it (a message/group
 // field as the child's reader handle `<Child>::new(payload)`). Shared by the `match` arm and the
 // threaded probe.
-void emit_stream_value_body(Printer& printer, const NameTable& table,
-                            const std::vector<std::string>& current_mod, const StreamSlot& slot) {
+void emit_stream_value_body(Printer& printer, const NameTable& table, const StreamSlot& slot) {
     const FieldNode& field = *slot.field;
     if (field.is_message_type) {
-        const std::string path = driver_handle_path(table, current_mod, field.resolved_type_fqn);
+        const std::string path = message_path(table, field.resolved_type_fqn);
         emit_msg_payload_read(printer, field, loop_read());
         emit_stream_dispatch(printer, slot.name, path + "::new(rp_p)");
         return;
@@ -3187,15 +2994,14 @@ void emit_stream_value_body(Printer& printer, const NameTable& table,
     } else {
         emit_scalar_value_read(printer, field, loop_read(), VarintRead::Inline);
     }
-    emit_stream_dispatch(printer, slot.name, stream_convert_expr(table, current_mod, field));
+    emit_stream_dispatch(printer, slot.name, stream_convert_expr(table, field));
 }
 
 // A packed run of a repeated numeric field, its tag consumed: deliver each element. Shared by the
 // `match` arm and the threaded probe.
-void emit_stream_packed_body(Printer& printer, const NameTable& table,
-                             const std::vector<std::string>& current_mod, const StreamSlot& slot) {
+void emit_stream_packed_body(Printer& printer, const NameTable& table, const StreamSlot& slot) {
     const FieldNode& field = *slot.field;
-    const std::string conv = scalar_convert_expr(table, current_mod, field);
+    const std::string conv = scalar_convert_expr(table, field);
     emit_len_read(printer, loop_read());
     if (scalar_wire_variant(field) == "Varint") {
         emit_packed_varints_loop(printer, slot.name, conv);
@@ -3232,19 +3038,18 @@ int stream_slot_number(const StreamSlot& slot) {
 // The `match rp_tagkey` arm(s) for one slot in the decode driver, each read + deliver (unselected
 // fields are skipped by the catch-all, see `emit_stream_arm_open`). A repeated numeric field emits an
 // unpacked arm + a packed arm (per element).
-void emit_stream_arm(Printer& printer, const NameTable& table,
-                     const std::vector<std::string>& current_mod, const StreamSlot& slot) {
+void emit_stream_arm(Printer& printer, const NameTable& table, const StreamSlot& slot) {
     const int number = stream_slot_number(slot);
     emit_stream_arm_open(printer, raw_tag_key(number, stream_slot_wire(slot)), slot.name);
     if (slot.map != nullptr) {
-        emit_stream_map_body(printer, table, current_mod, slot);
+        emit_stream_map_body(printer, table, slot);
     } else {
-        emit_stream_value_body(printer, table, current_mod, slot);
+        emit_stream_value_body(printer, table, slot);
     }
     emit_stream_arm_close(printer);
     if (stream_slot_packable(slot)) {
         emit_stream_arm_open(printer, raw_tag_key(number, "Len"), slot.name);
-        emit_stream_packed_body(printer, table, current_mod, slot);
+        emit_stream_packed_body(printer, table, slot);
         emit_stream_arm_close(printer);
     }
 }
@@ -3260,7 +3065,6 @@ void emit_stream_arm(Printer& printer, const NameTable& table,
 // per field, with no `match` and no runtime wire-type switch. The hub loop after it decodes whatever
 // the chain did not consume.
 void emit_stream_prologue(Printer& printer, const NameTable& table,
-                          const std::vector<std::string>& current_mod,
                           const std::vector<StreamSlot>& slots) {
     std::vector<const StreamSlot*> items;
     for (const StreamSlot& slot : slots) {
@@ -3298,15 +3102,15 @@ void emit_stream_prologue(Printer& printer, const NameTable& table,
         const bool self_loop = slot->map != nullptr || slot->field->is_repeated;
         probe(*slot, stream_slot_wire(*slot), self_loop, [&] {
             if (slot->map != nullptr) {
-                emit_stream_map_body(printer, table, current_mod, *slot);
+                emit_stream_map_body(printer, table, *slot);
             } else {
-                emit_stream_value_body(printer, table, current_mod, *slot);
+                emit_stream_value_body(printer, table, *slot);
             }
         });
         if (stream_slot_packable(*slot)) {
             // One packed run (a second falls to the hub loop).
             probe(*slot, "Len", /*self_loop=*/false,
-                  [&] { emit_stream_packed_body(printer, table, current_mod, *slot); });
+                  [&] { emit_stream_packed_body(printer, table, *slot); });
         }
     }
 }
@@ -3369,8 +3173,7 @@ void emit_stream_unknown_arm(Printer& printer, const MessageNode& msg) {
 // `pub struct Msg<'a> { .. }` reader handle (`Msg::new(bytes).decode(visitor)`) + the decode driver:
 // the field-order probes, then the shared peek-hub field loop, each arm gated on its field's `WANT_`
 // const.
-void emit_stream_decode(Printer& printer, const NameTable& table,
-                        const std::vector<std::string>& current_mod, const MessageNode& msg,
+void emit_stream_decode(Printer& printer, const NameTable& table, const MessageNode& msg,
                         const std::vector<StreamSlot>& slots) {
     printer.print("#[derive(Clone, Copy)]\n");
     printer.print("pub struct $M$<'a> {\n");
@@ -3400,14 +3203,14 @@ void emit_stream_decode(Printer& printer, const NameTable& table,
     printer.indent();
     printer.print("let rp_body: &'a [u8] = self.rp_input;\n");
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
-    emit_stream_prologue(printer, table, current_mod, slots);
+    emit_stream_prologue(printer, table, slots);
     printer.print("loop {\n");
     printer.indent();
     emit_peek_hub(printer, loop_read(), "rp_tag");
     printer.print("match rp_tagkey {\n");
     printer.indent();
     for (const StreamSlot& slot : slots) {
-        emit_stream_arm(printer, table, current_mod, slot);
+        emit_stream_arm(printer, table, slot);
     }
     emit_stream_unknown_arm(printer, msg);
     printer.outdent();
@@ -3421,15 +3224,10 @@ void emit_stream_decode(Printer& printer, const NameTable& table,
     printer.print("}\n");  // impl
 }
 
-// The per-message `<name>_stream!` macro, preceded by the message's scope re-export: its stream module
-// re-exported under the message's own name `rp_mod_<fqn>` (stream_scope_name). The expansion runs at
-// the caller's call site -- and the generator cannot know where the consumer `include!`d the tree, so
-// it has no absolute path to write -- so everything it names (the trait, the value types, its own
-// recursion, the runtime) goes through that one name, which the caller's glob of the stream module
-// brings in. Being unique to its message, it keeps globbing several stream modules -- from one
-// generated file or several sharing a package -- from making an expansion ambiguous (E0659). A
-// package-less schema's `stream` module re-exports itself as `super::stream` (its parent is the
-// `include!` site).
+// The per-message `<name>_stream!` macro. The expansion runs at the caller's call site, so everything
+// it names (the trait, the value types, its own recursion, the runtime) is a path from `$crate` through
+// the module the file is included at. So the caller needs nothing in scope but the macro's own name, and
+// every module on that path must be visible to the caller.
 //
 // The macro is a token muncher. Its two public arms (`{ field => |value| .. }` and `(&mut state;
 // { field => |state, value| .. })`) start one `@f` accumulator whose head records the form (`[]` /
@@ -3439,28 +3237,22 @@ void emit_stream_decode(Printer& printer, const NameTable& table,
 // per-field boilerplate lives once, in the runtime. Expands to O(k) for k selected fields; the
 // definition is O(N).
 //
-// The `macro_rules!` is defined under a hidden name and re-exported at the module path under its
-// friendly name, so the friendly name binds ONLY the macro namespace: a plain `use <friendly>;` would
-// also pick up a same-named submodule (`message FooStream { message In {} }` holds its nested types in
-// `foo_stream`) and clash with it (E0255). Default form: `rp_mac_<fqn>` + `pub(crate) use`, usable
-// within the including crate. With a non-empty `export_prefix` the macro is also callable from
-// another crate (`tests/`, or one depending on a shared proto crate): a `pub(crate)` macro cannot be
-// re-exported past the crate (E0364), so it is a `#[macro_export]` -- at the crate root, hence the
-// crate-root-unique `__rp_<prefix>_<fqn>` -- re-exported with `pub use` (`#[doc(inline)]`, so rustdoc
-// shows it at the module path). The body is the same in both forms: its recursion goes through
-// `$scope$::$mac$!`, the friendly path, which resolves in either crate -- unlike
-// `$crate::<exported>!`, which the deny-by-default
+// A macro reachable from another crate must be `#[macro_export]`, which defines it at the crate root,
+// hence the crate-root-unique `__rp_<path>_<fqn>`. It is re-exported at the module path under its
+// friendly name (`#[doc(inline)]`, so rustdoc shows it there). The `pub use` binds ONLY the macro
+// namespace, since the hidden name exists only there: a same-named submodule (`message FooStream {
+// message In {} }` holds its nested types in `foo_stream`) does not clash with it (E0255). The recursion
+// goes through that friendly path, unlike `$crate::<hidden>!`, which the deny-by-default
 // `macro_expanded_macro_exports_accessed_by_absolute_paths` rejects for `include!`d code.
-void emit_stream_macro(Printer& printer, const NameTable& table,
-                       const std::vector<std::string>& current_mod, const MessageNode& msg,
-                       const std::vector<StreamSlot>& slots, const StreamAliases& aliases,
-                       const std::string& macro_name, const std::string& export_prefix) {
-    const std::string scope = stream_scope_name(msg);
-    const bool exported = !export_prefix.empty();
+void emit_stream_macro(Printer& printer, const NameTable& table, const MessageNode& msg,
+                       const std::vector<StreamSlot>& slots, const std::string& macro_name) {
+    const std::string module =
+        "$" + tree_module_path(table, "stream", table.messages.at(msg.fqn).module);
     printer.set("mac", macro_name);
-    printer.set("scope", scope);
-    printer.set("def",
-                exported ? stream_export_name(export_prefix, msg) : stream_macro_def_name(msg));
+    printer.set("def", stream_export_name(table.root, msg));
+    printer.set("self", module + "::" + macro_name);
+    printer.set("rt", stream_runtime_path(table));
+    printer.set("trait", module + "::" + table.messages.at(msg.fqn).visitor_name);
     std::string valid_keys;  // for the unknown-field compile_error
     for (const StreamSlot& slot : slots) {
         valid_keys += slot.name + ", ";
@@ -3468,36 +3260,31 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
     valid_keys += "unknown";
     printer.set("valid", valid_keys);
 
-    printer.print("#[doc(hidden)]\npub use super::$self$ as $scope$;\n",
-                  {{"self", current_mod.empty() ? std::string("stream") : current_mod.back()}});
     printer.print(
         "/// Builds a `$Vis$` from per-field closures: `$mac$! { field => |value| .. }`, or\n"
         "/// `$mac$!(&mut state; { field => |state, value| .. })` to lend every handler one "
         "state.\n");
 
-    if (exported) {
-        printer.print("#[doc(hidden)]\n#[macro_export]\n");
-    }
+    printer.print("#[doc(hidden)]\n#[macro_export]\n");
     printer.print("macro_rules! $def$ {\n");
     printer.indent();
     printer.print(
-        "($$($$f:ident => $$c:expr),* $$(,)?) => { $scope$::$mac$!(@f [[]] $$($$f => $$c,)*) };\n");
+        "($$($$f:ident => $$c:expr),* $$(,)?) => { $self$!(@f [[]] $$($$f => $$c,)*) };\n");
     printer.print(
-        "($$s:expr; {$$($$f:ident => $$c:expr),* $$(,)?}) => { $scope$::$mac$!(@f [[$$s]] "
+        "($$s:expr; {$$($$f:ident => $$c:expr),* $$(,)?}) => { $self$!(@f [[$$s]] "
         "$$($$f => $$c,)*) };\n");
     // One row per selectable field: its key, the trait const and method it overrides, and its value
     // type at the visitor impl's lifetime `'rp_a`.
     const auto row = [&](const std::string& key, const std::string& want, const std::string& type) {
         printer.print(
-            "(@f [$$($$a:tt)*] $k$ => $$c:expr, $$($$r:tt)*) => { $scope$::$mac$!(@f [$$($$a)* $w$ "
+            "(@f [$$($$a:tt)*] $k$ => $$c:expr, $$($$r:tt)*) => { $self$!(@f [$$($$a)* $w$ "
             "on_$k$: $t$ = $$c;] $$($$r)*) };\n",
             {{"k", key}, {"w", want}, {"t", type}});
     };
     for (const StreamSlot& slot : slots) {
-        row(slot.name, "WANT_" + slot.name,
-            stream_slot_value_type(table, current_mod, slot, "'rp_a", aliases, scope));
+        row(slot.name, "WANT_" + slot.name, stream_slot_value_type(table, slot, "'rp_a", true));
     }
-    row("unknown", "WANT_UNKNOWN", scope + "::rp_rt::stream::UnknownField<'rp_a>");
+    row("unknown", "WANT_UNKNOWN", stream_runtime_path(table) + "::stream::UnknownField<'rp_a>");
     // Fallback: an `ident =>` that matched none of the field arms above is a mistyped or unsupported
     // field. Name it and list the selectable fields, instead of the bare "no rules expected this
     // token" a muncher would otherwise give. Must come after every field arm.
@@ -3505,42 +3292,33 @@ void emit_stream_macro(Printer& printer, const NameTable& table,
         "(@f $$a:tt $$bad:ident => $$c:expr, $$($$r:tt)*) => { "
         "::core::compile_error!(::core::concat!(\"unknown field `\", ::core::stringify!($$bad), "
         "\"` for this message; selectable fields: $valid$\")) };\n");
-    printer.print("(@f $$a:tt) => { $scope$::rp_rt::stream_visitor!($scope$ $Vis$ $$a) };\n");
+    printer.print("(@f $$a:tt) => { $rt$::stream_visitor!($trait$<'rp_a> $$a) };\n");
     printer.outdent();
     printer.print("}\n");
-    if (exported) {
-        printer.print("#[doc(inline)]\npub use $def$ as $mac$;\n");
-    } else {
-        printer.print("pub(crate) use $def$ as $mac$;\n");
-    }
+    printer.print("#[doc(inline)]\npub use $def$ as $mac$;\n");
 }
 
 // Emit one message's streaming decoder: the visitor trait, the reader handle + decode driver, and the
-// builder macro. `aliases` is the module's re-export map; `macro_name` is pre-deduped against siblings;
-// a non-empty `export_prefix` exports the macro across the crate boundary (emit_stream_macro).
-void emit_stream_message(Printer& printer, const NameTable& table,
-                         const std::vector<std::string>& current_mod, const MessageNode& msg,
-                         const StreamAliases& aliases, const std::string& macro_name,
-                         const std::string& export_prefix) {
+// builder macro. `macro_name` is pre-deduped against siblings.
+void emit_stream_message(Printer& printer, const NameTable& table, const MessageNode& msg,
+                         const std::string& macro_name) {
     const std::vector<StreamSlot> slots = collect_stream_slots(msg);
     printer.set("M", table.messages.at(msg.fqn).type_name);
     printer.set("Vis", table.messages.at(msg.fqn).visitor_name);
     printer.set("mac_hint", macro_name);
-    emit_stream_visitor_trait(printer, table, current_mod, slots, aliases);
+    emit_stream_visitor_trait(printer, table, slots);
     printer.print("\n");
-    emit_stream_decode(printer, table, current_mod, msg, slots);
+    emit_stream_decode(printer, table, msg, slots);
     printer.print("\n");
-    emit_stream_macro(printer, table, current_mod, msg, slots, aliases, macro_name, export_prefix);
+    emit_stream_macro(printer, table, msg, slots, macro_name);
 }
 
-// Recursively emit the stream decoders for a list of sibling messages: the module's re-exports, then
-// each message, each followed -- when it has nested messages -- by a `pub mod <submodule>` (the same
-// table-assigned name as the arena tree) holding the nested decoders (with their own re-exports).
-// Builder-macro names (`<snake>_stream`) are deduped among siblings (macros share one namespace).
+// Recursively emit the stream decoders for a list of sibling messages: each message, followed -- when
+// it has nested messages -- by a `pub mod <submodule>` (the same table-assigned name as the arena tree)
+// holding the nested decoders. Builder-macro names (`<snake>_stream`) are deduped among siblings (macros
+// share one namespace).
 void emit_stream_messages(Printer& printer, const NameTable& table,
-                          const std::vector<const MessageNode*>& msgs,
-                          std::vector<std::string>& current_mod, const std::string& export_prefix) {
-    const StreamAliases aliases = emit_stream_reexports(printer, table, msgs, current_mod);
+                          const std::vector<const MessageNode*>& msgs) {
     std::unordered_set<std::string> macro_names;
     for (std::size_t i = 0; i < msgs.size(); ++i) {
         if (i != 0) {
@@ -3550,16 +3328,12 @@ void emit_stream_messages(Printer& printer, const NameTable& table,
             macro_names, reserve_rp_prefix(to_snake_case(ident_identity(
                                                table.messages.at(msgs[i]->fqn).type_name)) +
                                            "_stream"));
-        emit_stream_message(printer, table, current_mod, *msgs[i], aliases, macro_name,
-                            export_prefix);
+        emit_stream_message(printer, table, *msgs[i], macro_name);
         if (!msgs[i]->nested_messages.empty()) {
             const std::string& sub = table.messages.at(msgs[i]->fqn).submodule;
             printer.print("\npub mod $m$ {\n", {{"m", sub}});
             printer.indent();
-            current_mod.push_back(sub);
-            emit_stream_messages(printer, table, addrs(msgs[i]->nested_messages), current_mod,
-                                 export_prefix);
-            current_mod.pop_back();
+            emit_stream_messages(printer, table, addrs(msgs[i]->nested_messages));
             printer.outdent();
             printer.print("}\n");
         }
@@ -3568,15 +3342,12 @@ void emit_stream_messages(Printer& printer, const NameTable& table,
 
 // Emit the `stream` subtree for one package node: this package's message decoders, then a
 // `pub mod <component>` per sub-package (mirroring `emit_arena_node`).
-void emit_stream_node(Printer& printer, const NameTable& table, const PkgTrie& node,
-                      std::vector<std::string>& current_mod, const std::string& export_prefix) {
-    emit_stream_messages(printer, table, node_messages(node), current_mod, export_prefix);
+void emit_stream_node(Printer& printer, const NameTable& table, const PkgTrie& node) {
+    emit_stream_messages(printer, table, node_messages(node));
     for (const auto& [component, child] : node.children) {
         printer.print("\npub mod $m$ {\n", {{"m", child.emitted}});
         printer.indent();
-        current_mod.push_back(child.emitted);
-        emit_stream_node(printer, table, child, current_mod, export_prefix);
-        current_mod.pop_back();
+        emit_stream_node(printer, table, child);
         printer.outdent();
         printer.print("}\n");
     }
@@ -3637,32 +3408,38 @@ std::vector<std::pair<std::string, std::string>> arena_type_paths(
 }
 
 std::string generate_arena(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
-                           const FieldModes& modes, bool serde) {
+                           const FieldModes& modes, bool serde, const std::string& module_path) {
     PkgTrie root = build_pkg_trie(files);
     assign_emitted_names(root);
-    const NameTable table = build_name_table(root);
+    NameTable table = build_name_table(root);
+    table.root = module_path;
+    table.tree = "arena";
     Printer printer;
     printer.print(kModuleLints);
     printer.print("pub mod arena {\n");
     printer.indent();
-    std::vector<std::string> current_mod;
-    emit_arena_node(printer, table, root, current_mod, modes, layouts, serde);
+    emit_arena_node(printer, table, root, modes, layouts, serde);
     printer.outdent();
     printer.print("}\n");
     return printer.str();
 }
 
 std::string generate_stream(const std::vector<const FileNode*>& files,
-                            const std::string& export_prefix) {
+                            const std::string& module_path) {
     PkgTrie root = build_pkg_trie(files);
     assign_emitted_names(root);
-    const NameTable table = build_name_table(root);
+    NameTable table = build_name_table(root);
+    table.root = module_path;
+    table.tree = "stream";
     Printer printer;
     printer.print(kModuleLints);
     printer.print("pub mod stream {\n");
     printer.indent();
-    std::vector<std::string> current_mod;
-    emit_stream_node(printer, table, root, current_mod, export_prefix);
+    // The runtime's module of this name, for the macros (stream_runtime_path), which can expand in a
+    // crate with no direct `rapidproto` dependency. Schema-derived names here never take this shape
+    // (reserve_rp_prefix).
+    printer.print("#[doc(hidden)]\npub use ::rapidproto::rp_rt;\n\n");
+    emit_stream_node(printer, table, root);
     printer.outdent();
     printer.print("}\n");
     return printer.str();
@@ -3686,10 +3463,10 @@ std::string generate_file(const std::vector<const FileNode*>& files, const Layou
     // it); default is arena only.
     std::string out = banner + "\n" + generate_common(files, options.serde);
     if (options.arena) {
-        out += "\n" + generate_arena(files, layouts, modes, options.serde);
+        out += "\n" + generate_arena(files, layouts, modes, options.serde, options.module_path);
     }
     if (options.stream) {
-        out += "\n" + generate_stream(files, options.stream_export_prefix);
+        out += "\n" + generate_stream(files, options.module_path);
     }
     return out;
 }

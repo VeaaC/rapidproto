@@ -84,10 +84,10 @@ pub mod arena {
     pub struct M<'a> {
       implicit_scalar: i32,
       explicit_scalar: i32,
-      child: ::core::option::Option<&'a M<'a>>,
+      child: ::core::option::Option<&'a crate::editions2023::arena::ed23::M<'a>>,
       packed_nums: ::rapidproto::PackedSlice<'a, i32>,
       expanded_nums: ::rapidproto::PackedSlice<'a, i32>,
-      delim: ::core::option::Option<&'a M<'a>>,
+      delim: ::core::option::Option<&'a crate::editions2023::arena::ed23::M<'a>>,
       rp_presence: u8,
     }
 
@@ -98,7 +98,7 @@ pub mod arena {
       pub fn explicit_scalar(&self) -> ::core::option::Option<i32> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.explicit_scalar)
       }
-      pub fn child(&self) -> ::core::option::Option<&'a M<'a>> {
+      pub fn child(&self) -> ::core::option::Option<&'a crate::editions2023::arena::ed23::M<'a>> {
         self.child
       }
       pub fn packed_nums(&self) -> &'a [i32] {
@@ -107,7 +107,7 @@ pub mod arena {
       pub fn expanded_nums(&self) -> &'a [i32] {
         self.expanded_nums.as_slice()
       }
-      pub fn delim(&self) -> ::core::option::Option<&'a M<'a>> {
+      pub fn delim(&self) -> ::core::option::Option<&'a crate::editions2023::arena::ed23::M<'a>> {
         self.delim
       }
     }
@@ -175,10 +175,10 @@ pub mod arena {
         let mut rp_presence: u8 = 0;
         let mut rp_field_1: i32 = 0;
         let mut rp_field_2: i32 = 0;
-        let mut rp_field_3: ::core::option::Option<&'a M<'a>> = ::core::option::Option::None;
+        let mut rp_field_3: ::core::option::Option<&'a crate::editions2023::arena::ed23::M<'a>> = ::core::option::Option::None;
         let mut rp_acc_4 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_acc_5 = ::rapidproto::DecodeVec::new(rp_arena);
-        let mut rp_field_6: ::core::option::Option<&'a M<'a>> = ::core::option::Option::None;
+        let mut rp_field_6: ::core::option::Option<&'a crate::editions2023::arena::ed23::M<'a>> = ::core::option::Option::None;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -209,7 +209,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_3 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| M::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+          rp_field_3 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::editions2023::arena::ed23::M::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
         }
         while rp_rest.first() == ::core::option::Option::Some(&32u8) {
           rp_rest = &rp_rest[1..];
@@ -290,7 +290,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_3 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| M::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              rp_field_3 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::editions2023::arena::ed23::M::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             32u32 => {
               let mut rp_v = 0u64;
@@ -333,7 +333,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_6 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| M::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              rp_field_6 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::editions2023::arena::ed23::M::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -359,11 +359,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod ed23 {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-
     /// Streaming visitor for `M`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `m_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -376,7 +376,7 @@ pub mod stream {
       fn on_explicit_scalar(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_child: bool = false;
       #[inline(always)]
-      fn on_child(&mut self, _rp_v: M<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_child(&mut self, _rp_v: crate::editions2023::stream::ed23::M<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_packed_nums: bool = false;
       #[inline(always)]
       fn on_packed_nums(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -385,7 +385,7 @@ pub mod stream {
       fn on_expanded_nums(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_delim: bool = false;
       #[inline(always)]
-      fn on_delim(&mut self, _rp_v: M<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_delim(&mut self, _rp_v: crate::editions2023::stream::ed23::M<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -455,7 +455,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_child(self::M::new(rp_p))? {
+            match rp_vis.on_child(crate::editions2023::stream::ed23::M::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -603,7 +603,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_child(self::M::new(rp_p))? {
+              match rp_vis.on_child(crate::editions2023::stream::ed23::M::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -674,7 +674,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_delim(self::M::new(rp_p))? {
+              match rp_vis.on_delim(crate::editions2023::stream::ed23::M::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -704,24 +704,22 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::ed23 as rp_mod_4ed231M;
     /// Builds a `MVisitor` from per-field closures: `m_stream! { field => |value| .. }`, or
     /// `m_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_12editions2023_4ed231M {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_4ed231M::m_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_4ed231M::m_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] implicit_scalar => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_implicit_scalar on_implicit_scalar: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] explicit_scalar => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_explicit_scalar on_explicit_scalar: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] child => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_child on_child: rp_mod_4ed231M::M<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] packed_nums => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_packed_nums on_packed_nums: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] expanded_nums => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_expanded_nums on_expanded_nums: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] delim => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_delim on_delim: rp_mod_4ed231M::M<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_4ed231M::m_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_4ed231M::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::editions2023::stream::ed23::m_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::editions2023::stream::ed23::m_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] implicit_scalar => $c:expr, $($r:tt)*) => { $crate::editions2023::stream::ed23::m_stream!(@f [$($a)* WANT_implicit_scalar on_implicit_scalar: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] explicit_scalar => $c:expr, $($r:tt)*) => { $crate::editions2023::stream::ed23::m_stream!(@f [$($a)* WANT_explicit_scalar on_explicit_scalar: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] child => $c:expr, $($r:tt)*) => { $crate::editions2023::stream::ed23::m_stream!(@f [$($a)* WANT_child on_child: $crate::editions2023::stream::ed23::M<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] packed_nums => $c:expr, $($r:tt)*) => { $crate::editions2023::stream::ed23::m_stream!(@f [$($a)* WANT_packed_nums on_packed_nums: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] expanded_nums => $c:expr, $($r:tt)*) => { $crate::editions2023::stream::ed23::m_stream!(@f [$($a)* WANT_expanded_nums on_expanded_nums: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] delim => $c:expr, $($r:tt)*) => { $crate::editions2023::stream::ed23::m_stream!(@f [$($a)* WANT_delim on_delim: $crate::editions2023::stream::ed23::M<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::editions2023::stream::ed23::m_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::editions2023::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: implicit_scalar, explicit_scalar, child, packed_nums, expanded_nums, delim, unknown")) };
-      (@f $a:tt) => { rp_mod_4ed231M::rp_rt::stream_visitor!(rp_mod_4ed231M MVisitor $a) };
+      (@f $a:tt) => { $crate::editions2023::stream::rp_rt::stream_visitor!($crate::editions2023::stream::ed23::MVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_12editions2023_4ed231M as m_stream;

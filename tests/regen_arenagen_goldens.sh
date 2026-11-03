@@ -66,7 +66,7 @@ done
 # A package named `rapidproto` keeps its spelling: under the roots it cannot merge the schema's
 # types into the runtime's own namespace.
 "$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rppkg.proto >/dev/null
-# Names shaped like the Rust stream glue (`rp_rt`, `rp_mod_*`, `Sized`, `Foo` beside `FooStream`);
+# Names shaped like the Rust stream glue (`rp_rt`, `Sized`, `Foo` beside `FooStream`);
 # pulls gluenames_sub (package `gluenames.rp_rt`).
 "$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/gluenames.proto >/dev/null
 # Names the Rust output refers to or derives from (`Option`, `u8`, `NodeVisitor`, `type`, ...); pulls

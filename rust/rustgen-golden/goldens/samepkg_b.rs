@@ -114,11 +114,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod samepkg {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-
     /// Streaming visitor for `SecondB`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `second_b_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -221,19 +221,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::samepkg as rp_mod_7samepkg7SecondB;
     /// Builds a `SecondBVisitor` from per-field closures: `second_b_stream! { field => |value| .. }`, or
     /// `second_b_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_9samepkg_b_7samepkg7SecondB {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_7samepkg7SecondB::second_b_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_7samepkg7SecondB::second_b_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_7samepkg7SecondB::second_b_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_7samepkg7SecondB::second_b_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_7samepkg7SecondB::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::samepkg_b::stream::samepkg::second_b_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::samepkg_b::stream::samepkg::second_b_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { $crate::samepkg_b::stream::samepkg::second_b_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::samepkg_b::stream::samepkg::second_b_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::samepkg_b::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
-      (@f $a:tt) => { rp_mod_7samepkg7SecondB::rp_rt::stream_visitor!(rp_mod_7samepkg7SecondB SecondBVisitor $a) };
+      (@f $a:tt) => { $crate::samepkg_b::stream::rp_rt::stream_visitor!($crate::samepkg_b::stream::samepkg::SecondBVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_9samepkg_b_7samepkg7SecondB as second_b_stream;

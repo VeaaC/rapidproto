@@ -7,16 +7,16 @@ pub mod common {
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod arena {
   pub struct Root<'a> {
-    sub: root::Sub<'a>,
-    self_: ::core::option::Option<&'a Root<'a>>,
+    sub: crate::nopkg::arena::root::Sub<'a>,
+    self_: ::core::option::Option<&'a crate::nopkg::arena::Root<'a>>,
     rp_presence: u8,
   }
 
   impl<'a> Root<'a> {
-    pub fn sub(&self) -> ::core::option::Option<&root::Sub<'a>> {
+    pub fn sub(&self) -> ::core::option::Option<&crate::nopkg::arena::root::Sub<'a>> {
       ((self.rp_presence & (1 << 0)) != 0).then_some(&self.sub)
     }
-    pub fn self_(&self) -> ::core::option::Option<&'a Root<'a>> {
+    pub fn self_(&self) -> ::core::option::Option<&'a crate::nopkg::arena::Root<'a>> {
       self.self_
     }
   }
@@ -157,8 +157,8 @@ pub mod arena {
         return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
       }
       let mut rp_presence: u8 = 0;
-      let mut rp_field_1: root::Sub<'a> = ::core::default::Default::default();
-      let mut rp_field_2: ::core::option::Option<&'a Root<'a>> = ::core::option::Option::None;
+      let mut rp_field_1: crate::nopkg::arena::root::Sub<'a> = ::core::default::Default::default();
+      let mut rp_field_2: ::core::option::Option<&'a crate::nopkg::arena::Root<'a>> = ::core::option::Option::None;
       let mut rp_rest: &'a [u8] = rp_body;
       if rp_rest.first() == ::core::option::Option::Some(&10u8) {
         rp_rest = &rp_rest[1..];
@@ -170,7 +170,7 @@ pub mod arena {
           ::core::result::Result::Ok(r) => r,
           ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
         };
-        rp_field_1 = ::rapidproto::decode_value(|rp_out| root::Sub::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+        rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::nopkg::arena::root::Sub::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
         rp_presence |= 1 << 0;
       }
       if rp_rest.first() == ::core::option::Option::Some(&18u8) {
@@ -183,7 +183,7 @@ pub mod arena {
           ::core::result::Result::Ok(r) => r,
           ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
         };
-        rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Root::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+        rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::nopkg::arena::Root::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
       }
       loop {
         let rp_b = match rp_rest.first() {
@@ -211,7 +211,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_1 = ::rapidproto::decode_value(|rp_out| root::Sub::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+            rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::nopkg::arena::root::Sub::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
             rp_presence |= 1 << 0;
           }
           18u32 => {
@@ -223,7 +223,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Root::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+            rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::nopkg::arena::Root::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
           }
           _ => {
             rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -246,8 +246,6 @@ pub mod arena {
 pub mod stream {
   #[doc(hidden)]
   pub use ::rapidproto::rp_rt;
-  #[doc(hidden)]
-  pub type rp_stream_ty_0<'a> = root::Sub<'a>;
 
   /// Streaming visitor for `Root`. Select a field by overriding its `WANT_<field>` const AND
   /// its `on_<field>` method (the `root_stream` macro does both); a field left at the default
@@ -255,10 +253,10 @@ pub mod stream {
   pub trait RootVisitor<'a> {
     const WANT_sub: bool = false;
     #[inline(always)]
-    fn on_sub(&mut self, _rp_v: root::Sub<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+    fn on_sub(&mut self, _rp_v: crate::nopkg::stream::root::Sub<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     const WANT_self_: bool = false;
     #[inline(always)]
-    fn on_self_(&mut self, _rp_v: Root<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+    fn on_self_(&mut self, _rp_v: crate::nopkg::stream::Root<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     const WANT_UNKNOWN: bool = false;
     #[inline(always)]
     fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -290,7 +288,7 @@ pub mod stream {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          match rp_vis.on_sub(self::root::Sub::new(rp_p))? {
+          match rp_vis.on_sub(crate::nopkg::stream::root::Sub::new(rp_p))? {
             ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
             ::rapidproto::stream::Flow::Continue => {}
           }
@@ -309,7 +307,7 @@ pub mod stream {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          match rp_vis.on_self_(self::Root::new(rp_p))? {
+          match rp_vis.on_self_(crate::nopkg::stream::Root::new(rp_p))? {
             ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
             ::rapidproto::stream::Flow::Continue => {}
           }
@@ -343,7 +341,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_sub(self::root::Sub::new(rp_p))? {
+            match rp_vis.on_sub(crate::nopkg::stream::root::Sub::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -354,7 +352,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_self_(self::Root::new(rp_p))? {
+            match rp_vis.on_self_(crate::nopkg::stream::Root::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -384,28 +382,23 @@ pub mod stream {
     }
   }
 
-  #[doc(hidden)]
-  pub use super::stream as rp_mod_4Root;
   /// Builds a `RootVisitor` from per-field closures: `root_stream! { field => |value| .. }`, or
   /// `root_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
   #[doc(hidden)]
   #[macro_export]
   macro_rules! __rp_5nopkg_4Root {
-    ($($f:ident => $c:expr),* $(,)?) => { rp_mod_4Root::root_stream!(@f [[]] $($f => $c,)*) };
-    ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_4Root::root_stream!(@f [[$s]] $($f => $c,)*) };
-    (@f [$($a:tt)*] sub => $c:expr, $($r:tt)*) => { rp_mod_4Root::root_stream!(@f [$($a)* WANT_sub on_sub: rp_mod_4Root::rp_stream_ty_0<'rp_a> = $c;] $($r)*) };
-    (@f [$($a:tt)*] self_ => $c:expr, $($r:tt)*) => { rp_mod_4Root::root_stream!(@f [$($a)* WANT_self_ on_self_: rp_mod_4Root::Root<'rp_a> = $c;] $($r)*) };
-    (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_4Root::root_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_4Root::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+    ($($f:ident => $c:expr),* $(,)?) => { $crate::nopkg::stream::root_stream!(@f [[]] $($f => $c,)*) };
+    ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::nopkg::stream::root_stream!(@f [[$s]] $($f => $c,)*) };
+    (@f [$($a:tt)*] sub => $c:expr, $($r:tt)*) => { $crate::nopkg::stream::root_stream!(@f [$($a)* WANT_sub on_sub: $crate::nopkg::stream::root::Sub<'rp_a> = $c;] $($r)*) };
+    (@f [$($a:tt)*] self_ => $c:expr, $($r:tt)*) => { $crate::nopkg::stream::root_stream!(@f [$($a)* WANT_self_ on_self_: $crate::nopkg::stream::Root<'rp_a> = $c;] $($r)*) };
+    (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::nopkg::stream::root_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::nopkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
     (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: sub, self_, unknown")) };
-    (@f $a:tt) => { rp_mod_4Root::rp_rt::stream_visitor!(rp_mod_4Root RootVisitor $a) };
+    (@f $a:tt) => { $crate::nopkg::stream::rp_rt::stream_visitor!($crate::nopkg::stream::RootVisitor<'rp_a> $a) };
   }
   #[doc(inline)]
   pub use __rp_5nopkg_4Root as root_stream;
 
   pub mod root {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-
     /// Streaming visitor for `Sub`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `sub_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -508,19 +501,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::root as rp_mod_4Root3Sub;
     /// Builds a `SubVisitor` from per-field closures: `sub_stream! { field => |value| .. }`, or
     /// `sub_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_5nopkg_4Root3Sub {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_4Root3Sub::sub_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_4Root3Sub::sub_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { rp_mod_4Root3Sub::sub_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_4Root3Sub::sub_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_4Root3Sub::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::nopkg::stream::root::sub_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::nopkg::stream::root::sub_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { $crate::nopkg::stream::root::sub_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::nopkg::stream::root::sub_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::nopkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: y, unknown")) };
-      (@f $a:tt) => { rp_mod_4Root3Sub::rp_rt::stream_visitor!(rp_mod_4Root3Sub SubVisitor $a) };
+      (@f $a:tt) => { $crate::nopkg::stream::rp_rt::stream_visitor!($crate::nopkg::stream::root::SubVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5nopkg_4Root3Sub as sub_stream;

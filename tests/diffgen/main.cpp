@@ -311,6 +311,7 @@ int main(int argc, char** argv) {
     if (!rust_out_path.empty()) {
         rapidproto::rustgen::RustOptions rust_options;
         rust_options.serde = true;
+        rust_options.module_path = "crate::schema";  // where tests/differential.py includes it
         const std::string rust =
             rapidproto::rustgen::generate_rust(set, analyzed->second, {}, rust_options);
         std::ofstream rust_out(rust_out_path, std::ios::binary);

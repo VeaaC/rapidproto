@@ -78,16 +78,16 @@ pub mod arena {
 
     #[derive(Default)]
     pub struct Holder<'a> {
-      r#ref: decode_<'a>,
-      kind: super::super::common::escdedup::decode,
+      r#ref: crate::escdedup_a::arena::escdedup::decode_<'a>,
+      kind: crate::escdedup_a::common::escdedup::decode,
       rp_presence: u8,
     }
 
     impl<'a> Holder<'a> {
-      pub fn r#ref(&self) -> ::core::option::Option<&decode_<'a>> {
+      pub fn r#ref(&self) -> ::core::option::Option<&crate::escdedup_a::arena::escdedup::decode_<'a>> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(&self.r#ref)
       }
-      pub fn kind(&self) -> super::super::common::escdedup::decode {
+      pub fn kind(&self) -> crate::escdedup_a::common::escdedup::decode {
         self.kind
       }
     }
@@ -197,8 +197,8 @@ pub mod arena {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
         let mut rp_presence: u8 = 0;
-        let mut rp_field_1: decode_<'a> = ::core::default::Default::default();
-        let mut rp_field_2: super::super::common::escdedup::decode = super::super::common::escdedup::decode(0);
+        let mut rp_field_1: crate::escdedup_a::arena::escdedup::decode_<'a> = ::core::default::Default::default();
+        let mut rp_field_2: crate::escdedup_a::common::escdedup::decode = crate::escdedup_a::common::escdedup::decode(0);
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -210,7 +210,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_1 = ::rapidproto::decode_value(|rp_out| decode_::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::escdedup_a::arena::escdedup::decode_::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 0;
         }
         if rp_rest.first() == ::core::option::Option::Some(&16u8) {
@@ -220,7 +220,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_2 = super::super::common::escdedup::decode(rp_v as i32);
+          rp_field_2 = crate::escdedup_a::common::escdedup::decode(rp_v as i32);
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -248,7 +248,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = ::rapidproto::decode_value(|rp_out| decode_::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::escdedup_a::arena::escdedup::decode_::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 0;
             }
             16u32 => {
@@ -257,7 +257,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_2 = super::super::common::escdedup::decode(rp_v as i32);
+              rp_field_2 = crate::escdedup_a::common::escdedup::decode(rp_v as i32);
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -279,13 +279,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod escdedup {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-    #[doc(hidden)]
-    pub type rp_stream_ty_0 = super::super::common::escdedup::decode;
-
     /// Streaming visitor for `decode_`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `decode__stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -388,19 +386,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::escdedup as rp_mod_8escdedup7decode_;
     /// Builds a `decode_Visitor` from per-field closures: `decode__stream! { field => |value| .. }`, or
     /// `decode__stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_10escdedup_a_8escdedup7decode_ {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_8escdedup7decode_::decode__stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_8escdedup7decode_::decode__stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_8escdedup7decode_::decode__stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_8escdedup7decode_::decode__stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_8escdedup7decode_::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::escdedup_a::stream::escdedup::decode__stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::escdedup_a::stream::escdedup::decode__stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::escdedup_a::stream::escdedup::decode__stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::escdedup_a::stream::escdedup::decode__stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::escdedup_a::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, unknown")) };
-      (@f $a:tt) => { rp_mod_8escdedup7decode_::rp_rt::stream_visitor!(rp_mod_8escdedup7decode_ decode_Visitor $a) };
+      (@f $a:tt) => { $crate::escdedup_a::stream::rp_rt::stream_visitor!($crate::escdedup_a::stream::escdedup::decode_Visitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_10escdedup_a_8escdedup7decode_ as decode__stream;
@@ -411,10 +407,10 @@ pub mod stream {
     pub trait HolderVisitor<'a> {
       const WANT_ref_: bool = false;
       #[inline(always)]
-      fn on_ref_(&mut self, _rp_v: decode_<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_ref_(&mut self, _rp_v: crate::escdedup_a::stream::escdedup::decode_<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_kind: bool = false;
       #[inline(always)]
-      fn on_kind(&mut self, _rp_v: super::super::common::escdedup::decode) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_kind(&mut self, _rp_v: crate::escdedup_a::common::escdedup::decode) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -446,7 +442,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_ref_(self::decode_::new(rp_p))? {
+            match rp_vis.on_ref_(crate::escdedup_a::stream::escdedup::decode_::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -465,7 +461,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_kind(super::super::common::escdedup::decode(rp_v as i32))? {
+            match rp_vis.on_kind(crate::escdedup_a::common::escdedup::decode(rp_v as i32))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -499,7 +495,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_ref_(self::decode_::new(rp_p))? {
+              match rp_vis.on_ref_(crate::escdedup_a::stream::escdedup::decode_::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -510,7 +506,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_kind(super::super::common::escdedup::decode(rp_v as i32))? {
+              match rp_vis.on_kind(crate::escdedup_a::common::escdedup::decode(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -540,20 +536,18 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::escdedup as rp_mod_8escdedup6Holder;
     /// Builds a `HolderVisitor` from per-field closures: `holder_stream! { field => |value| .. }`, or
     /// `holder_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_10escdedup_a_8escdedup6Holder {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_8escdedup6Holder::holder_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_8escdedup6Holder::holder_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] ref_ => $c:expr, $($r:tt)*) => { rp_mod_8escdedup6Holder::holder_stream!(@f [$($a)* WANT_ref_ on_ref_: rp_mod_8escdedup6Holder::decode_<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] kind => $c:expr, $($r:tt)*) => { rp_mod_8escdedup6Holder::holder_stream!(@f [$($a)* WANT_kind on_kind: rp_mod_8escdedup6Holder::rp_stream_ty_0 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_8escdedup6Holder::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_8escdedup6Holder::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::escdedup_a::stream::escdedup::holder_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::escdedup_a::stream::escdedup::holder_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] ref_ => $c:expr, $($r:tt)*) => { $crate::escdedup_a::stream::escdedup::holder_stream!(@f [$($a)* WANT_ref_ on_ref_: $crate::escdedup_a::stream::escdedup::decode_<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] kind => $c:expr, $($r:tt)*) => { $crate::escdedup_a::stream::escdedup::holder_stream!(@f [$($a)* WANT_kind on_kind: $crate::escdedup_a::common::escdedup::decode = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::escdedup_a::stream::escdedup::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::escdedup_a::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: ref_, kind, unknown")) };
-      (@f $a:tt) => { rp_mod_8escdedup6Holder::rp_rt::stream_visitor!(rp_mod_8escdedup6Holder HolderVisitor $a) };
+      (@f $a:tt) => { $crate::escdedup_a::stream::rp_rt::stream_visitor!($crate::escdedup_a::stream::escdedup::HolderVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_10escdedup_a_8escdedup6Holder as holder_stream;

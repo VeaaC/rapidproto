@@ -15,7 +15,7 @@ pub mod arena {
     #[derive(Default)]
     pub struct Outer<'a> {
       ordinary: i32,
-      container: outer::Container<'a>,
+      container: crate::messageset_unknown::arena::ms::outer::Container<'a>,
       rp_presence: u8,
     }
 
@@ -23,7 +23,7 @@ pub mod arena {
       pub fn ordinary(&self) -> ::core::option::Option<i32> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.ordinary)
       }
-      pub fn container(&self) -> ::core::option::Option<&outer::Container<'a>> {
+      pub fn container(&self) -> ::core::option::Option<&crate::messageset_unknown::arena::ms::outer::Container<'a>> {
         ((self.rp_presence & (1 << 1)) != 0).then_some(&self.container)
       }
     }
@@ -171,7 +171,7 @@ pub mod arena {
         }
         let mut rp_presence: u8 = 0;
         let mut rp_field_1: i32 = 0;
-        let mut rp_field_2: outer::Container<'a> = ::core::default::Default::default();
+        let mut rp_field_2: crate::messageset_unknown::arena::ms::outer::Container<'a> = ::core::default::Default::default();
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -193,7 +193,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_2 = ::rapidproto::decode_value(|rp_out| outer::Container::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_2 = ::rapidproto::decode_value(|rp_out| crate::messageset_unknown::arena::ms::outer::Container::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 1;
         }
         loop {
@@ -231,7 +231,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_2 = ::rapidproto::decode_value(|rp_out| outer::Container::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_2 = ::rapidproto::decode_value(|rp_out| crate::messageset_unknown::arena::ms::outer::Container::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 1;
             }
             _ => {

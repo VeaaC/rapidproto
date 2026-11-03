@@ -12,11 +12,6 @@
 namespace rp::stream::gluenames {
 
 struct RpRt;
-struct rp_mod_9gluenames6Holder_;
-struct rp_mac_9gluenames6Holder_;
-struct rp_stream_ty_0_;
-struct Tail_;
-struct rp_mod_9gluenames5Tail_;
 struct Sized;
 struct Foo;
 struct FooStream;
@@ -40,66 +35,6 @@ struct RpRt {
   };
 
   struct x { using Value = ::rp::stream::gluenames::RpRt::X; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "x"; };
-
-  template <class... rp_Callbacks>
-  [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
- private:
-  ::rapidproto::ByteView rp_span;
-};
-
-struct rp_mod_9gluenames6Holder_ {
-  explicit rp_mod_9gluenames6Holder_(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
-  ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
-
-  struct v { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "v"; };
-
-  template <class... rp_Callbacks>
-  [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
- private:
-  ::rapidproto::ByteView rp_span;
-};
-
-struct rp_mac_9gluenames6Holder_ {
-  explicit rp_mac_9gluenames6Holder_(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
-  ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
-
-  struct v { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "v"; };
-
-  template <class... rp_Callbacks>
-  [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
- private:
-  ::rapidproto::ByteView rp_span;
-};
-
-struct rp_stream_ty_0_ {
-  explicit rp_stream_ty_0_(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
-  ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
-
-  struct v { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "v"; };
-
-  template <class... rp_Callbacks>
-  [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
- private:
-  ::rapidproto::ByteView rp_span;
-};
-
-struct Tail_ {
-  explicit Tail_(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
-  ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
-
-  struct v { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "v"; };
-
-  template <class... rp_Callbacks>
-  [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
- private:
-  ::rapidproto::ByteView rp_span;
-};
-
-struct rp_mod_9gluenames5Tail_ {
-  explicit rp_mod_9gluenames5Tail_(::rapidproto::ByteView bytes) noexcept : rp_span(bytes) {}
-  ::rapidproto::ByteView rp_bytes() const noexcept { return rp_span; }
-
-  struct v { using Value = std::int32_t; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "v"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -164,7 +99,6 @@ struct Holder {
   struct sub { using Value = ::rp::stream::gluenames::rp_rt_::Sub; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "sub"; };
   struct sized { using Value = ::rp::stream::gluenames::Sized; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "sized"; };
   struct foo { using Value = ::rp::stream::gluenames::Foo; static constexpr std::uint32_t kNumber = 4; static constexpr std::string_view kName = "foo"; };
-  struct alias_named { using Value = ::rp::stream::gluenames::rp_stream_ty_0_; static constexpr std::uint32_t kNumber = 5; static constexpr std::string_view kName = "alias_named"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -257,331 +191,6 @@ RP_FLATTEN ::rapidproto::DecodeStatus RpRt::X::decode(rp_Callbacks&&... rp_callb
       static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, v, v::Value>)) <= 1U, "field 'RpRt::X::v' is matched by more than one catch-all callback");
       static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, v, v::Value>), "a callback for field 'RpRt::X::v' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
       static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, v, v::Value> && !::rapidproto::specifically_handles<rp_Callbacks, v, v::Value>)), "a callback for field 'RpRt::X::v' has the wrong value type (expected v::Value)");
-      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, v, v::Value>)) {
-        std::uint64_t rp_raw = 0;
-        const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-        rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, v{}, ::rapidproto::varint_to_int32(rp_raw)); !rp_status.ok()) {
-          return rp_status;
-        }
-      } else {  // no callback for this field -> skip its value (compile-time wire)
-        std::uint64_t rp_skip = 0;
-        const std::uint8_t* const rp_sp = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_skip, &rp_we);
-        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-        rp_c = rp_sp;
-      }
-      continue;
-    }
-    rp_field_general:;
-    ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
-    const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::wire::TagState::End) { return ::rapidproto::DecodeStatus::success(); }
-    if (rp_state == ::rapidproto::wire::TagState::Error) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-    rp_c = rp_tp;
-    switch (rp_tag.field_number) {
-      case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_1; } break; }
-      default:
-        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<rp_Callbacks>)) {
-          const std::size_t rp_value_start = static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span));
-          std::size_t rp_ufo = 0;
-          const std::uint8_t* const rp_usp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag, 0, &rp_we, &rp_ufo);
-          if (rp_usp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_ufo}; }
-          rp_c = rp_usp;
-          if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch, ::rapidproto::UnknownField{rp_tag.field_number, rp_tag.wire_type, rp_span.substr(rp_value_start, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span)) - rp_value_start)}); !rp_status.ok()) {
-            return rp_status;
-          }
-          continue;
-        }
-        break;
-    }
-    std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag, 0, &rp_we, &rp_fo);
-    if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_fo}; }
-    rp_c = rp_sp;
-  }
-}
-
-template <class... rp_Callbacks>
-RP_FLATTEN ::rapidproto::DecodeStatus rp_mod_9gluenames6Holder_::decode(rp_Callbacks&&... rp_callbacks) const {
-  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, v>), "a callback matches no field of '::rp::stream::gluenames::rp_mod_9gluenames6Holder_' (and is not a catch-all or unknown-field handler)");
-  [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);
-  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
-  const std::uint8_t* const rp_cend = rp_c + rp_span.size();
-  ::rapidproto::Tag rp_tag{};
-  ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
-  for (;;) {
-    if (rp_c >= rp_cend) { return ::rapidproto::DecodeStatus::success(); }
-    switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
-      case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_1;
-      default: break;
-    }
-    goto rp_field_general;
-    rp_do_1: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, v, v::Value>)) <= 1U, "field 'rp_mod_9gluenames6Holder_::v' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, v, v::Value>)) <= 1U, "field 'rp_mod_9gluenames6Holder_::v' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, v, v::Value>), "a callback for field 'rp_mod_9gluenames6Holder_::v' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, v, v::Value> && !::rapidproto::specifically_handles<rp_Callbacks, v, v::Value>)), "a callback for field 'rp_mod_9gluenames6Holder_::v' has the wrong value type (expected v::Value)");
-      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, v, v::Value>)) {
-        std::uint64_t rp_raw = 0;
-        const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-        rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, v{}, ::rapidproto::varint_to_int32(rp_raw)); !rp_status.ok()) {
-          return rp_status;
-        }
-      } else {  // no callback for this field -> skip its value (compile-time wire)
-        std::uint64_t rp_skip = 0;
-        const std::uint8_t* const rp_sp = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_skip, &rp_we);
-        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-        rp_c = rp_sp;
-      }
-      continue;
-    }
-    rp_field_general:;
-    ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
-    const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::wire::TagState::End) { return ::rapidproto::DecodeStatus::success(); }
-    if (rp_state == ::rapidproto::wire::TagState::Error) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-    rp_c = rp_tp;
-    switch (rp_tag.field_number) {
-      case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_1; } break; }
-      default:
-        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<rp_Callbacks>)) {
-          const std::size_t rp_value_start = static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span));
-          std::size_t rp_ufo = 0;
-          const std::uint8_t* const rp_usp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag, 0, &rp_we, &rp_ufo);
-          if (rp_usp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_ufo}; }
-          rp_c = rp_usp;
-          if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch, ::rapidproto::UnknownField{rp_tag.field_number, rp_tag.wire_type, rp_span.substr(rp_value_start, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span)) - rp_value_start)}); !rp_status.ok()) {
-            return rp_status;
-          }
-          continue;
-        }
-        break;
-    }
-    std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag, 0, &rp_we, &rp_fo);
-    if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_fo}; }
-    rp_c = rp_sp;
-  }
-}
-
-template <class... rp_Callbacks>
-RP_FLATTEN ::rapidproto::DecodeStatus rp_mac_9gluenames6Holder_::decode(rp_Callbacks&&... rp_callbacks) const {
-  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, v>), "a callback matches no field of '::rp::stream::gluenames::rp_mac_9gluenames6Holder_' (and is not a catch-all or unknown-field handler)");
-  [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);
-  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
-  const std::uint8_t* const rp_cend = rp_c + rp_span.size();
-  ::rapidproto::Tag rp_tag{};
-  ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
-  for (;;) {
-    if (rp_c >= rp_cend) { return ::rapidproto::DecodeStatus::success(); }
-    switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
-      case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_1;
-      default: break;
-    }
-    goto rp_field_general;
-    rp_do_1: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, v, v::Value>)) <= 1U, "field 'rp_mac_9gluenames6Holder_::v' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, v, v::Value>)) <= 1U, "field 'rp_mac_9gluenames6Holder_::v' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, v, v::Value>), "a callback for field 'rp_mac_9gluenames6Holder_::v' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, v, v::Value> && !::rapidproto::specifically_handles<rp_Callbacks, v, v::Value>)), "a callback for field 'rp_mac_9gluenames6Holder_::v' has the wrong value type (expected v::Value)");
-      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, v, v::Value>)) {
-        std::uint64_t rp_raw = 0;
-        const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-        rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, v{}, ::rapidproto::varint_to_int32(rp_raw)); !rp_status.ok()) {
-          return rp_status;
-        }
-      } else {  // no callback for this field -> skip its value (compile-time wire)
-        std::uint64_t rp_skip = 0;
-        const std::uint8_t* const rp_sp = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_skip, &rp_we);
-        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-        rp_c = rp_sp;
-      }
-      continue;
-    }
-    rp_field_general:;
-    ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
-    const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::wire::TagState::End) { return ::rapidproto::DecodeStatus::success(); }
-    if (rp_state == ::rapidproto::wire::TagState::Error) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-    rp_c = rp_tp;
-    switch (rp_tag.field_number) {
-      case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_1; } break; }
-      default:
-        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<rp_Callbacks>)) {
-          const std::size_t rp_value_start = static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span));
-          std::size_t rp_ufo = 0;
-          const std::uint8_t* const rp_usp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag, 0, &rp_we, &rp_ufo);
-          if (rp_usp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_ufo}; }
-          rp_c = rp_usp;
-          if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch, ::rapidproto::UnknownField{rp_tag.field_number, rp_tag.wire_type, rp_span.substr(rp_value_start, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span)) - rp_value_start)}); !rp_status.ok()) {
-            return rp_status;
-          }
-          continue;
-        }
-        break;
-    }
-    std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag, 0, &rp_we, &rp_fo);
-    if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_fo}; }
-    rp_c = rp_sp;
-  }
-}
-
-template <class... rp_Callbacks>
-RP_FLATTEN ::rapidproto::DecodeStatus rp_stream_ty_0_::decode(rp_Callbacks&&... rp_callbacks) const {
-  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, v>), "a callback matches no field of '::rp::stream::gluenames::rp_stream_ty_0_' (and is not a catch-all or unknown-field handler)");
-  [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);
-  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
-  const std::uint8_t* const rp_cend = rp_c + rp_span.size();
-  ::rapidproto::Tag rp_tag{};
-  ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
-  for (;;) {
-    if (rp_c >= rp_cend) { return ::rapidproto::DecodeStatus::success(); }
-    switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
-      case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_1;
-      default: break;
-    }
-    goto rp_field_general;
-    rp_do_1: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, v, v::Value>)) <= 1U, "field 'rp_stream_ty_0_::v' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, v, v::Value>)) <= 1U, "field 'rp_stream_ty_0_::v' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, v, v::Value>), "a callback for field 'rp_stream_ty_0_::v' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, v, v::Value> && !::rapidproto::specifically_handles<rp_Callbacks, v, v::Value>)), "a callback for field 'rp_stream_ty_0_::v' has the wrong value type (expected v::Value)");
-      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, v, v::Value>)) {
-        std::uint64_t rp_raw = 0;
-        const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-        rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, v{}, ::rapidproto::varint_to_int32(rp_raw)); !rp_status.ok()) {
-          return rp_status;
-        }
-      } else {  // no callback for this field -> skip its value (compile-time wire)
-        std::uint64_t rp_skip = 0;
-        const std::uint8_t* const rp_sp = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_skip, &rp_we);
-        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-        rp_c = rp_sp;
-      }
-      continue;
-    }
-    rp_field_general:;
-    ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
-    const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::wire::TagState::End) { return ::rapidproto::DecodeStatus::success(); }
-    if (rp_state == ::rapidproto::wire::TagState::Error) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-    rp_c = rp_tp;
-    switch (rp_tag.field_number) {
-      case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_1; } break; }
-      default:
-        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<rp_Callbacks>)) {
-          const std::size_t rp_value_start = static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span));
-          std::size_t rp_ufo = 0;
-          const std::uint8_t* const rp_usp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag, 0, &rp_we, &rp_ufo);
-          if (rp_usp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_ufo}; }
-          rp_c = rp_usp;
-          if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch, ::rapidproto::UnknownField{rp_tag.field_number, rp_tag.wire_type, rp_span.substr(rp_value_start, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span)) - rp_value_start)}); !rp_status.ok()) {
-            return rp_status;
-          }
-          continue;
-        }
-        break;
-    }
-    std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag, 0, &rp_we, &rp_fo);
-    if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_fo}; }
-    rp_c = rp_sp;
-  }
-}
-
-template <class... rp_Callbacks>
-RP_FLATTEN ::rapidproto::DecodeStatus Tail_::decode(rp_Callbacks&&... rp_callbacks) const {
-  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, v>), "a callback matches no field of '::rp::stream::gluenames::Tail_' (and is not a catch-all or unknown-field handler)");
-  [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);
-  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
-  const std::uint8_t* const rp_cend = rp_c + rp_span.size();
-  ::rapidproto::Tag rp_tag{};
-  ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
-  for (;;) {
-    if (rp_c >= rp_cend) { return ::rapidproto::DecodeStatus::success(); }
-    switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
-      case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_1;
-      default: break;
-    }
-    goto rp_field_general;
-    rp_do_1: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, v, v::Value>)) <= 1U, "field 'Tail_::v' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, v, v::Value>)) <= 1U, "field 'Tail_::v' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, v, v::Value>), "a callback for field 'Tail_::v' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, v, v::Value> && !::rapidproto::specifically_handles<rp_Callbacks, v, v::Value>)), "a callback for field 'Tail_::v' has the wrong value type (expected v::Value)");
-      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, v, v::Value>)) {
-        std::uint64_t rp_raw = 0;
-        const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
-        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-        rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, v{}, ::rapidproto::varint_to_int32(rp_raw)); !rp_status.ok()) {
-          return rp_status;
-        }
-      } else {  // no callback for this field -> skip its value (compile-time wire)
-        std::uint64_t rp_skip = 0;
-        const std::uint8_t* const rp_sp = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_skip, &rp_we);
-        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-        rp_c = rp_sp;
-      }
-      continue;
-    }
-    rp_field_general:;
-    ::rapidproto::wire::TagState rp_state = ::rapidproto::wire::TagState::End;
-    const std::uint8_t* const rp_tp = ::rapidproto::wire::read_tag_or_end(rp_c, rp_cend, &rp_tag, &rp_we, &rp_state);
-    if (rp_state == ::rapidproto::wire::TagState::End) { return ::rapidproto::DecodeStatus::success(); }
-    if (rp_state == ::rapidproto::wire::TagState::Error) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-    rp_c = rp_tp;
-    switch (rp_tag.field_number) {
-      case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Varint) { goto rp_do_1; } break; }
-      default:
-        if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<rp_Callbacks>)) {
-          const std::size_t rp_value_start = static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span));
-          std::size_t rp_ufo = 0;
-          const std::uint8_t* const rp_usp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag, 0, &rp_we, &rp_ufo);
-          if (rp_usp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_ufo}; }
-          rp_c = rp_usp;
-          if (const auto rp_status = ::rapidproto::invoke_unknown(rp_dispatch, ::rapidproto::UnknownField{rp_tag.field_number, rp_tag.wire_type, rp_span.substr(rp_value_start, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span)) - rp_value_start)}); !rp_status.ok()) {
-            return rp_status;
-          }
-          continue;
-        }
-        break;
-    }
-    std::size_t rp_fo = 0;
-    const std::uint8_t* const rp_sp = ::rapidproto::wire::skip_value(rp_c, rp_cend, ::rapidproto::wire::byte_ptr(rp_span), rp_tag, 0, &rp_we, &rp_fo);
-    if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, rp_fo}; }
-    rp_c = rp_sp;
-  }
-}
-
-template <class... rp_Callbacks>
-RP_FLATTEN ::rapidproto::DecodeStatus rp_mod_9gluenames5Tail_::decode(rp_Callbacks&&... rp_callbacks) const {
-  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, v>), "a callback matches no field of '::rp::stream::gluenames::rp_mod_9gluenames5Tail_' (and is not a catch-all or unknown-field handler)");
-  [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);
-  const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
-  const std::uint8_t* const rp_cend = rp_c + rp_span.size();
-  ::rapidproto::Tag rp_tag{};
-  ::rapidproto::WireError rp_we = ::rapidproto::WireError::None;
-  for (;;) {
-    if (rp_c >= rp_cend) { return ::rapidproto::DecodeStatus::success(); }
-    switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
-      case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Varint): ++rp_c; goto rp_do_1;
-      default: break;
-    }
-    goto rp_field_general;
-    rp_do_1: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, v, v::Value>)) <= 1U, "field 'rp_mod_9gluenames5Tail_::v' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, v, v::Value>)) <= 1U, "field 'rp_mod_9gluenames5Tail_::v' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, v, v::Value>), "a callback for field 'rp_mod_9gluenames5Tail_::v' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, v, v::Value> && !::rapidproto::specifically_handles<rp_Callbacks, v, v::Value>)), "a callback for field 'rp_mod_9gluenames5Tail_::v' has the wrong value type (expected v::Value)");
       if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, v, v::Value>)) {
         std::uint64_t rp_raw = 0;
         const std::uint8_t* const rp_np = ::rapidproto::wire::read_varint(rp_c, rp_cend, &rp_raw, &rp_we);
@@ -889,7 +498,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus FooStream::In::decode(rp_Callbacks&&... rp
 
 template <class... rp_Callbacks>
 RP_FLATTEN ::rapidproto::DecodeStatus Holder::decode(rp_Callbacks&&... rp_callbacks) const {
-  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, nested, sub, sized, foo, alias_named>), "a callback matches no field of '::rp::stream::gluenames::Holder' (and is not a catch-all or unknown-field handler)");
+  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, nested, sub, sized, foo>), "a callback matches no field of '::rp::stream::gluenames::Holder' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
   const std::uint8_t* const rp_cend = rp_c + rp_span.size();
@@ -902,7 +511,6 @@ RP_FLATTEN ::rapidproto::DecodeStatus Holder::decode(rp_Callbacks&&... rp_callba
       case ::rapidproto::raw_tag(2, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_2;
       case ::rapidproto::raw_tag(3, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_3;
       case ::rapidproto::raw_tag(4, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_4;
-      case ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_5;
       default: break;
     }
     goto rp_field_general;
@@ -972,7 +580,6 @@ RP_FLATTEN ::rapidproto::DecodeStatus Holder::decode(rp_Callbacks&&... rp_callba
         rp_c = rp_sp;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(4, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_4; }
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_5; }
       continue;
     }
     rp_do_4: {
@@ -994,28 +601,6 @@ RP_FLATTEN ::rapidproto::DecodeStatus Holder::decode(rp_Callbacks&&... rp_callba
         if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_sp;
       }
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_5; }
-      continue;
-    }
-    rp_do_5: {
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, alias_named, alias_named::Value>)) <= 1U, "field 'Holder::alias_named' is handled by more than one callback");
-      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, alias_named, alias_named::Value>)) <= 1U, "field 'Holder::alias_named' is matched by more than one catch-all callback");
-      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, alias_named, alias_named::Value>), "a callback for field 'Holder::alias_named' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
-      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, alias_named, alias_named::Value> && !::rapidproto::specifically_handles<rp_Callbacks, alias_named, alias_named::Value>)), "a callback for field 'Holder::alias_named' has the wrong value type (expected alias_named::Value)");
-      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, alias_named, alias_named::Value>)) {
-        ::rapidproto::ByteView rp_val;
-        const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
-        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-        rp_c = rp_np;
-        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, alias_named{}, ::rp::stream::gluenames::rp_stream_ty_0_{rp_val}); !rp_status.ok()) {
-          return rp_status;
-        }
-      } else {  // no callback for this field -> skip its value (compile-time wire)
-        ::rapidproto::ByteView rp_skipview;
-        const std::uint8_t* const rp_sp = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_skipview, &rp_we);
-        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
-        rp_c = rp_sp;
-      }
       continue;
     }
     rp_field_general:;
@@ -1029,7 +614,6 @@ RP_FLATTEN ::rapidproto::DecodeStatus Holder::decode(rp_Callbacks&&... rp_callba
       case 2: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_2; } break; }
       case 3: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_3; } break; }
       case 4: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_4; } break; }
-      case 5: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_5; } break; }
       default:
         if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<rp_Callbacks>)) {
           const std::size_t rp_value_start = static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span));

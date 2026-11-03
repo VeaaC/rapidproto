@@ -17,7 +17,7 @@ pub mod arena {
       decode_: i32,
       rp_presence: u8,
       foo: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32>,
-      pick: ::core::option::Option<collide::Pick>,
+      pick: ::core::option::Option<crate::arena_naming_valid::arena::anv::collide::Pick>,
     }
 
     impl<'a> Collide<'a> {
@@ -36,7 +36,7 @@ pub mod arena {
       pub fn foo(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32> {
         self.foo
       }
-      pub fn pick(&self) -> ::core::option::Option<&collide::Pick> {
+      pub fn pick(&self) -> ::core::option::Option<&crate::arena_naming_valid::arena::anv::collide::Pick> {
         self.pick.as_ref()
       }
     }
@@ -78,8 +78,8 @@ pub mod arena {
         }
         if let ::core::option::Option::Some(rp_o) = self.pick() {
           match rp_o {
-            collide::Pick::P1(rp_v) => rp_map.serialize_entry("p1", rp_v)?,
-            collide::Pick::P2(rp_v) => rp_map.serialize_entry("p2", rp_v)?,
+            crate::arena_naming_valid::arena::anv::collide::Pick::P1(rp_v) => rp_map.serialize_entry("p1", rp_v)?,
+            crate::arena_naming_valid::arena::anv::collide::Pick::P2(rp_v) => rp_map.serialize_entry("p2", rp_v)?,
           }
         }
         rp_map.end()
@@ -97,14 +97,14 @@ pub mod arena {
 
     pub struct Callback<'a> {
       rp_presence: u8,
-      callback: ::core::option::Option<callback::Callback<'a>>,
+      callback: ::core::option::Option<crate::arena_naming_valid::arena::anv::callback::Callback<'a>>,
     }
 
     impl<'a> Callback<'a> {
       pub fn disabled(&self) -> bool {
         (self.rp_presence & (1 << 0)) != 0
       }
-      pub fn callback(&self) -> ::core::option::Option<&callback::Callback<'a>> {
+      pub fn callback(&self) -> ::core::option::Option<&crate::arena_naming_valid::arena::anv::callback::Callback<'a>> {
         self.callback.as_ref()
       }
     }
@@ -123,7 +123,7 @@ pub mod arena {
         }
         if let ::core::option::Option::Some(rp_o) = self.callback() {
           match rp_o {
-            callback::Callback::PythonCode(rp_v) => rp_map.serialize_entry("python_code", rp_v)?,
+            crate::arena_naming_valid::arena::anv::callback::Callback::PythonCode(rp_v) => rp_map.serialize_entry("python_code", rp_v)?,
           }
         }
         rp_map.end()
@@ -168,12 +168,12 @@ pub mod arena {
 
     #[derive(Default)]
     pub struct Outer<'a> {
-      inner: outer::Outer<'a>,
+      inner: crate::arena_naming_valid::arena::anv::outer::Outer<'a>,
       rp_presence: u8,
     }
 
     impl<'a> Outer<'a> {
-      pub fn inner(&self) -> ::core::option::Option<&outer::Outer<'a>> {
+      pub fn inner(&self) -> ::core::option::Option<&crate::arena_naming_valid::arena::anv::outer::Outer<'a>> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(&self.inner)
       }
     }
@@ -364,11 +364,11 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Sibling);
 
     pub struct config_<'a> {
-      config: ::core::option::Option<config::Config<'a>>,
+      config: ::core::option::Option<crate::arena_naming_valid::arena::anv::config::Config<'a>>,
     }
 
     impl<'a> config_<'a> {
-      pub fn config(&self) -> ::core::option::Option<&config::Config<'a>> {
+      pub fn config(&self) -> ::core::option::Option<&crate::arena_naming_valid::arena::anv::config::Config<'a>> {
         self.config.as_ref()
       }
     }
@@ -381,7 +381,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         if let ::core::option::Option::Some(rp_o) = self.config() {
           match rp_o {
-            config::Config::A(rp_v) => rp_map.serialize_entry("a", rp_v)?,
+            crate::arena_naming_valid::arena::anv::config::Config::A(rp_v) => rp_map.serialize_entry("a", rp_v)?,
           }
         }
         rp_map.end()
@@ -399,7 +399,7 @@ pub mod arena {
     pub struct MaskOneof<'a> {
       present: i32,
       rp_presence: u8,
-      mask: ::core::option::Option<mask_oneof::Mask>,
+      mask: ::core::option::Option<crate::arena_naming_valid::arena::anv::mask_oneof::Mask>,
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
@@ -407,7 +407,7 @@ pub mod arena {
       pub fn present(&self) -> ::core::option::Option<i32> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.present)
       }
-      pub fn mask(&self) -> ::core::option::Option<&mask_oneof::Mask> {
+      pub fn mask(&self) -> ::core::option::Option<&crate::arena_naming_valid::arena::anv::mask_oneof::Mask> {
         self.mask.as_ref()
       }
     }
@@ -425,7 +425,7 @@ pub mod arena {
         }
         if let ::core::option::Option::Some(rp_o) = self.mask() {
           match rp_o {
-            mask_oneof::Mask::A(rp_v) => rp_map.serialize_entry("a", rp_v)?,
+            crate::arena_naming_valid::arena::anv::mask_oneof::Mask::A(rp_v) => rp_map.serialize_entry("a", rp_v)?,
           }
         }
         rp_map.end()
@@ -649,7 +649,7 @@ pub mod arena {
         let mut rp_field_6: i32 = 0;
         let mut rp_field_9: i32 = 0;
         let mut rp_map_3 = ::rapidproto::DecodeVec::new(rp_arena);
-        let mut rp_oneof_0: ::core::option::Option<collide::Pick> = ::core::option::Option::None;
+        let mut rp_oneof_0: ::core::option::Option<crate::arena_naming_valid::arena::anv::collide::Pick> = ::core::option::Option::None;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -731,7 +731,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(collide::Pick::P1(rp_v as i32));
+          rp_oneof_0 = ::core::option::Option::Some(crate::arena_naming_valid::arena::anv::collide::Pick::P1(rp_v as i32));
         }
         if rp_rest.first() == ::core::option::Option::Some(&40u8) {
           rp_rest = &rp_rest[1..];
@@ -740,7 +740,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(collide::Pick::P2(rp_v as i32));
+          rp_oneof_0 = ::core::option::Option::Some(crate::arena_naming_valid::arena::anv::collide::Pick::P2(rp_v as i32));
         }
         if rp_rest.first() == ::core::option::Option::Some(&48u8) {
           rp_rest = &rp_rest[1..];
@@ -869,7 +869,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(collide::Pick::P1(rp_v as i32));
+              rp_oneof_0 = ::core::option::Option::Some(crate::arena_naming_valid::arena::anv::collide::Pick::P1(rp_v as i32));
             }
             40u32 => {
               let mut rp_v = 0u64;
@@ -877,7 +877,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(collide::Pick::P2(rp_v as i32));
+              rp_oneof_0 = ::core::option::Option::Some(crate::arena_naming_valid::arena::anv::collide::Pick::P2(rp_v as i32));
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -915,7 +915,7 @@ pub mod arena {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
         let mut rp_presence: u8 = 0;
-        let mut rp_oneof_0: ::core::option::Option<callback::Callback<'a>> = ::core::option::Option::None;
+        let mut rp_oneof_0: ::core::option::Option<crate::arena_naming_valid::arena::anv::callback::Callback<'a>> = ::core::option::Option::None;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -924,7 +924,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(callback::Callback::PythonCode(::rapidproto::PackedStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::arena_naming_valid::arena::anv::callback::Callback::PythonCode(::rapidproto::PackedStr::new(rp_p)));
         }
         if rp_rest.first() == ::core::option::Option::Some(&16u8) {
           rp_rest = &rp_rest[1..];
@@ -974,7 +974,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(callback::Callback::PythonCode(::rapidproto::PackedStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::arena_naming_valid::arena::anv::callback::Callback::PythonCode(::rapidproto::PackedStr::new(rp_p)));
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1162,7 +1162,7 @@ pub mod arena {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
         let mut rp_presence: u8 = 0;
-        let mut rp_field_1: outer::Outer<'a> = ::core::default::Default::default();
+        let mut rp_field_1: crate::arena_naming_valid::arena::anv::outer::Outer<'a> = ::core::default::Default::default();
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -1174,7 +1174,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_1 = ::rapidproto::decode_value(|rp_out| outer::Outer::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::arena_naming_valid::arena::anv::outer::Outer::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 0;
         }
         loop {
@@ -1203,7 +1203,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = ::rapidproto::decode_value(|rp_out| outer::Outer::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::arena_naming_valid::arena::anv::outer::Outer::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 0;
             }
             _ => {
@@ -1387,7 +1387,7 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut rp_oneof_0: ::core::option::Option<config::Config<'a>> = ::core::option::Option::None;
+        let mut rp_oneof_0: ::core::option::Option<crate::arena_naming_valid::arena::anv::config::Config<'a>> = ::core::option::Option::None;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -1396,7 +1396,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(config::Config::A(::rapidproto::PackedStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::arena_naming_valid::arena::anv::config::Config::A(::rapidproto::PackedStr::new(rp_p)));
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -1421,7 +1421,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(config::Config::A(::rapidproto::PackedStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::arena_naming_valid::arena::anv::config::Config::A(::rapidproto::PackedStr::new(rp_p)));
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1454,7 +1454,7 @@ pub mod arena {
         }
         let mut rp_presence: u8 = 0;
         let mut rp_field_2: i32 = 0;
-        let mut rp_oneof_0: ::core::option::Option<mask_oneof::Mask> = ::core::option::Option::None;
+        let mut rp_oneof_0: ::core::option::Option<crate::arena_naming_valid::arena::anv::mask_oneof::Mask> = ::core::option::Option::None;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -1463,7 +1463,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(mask_oneof::Mask::A(rp_v as i32));
+          rp_oneof_0 = ::core::option::Option::Some(crate::arena_naming_valid::arena::anv::mask_oneof::Mask::A(rp_v as i32));
         }
         if rp_rest.first() == ::core::option::Option::Some(&16u8) {
           rp_rest = &rp_rest[1..];
@@ -1507,7 +1507,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(mask_oneof::Mask::A(rp_v as i32));
+              rp_oneof_0 = ::core::option::Option::Some(crate::arena_naming_valid::arena::anv::mask_oneof::Mask::A(rp_v as i32));
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1908,13 +1908,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod anv {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-    #[doc(hidden)]
-    pub type rp_stream_ty_0<'a> = outer::Outer<'a>;
-
     /// Streaming visitor for `Collide`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `collide_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -2305,25 +2303,23 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::anv as rp_mod_3anv7Collide;
     /// Builds a `CollideVisitor` from per-field closures: `collide_stream! { field => |value| .. }`, or
     /// `collide_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_18arena_naming_valid_3anv7Collide {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3anv7Collide::collide_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3anv7Collide::collide_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_3anv7Collide::collide_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] has_x => $c:expr, $($r:tt)*) => { rp_mod_3anv7Collide::collide_stream!(@f [$($a)* WANT_has_x on_has_x: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] pick_case => $c:expr, $($r:tt)*) => { rp_mod_3anv7Collide::collide_stream!(@f [$($a)* WANT_pick_case on_pick_case: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] decode => $c:expr, $($r:tt)*) => { rp_mod_3anv7Collide::collide_stream!(@f [$($a)* WANT_decode on_decode: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_3anv7Collide::collide_stream!(@f [$($a)* WANT_foo on_foo: (&'rp_a rp_mod_3anv7Collide::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
-      (@f [$($a:tt)*] p1 => $c:expr, $($r:tt)*) => { rp_mod_3anv7Collide::collide_stream!(@f [$($a)* WANT_p1 on_p1: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] p2 => $c:expr, $($r:tt)*) => { rp_mod_3anv7Collide::collide_stream!(@f [$($a)* WANT_p2 on_p2: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3anv7Collide::collide_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3anv7Collide::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_naming_valid::stream::anv::collide_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_naming_valid::stream::anv::collide_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::collide_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] has_x => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::collide_stream!(@f [$($a)* WANT_has_x on_has_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] pick_case => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::collide_stream!(@f [$($a)* WANT_pick_case on_pick_case: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] decode => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::collide_stream!(@f [$($a)* WANT_decode on_decode: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::collide_stream!(@f [$($a)* WANT_foo on_foo: (&'rp_a $crate::arena_naming_valid::stream::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] p1 => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::collide_stream!(@f [$($a)* WANT_p1 on_p1: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] p2 => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::collide_stream!(@f [$($a)* WANT_p2 on_p2: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::collide_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_naming_valid::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, has_x, pick_case, decode, foo, p1, p2, unknown")) };
-      (@f $a:tt) => { rp_mod_3anv7Collide::rp_rt::stream_visitor!(rp_mod_3anv7Collide CollideVisitor $a) };
+      (@f $a:tt) => { $crate::arena_naming_valid::stream::rp_rt::stream_visitor!($crate::arena_naming_valid::stream::anv::CollideVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_18arena_naming_valid_3anv7Collide as collide_stream;
@@ -2463,20 +2459,18 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::anv as rp_mod_3anv8Callback;
     /// Builds a `CallbackVisitor` from per-field closures: `callback_stream! { field => |value| .. }`, or
     /// `callback_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_18arena_naming_valid_3anv8Callback {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3anv8Callback::callback_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3anv8Callback::callback_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] disabled => $c:expr, $($r:tt)*) => { rp_mod_3anv8Callback::callback_stream!(@f [$($a)* WANT_disabled on_disabled: ::core::primitive::bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] python_code => $c:expr, $($r:tt)*) => { rp_mod_3anv8Callback::callback_stream!(@f [$($a)* WANT_python_code on_python_code: &'rp_a rp_mod_3anv8Callback::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3anv8Callback::callback_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3anv8Callback::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_naming_valid::stream::anv::callback_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_naming_valid::stream::anv::callback_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] disabled => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::callback_stream!(@f [$($a)* WANT_disabled on_disabled: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] python_code => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::callback_stream!(@f [$($a)* WANT_python_code on_python_code: &'rp_a $crate::arena_naming_valid::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::callback_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_naming_valid::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: disabled, python_code, unknown")) };
-      (@f $a:tt) => { rp_mod_3anv8Callback::rp_rt::stream_visitor!(rp_mod_3anv8Callback CallbackVisitor $a) };
+      (@f $a:tt) => { $crate::arena_naming_valid::stream::rp_rt::stream_visitor!($crate::arena_naming_valid::stream::anv::CallbackVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_18arena_naming_valid_3anv8Callback as callback_stream;
@@ -2673,19 +2667,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::anv as rp_mod_3anv8FooEntry;
     /// Builds a `FooEntryVisitor` from per-field closures: `foo_entry_stream! { field => |value| .. }`, or
     /// `foo_entry_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_18arena_naming_valid_3anv8FooEntry {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3anv8FooEntry::foo_entry_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3anv8FooEntry::foo_entry_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_3anv8FooEntry::foo_entry_stream!(@f [$($a)* WANT_foo on_foo: (&'rp_a rp_mod_3anv8FooEntry::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3anv8FooEntry::foo_entry_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3anv8FooEntry::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_naming_valid::stream::anv::foo_entry_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_naming_valid::stream::anv::foo_entry_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::foo_entry_stream!(@f [$($a)* WANT_foo on_foo: (&'rp_a $crate::arena_naming_valid::stream::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::foo_entry_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_naming_valid::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: foo, unknown")) };
-      (@f $a:tt) => { rp_mod_3anv8FooEntry::rp_rt::stream_visitor!(rp_mod_3anv8FooEntry FooEntryVisitor $a) };
+      (@f $a:tt) => { $crate::arena_naming_valid::stream::rp_rt::stream_visitor!($crate::arena_naming_valid::stream::anv::FooEntryVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_18arena_naming_valid_3anv8FooEntry as foo_entry_stream;
@@ -2696,7 +2688,7 @@ pub mod stream {
     pub trait OuterVisitor<'a> {
       const WANT_inner: bool = false;
       #[inline(always)]
-      fn on_inner(&mut self, _rp_v: outer::Outer<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_inner(&mut self, _rp_v: crate::arena_naming_valid::stream::anv::outer::Outer<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -2728,7 +2720,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_inner(self::outer::Outer::new(rp_p))? {
+            match rp_vis.on_inner(crate::arena_naming_valid::stream::anv::outer::Outer::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -2762,7 +2754,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_inner(self::outer::Outer::new(rp_p))? {
+              match rp_vis.on_inner(crate::arena_naming_valid::stream::anv::outer::Outer::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2792,27 +2784,22 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::anv as rp_mod_3anv5Outer;
     /// Builds a `OuterVisitor` from per-field closures: `outer_stream! { field => |value| .. }`, or
     /// `outer_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_18arena_naming_valid_3anv5Outer {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3anv5Outer::outer_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3anv5Outer::outer_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] inner => $c:expr, $($r:tt)*) => { rp_mod_3anv5Outer::outer_stream!(@f [$($a)* WANT_inner on_inner: rp_mod_3anv5Outer::rp_stream_ty_0<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3anv5Outer::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3anv5Outer::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_naming_valid::stream::anv::outer_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_naming_valid::stream::anv::outer_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] inner => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::outer_stream!(@f [$($a)* WANT_inner on_inner: $crate::arena_naming_valid::stream::anv::outer::Outer<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_naming_valid::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: inner, unknown")) };
-      (@f $a:tt) => { rp_mod_3anv5Outer::rp_rt::stream_visitor!(rp_mod_3anv5Outer OuterVisitor $a) };
+      (@f $a:tt) => { $crate::arena_naming_valid::stream::rp_rt::stream_visitor!($crate::arena_naming_valid::stream::anv::OuterVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_18arena_naming_valid_3anv5Outer as outer_stream;
 
     pub mod outer {
-      #[doc(hidden)]
-      pub use ::rapidproto::rp_rt;
-
       /// Streaming visitor for `Outer`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `outer_stream` macro does both); a field left at the default
       /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -2915,19 +2902,17 @@ pub mod stream {
         }
       }
 
-      #[doc(hidden)]
-      pub use super::outer as rp_mod_3anv5Outer5Outer;
       /// Builds a `OuterVisitor` from per-field closures: `outer_stream! { field => |value| .. }`, or
       /// `outer_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_18arena_naming_valid_3anv5Outer5Outer {
-        ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3anv5Outer5Outer::outer_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3anv5Outer5Outer::outer_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { rp_mod_3anv5Outer5Outer::outer_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3anv5Outer5Outer::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3anv5Outer5Outer::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_naming_valid::stream::anv::outer::outer_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_naming_valid::stream::anv::outer::outer_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::outer::outer_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::outer::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_naming_valid::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
-        (@f $a:tt) => { rp_mod_3anv5Outer5Outer::rp_rt::stream_visitor!(rp_mod_3anv5Outer5Outer OuterVisitor $a) };
+        (@f $a:tt) => { $crate::arena_naming_valid::stream::rp_rt::stream_visitor!($crate::arena_naming_valid::stream::anv::outer::OuterVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_18arena_naming_valid_3anv5Outer5Outer as outer_stream;
@@ -3035,19 +3020,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::anv as rp_mod_3anv3m_x;
     /// Builds a `m_xVisitor` from per-field closures: `m_x_stream! { field => |value| .. }`, or
     /// `m_x_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_18arena_naming_valid_3anv3m_x {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3anv3m_x::m_x_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3anv3m_x::m_x_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_3anv3m_x::m_x_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3anv3m_x::m_x_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3anv3m_x::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_naming_valid::stream::anv::m_x_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_naming_valid::stream::anv::m_x_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::m_x_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::m_x_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_naming_valid::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, unknown")) };
-      (@f $a:tt) => { rp_mod_3anv3m_x::rp_rt::stream_visitor!(rp_mod_3anv3m_x m_xVisitor $a) };
+      (@f $a:tt) => { $crate::arena_naming_valid::stream::rp_rt::stream_visitor!($crate::arena_naming_valid::stream::anv::m_xVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_18arena_naming_valid_3anv3m_x as m_x_stream;
@@ -3187,20 +3170,18 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::anv as rp_mod_3anv7Sibling;
     /// Builds a `SiblingVisitor` from per-field closures: `sibling_stream! { field => |value| .. }`, or
     /// `sibling_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_18arena_naming_valid_3anv7Sibling {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3anv7Sibling::sibling_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3anv7Sibling::sibling_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { rp_mod_3anv7Sibling::sibling_stream!(@f [$($a)* WANT_foo on_foo: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] m_foo => $c:expr, $($r:tt)*) => { rp_mod_3anv7Sibling::sibling_stream!(@f [$($a)* WANT_m_foo on_m_foo: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3anv7Sibling::sibling_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3anv7Sibling::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_naming_valid::stream::anv::sibling_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_naming_valid::stream::anv::sibling_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::sibling_stream!(@f [$($a)* WANT_foo on_foo: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] m_foo => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::sibling_stream!(@f [$($a)* WANT_m_foo on_m_foo: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::sibling_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_naming_valid::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: foo, m_foo, unknown")) };
-      (@f $a:tt) => { rp_mod_3anv7Sibling::rp_rt::stream_visitor!(rp_mod_3anv7Sibling SiblingVisitor $a) };
+      (@f $a:tt) => { $crate::arena_naming_valid::stream::rp_rt::stream_visitor!($crate::arena_naming_valid::stream::anv::SiblingVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_18arena_naming_valid_3anv7Sibling as sibling_stream;
@@ -3307,19 +3288,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::anv as rp_mod_3anv6config;
     /// Builds a `config_Visitor` from per-field closures: `config__stream! { field => |value| .. }`, or
     /// `config__stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_18arena_naming_valid_3anv6config {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3anv6config::config__stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3anv6config::config__stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_3anv6config::config__stream!(@f [$($a)* WANT_a on_a: &'rp_a rp_mod_3anv6config::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3anv6config::config__stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3anv6config::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_naming_valid::stream::anv::config__stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_naming_valid::stream::anv::config__stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::config__stream!(@f [$($a)* WANT_a on_a: &'rp_a $crate::arena_naming_valid::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::config__stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_naming_valid::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, unknown")) };
-      (@f $a:tt) => { rp_mod_3anv6config::rp_rt::stream_visitor!(rp_mod_3anv6config config_Visitor $a) };
+      (@f $a:tt) => { $crate::arena_naming_valid::stream::rp_rt::stream_visitor!($crate::arena_naming_valid::stream::anv::config_Visitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_18arena_naming_valid_3anv6config as config__stream;
@@ -3459,20 +3438,18 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::anv as rp_mod_3anv9MaskOneof;
     /// Builds a `MaskOneofVisitor` from per-field closures: `mask_oneof_stream! { field => |value| .. }`, or
     /// `mask_oneof_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_18arena_naming_valid_3anv9MaskOneof {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3anv9MaskOneof::mask_oneof_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3anv9MaskOneof::mask_oneof_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] present => $c:expr, $($r:tt)*) => { rp_mod_3anv9MaskOneof::mask_oneof_stream!(@f [$($a)* WANT_present on_present: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_3anv9MaskOneof::mask_oneof_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3anv9MaskOneof::mask_oneof_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3anv9MaskOneof::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_naming_valid::stream::anv::mask_oneof_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_naming_valid::stream::anv::mask_oneof_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] present => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::mask_oneof_stream!(@f [$($a)* WANT_present on_present: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::mask_oneof_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::mask_oneof_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_naming_valid::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: present, a, unknown")) };
-      (@f $a:tt) => { rp_mod_3anv9MaskOneof::rp_rt::stream_visitor!(rp_mod_3anv9MaskOneof MaskOneofVisitor $a) };
+      (@f $a:tt) => { $crate::arena_naming_valid::stream::rp_rt::stream_visitor!($crate::arena_naming_valid::stream::anv::MaskOneofVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_18arena_naming_valid_3anv9MaskOneof as mask_oneof_stream;
@@ -3612,20 +3589,18 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::anv as rp_mod_3anv5Bytes;
     /// Builds a `BytesVisitor` from per-field closures: `bytes_stream! { field => |value| .. }`, or
     /// `bytes_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_18arena_naming_valid_3anv5Bytes {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3anv5Bytes::bytes_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3anv5Bytes::bytes_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] bytes => $c:expr, $($r:tt)*) => { rp_mod_3anv5Bytes::bytes_stream!(@f [$($a)* WANT_bytes on_bytes: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
-      (@f [$($a:tt)*] m_bytes => $c:expr, $($r:tt)*) => { rp_mod_3anv5Bytes::bytes_stream!(@f [$($a)* WANT_m_bytes on_m_bytes: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3anv5Bytes::bytes_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3anv5Bytes::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_naming_valid::stream::anv::bytes_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_naming_valid::stream::anv::bytes_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] bytes => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::bytes_stream!(@f [$($a)* WANT_bytes on_bytes: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
+      (@f [$($a:tt)*] m_bytes => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::bytes_stream!(@f [$($a)* WANT_m_bytes on_m_bytes: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::bytes_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_naming_valid::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: bytes, m_bytes, unknown")) };
-      (@f $a:tt) => { rp_mod_3anv5Bytes::rp_rt::stream_visitor!(rp_mod_3anv5Bytes BytesVisitor $a) };
+      (@f $a:tt) => { $crate::arena_naming_valid::stream::rp_rt::stream_visitor!($crate::arena_naming_valid::stream::anv::BytesVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_18arena_naming_valid_3anv5Bytes as bytes_stream;
@@ -4128,31 +4103,29 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::anv as rp_mod_3anv8Keywords;
     /// Builds a `KeywordsVisitor` from per-field closures: `keywords_stream! { field => |value| .. }`, or
     /// `keywords_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_18arena_naming_valid_3anv8Keywords {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3anv8Keywords::keywords_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3anv8Keywords::keywords_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] static_cast => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_static_cast on_static_cast: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] const_cast => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_const_cast on_const_cast: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] dynamic_cast => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_dynamic_cast on_dynamic_cast: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] reinterpret_cast => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_reinterpret_cast on_reinterpret_cast: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] static_assert => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_static_assert on_static_assert: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] concept => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_concept on_concept: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] requires => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_requires on_requires: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] consteval => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_consteval on_consteval: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] constinit => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_constinit on_constinit: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] co_await => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_co_await on_co_await: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] co_return => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_co_return on_co_return: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] co_yield => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_co_yield on_co_yield: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] char8_t => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_char8_t on_char8_t: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3anv8Keywords::keywords_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3anv8Keywords::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] static_cast => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_static_cast on_static_cast: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] const_cast => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_const_cast on_const_cast: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] dynamic_cast => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_dynamic_cast on_dynamic_cast: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] reinterpret_cast => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_reinterpret_cast on_reinterpret_cast: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] static_assert => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_static_assert on_static_assert: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] concept => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_concept on_concept: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] requires => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_requires on_requires: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] consteval => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_consteval on_consteval: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] constinit => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_constinit on_constinit: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] co_await => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_co_await on_co_await: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] co_return => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_co_return on_co_return: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] co_yield => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_co_yield on_co_yield: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] char8_t => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_char8_t on_char8_t: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_naming_valid::stream::anv::keywords_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_naming_valid::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: static_cast, const_cast, dynamic_cast, reinterpret_cast, static_assert, concept, requires, consteval, constinit, co_await, co_return, co_yield, char8_t, unknown")) };
-      (@f $a:tt) => { rp_mod_3anv8Keywords::rp_rt::stream_visitor!(rp_mod_3anv8Keywords KeywordsVisitor $a) };
+      (@f $a:tt) => { $crate::arena_naming_valid::stream::rp_rt::stream_visitor!($crate::arena_naming_valid::stream::anv::KeywordsVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_18arena_naming_valid_3anv8Keywords as keywords_stream;

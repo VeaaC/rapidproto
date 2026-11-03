@@ -57,20 +57,20 @@ pub mod arena {
 
       pub mod deep {
         pub struct Outer<'a> {
-          inner: outer::Inner<'a>,
-          self_: ::core::option::Option<&'a Outer<'a>>,
-          mode: super::super::super::super::common::com::example::deep::Mode,
+          inner: crate::xpkg::arena::com::example::deep::outer::Inner<'a>,
+          self_: ::core::option::Option<&'a crate::xpkg::arena::com::example::deep::Outer<'a>>,
+          mode: crate::xpkg::common::com::example::deep::Mode,
           rp_presence: u8,
         }
 
         impl<'a> Outer<'a> {
-          pub fn inner(&self) -> ::core::option::Option<&outer::Inner<'a>> {
+          pub fn inner(&self) -> ::core::option::Option<&crate::xpkg::arena::com::example::deep::outer::Inner<'a>> {
             ((self.rp_presence & (1 << 0)) != 0).then_some(&self.inner)
           }
-          pub fn self_(&self) -> ::core::option::Option<&'a Outer<'a>> {
+          pub fn self_(&self) -> ::core::option::Option<&'a crate::xpkg::arena::com::example::deep::Outer<'a>> {
             self.self_
           }
-          pub fn mode(&self) -> super::super::super::super::common::com::example::deep::Mode {
+          pub fn mode(&self) -> crate::xpkg::common::com::example::deep::Mode {
             self.mode
           }
         }
@@ -217,9 +217,9 @@ pub mod arena {
               return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
             }
             let mut rp_presence: u8 = 0;
-            let mut rp_field_1: outer::Inner<'a> = ::core::default::Default::default();
-            let mut rp_field_2: ::core::option::Option<&'a Outer<'a>> = ::core::option::Option::None;
-            let mut rp_field_3: super::super::super::super::common::com::example::deep::Mode = super::super::super::super::common::com::example::deep::Mode(0);
+            let mut rp_field_1: crate::xpkg::arena::com::example::deep::outer::Inner<'a> = ::core::default::Default::default();
+            let mut rp_field_2: ::core::option::Option<&'a crate::xpkg::arena::com::example::deep::Outer<'a>> = ::core::option::Option::None;
+            let mut rp_field_3: crate::xpkg::common::com::example::deep::Mode = crate::xpkg::common::com::example::deep::Mode(0);
             let mut rp_rest: &'a [u8] = rp_body;
             if rp_rest.first() == ::core::option::Option::Some(&10u8) {
               rp_rest = &rp_rest[1..];
@@ -231,7 +231,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = ::rapidproto::decode_value(|rp_out| outer::Inner::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::xpkg::arena::com::example::deep::outer::Inner::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 0;
             }
             if rp_rest.first() == ::core::option::Option::Some(&18u8) {
@@ -244,7 +244,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Outer::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::xpkg::arena::com::example::deep::Outer::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             if rp_rest.first() == ::core::option::Option::Some(&24u8) {
               rp_rest = &rp_rest[1..];
@@ -253,7 +253,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_3 = super::super::super::super::common::com::example::deep::Mode(rp_v as i32);
+              rp_field_3 = crate::xpkg::common::com::example::deep::Mode(rp_v as i32);
             }
             loop {
               let rp_b = match rp_rest.first() {
@@ -281,7 +281,7 @@ pub mod arena {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  rp_field_1 = ::rapidproto::decode_value(|rp_out| outer::Inner::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+                  rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::xpkg::arena::com::example::deep::outer::Inner::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
                   rp_presence |= 1 << 0;
                 }
                 18u32 => {
@@ -293,7 +293,7 @@ pub mod arena {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Outer::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+                  rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::xpkg::arena::com::example::deep::Outer::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
                 }
                 24u32 => {
                   let mut rp_v = 0u64;
@@ -301,7 +301,7 @@ pub mod arena {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  rp_field_3 = super::super::super::super::common::com::example::deep::Mode(rp_v as i32);
+                  rp_field_3 = crate::xpkg::common::com::example::deep::Mode(rp_v as i32);
                 }
                 _ => {
                   rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -325,11 +325,11 @@ pub mod arena {
 
   pub mod other {
     pub struct Ref<'a> {
-      target: ::core::option::Option<&'a super::com::example::deep::Outer<'a>>,
+      target: ::core::option::Option<&'a crate::xpkg::arena::com::example::deep::Outer<'a>>,
     }
 
     impl<'a> Ref<'a> {
-      pub fn target(&self) -> ::core::option::Option<&'a super::com::example::deep::Outer<'a>> {
+      pub fn target(&self) -> ::core::option::Option<&'a crate::xpkg::arena::com::example::deep::Outer<'a>> {
         self.target
       }
     }
@@ -366,7 +366,7 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut rp_field_1: ::core::option::Option<&'a super::com::example::deep::Outer<'a>> = ::core::option::Option::None;
+        let mut rp_field_1: ::core::option::Option<&'a crate::xpkg::arena::com::example::deep::Outer<'a>> = ::core::option::Option::None;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -378,7 +378,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_1 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| super::com::example::deep::Outer::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+          rp_field_1 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::xpkg::arena::com::example::deep::Outer::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -406,7 +406,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| super::com::example::deep::Outer::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              rp_field_1 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::xpkg::arena::com::example::deep::Outer::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -426,32 +426,28 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod com {
 
     pub mod example {
 
       pub mod deep {
-        #[doc(hidden)]
-        pub use ::rapidproto::rp_rt;
-        #[doc(hidden)]
-        pub type rp_stream_ty_0<'a> = outer::Inner<'a>;
-        #[doc(hidden)]
-        pub type rp_stream_ty_1 = super::super::super::super::common::com::example::deep::Mode;
-
         /// Streaming visitor for `Outer`. Select a field by overriding its `WANT_<field>` const AND
         /// its `on_<field>` method (the `outer_stream` macro does both); a field left at the default
         /// `WANT_<field> = false` is skipped on the wire with no dispatch.
         pub trait OuterVisitor<'a> {
           const WANT_inner: bool = false;
           #[inline(always)]
-          fn on_inner(&mut self, _rp_v: outer::Inner<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+          fn on_inner(&mut self, _rp_v: crate::xpkg::stream::com::example::deep::outer::Inner<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
           const WANT_self_: bool = false;
           #[inline(always)]
-          fn on_self_(&mut self, _rp_v: Outer<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+          fn on_self_(&mut self, _rp_v: crate::xpkg::stream::com::example::deep::Outer<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
           const WANT_mode: bool = false;
           #[inline(always)]
-          fn on_mode(&mut self, _rp_v: super::super::super::super::common::com::example::deep::Mode) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+          fn on_mode(&mut self, _rp_v: crate::xpkg::common::com::example::deep::Mode) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
           const WANT_UNKNOWN: bool = false;
           #[inline(always)]
           fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -483,7 +479,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_inner(self::outer::Inner::new(rp_p))? {
+                match rp_vis.on_inner(crate::xpkg::stream::com::example::deep::outer::Inner::new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -502,7 +498,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_self_(self::Outer::new(rp_p))? {
+                match rp_vis.on_self_(crate::xpkg::stream::com::example::deep::Outer::new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -521,7 +517,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_mode(super::super::super::super::common::com::example::deep::Mode(rp_v as i32))? {
+                match rp_vis.on_mode(crate::xpkg::common::com::example::deep::Mode(rp_v as i32))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -555,7 +551,7 @@ pub mod stream {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  match rp_vis.on_inner(self::outer::Inner::new(rp_p))? {
+                  match rp_vis.on_inner(crate::xpkg::stream::com::example::deep::outer::Inner::new(rp_p))? {
                     ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
@@ -566,7 +562,7 @@ pub mod stream {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  match rp_vis.on_self_(self::Outer::new(rp_p))? {
+                  match rp_vis.on_self_(crate::xpkg::stream::com::example::deep::Outer::new(rp_p))? {
                     ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
@@ -577,7 +573,7 @@ pub mod stream {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  match rp_vis.on_mode(super::super::super::super::common::com::example::deep::Mode(rp_v as i32))? {
+                  match rp_vis.on_mode(crate::xpkg::common::com::example::deep::Mode(rp_v as i32))? {
                     ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
@@ -607,29 +603,24 @@ pub mod stream {
           }
         }
 
-        #[doc(hidden)]
-        pub use super::deep as rp_mod_3com7example4deep5Outer;
         /// Builds a `OuterVisitor` from per-field closures: `outer_stream! { field => |value| .. }`, or
         /// `outer_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
         #[doc(hidden)]
         #[macro_export]
         macro_rules! __rp_4xpkg_3com7example4deep5Outer {
-          ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3com7example4deep5Outer::outer_stream!(@f [[]] $($f => $c,)*) };
-          ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3com7example4deep5Outer::outer_stream!(@f [[$s]] $($f => $c,)*) };
-          (@f [$($a:tt)*] inner => $c:expr, $($r:tt)*) => { rp_mod_3com7example4deep5Outer::outer_stream!(@f [$($a)* WANT_inner on_inner: rp_mod_3com7example4deep5Outer::rp_stream_ty_0<'rp_a> = $c;] $($r)*) };
-          (@f [$($a:tt)*] self_ => $c:expr, $($r:tt)*) => { rp_mod_3com7example4deep5Outer::outer_stream!(@f [$($a)* WANT_self_ on_self_: rp_mod_3com7example4deep5Outer::Outer<'rp_a> = $c;] $($r)*) };
-          (@f [$($a:tt)*] mode => $c:expr, $($r:tt)*) => { rp_mod_3com7example4deep5Outer::outer_stream!(@f [$($a)* WANT_mode on_mode: rp_mod_3com7example4deep5Outer::rp_stream_ty_1 = $c;] $($r)*) };
-          (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3com7example4deep5Outer::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3com7example4deep5Outer::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+          ($($f:ident => $c:expr),* $(,)?) => { $crate::xpkg::stream::com::example::deep::outer_stream!(@f [[]] $($f => $c,)*) };
+          ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::xpkg::stream::com::example::deep::outer_stream!(@f [[$s]] $($f => $c,)*) };
+          (@f [$($a:tt)*] inner => $c:expr, $($r:tt)*) => { $crate::xpkg::stream::com::example::deep::outer_stream!(@f [$($a)* WANT_inner on_inner: $crate::xpkg::stream::com::example::deep::outer::Inner<'rp_a> = $c;] $($r)*) };
+          (@f [$($a:tt)*] self_ => $c:expr, $($r:tt)*) => { $crate::xpkg::stream::com::example::deep::outer_stream!(@f [$($a)* WANT_self_ on_self_: $crate::xpkg::stream::com::example::deep::Outer<'rp_a> = $c;] $($r)*) };
+          (@f [$($a:tt)*] mode => $c:expr, $($r:tt)*) => { $crate::xpkg::stream::com::example::deep::outer_stream!(@f [$($a)* WANT_mode on_mode: $crate::xpkg::common::com::example::deep::Mode = $c;] $($r)*) };
+          (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::xpkg::stream::com::example::deep::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::xpkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
           (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: inner, self_, mode, unknown")) };
-          (@f $a:tt) => { rp_mod_3com7example4deep5Outer::rp_rt::stream_visitor!(rp_mod_3com7example4deep5Outer OuterVisitor $a) };
+          (@f $a:tt) => { $crate::xpkg::stream::rp_rt::stream_visitor!($crate::xpkg::stream::com::example::deep::OuterVisitor<'rp_a> $a) };
         }
         #[doc(inline)]
         pub use __rp_4xpkg_3com7example4deep5Outer as outer_stream;
 
         pub mod outer {
-          #[doc(hidden)]
-          pub use ::rapidproto::rp_rt;
-
           /// Streaming visitor for `Inner`. Select a field by overriding its `WANT_<field>` const AND
           /// its `on_<field>` method (the `inner_stream` macro does both); a field left at the default
           /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -732,19 +723,17 @@ pub mod stream {
             }
           }
 
-          #[doc(hidden)]
-          pub use super::outer as rp_mod_3com7example4deep5Outer5Inner;
           /// Builds a `InnerVisitor` from per-field closures: `inner_stream! { field => |value| .. }`, or
           /// `inner_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
           #[doc(hidden)]
           #[macro_export]
           macro_rules! __rp_4xpkg_3com7example4deep5Outer5Inner {
-            ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3com7example4deep5Outer5Inner::inner_stream!(@f [[]] $($f => $c,)*) };
-            ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3com7example4deep5Outer5Inner::inner_stream!(@f [[$s]] $($f => $c,)*) };
-            (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_3com7example4deep5Outer5Inner::inner_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
-            (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3com7example4deep5Outer5Inner::inner_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3com7example4deep5Outer5Inner::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+            ($($f:ident => $c:expr),* $(,)?) => { $crate::xpkg::stream::com::example::deep::outer::inner_stream!(@f [[]] $($f => $c,)*) };
+            ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::xpkg::stream::com::example::deep::outer::inner_stream!(@f [[$s]] $($f => $c,)*) };
+            (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::xpkg::stream::com::example::deep::outer::inner_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+            (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::xpkg::stream::com::example::deep::outer::inner_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::xpkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
             (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, unknown")) };
-            (@f $a:tt) => { rp_mod_3com7example4deep5Outer5Inner::rp_rt::stream_visitor!(rp_mod_3com7example4deep5Outer5Inner InnerVisitor $a) };
+            (@f $a:tt) => { $crate::xpkg::stream::rp_rt::stream_visitor!($crate::xpkg::stream::com::example::deep::outer::InnerVisitor<'rp_a> $a) };
           }
           #[doc(inline)]
           pub use __rp_4xpkg_3com7example4deep5Outer5Inner as inner_stream;
@@ -754,18 +743,13 @@ pub mod stream {
   }
 
   pub mod other {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-    #[doc(hidden)]
-    pub type rp_stream_ty_0<'a> = super::com::example::deep::Outer<'a>;
-
     /// Streaming visitor for `Ref`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `ref_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait RefVisitor<'a> {
       const WANT_target: bool = false;
       #[inline(always)]
-      fn on_target(&mut self, _rp_v: super::com::example::deep::Outer<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_target(&mut self, _rp_v: crate::xpkg::stream::com::example::deep::Outer<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -797,7 +781,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_target(super::com::example::deep::Outer::new(rp_p))? {
+            match rp_vis.on_target(crate::xpkg::stream::com::example::deep::Outer::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -831,7 +815,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_target(super::com::example::deep::Outer::new(rp_p))? {
+              match rp_vis.on_target(crate::xpkg::stream::com::example::deep::Outer::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -861,19 +845,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::other as rp_mod_5other3Ref;
     /// Builds a `RefVisitor` from per-field closures: `ref_stream! { field => |value| .. }`, or
     /// `ref_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_4xpkg_5other3Ref {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_5other3Ref::ref_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_5other3Ref::ref_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] target => $c:expr, $($r:tt)*) => { rp_mod_5other3Ref::ref_stream!(@f [$($a)* WANT_target on_target: rp_mod_5other3Ref::rp_stream_ty_0<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_5other3Ref::ref_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_5other3Ref::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::xpkg::stream::other::ref_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::xpkg::stream::other::ref_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] target => $c:expr, $($r:tt)*) => { $crate::xpkg::stream::other::ref_stream!(@f [$($a)* WANT_target on_target: $crate::xpkg::stream::com::example::deep::Outer<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::xpkg::stream::other::ref_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::xpkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: target, unknown")) };
-      (@f $a:tt) => { rp_mod_5other3Ref::rp_rt::stream_visitor!(rp_mod_5other3Ref RefVisitor $a) };
+      (@f $a:tt) => { $crate::xpkg::stream::rp_rt::stream_visitor!($crate::xpkg::stream::other::RefVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_4xpkg_5other3Ref as ref_stream;

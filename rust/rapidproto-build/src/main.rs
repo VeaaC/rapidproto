@@ -17,7 +17,8 @@ struct Args {
 }
 
 const USAGE: &str = "\
-usage: rapidproto-rust [options] <entry.proto>...
+usage: rapidproto-rust --module-path <path> [options] <entry.proto>...
+  --module-path <path>  where the output is included: crate, or a path from it like crate::schema
   -I <dir>              add an import search path (repeatable; default: the current directory)
   -o, --out <file>      write the generated Rust here (default: stdout)
   --field-modes <file>  a decode profile (drop/raw/unknown-fields lines; repeatable)
@@ -26,8 +27,6 @@ usage: rapidproto-rust [options] <entry.proto>...
   --unknown <name>      reserve the unknown-fields bit on one message (repeatable)
   --unknown-present     reserve the unknown-fields bit on every message
   --stream              also emit the stream visitor model (<Msg>Visitor + <msg>_stream!)
-  --export-stream-macros <prefix>
-                        make the <msg>_stream! macros callable from other crates (needs --stream)
   --no-arena            omit the arena model (combine with --stream for stream-only output)
   --serde               implement serde::Serialize (the output needs rapidproto's serde feature)
   -h, --help            show this help";
@@ -79,8 +78,10 @@ fn run(args: &Args) -> Result<(), String> {
 
 fn parse_args() -> Result<Option<Args>, String> {
     let mut entries = Vec::new();
-    let mut config = Config::new();
+    let mut module_path = None;
+    let mut includes = Vec::new();
     let mut modes = String::new();
+    let (mut unknown_present, mut stream, mut arena, mut serde) = (false, false, true, false);
     let mut out = None;
     let mut argv = std::env::args().skip(1);
     while let Some(arg) = argv.next() {
@@ -99,7 +100,8 @@ fn parse_args() -> Result<Option<Args>, String> {
                 println!("{USAGE}");
                 return Ok(None);
             }
-            "-I" => config = config.include(take(inline.as_deref(), "-I")?),
+            "--module-path" => module_path = Some(take(inline.as_deref(), "--module-path")?),
+            "-I" => includes.push(take(inline.as_deref(), "-I")?),
             "-o" | "--out" => out = Some(PathBuf::from(take(inline.as_deref(), "--out")?)),
             "--field-modes" => {
                 let path = take(inline.as_deref(), "--field-modes")?;
@@ -115,23 +117,28 @@ fn parse_args() -> Result<Option<Args>, String> {
                 "unknown-fields",
                 &take(inline.as_deref(), "--unknown")?,
             ),
-            "--unknown-present" => config = config.unknown_present(true),
-            "--stream" => config = config.stream(true),
-            "--export-stream-macros" => {
-                config =
-                    config.export_stream_macros(take(inline.as_deref(), "--export-stream-macros")?)
-            }
-            "--no-arena" => config = config.arena(false),
-            "--serde" => config = config.serde(true),
+            "--unknown-present" => unknown_present = true,
+            "--stream" => stream = true,
+            "--no-arena" => arena = false,
+            "--serde" => serde = true,
             other if other.starts_with('-') && other != "-" => {
                 return Err(format!("unknown option '{other}'"));
             }
             _ => entries.push(PathBuf::from(arg)),
         }
     }
+    let mut config = Config::new(module_path.ok_or("no --module-path given")?)
+        .field_modes(modes)
+        .unknown_present(unknown_present)
+        .stream(stream)
+        .arena(arena)
+        .serde(serde);
+    for dir in includes {
+        config = config.include(dir);
+    }
     Ok(Some(Args {
         entries,
-        config: config.field_modes(modes),
+        config,
         out,
     }))
 }

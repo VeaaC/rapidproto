@@ -459,11 +459,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod rapidproto {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-
     /// Streaming visitor for `wire`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `wire_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -566,19 +566,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::rapidproto as rp_mod_10rapidproto4wire;
     /// Builds a `wireVisitor` from per-field closures: `wire_stream! { field => |value| .. }`, or
     /// `wire_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_5rppkg_10rapidproto4wire {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_10rapidproto4wire::wire_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_10rapidproto4wire::wire_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_10rapidproto4wire::wire_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_10rapidproto4wire::wire_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_10rapidproto4wire::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::rppkg::stream::rapidproto::wire_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rppkg::stream::rapidproto::wire_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::wire_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::wire_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rppkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, unknown")) };
-      (@f $a:tt) => { rp_mod_10rapidproto4wire::rp_rt::stream_visitor!(rp_mod_10rapidproto4wire wireVisitor $a) };
+      (@f $a:tt) => { $crate::rppkg::stream::rp_rt::stream_visitor!($crate::rppkg::stream::rapidproto::wireVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5rppkg_10rapidproto4wire as wire_stream;
@@ -685,19 +683,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::rapidproto as rp_mod_10rapidproto5Arena;
     /// Builds a `ArenaVisitor` from per-field closures: `arena_stream! { field => |value| .. }`, or
     /// `arena_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_5rppkg_10rapidproto5Arena {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_10rapidproto5Arena::arena_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_10rapidproto5Arena::arena_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { rp_mod_10rapidproto5Arena::arena_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_10rapidproto5Arena::arena_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_10rapidproto5Arena::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::rppkg::stream::rapidproto::arena_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rppkg::stream::rapidproto::arena_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::arena_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::arena_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rppkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: y, unknown")) };
-      (@f $a:tt) => { rp_mod_10rapidproto5Arena::rp_rt::stream_visitor!(rp_mod_10rapidproto5Arena ArenaVisitor $a) };
+      (@f $a:tt) => { $crate::rppkg::stream::rp_rt::stream_visitor!($crate::rppkg::stream::rapidproto::ArenaVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5rppkg_10rapidproto5Arena as arena_stream;
@@ -804,19 +800,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::rapidproto as rp_mod_10rapidproto3Tag;
     /// Builds a `TagVisitor` from per-field closures: `tag_stream! { field => |value| .. }`, or
     /// `tag_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_5rppkg_10rapidproto3Tag {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_10rapidproto3Tag::tag_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_10rapidproto3Tag::tag_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_10rapidproto3Tag::tag_stream!(@f [$($a)* WANT_s on_s: &'rp_a rp_mod_10rapidproto3Tag::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_10rapidproto3Tag::tag_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_10rapidproto3Tag::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::rppkg::stream::rapidproto::tag_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rppkg::stream::rapidproto::tag_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::tag_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::rppkg::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::tag_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rppkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, unknown")) };
-      (@f $a:tt) => { rp_mod_10rapidproto3Tag::rp_rt::stream_visitor!(rp_mod_10rapidproto3Tag TagVisitor $a) };
+      (@f $a:tt) => { $crate::rppkg::stream::rp_rt::stream_visitor!($crate::rppkg::stream::rapidproto::TagVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5rppkg_10rapidproto3Tag as tag_stream;
@@ -923,19 +917,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::rapidproto as rp_mod_10rapidproto8ByteView;
     /// Builds a `ByteViewVisitor` from per-field closures: `byte_view_stream! { field => |value| .. }`, or
     /// `byte_view_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_5rppkg_10rapidproto8ByteView {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_10rapidproto8ByteView::byte_view_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_10rapidproto8ByteView::byte_view_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_10rapidproto8ByteView::byte_view_stream!(@f [$($a)* WANT_b on_b: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_10rapidproto8ByteView::byte_view_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_10rapidproto8ByteView::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::rppkg::stream::rapidproto::byte_view_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rppkg::stream::rapidproto::byte_view_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::byte_view_stream!(@f [$($a)* WANT_b on_b: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::byte_view_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rppkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: b, unknown")) };
-      (@f $a:tt) => { rp_mod_10rapidproto8ByteView::rp_rt::stream_visitor!(rp_mod_10rapidproto8ByteView ByteViewVisitor $a) };
+      (@f $a:tt) => { $crate::rppkg::stream::rp_rt::stream_visitor!($crate::rppkg::stream::rapidproto::ByteViewVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5rppkg_10rapidproto8ByteView as byte_view_stream;

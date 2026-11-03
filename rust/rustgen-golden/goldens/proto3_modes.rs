@@ -55,11 +55,11 @@ pub mod arena {
     pub struct Msg<'a> {
       implicit_i: i32,
       explicit_i: i32,
-      state: super::super::common::p3::State,
+      state: crate::proto3_modes::common::p3::State,
       self_: ::core::option::Option<::rapidproto::PackedSlice<'a, u8>>,
       nums: ::rapidproto::PackedSlice<'a, i32>,
       unpacked: ::rapidproto::PackedSlice<'a, i32>,
-      states: ::rapidproto::PackedSlice<'a, super::super::common::p3::State>,
+      states: ::rapidproto::PackedSlice<'a, crate::proto3_modes::common::p3::State>,
       reals: ::rapidproto::PackedSlice<'a, f64>,
       codes: ::rapidproto::PackedSlice<'a, u32>,
       bools: ::rapidproto::PackedSlice<'a, bool>,
@@ -70,7 +70,7 @@ pub mod arena {
       counts: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32>,
       toggles: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, bool>,
       ratios: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, f64>,
-      pick: ::core::option::Option<msg::Pick<'a>>,
+      pick: ::core::option::Option<crate::proto3_modes::arena::p3::msg::Pick<'a>>,
       rp_unknown: bool,
     }
 
@@ -81,7 +81,7 @@ pub mod arena {
       pub fn explicit_i(&self) -> ::core::option::Option<i32> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.explicit_i)
       }
-      pub fn state(&self) -> super::super::common::p3::State {
+      pub fn state(&self) -> crate::proto3_modes::common::p3::State {
         self.state
       }
       pub fn self_(&self) -> ::core::option::Option<&'a [u8]> {
@@ -93,7 +93,7 @@ pub mod arena {
       pub fn unpacked(&self) -> &'a [i32] {
         self.unpacked.as_slice()
       }
-      pub fn states(&self) -> &'a [super::super::common::p3::State] {
+      pub fn states(&self) -> &'a [crate::proto3_modes::common::p3::State] {
         self.states.as_slice()
       }
       pub fn reals(&self) -> &'a [f64] {
@@ -123,7 +123,7 @@ pub mod arena {
       pub fn ratios(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, f64> {
         self.ratios
       }
-      pub fn pick(&self) -> ::core::option::Option<&msg::Pick<'a>> {
+      pub fn pick(&self) -> ::core::option::Option<&crate::proto3_modes::arena::p3::msg::Pick<'a>> {
         self.pick.as_ref()
       }
       pub fn has_unknown_fields(&self) -> bool {
@@ -233,11 +233,11 @@ pub mod arena {
         }
         if let ::core::option::Option::Some(rp_o) = self.pick() {
           match rp_o {
-            msg::Pick::A(rp_v) => rp_map.serialize_entry("a", rp_v)?,
-            msg::Pick::B(rp_v) => rp_map.serialize_entry("b", rp_v)?,
-            msg::Pick::C(rp_v) => rp_map.serialize_entry("c", rp_v)?,
-            msg::Pick::D(rp_v) => rp_map.serialize_entry("d", rp_v)?,
-            msg::Pick::E(rp_v) => rp_map.serialize_entry("e", &::rapidproto::serde_support::Bytes(rp_v))?,
+            crate::proto3_modes::arena::p3::msg::Pick::A(rp_v) => rp_map.serialize_entry("a", rp_v)?,
+            crate::proto3_modes::arena::p3::msg::Pick::B(rp_v) => rp_map.serialize_entry("b", rp_v)?,
+            crate::proto3_modes::arena::p3::msg::Pick::C(rp_v) => rp_map.serialize_entry("c", rp_v)?,
+            crate::proto3_modes::arena::p3::msg::Pick::D(rp_v) => rp_map.serialize_entry("d", rp_v)?,
+            crate::proto3_modes::arena::p3::msg::Pick::E(rp_v) => rp_map.serialize_entry("e", &::rapidproto::serde_support::Bytes(rp_v))?,
           }
         }
         rp_map.end()
@@ -274,7 +274,7 @@ pub mod arena {
         let mut rp_presence: u8 = 0;
         let mut rp_field_1: i32 = 0;
         let mut rp_field_2: i32 = 0;
-        let mut rp_field_4: super::super::common::p3::State = super::super::common::p3::State(0);
+        let mut rp_field_4: crate::proto3_modes::common::p3::State = crate::proto3_modes::common::p3::State(0);
         let mut rp_field_5: ::core::option::Option<&'a [u8]> = ::core::option::Option::None;
         let mut rp_acc_6 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_acc_7 = ::rapidproto::DecodeVec::new(rp_arena);
@@ -289,7 +289,7 @@ pub mod arena {
         let mut rp_map_9 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_map_18 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_map_19 = ::rapidproto::DecodeVec::new(rp_arena);
-        let mut rp_oneof_0: ::core::option::Option<msg::Pick<'a>> = ::core::option::Option::None;
+        let mut rp_oneof_0: ::core::option::Option<crate::proto3_modes::arena::p3::msg::Pick<'a>> = ::core::option::Option::None;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -324,7 +324,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_4 = super::super::common::p3::State(rp_v as i32);
+          rp_field_4 = crate::proto3_modes::common::p3::State(rp_v as i32);
         }
         while rp_rest.first() == ::core::option::Option::Some(&48u8) {
           rp_rest = &rp_rest[1..];
@@ -369,7 +369,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_8.push(super::super::common::p3::State(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_8.push(crate::proto3_modes::common::p3::State(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         if rp_rest.first() == ::core::option::Option::Some(&66u8) {
           rp_rest = &rp_rest[1..];
@@ -378,7 +378,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_8.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| super::super::common::p3::State(rp_v as i32))?;
+          rp_acc_8.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| crate::proto3_modes::common::p3::State(rp_v as i32))?;
         }
         while rp_rest.first() == ::core::option::Option::Some(&74u8) {
           rp_rest = &rp_rest[1..];
@@ -441,7 +441,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::A(rp_v as i32));
+          rp_oneof_0 = ::core::option::Option::Some(crate::proto3_modes::arena::p3::msg::Pick::A(rp_v as i32));
         }
         if rp_rest.first() == ::core::option::Option::Some(&90u8) {
           rp_rest = &rp_rest[1..];
@@ -450,7 +450,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::B(::rapidproto::PackedStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::proto3_modes::arena::p3::msg::Pick::B(::rapidproto::PackedStr::new(rp_p)));
         }
         while rp_rest.first() == ::core::option::Option::Some(&97u8) {
           rp_rest = &rp_rest[1..];
@@ -526,7 +526,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::C(rp_v != 0));
+          rp_oneof_0 = ::core::option::Option::Some(crate::proto3_modes::arena::p3::msg::Pick::C(rp_v != 0));
         }
         if rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[129u8, 1u8]) {
           rp_rest = &rp_rest[2..];
@@ -535,7 +535,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::D(f64::from_bits(rp_v)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::proto3_modes::arena::p3::msg::Pick::D(f64::from_bits(rp_v)));
         }
         while rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[136u8, 1u8]) {
           rp_rest = &rp_rest[2..];
@@ -695,7 +695,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::E(::rapidproto::PackedSlice::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::proto3_modes::arena::p3::msg::Pick::E(::rapidproto::PackedSlice::new(rp_p)));
         }
         while rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[194u8, 1u8]) {
           rp_rest = &rp_rest[2..];
@@ -746,7 +746,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_4 = super::super::common::p3::State(rp_v as i32);
+              rp_field_4 = crate::proto3_modes::common::p3::State(rp_v as i32);
             }
             42u32 => {
               if rp_field_5.is_some() {
@@ -797,7 +797,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_8.push(super::super::common::p3::State(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_8.push(crate::proto3_modes::common::p3::State(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             66u32 => {
               let mut rp_p: &[u8] = &[];
@@ -805,7 +805,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_8.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| super::super::common::p3::State(rp_v as i32))?;
+              rp_acc_8.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| crate::proto3_modes::common::p3::State(rp_v as i32))?;
             }
             97u32 => {
               let mut rp_v = 0u64;
@@ -1068,7 +1068,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::A(rp_v as i32));
+              rp_oneof_0 = ::core::option::Option::Some(crate::proto3_modes::arena::p3::msg::Pick::A(rp_v as i32));
             }
             90u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1076,7 +1076,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::B(::rapidproto::PackedStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::proto3_modes::arena::p3::msg::Pick::B(::rapidproto::PackedStr::new(rp_p)));
             }
             120u32 => {
               let mut rp_v = 0u64;
@@ -1084,7 +1084,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::C(rp_v != 0));
+              rp_oneof_0 = ::core::option::Option::Some(crate::proto3_modes::arena::p3::msg::Pick::C(rp_v != 0));
             }
             129u32 => {
               let mut rp_v = 0u64;
@@ -1092,7 +1092,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::D(f64::from_bits(rp_v)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::proto3_modes::arena::p3::msg::Pick::D(f64::from_bits(rp_v)));
             }
             186u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1100,7 +1100,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::E(::rapidproto::PackedSlice::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::proto3_modes::arena::p3::msg::Pick::E(::rapidproto::PackedSlice::new(rp_p)));
             }
             _ => {
               if !::core::matches!(rp_tagkey >> 3, 1u32 | 2u32 | 3u32 | 4u32 | 5u32 | 6u32 | 7u32 | 8u32 | 12u32 | 13u32 | 17u32 | 20u32 | 21u32 | 24u32 | 9u32 | 14u32 | 18u32 | 19u32 | 22u32 | 10u32 | 11u32 | 15u32 | 16u32 | 23u32) {

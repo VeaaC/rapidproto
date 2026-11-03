@@ -59,23 +59,23 @@ pub mod arena {
 
     pub struct Station<'a> {
       name: ::rapidproto::PackedStr<'a>,
-      location: Location<'a>,
-      unit: super::super::common::weather::Unit,
+      location: crate::example::arena::weather::Location<'a>,
+      unit: crate::example::common::weather::Unit,
       temperatures: ::rapidproto::PackedSlice<'a, f32>,
       note: ::rapidproto::PackedStr<'a>,
       rp_presence: u8,
       labels: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, ::rapidproto::PackedStr<'a>>,
-      status: ::core::option::Option<station::Status<'a>>,
+      status: ::core::option::Option<crate::example::arena::weather::station::Status<'a>>,
     }
 
     impl<'a> Station<'a> {
       pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
         self.name.get()
       }
-      pub fn location(&self) -> ::core::option::Option<&Location<'a>> {
+      pub fn location(&self) -> ::core::option::Option<&crate::example::arena::weather::Location<'a>> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(&self.location)
       }
-      pub fn unit(&self) -> super::super::common::weather::Unit {
+      pub fn unit(&self) -> crate::example::common::weather::Unit {
         self.unit
       }
       pub fn temperatures(&self) -> &'a [f32] {
@@ -87,7 +87,7 @@ pub mod arena {
       pub fn labels(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, ::rapidproto::PackedStr<'a>> {
         self.labels
       }
-      pub fn status(&self) -> ::core::option::Option<&station::Status<'a>> {
+      pub fn status(&self) -> ::core::option::Option<&crate::example::arena::weather::station::Status<'a>> {
         self.status.as_ref()
       }
     }
@@ -101,11 +101,11 @@ pub mod arena {
     }
 
     pub struct Report<'a> {
-      stations: ::rapidproto::PackedSlice<'a, Station<'a>>,
+      stations: ::rapidproto::PackedSlice<'a, crate::example::arena::weather::Station<'a>>,
     }
 
     impl<'a> Report<'a> {
-      pub fn stations(&self) -> &'a [Station<'a>] {
+      pub fn stations(&self) -> &'a [crate::example::arena::weather::Station<'a>] {
         self.stations.as_slice()
       }
     }
@@ -213,12 +213,12 @@ pub mod arena {
         }
         let mut rp_presence: u8 = 0;
         let mut rp_field_1: &'a [u8] = &[];
-        let mut rp_field_2: Location<'a> = ::core::default::Default::default();
-        let mut rp_field_3: super::super::common::weather::Unit = super::super::common::weather::Unit(0);
+        let mut rp_field_2: crate::example::arena::weather::Location<'a> = ::core::default::Default::default();
+        let mut rp_field_3: crate::example::common::weather::Unit = crate::example::common::weather::Unit(0);
         let mut rp_acc_4 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_field_8: &'a [u8] = &[];
         let mut rp_map_5 = ::rapidproto::DecodeVec::new(rp_arena);
-        let mut rp_oneof_0: ::core::option::Option<station::Status<'a>> = ::core::option::Option::None;
+        let mut rp_oneof_0: ::core::option::Option<crate::example::arena::weather::station::Status<'a>> = ::core::option::Option::None;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -239,7 +239,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_2 = ::rapidproto::decode_value(|rp_out| Location::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_2 = ::rapidproto::decode_value(|rp_out| crate::example::arena::weather::Location::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 0;
         }
         if rp_rest.first() == ::core::option::Option::Some(&24u8) {
@@ -249,7 +249,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_3 = super::super::common::weather::Unit(rp_v as i32);
+          rp_field_3 = crate::example::common::weather::Unit(rp_v as i32);
         }
         while rp_rest.first() == ::core::option::Option::Some(&37u8) {
           rp_rest = &rp_rest[1..];
@@ -342,7 +342,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(station::Status::Error(::rapidproto::PackedStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::example::arena::weather::station::Status::Error(::rapidproto::PackedStr::new(rp_p)));
         }
         if rp_rest.first() == ::core::option::Option::Some(&56u8) {
           rp_rest = &rp_rest[1..];
@@ -351,7 +351,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(station::Status::UptimeSeconds(rp_v));
+          rp_oneof_0 = ::core::option::Option::Some(crate::example::arena::weather::station::Status::UptimeSeconds(rp_v));
         }
         if rp_rest.first() == ::core::option::Option::Some(&66u8) {
           rp_rest = &rp_rest[1..];
@@ -397,7 +397,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_2 = ::rapidproto::decode_value(|rp_out| Location::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_2 = ::rapidproto::decode_value(|rp_out| crate::example::arena::weather::Location::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 0;
             }
             24u32 => {
@@ -406,7 +406,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_3 = super::super::common::weather::Unit(rp_v as i32);
+              rp_field_3 = crate::example::common::weather::Unit(rp_v as i32);
             }
             37u32 => {
               let mut rp_v = 0u32;
@@ -504,7 +504,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(station::Status::Error(::rapidproto::PackedStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::example::arena::weather::station::Status::Error(::rapidproto::PackedStr::new(rp_p)));
             }
             56u32 => {
               let mut rp_v = 0u64;
@@ -512,7 +512,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(station::Status::UptimeSeconds(rp_v));
+              rp_oneof_0 = ::core::option::Option::Some(crate::example::arena::weather::station::Status::UptimeSeconds(rp_v));
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -559,7 +559,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_1.emplace(|rp_out| Station::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_acc_1.emplace(|rp_out| crate::example::arena::weather::Station::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -584,7 +584,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_1.emplace(|rp_out| Station::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_acc_1.emplace(|rp_out| crate::example::arena::weather::Station::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -604,13 +604,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod weather {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-    #[doc(hidden)]
-    pub type rp_stream_ty_0 = super::super::common::weather::Unit;
-
     /// Streaming visitor for `Location`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `location_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -746,20 +744,18 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::weather as rp_mod_7weather8Location;
     /// Builds a `LocationVisitor` from per-field closures: `location_stream! { field => |value| .. }`, or
     /// `location_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_7example_7weather8Location {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_7weather8Location::location_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_7weather8Location::location_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] latitude => $c:expr, $($r:tt)*) => { rp_mod_7weather8Location::location_stream!(@f [$($a)* WANT_latitude on_latitude: ::core::primitive::f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] longitude => $c:expr, $($r:tt)*) => { rp_mod_7weather8Location::location_stream!(@f [$($a)* WANT_longitude on_longitude: ::core::primitive::f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_7weather8Location::location_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_7weather8Location::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::example::stream::weather::location_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::example::stream::weather::location_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] latitude => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::location_stream!(@f [$($a)* WANT_latitude on_latitude: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] longitude => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::location_stream!(@f [$($a)* WANT_longitude on_longitude: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::location_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::example::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: latitude, longitude, unknown")) };
-      (@f $a:tt) => { rp_mod_7weather8Location::rp_rt::stream_visitor!(rp_mod_7weather8Location LocationVisitor $a) };
+      (@f $a:tt) => { $crate::example::stream::rp_rt::stream_visitor!($crate::example::stream::weather::LocationVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_7example_7weather8Location as location_stream;
@@ -773,10 +769,10 @@ pub mod stream {
       fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_location: bool = false;
       #[inline(always)]
-      fn on_location(&mut self, _rp_v: Location<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_location(&mut self, _rp_v: crate::example::stream::weather::Location<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_unit: bool = false;
       #[inline(always)]
-      fn on_unit(&mut self, _rp_v: super::super::common::weather::Unit) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_unit(&mut self, _rp_v: crate::example::common::weather::Unit) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_temperatures: bool = false;
       #[inline(always)]
       fn on_temperatures(&mut self, _rp_v: f32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -842,7 +838,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_location(self::Location::new(rp_p))? {
+            match rp_vis.on_location(crate::example::stream::weather::Location::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -861,7 +857,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_unit(super::super::common::weather::Unit(rp_v as i32))? {
+            match rp_vis.on_unit(crate::example::common::weather::Unit(rp_v as i32))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -1072,7 +1068,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_location(self::Location::new(rp_p))? {
+              match rp_vis.on_location(crate::example::stream::weather::Location::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -1083,7 +1079,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_unit(super::super::common::weather::Unit(rp_v as i32))? {
+              match rp_vis.on_unit(crate::example::common::weather::Unit(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -1231,26 +1227,24 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::weather as rp_mod_7weather7Station;
     /// Builds a `StationVisitor` from per-field closures: `station_stream! { field => |value| .. }`, or
     /// `station_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_7example_7weather7Station {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_7weather7Station::station_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_7weather7Station::station_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_7weather7Station::station_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_7weather7Station::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] location => $c:expr, $($r:tt)*) => { rp_mod_7weather7Station::station_stream!(@f [$($a)* WANT_location on_location: rp_mod_7weather7Station::Location<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unit => $c:expr, $($r:tt)*) => { rp_mod_7weather7Station::station_stream!(@f [$($a)* WANT_unit on_unit: rp_mod_7weather7Station::rp_stream_ty_0 = $c;] $($r)*) };
-      (@f [$($a:tt)*] temperatures => $c:expr, $($r:tt)*) => { rp_mod_7weather7Station::station_stream!(@f [$($a)* WANT_temperatures on_temperatures: ::core::primitive::f32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] note => $c:expr, $($r:tt)*) => { rp_mod_7weather7Station::station_stream!(@f [$($a)* WANT_note on_note: &'rp_a rp_mod_7weather7Station::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] labels => $c:expr, $($r:tt)*) => { rp_mod_7weather7Station::station_stream!(@f [$($a)* WANT_labels on_labels: (&'rp_a rp_mod_7weather7Station::rp_rt::ProtoStr, &'rp_a rp_mod_7weather7Station::rp_rt::ProtoStr) = $c;] $($r)*) };
-      (@f [$($a:tt)*] error => $c:expr, $($r:tt)*) => { rp_mod_7weather7Station::station_stream!(@f [$($a)* WANT_error on_error: &'rp_a rp_mod_7weather7Station::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] uptime_seconds => $c:expr, $($r:tt)*) => { rp_mod_7weather7Station::station_stream!(@f [$($a)* WANT_uptime_seconds on_uptime_seconds: ::core::primitive::u64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_7weather7Station::station_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_7weather7Station::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::example::stream::weather::station_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::example::stream::weather::station_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::example::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] location => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_location on_location: $crate::example::stream::weather::Location<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unit => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_unit on_unit: $crate::example::common::weather::Unit = $c;] $($r)*) };
+      (@f [$($a:tt)*] temperatures => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_temperatures on_temperatures: ::core::primitive::f32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] note => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_note on_note: &'rp_a $crate::example::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] labels => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_labels on_labels: (&'rp_a $crate::example::stream::rp_rt::ProtoStr, &'rp_a $crate::example::stream::rp_rt::ProtoStr) = $c;] $($r)*) };
+      (@f [$($a:tt)*] error => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_error on_error: &'rp_a $crate::example::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] uptime_seconds => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_uptime_seconds on_uptime_seconds: ::core::primitive::u64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::example::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, location, unit, temperatures, note, labels, error, uptime_seconds, unknown")) };
-      (@f $a:tt) => { rp_mod_7weather7Station::rp_rt::stream_visitor!(rp_mod_7weather7Station StationVisitor $a) };
+      (@f $a:tt) => { $crate::example::stream::rp_rt::stream_visitor!($crate::example::stream::weather::StationVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_7example_7weather7Station as station_stream;
@@ -1261,7 +1255,7 @@ pub mod stream {
     pub trait ReportVisitor<'a> {
       const WANT_stations: bool = false;
       #[inline(always)]
-      fn on_stations(&mut self, _rp_v: Station<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_stations(&mut self, _rp_v: crate::example::stream::weather::Station<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -1293,7 +1287,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_stations(self::Station::new(rp_p))? {
+            match rp_vis.on_stations(crate::example::stream::weather::Station::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -1327,7 +1321,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_stations(self::Station::new(rp_p))? {
+              match rp_vis.on_stations(crate::example::stream::weather::Station::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -1357,19 +1351,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::weather as rp_mod_7weather6Report;
     /// Builds a `ReportVisitor` from per-field closures: `report_stream! { field => |value| .. }`, or
     /// `report_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_7example_7weather6Report {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_7weather6Report::report_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_7weather6Report::report_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] stations => $c:expr, $($r:tt)*) => { rp_mod_7weather6Report::report_stream!(@f [$($a)* WANT_stations on_stations: rp_mod_7weather6Report::Station<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_7weather6Report::report_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_7weather6Report::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::example::stream::weather::report_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::example::stream::weather::report_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] stations => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::report_stream!(@f [$($a)* WANT_stations on_stations: $crate::example::stream::weather::Station<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::report_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::example::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: stations, unknown")) };
-      (@f $a:tt) => { rp_mod_7weather6Report::rp_rt::stream_visitor!(rp_mod_7weather6Report ReportVisitor $a) };
+      (@f $a:tt) => { $crate::example::stream::rp_rt::stream_visitor!($crate::example::stream::weather::ReportVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_7example_7weather6Report as report_stream;

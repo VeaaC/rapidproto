@@ -12,10 +12,7 @@ mod schema {
 use rapidproto::{Arena, DecodeError};
 use schema::arena::demo::{Point as ArenaPoint, Shape as ArenaShape};
 use schema::common::demo::{Kind, KindClass};
-// Glob the stream module: it brings the reader handle, the `shape_stream!` macro, the visitor trait,
-// and the re-exported value types the macro names -- all of which the macro expansion needs in scope
-// at this call site (the same idiom a consumer uses for any generated stream module).
-use schema::stream::demo::*;
+use schema::stream::demo::{shape_stream, Shape};
 
 // Encoded `demo.Shape { name: "hi", origin: { x: 3, y: 4 }, kind: KIND_CIRCLE, sides: [3, 4, 5] }`,
 // plus one field the schema does not define (decoding skips it).

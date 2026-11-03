@@ -50,11 +50,11 @@ pub mod arena {
       implicit_i: i32,
       explicit_i: i32,
       name: ::rapidproto::PackedStr<'a>,
-      state: super::super::common::p3::State,
-      self_: ::core::option::Option<&'a Msg<'a>>,
+      state: crate::proto3::common::p3::State,
+      self_: ::core::option::Option<&'a crate::proto3::arena::p3::Msg<'a>>,
       nums: ::rapidproto::PackedSlice<'a, i32>,
       unpacked: ::rapidproto::PackedSlice<'a, i32>,
-      states: ::rapidproto::PackedSlice<'a, super::super::common::p3::State>,
+      states: ::rapidproto::PackedSlice<'a, crate::proto3::common::p3::State>,
       reals: ::rapidproto::PackedSlice<'a, f64>,
       codes: ::rapidproto::PackedSlice<'a, u32>,
       bools: ::rapidproto::PackedSlice<'a, bool>,
@@ -67,7 +67,7 @@ pub mod arena {
       toggles: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, bool>,
       ratios: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, f64>,
       blobs: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, ::rapidproto::PackedSlice<'a, u8>>,
-      pick: ::core::option::Option<msg::Pick<'a>>,
+      pick: ::core::option::Option<crate::proto3::arena::p3::msg::Pick<'a>>,
     }
 
     impl<'a> Msg<'a> {
@@ -80,10 +80,10 @@ pub mod arena {
       pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
         self.name.get()
       }
-      pub fn state(&self) -> super::super::common::p3::State {
+      pub fn state(&self) -> crate::proto3::common::p3::State {
         self.state
       }
-      pub fn self_(&self) -> ::core::option::Option<&'a Msg<'a>> {
+      pub fn self_(&self) -> ::core::option::Option<&'a crate::proto3::arena::p3::Msg<'a>> {
         self.self_
       }
       pub fn nums(&self) -> &'a [i32] {
@@ -92,7 +92,7 @@ pub mod arena {
       pub fn unpacked(&self) -> &'a [i32] {
         self.unpacked.as_slice()
       }
-      pub fn states(&self) -> &'a [super::super::common::p3::State] {
+      pub fn states(&self) -> &'a [crate::proto3::common::p3::State] {
         self.states.as_slice()
       }
       pub fn reals(&self) -> &'a [f64] {
@@ -128,7 +128,7 @@ pub mod arena {
       pub fn blobs(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, ::rapidproto::PackedSlice<'a, u8>> {
         self.blobs
       }
-      pub fn pick(&self) -> ::core::option::Option<&msg::Pick<'a>> {
+      pub fn pick(&self) -> ::core::option::Option<&crate::proto3::arena::p3::msg::Pick<'a>> {
         self.pick.as_ref()
       }
     }
@@ -253,11 +253,11 @@ pub mod arena {
         }
         if let ::core::option::Option::Some(rp_o) = self.pick() {
           match rp_o {
-            msg::Pick::A(rp_v) => rp_map.serialize_entry("a", rp_v)?,
-            msg::Pick::B(rp_v) => rp_map.serialize_entry("b", rp_v)?,
-            msg::Pick::C(rp_v) => rp_map.serialize_entry("c", rp_v)?,
-            msg::Pick::D(rp_v) => rp_map.serialize_entry("d", rp_v)?,
-            msg::Pick::E(rp_v) => rp_map.serialize_entry("e", &::rapidproto::serde_support::Bytes(rp_v))?,
+            crate::proto3::arena::p3::msg::Pick::A(rp_v) => rp_map.serialize_entry("a", rp_v)?,
+            crate::proto3::arena::p3::msg::Pick::B(rp_v) => rp_map.serialize_entry("b", rp_v)?,
+            crate::proto3::arena::p3::msg::Pick::C(rp_v) => rp_map.serialize_entry("c", rp_v)?,
+            crate::proto3::arena::p3::msg::Pick::D(rp_v) => rp_map.serialize_entry("d", rp_v)?,
+            crate::proto3::arena::p3::msg::Pick::E(rp_v) => rp_map.serialize_entry("e", &::rapidproto::serde_support::Bytes(rp_v))?,
           }
         }
         rp_map.end()
@@ -295,8 +295,8 @@ pub mod arena {
         let mut rp_field_1: i32 = 0;
         let mut rp_field_2: i32 = 0;
         let mut rp_field_3: &'a [u8] = &[];
-        let mut rp_field_4: super::super::common::p3::State = super::super::common::p3::State(0);
-        let mut rp_field_5: ::core::option::Option<&'a Msg<'a>> = ::core::option::Option::None;
+        let mut rp_field_4: crate::proto3::common::p3::State = crate::proto3::common::p3::State(0);
+        let mut rp_field_5: ::core::option::Option<&'a crate::proto3::arena::p3::Msg<'a>> = ::core::option::Option::None;
         let mut rp_acc_6 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_acc_7 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_acc_8 = ::rapidproto::DecodeVec::new(rp_arena);
@@ -311,7 +311,7 @@ pub mod arena {
         let mut rp_map_18 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_map_19 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_map_22 = ::rapidproto::DecodeVec::new(rp_arena);
-        let mut rp_oneof_0: ::core::option::Option<msg::Pick<'a>> = ::core::option::Option::None;
+        let mut rp_oneof_0: ::core::option::Option<crate::proto3::arena::p3::msg::Pick<'a>> = ::core::option::Option::None;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -348,7 +348,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_4 = super::super::common::p3::State(rp_v as i32);
+          rp_field_4 = crate::proto3::common::p3::State(rp_v as i32);
         }
         if rp_rest.first() == ::core::option::Option::Some(&42u8) {
           rp_rest = &rp_rest[1..];
@@ -360,7 +360,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_5 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Msg::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+          rp_field_5 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::proto3::arena::p3::Msg::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
         }
         while rp_rest.first() == ::core::option::Option::Some(&48u8) {
           rp_rest = &rp_rest[1..];
@@ -405,7 +405,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_8.push(super::super::common::p3::State(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_8.push(crate::proto3::common::p3::State(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         if rp_rest.first() == ::core::option::Option::Some(&66u8) {
           rp_rest = &rp_rest[1..];
@@ -414,7 +414,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_8.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| super::super::common::p3::State(rp_v as i32))?;
+          rp_acc_8.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| crate::proto3::common::p3::State(rp_v as i32))?;
         }
         while rp_rest.first() == ::core::option::Option::Some(&74u8) {
           rp_rest = &rp_rest[1..];
@@ -477,7 +477,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::A(rp_v as i32));
+          rp_oneof_0 = ::core::option::Option::Some(crate::proto3::arena::p3::msg::Pick::A(rp_v as i32));
         }
         if rp_rest.first() == ::core::option::Option::Some(&90u8) {
           rp_rest = &rp_rest[1..];
@@ -486,7 +486,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::B(::rapidproto::PackedStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::proto3::arena::p3::msg::Pick::B(::rapidproto::PackedStr::new(rp_p)));
         }
         while rp_rest.first() == ::core::option::Option::Some(&97u8) {
           rp_rest = &rp_rest[1..];
@@ -609,7 +609,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::C(rp_v != 0));
+          rp_oneof_0 = ::core::option::Option::Some(crate::proto3::arena::p3::msg::Pick::C(rp_v != 0));
         }
         if rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[129u8, 1u8]) {
           rp_rest = &rp_rest[2..];
@@ -618,7 +618,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::D(f64::from_bits(rp_v)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::proto3::arena::p3::msg::Pick::D(f64::from_bits(rp_v)));
         }
         while rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[136u8, 1u8]) {
           rp_rest = &rp_rest[2..];
@@ -825,7 +825,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(msg::Pick::E(::rapidproto::PackedSlice::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::proto3::arena::p3::msg::Pick::E(::rapidproto::PackedSlice::new(rp_p)));
         }
         while rp_rest.first_chunk::<2>() == ::core::option::Option::Some(&[194u8, 1u8]) {
           rp_rest = &rp_rest[2..];
@@ -884,7 +884,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_4 = super::super::common::p3::State(rp_v as i32);
+              rp_field_4 = crate::proto3::common::p3::State(rp_v as i32);
             }
             42u32 => {
               if rp_field_5.is_some() {
@@ -895,7 +895,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_5 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Msg::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              rp_field_5 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::proto3::arena::p3::Msg::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             48u32 => {
               let mut rp_v = 0u64;
@@ -935,7 +935,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_8.push(super::super::common::p3::State(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_8.push(crate::proto3::common::p3::State(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             66u32 => {
               let mut rp_p: &[u8] = &[];
@@ -943,7 +943,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_8.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| super::super::common::p3::State(rp_v as i32))?;
+              rp_acc_8.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| crate::proto3::common::p3::State(rp_v as i32))?;
             }
             97u32 => {
               let mut rp_v = 0u64;
@@ -1312,7 +1312,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::A(rp_v as i32));
+              rp_oneof_0 = ::core::option::Option::Some(crate::proto3::arena::p3::msg::Pick::A(rp_v as i32));
             }
             90u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1320,7 +1320,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::B(::rapidproto::PackedStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::proto3::arena::p3::msg::Pick::B(::rapidproto::PackedStr::new(rp_p)));
             }
             120u32 => {
               let mut rp_v = 0u64;
@@ -1328,7 +1328,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::C(rp_v != 0));
+              rp_oneof_0 = ::core::option::Option::Some(crate::proto3::arena::p3::msg::Pick::C(rp_v != 0));
             }
             129u32 => {
               let mut rp_v = 0u64;
@@ -1336,7 +1336,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::D(f64::from_bits(rp_v)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::proto3::arena::p3::msg::Pick::D(f64::from_bits(rp_v)));
             }
             186u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1344,7 +1344,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(msg::Pick::E(::rapidproto::PackedSlice::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::proto3::arena::p3::msg::Pick::E(::rapidproto::PackedSlice::new(rp_p)));
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1384,13 +1384,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod p3 {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-    #[doc(hidden)]
-    pub type rp_stream_ty_0 = super::super::common::p3::State;
-
     /// Streaming visitor for `Msg`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `msg_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -1406,10 +1404,10 @@ pub mod stream {
       fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_state: bool = false;
       #[inline(always)]
-      fn on_state(&mut self, _rp_v: super::super::common::p3::State) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_state(&mut self, _rp_v: crate::proto3::common::p3::State) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_self_: bool = false;
       #[inline(always)]
-      fn on_self_(&mut self, _rp_v: Msg<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_self_(&mut self, _rp_v: crate::proto3::stream::p3::Msg<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_nums: bool = false;
       #[inline(always)]
       fn on_nums(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -1418,7 +1416,7 @@ pub mod stream {
       fn on_unpacked(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_states: bool = false;
       #[inline(always)]
-      fn on_states(&mut self, _rp_v: super::super::common::p3::State) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_states(&mut self, _rp_v: crate::proto3::common::p3::State) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_reals: bool = false;
       #[inline(always)]
       fn on_reals(&mut self, _rp_v: f64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -1555,7 +1553,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_state(super::super::common::p3::State(rp_v as i32))? {
+            match rp_vis.on_state(crate::proto3::common::p3::State(rp_v as i32))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -1574,7 +1572,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_self_(self::Msg::new(rp_p))? {
+            match rp_vis.on_self_(crate::proto3::stream::p3::Msg::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -1685,7 +1683,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_states(super::super::common::p3::State(rp_v as i32))? {
+            match rp_vis.on_states(crate::proto3::common::p3::State(rp_v as i32))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -1711,7 +1709,7 @@ pub mod stream {
                 ::core::result::Result::Ok(::core::option::Option::None) => break,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_pv.remaining().len())),
               };
-              match rp_vis.on_states(super::super::common::p3::State(rp_v as i32))? {
+              match rp_vis.on_states(crate::proto3::common::p3::State(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2387,7 +2385,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_state(super::super::common::p3::State(rp_v as i32))? {
+              match rp_vis.on_state(crate::proto3::common::p3::State(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2398,7 +2396,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_self_(self::Msg::new(rp_p))? {
+              match rp_vis.on_self_(crate::proto3::stream::p3::Msg::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2469,7 +2467,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_states(super::super::common::p3::State(rp_v as i32))? {
+              match rp_vis.on_states(crate::proto3::common::p3::State(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -2487,7 +2485,7 @@ pub mod stream {
                   ::core::result::Result::Ok(::core::option::Option::None) => break,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_pv.remaining().len())),
                 };
-                match rp_vis.on_states(super::super::common::p3::State(rp_v as i32))? {
+                match rp_vis.on_states(crate::proto3::common::p3::State(rp_v as i32))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -2974,42 +2972,40 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::p3 as rp_mod_2p33Msg;
     /// Builds a `MsgVisitor` from per-field closures: `msg_stream! { field => |value| .. }`, or
     /// `msg_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_6proto3_2p33Msg {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2p33Msg::msg_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2p33Msg::msg_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] implicit_i => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_implicit_i on_implicit_i: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] explicit_i => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_explicit_i on_explicit_i: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_name on_name: &'rp_a rp_mod_2p33Msg::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] state => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_state on_state: rp_mod_2p33Msg::rp_stream_ty_0 = $c;] $($r)*) };
-      (@f [$($a:tt)*] self_ => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_self_ on_self_: rp_mod_2p33Msg::Msg<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] nums => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_nums on_nums: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unpacked => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_unpacked on_unpacked: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] states => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_states on_states: rp_mod_2p33Msg::rp_stream_ty_0 = $c;] $($r)*) };
-      (@f [$($a:tt)*] reals => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_reals on_reals: ::core::primitive::f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] codes => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_codes on_codes: ::core::primitive::u32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] bools => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_bools on_bools: ::core::primitive::bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] ratio => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_ratio on_ratio: ::core::primitive::f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] scale => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_scale on_scale: ::core::primitive::f32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] chunks => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_chunks on_chunks: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
-      (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_counts on_counts: (&'rp_a rp_mod_2p33Msg::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
-      (@f [$($a:tt)*] flags => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_flags on_flags: (::core::primitive::bool, &'rp_a rp_mod_2p33Msg::rp_rt::ProtoStr) = $c;] $($r)*) };
-      (@f [$($a:tt)*] toggles => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_toggles on_toggles: (&'rp_a rp_mod_2p33Msg::rp_rt::ProtoStr, ::core::primitive::bool) = $c;] $($r)*) };
-      (@f [$($a:tt)*] ratios => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_ratios on_ratios: (&'rp_a rp_mod_2p33Msg::rp_rt::ProtoStr, ::core::primitive::f64) = $c;] $($r)*) };
-      (@f [$($a:tt)*] blobs => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_blobs on_blobs: (&'rp_a rp_mod_2p33Msg::rp_rt::ProtoStr, &'rp_a [::core::primitive::u8]) = $c;] $($r)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_b on_b: &'rp_a rp_mod_2p33Msg::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_c on_c: ::core::primitive::bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_d on_d: ::core::primitive::f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] e => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_e on_e: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2p33Msg::msg_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2p33Msg::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::proto3::stream::p3::msg_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::proto3::stream::p3::msg_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] implicit_i => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_implicit_i on_implicit_i: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] explicit_i => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_explicit_i on_explicit_i: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::proto3::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] state => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_state on_state: $crate::proto3::common::p3::State = $c;] $($r)*) };
+      (@f [$($a:tt)*] self_ => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_self_ on_self_: $crate::proto3::stream::p3::Msg<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] nums => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_nums on_nums: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unpacked => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_unpacked on_unpacked: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] states => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_states on_states: $crate::proto3::common::p3::State = $c;] $($r)*) };
+      (@f [$($a:tt)*] reals => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_reals on_reals: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] codes => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_codes on_codes: ::core::primitive::u32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] bools => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_bools on_bools: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] ratio => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_ratio on_ratio: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] scale => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_scale on_scale: ::core::primitive::f32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] chunks => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_chunks on_chunks: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
+      (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_counts on_counts: (&'rp_a $crate::proto3::stream::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] flags => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_flags on_flags: (::core::primitive::bool, &'rp_a $crate::proto3::stream::rp_rt::ProtoStr) = $c;] $($r)*) };
+      (@f [$($a:tt)*] toggles => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_toggles on_toggles: (&'rp_a $crate::proto3::stream::rp_rt::ProtoStr, ::core::primitive::bool) = $c;] $($r)*) };
+      (@f [$($a:tt)*] ratios => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_ratios on_ratios: (&'rp_a $crate::proto3::stream::rp_rt::ProtoStr, ::core::primitive::f64) = $c;] $($r)*) };
+      (@f [$($a:tt)*] blobs => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_blobs on_blobs: (&'rp_a $crate::proto3::stream::rp_rt::ProtoStr, &'rp_a [::core::primitive::u8]) = $c;] $($r)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_b on_b: &'rp_a $crate::proto3::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_c on_c: ::core::primitive::bool = $c;] $($r)*) };
+      (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_d on_d: ::core::primitive::f64 = $c;] $($r)*) };
+      (@f [$($a:tt)*] e => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_e on_e: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::proto3::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: implicit_i, explicit_i, name, state, self_, nums, unpacked, states, reals, codes, bools, ratio, scale, chunks, counts, flags, toggles, ratios, blobs, a, b, c, d, e, unknown")) };
-      (@f $a:tt) => { rp_mod_2p33Msg::rp_rt::stream_visitor!(rp_mod_2p33Msg MsgVisitor $a) };
+      (@f $a:tt) => { $crate::proto3::stream::rp_rt::stream_visitor!($crate::proto3::stream::p3::MsgVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_6proto3_2p33Msg as msg_stream;

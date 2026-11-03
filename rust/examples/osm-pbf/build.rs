@@ -1,6 +1,6 @@
 // Generate the OSM decoders from the two .proto files in proto/. This is all it takes to use
-// RapidProto: add rapidproto-build as a build-dependency and point `compile` at your schema -- no
-// protoc. `compile` renders the whole import closure into one generated file named
+// RapidProto: add rapidproto-build as a build-dependency, say where src/osm.rs includes the output, and
+// point `compile` at your schema -- no protoc. `compile` renders the whole import closure into one generated file named
 // after the first entry's stem (here `fileformat.rs`, holding every `OSMPBF` type), re-running
 // whenever a .proto changes.
 //
@@ -10,7 +10,7 @@
 
 fn main() {
     let proto = concat!(env!("CARGO_MANIFEST_DIR"), "/proto");
-    rapidproto_build::Config::new()
+    rapidproto_build::Config::new("crate::osm::generated")
         .include(proto)
         .stream(true)
         .compile(&[

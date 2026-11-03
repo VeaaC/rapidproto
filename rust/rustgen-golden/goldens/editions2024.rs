@@ -157,11 +157,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod ed24 {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-
     /// Streaming visitor for `M`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `m_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -343,20 +343,18 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::ed24 as rp_mod_4ed241M;
     /// Builds a `MVisitor` from per-field closures: `m_stream! { field => |value| .. }`, or
     /// `m_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_12editions2024_4ed241M {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_4ed241M::m_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_4ed241M::m_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_4ed241M::m_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { rp_mod_4ed241M::m_stream!(@f [$($a)* WANT_b on_b: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_4ed241M::m_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_4ed241M::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::editions2024::stream::ed24::m_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::editions2024::stream::ed24::m_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { $crate::editions2024::stream::ed24::m_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { $crate::editions2024::stream::ed24::m_stream!(@f [$($a)* WANT_b on_b: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::editions2024::stream::ed24::m_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::editions2024::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, b, unknown")) };
-      (@f $a:tt) => { rp_mod_4ed241M::rp_rt::stream_visitor!(rp_mod_4ed241M MVisitor $a) };
+      (@f $a:tt) => { $crate::editions2024::stream::rp_rt::stream_visitor!($crate::editions2024::stream::ed24::MVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_12editions2024_4ed241M as m_stream;

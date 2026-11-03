@@ -135,24 +135,24 @@ pub mod arena {
 
     #[derive(Default)]
     pub struct Holder<'a> {
-      s: stream<'a>,
-      a: arena<'a>,
-      c: common<'a>,
-      r: super::super::common::rn::rp,
+      s: crate::rootnames::arena::rn::stream<'a>,
+      a: crate::rootnames::arena::rn::arena<'a>,
+      c: crate::rootnames::arena::rn::common<'a>,
+      r: crate::rootnames::common::rn::rp,
       rp_presence: u8,
     }
 
     impl<'a> Holder<'a> {
-      pub fn s(&self) -> ::core::option::Option<&stream<'a>> {
+      pub fn s(&self) -> ::core::option::Option<&crate::rootnames::arena::rn::stream<'a>> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(&self.s)
       }
-      pub fn a(&self) -> ::core::option::Option<&arena<'a>> {
+      pub fn a(&self) -> ::core::option::Option<&crate::rootnames::arena::rn::arena<'a>> {
         ((self.rp_presence & (1 << 1)) != 0).then_some(&self.a)
       }
-      pub fn c(&self) -> ::core::option::Option<&common<'a>> {
+      pub fn c(&self) -> ::core::option::Option<&crate::rootnames::arena::rn::common<'a>> {
         ((self.rp_presence & (1 << 2)) != 0).then_some(&self.c)
       }
-      pub fn r(&self) -> super::super::common::rn::rp {
+      pub fn r(&self) -> crate::rootnames::common::rn::rp {
         self.r
       }
     }
@@ -404,10 +404,10 @@ pub mod arena {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
         let mut rp_presence: u8 = 0;
-        let mut rp_field_1: stream<'a> = ::core::default::Default::default();
-        let mut rp_field_2: arena<'a> = ::core::default::Default::default();
-        let mut rp_field_3: common<'a> = ::core::default::Default::default();
-        let mut rp_field_4: super::super::common::rn::rp = super::super::common::rn::rp(0);
+        let mut rp_field_1: crate::rootnames::arena::rn::stream<'a> = ::core::default::Default::default();
+        let mut rp_field_2: crate::rootnames::arena::rn::arena<'a> = ::core::default::Default::default();
+        let mut rp_field_3: crate::rootnames::arena::rn::common<'a> = ::core::default::Default::default();
+        let mut rp_field_4: crate::rootnames::common::rn::rp = crate::rootnames::common::rn::rp(0);
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -419,7 +419,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_1 = ::rapidproto::decode_value(|rp_out| stream::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::rootnames::arena::rn::stream::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 0;
         }
         if rp_rest.first() == ::core::option::Option::Some(&18u8) {
@@ -432,7 +432,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_2 = ::rapidproto::decode_value(|rp_out| arena::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_2 = ::rapidproto::decode_value(|rp_out| crate::rootnames::arena::rn::arena::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 1;
         }
         if rp_rest.first() == ::core::option::Option::Some(&26u8) {
@@ -445,7 +445,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_3 = ::rapidproto::decode_value(|rp_out| common::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_3 = ::rapidproto::decode_value(|rp_out| crate::rootnames::arena::rn::common::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 2;
         }
         if rp_rest.first() == ::core::option::Option::Some(&32u8) {
@@ -455,7 +455,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_4 = super::super::common::rn::rp(rp_v as i32);
+          rp_field_4 = crate::rootnames::common::rn::rp(rp_v as i32);
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -483,7 +483,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = ::rapidproto::decode_value(|rp_out| stream::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::rootnames::arena::rn::stream::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 0;
             }
             18u32 => {
@@ -495,7 +495,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_2 = ::rapidproto::decode_value(|rp_out| arena::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_2 = ::rapidproto::decode_value(|rp_out| crate::rootnames::arena::rn::arena::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 1;
             }
             26u32 => {
@@ -507,7 +507,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_3 = ::rapidproto::decode_value(|rp_out| common::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_3 = ::rapidproto::decode_value(|rp_out| crate::rootnames::arena::rn::common::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 2;
             }
             32u32 => {
@@ -516,7 +516,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_4 = super::super::common::rn::rp(rp_v as i32);
+              rp_field_4 = crate::rootnames::common::rn::rp(rp_v as i32);
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -540,13 +540,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod rn {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-    #[doc(hidden)]
-    pub type rp_stream_ty_0 = super::super::common::rn::rp;
-
     /// Streaming visitor for `stream`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `stream_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -649,19 +647,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::rn as rp_mod_2rn6stream;
     /// Builds a `streamVisitor` from per-field closures: `stream_stream! { field => |value| .. }`, or
     /// `stream_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_9rootnames_2rn6stream {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2rn6stream::stream_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2rn6stream::stream_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_2rn6stream::stream_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2rn6stream::stream_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2rn6stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::rootnames::stream::rn::stream_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rootnames::stream::rn::stream_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::rootnames::stream::rn::stream_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rootnames::stream::rn::stream_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rootnames::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, unknown")) };
-      (@f $a:tt) => { rp_mod_2rn6stream::rp_rt::stream_visitor!(rp_mod_2rn6stream streamVisitor $a) };
+      (@f $a:tt) => { $crate::rootnames::stream::rp_rt::stream_visitor!($crate::rootnames::stream::rn::streamVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_9rootnames_2rn6stream as stream_stream;
@@ -768,19 +764,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::rn as rp_mod_2rn5arena;
     /// Builds a `arenaVisitor` from per-field closures: `arena_stream! { field => |value| .. }`, or
     /// `arena_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_9rootnames_2rn5arena {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2rn5arena::arena_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2rn5arena::arena_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_2rn5arena::arena_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2rn5arena::arena_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2rn5arena::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::rootnames::stream::rn::arena_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rootnames::stream::rn::arena_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::rootnames::stream::rn::arena_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rootnames::stream::rn::arena_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rootnames::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, unknown")) };
-      (@f $a:tt) => { rp_mod_2rn5arena::rp_rt::stream_visitor!(rp_mod_2rn5arena arenaVisitor $a) };
+      (@f $a:tt) => { $crate::rootnames::stream::rp_rt::stream_visitor!($crate::rootnames::stream::rn::arenaVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_9rootnames_2rn5arena as arena_stream;
@@ -887,19 +881,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::rn as rp_mod_2rn6common;
     /// Builds a `commonVisitor` from per-field closures: `common_stream! { field => |value| .. }`, or
     /// `common_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_9rootnames_2rn6common {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2rn6common::common_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2rn6common::common_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_2rn6common::common_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2rn6common::common_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2rn6common::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::rootnames::stream::rn::common_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rootnames::stream::rn::common_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::rootnames::stream::rn::common_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rootnames::stream::rn::common_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rootnames::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, unknown")) };
-      (@f $a:tt) => { rp_mod_2rn6common::rp_rt::stream_visitor!(rp_mod_2rn6common commonVisitor $a) };
+      (@f $a:tt) => { $crate::rootnames::stream::rp_rt::stream_visitor!($crate::rootnames::stream::rn::commonVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_9rootnames_2rn6common as common_stream;
@@ -910,16 +902,16 @@ pub mod stream {
     pub trait HolderVisitor<'a> {
       const WANT_s: bool = false;
       #[inline(always)]
-      fn on_s(&mut self, _rp_v: stream<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_s(&mut self, _rp_v: crate::rootnames::stream::rn::stream<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_a: bool = false;
       #[inline(always)]
-      fn on_a(&mut self, _rp_v: arena<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_a(&mut self, _rp_v: crate::rootnames::stream::rn::arena<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_c: bool = false;
       #[inline(always)]
-      fn on_c(&mut self, _rp_v: common<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_c(&mut self, _rp_v: crate::rootnames::stream::rn::common<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_r: bool = false;
       #[inline(always)]
-      fn on_r(&mut self, _rp_v: super::super::common::rn::rp) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_r(&mut self, _rp_v: crate::rootnames::common::rn::rp) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -951,7 +943,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_s(self::stream::new(rp_p))? {
+            match rp_vis.on_s(crate::rootnames::stream::rn::stream::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -970,7 +962,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_a(self::arena::new(rp_p))? {
+            match rp_vis.on_a(crate::rootnames::stream::rn::arena::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -989,7 +981,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_c(self::common::new(rp_p))? {
+            match rp_vis.on_c(crate::rootnames::stream::rn::common::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -1008,7 +1000,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_r(super::super::common::rn::rp(rp_v as i32))? {
+            match rp_vis.on_r(crate::rootnames::common::rn::rp(rp_v as i32))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -1042,7 +1034,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_s(self::stream::new(rp_p))? {
+              match rp_vis.on_s(crate::rootnames::stream::rn::stream::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -1053,7 +1045,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_a(self::arena::new(rp_p))? {
+              match rp_vis.on_a(crate::rootnames::stream::rn::arena::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -1064,7 +1056,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_c(self::common::new(rp_p))? {
+              match rp_vis.on_c(crate::rootnames::stream::rn::common::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -1075,7 +1067,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_r(super::super::common::rn::rp(rp_v as i32))? {
+              match rp_vis.on_r(crate::rootnames::common::rn::rp(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -1105,22 +1097,20 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::rn as rp_mod_2rn6Holder;
     /// Builds a `HolderVisitor` from per-field closures: `holder_stream! { field => |value| .. }`, or
     /// `holder_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_9rootnames_2rn6Holder {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2rn6Holder::holder_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2rn6Holder::holder_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_2rn6Holder::holder_stream!(@f [$($a)* WANT_s on_s: rp_mod_2rn6Holder::stream<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2rn6Holder::holder_stream!(@f [$($a)* WANT_a on_a: rp_mod_2rn6Holder::arena<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_2rn6Holder::holder_stream!(@f [$($a)* WANT_c on_c: rp_mod_2rn6Holder::common<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] r => $c:expr, $($r:tt)*) => { rp_mod_2rn6Holder::holder_stream!(@f [$($a)* WANT_r on_r: rp_mod_2rn6Holder::rp_stream_ty_0 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2rn6Holder::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2rn6Holder::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::rootnames::stream::rn::holder_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rootnames::stream::rn::holder_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::rootnames::stream::rn::holder_stream!(@f [$($a)* WANT_s on_s: $crate::rootnames::stream::rn::stream<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { $crate::rootnames::stream::rn::holder_stream!(@f [$($a)* WANT_a on_a: $crate::rootnames::stream::rn::arena<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { $crate::rootnames::stream::rn::holder_stream!(@f [$($a)* WANT_c on_c: $crate::rootnames::stream::rn::common<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] r => $c:expr, $($r:tt)*) => { $crate::rootnames::stream::rn::holder_stream!(@f [$($a)* WANT_r on_r: $crate::rootnames::common::rn::rp = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rootnames::stream::rn::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rootnames::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, a, c, r, unknown")) };
-      (@f $a:tt) => { rp_mod_2rn6Holder::rp_rt::stream_visitor!(rp_mod_2rn6Holder HolderVisitor $a) };
+      (@f $a:tt) => { $crate::rootnames::stream::rp_rt::stream_visitor!($crate::rootnames::stream::rn::HolderVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_9rootnames_2rn6Holder as holder_stream;

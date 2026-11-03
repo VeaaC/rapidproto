@@ -58,11 +58,10 @@ inline std::string escape_rust_ident(std::string name) {
 
 // A schema-derived name that shares a namespace with the generator's own names never starts with `rp_`
 // followed by anything but `_`: such a name gains a `_` after the prefix (`rp_rt` -> `rp__rt`). That
-// shape belongs to the generator -- at module scope the stream modules' `rp_rt` / `rp_mod_*` /
-// `rp_stream_ty_*` re-exports and `rp_mac_*` macros; in a message type its `rp_presence` /
-// `rp_unknown` storage and `rp_decode_into` worker; and the decode body's locals -- so no schema name,
-// nor anything derived from one (`<T>Visitor`, a dedup `_`, `<snake>_stream`), can equal one of them.
-// (A trailing `_` would not do: glue names end in schema names.) A name already starting `rp__` keeps
+// shape belongs to the generator -- at module scope the `stream` tree's `rp_rt` re-export; in a message
+// type its `rp_presence` / `rp_unknown` storage and `rp_decode_into` worker; and the decode body's
+// locals -- so no schema name, nor anything derived from one (`<T>Visitor`, a dedup `_`,
+// `<snake>_stream`), can equal one of them. A name already starting `rp__` keeps
 // its spelling; if it meets a reserved `rp_x` -> `rp__x` in one scope, the scope's dedup separates them
 // like any other collision.
 inline std::string reserve_rp_prefix(std::string name) {
@@ -74,8 +73,7 @@ inline std::string reserve_rp_prefix(std::string name) {
 
 // Rust's primitive type names. Not keywords -- a struct may be called `u8` -- but a schema TYPE of
 // that name would shadow the primitive for every generated reference in its module (`&'a [u8]`,
-// `u32::MAX`, an `enum i32` newtype wrapping itself), and a consumer's glob of a stream module would
-// import it over the primitive a `*_stream!` row names at the call site.
+// `u32::MAX`, an `enum i32` newtype wrapping itself).
 inline bool is_rust_primitive(std::string_view s) {
     static const std::unordered_set<std::string_view> kPrimitives = {
         "bool", "char", "str", "i8",  "i16",  "i32",   "i64", "i128", "isize",

@@ -1548,7 +1548,7 @@ fn a_stray_end_group_tag_is_rejected_by_the_decode_loop() {
 // without it), and after caller macros named like the builtins generated code uses: generated code
 // naming one bare would expand the caller's. Its exported macros land at this test crate's root,
 // apart from the golden crate's.
-mod collide_with_prelude {
+mod collide {
     #![allow(unused_macros)] // expanding one is the failure this module catches
 
     macro_rules! cfg {
@@ -1626,11 +1626,11 @@ fn names_shaped_like_generated_references_decode_into_their_own_fields() {
     // `Option`/`Result`/`Default`, primitive `u8`/`i32`, the stream driver's `V`, `type` beside `Type`)
     // and fields after decode-body names (`Some`, `rp_out`, `decode_into`). Compiling the golden is
     // most of the check: the golden crate compiles it without the prelude, which catches an
-    // unqualified prelude name, and `collide_with_prelude` with it, which catches a decode binding
+    // unqualified prelude name, and `collide` with it, which catches a decode binding
     // named like a prelude variant (a pattern only while the prelude is in scope). This pins that every
     // name still reads back its own field.
-    use collide_with_prelude::arena::collide::{response, Holder};
-    use collide_with_prelude::common::collide::{i32_, otherClass, Kind, KindClass};
+    use crate::collide::arena::collide::{response, Holder};
+    use crate::collide::common::collide::{i32_, otherClass, Kind, KindClass};
     let buf = collide_holder();
     let arena = Arena::new();
     let h = Holder::decode(&buf, &arena).unwrap();

@@ -49,14 +49,14 @@ pub mod arena {
 
     #[derive(Default)]
     pub struct Holder<'a> {
-      flag: Flag<'a>,
+      flag: crate::arena_unknown_tracked::arena::au::Flag<'a>,
       n: i32,
       rp_presence: u8,
       rp_unknown: bool,
     }
 
     impl<'a> Holder<'a> {
-      pub fn flag(&self) -> ::core::option::Option<&Flag<'a>> {
+      pub fn flag(&self) -> ::core::option::Option<&crate::arena_unknown_tracked::arena::au::Flag<'a>> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(&self.flag)
       }
       pub fn n(&self) -> i32 {
@@ -185,7 +185,7 @@ pub mod arena {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
         let mut rp_presence: u8 = 0;
-        let mut rp_field_1: Flag<'a> = ::core::default::Default::default();
+        let mut rp_field_1: crate::arena_unknown_tracked::arena::au::Flag<'a> = ::core::default::Default::default();
         let mut rp_field_2: i32 = 0;
         let mut rp_unknown = false;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -199,7 +199,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_1 = ::rapidproto::decode_value(|rp_out| Flag::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::arena_unknown_tracked::arena::au::Flag::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 0;
         }
         if rp_rest.first() == ::core::option::Option::Some(&16u8) {
@@ -237,7 +237,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = ::rapidproto::decode_value(|rp_out| Flag::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::arena_unknown_tracked::arena::au::Flag::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 0;
             }
             16u32 => {

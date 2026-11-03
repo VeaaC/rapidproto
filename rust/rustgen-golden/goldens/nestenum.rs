@@ -85,16 +85,16 @@ pub mod arena {
   pub mod ne {
     #[derive(Default)]
     pub struct Outer<'a> {
-      k: super::super::common::ne::outer::Kind,
-      i: outer::Inner<'a>,
+      k: crate::nestenum::common::ne::outer::Kind,
+      i: crate::nestenum::arena::ne::outer::Inner<'a>,
       rp_presence: u8,
     }
 
     impl<'a> Outer<'a> {
-      pub fn k(&self) -> super::super::common::ne::outer::Kind {
+      pub fn k(&self) -> crate::nestenum::common::ne::outer::Kind {
         self.k
       }
-      pub fn i(&self) -> ::core::option::Option<&outer::Inner<'a>> {
+      pub fn i(&self) -> ::core::option::Option<&crate::nestenum::arena::ne::outer::Inner<'a>> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(&self.i)
       }
     }
@@ -125,12 +125,12 @@ pub mod arena {
     pub mod outer {
       #[derive(Default)]
       pub struct Inner<'a> {
-        d: super::super::super::common::ne::outer::inner::Deep,
+        d: crate::nestenum::common::ne::outer::inner::Deep,
         _marker: ::core::marker::PhantomData<&'a ()>,
       }
 
       impl<'a> Inner<'a> {
-        pub fn d(&self) -> super::super::super::common::ne::outer::inner::Deep {
+        pub fn d(&self) -> crate::nestenum::common::ne::outer::inner::Deep {
           self.d
         }
       }
@@ -168,7 +168,7 @@ pub mod arena {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
-          let mut rp_field_1: super::super::super::common::ne::outer::inner::Deep = super::super::super::common::ne::outer::inner::Deep(0);
+          let mut rp_field_1: crate::nestenum::common::ne::outer::inner::Deep = crate::nestenum::common::ne::outer::inner::Deep(0);
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&8u8) {
             rp_rest = &rp_rest[1..];
@@ -177,7 +177,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_1 = super::super::super::common::ne::outer::inner::Deep(rp_v as i32);
+            rp_field_1 = crate::nestenum::common::ne::outer::inner::Deep(rp_v as i32);
           }
           loop {
             let rp_b = match rp_rest.first() {
@@ -202,7 +202,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_1 = super::super::super::common::ne::outer::inner::Deep(rp_v as i32);
+                rp_field_1 = crate::nestenum::common::ne::outer::inner::Deep(rp_v as i32);
               }
               _ => {
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -236,8 +236,8 @@ pub mod arena {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
         let mut rp_presence: u8 = 0;
-        let mut rp_field_1: super::super::common::ne::outer::Kind = super::super::common::ne::outer::Kind(0);
-        let mut rp_field_2: outer::Inner<'a> = ::core::default::Default::default();
+        let mut rp_field_1: crate::nestenum::common::ne::outer::Kind = crate::nestenum::common::ne::outer::Kind(0);
+        let mut rp_field_2: crate::nestenum::arena::ne::outer::Inner<'a> = ::core::default::Default::default();
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -246,7 +246,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_1 = super::super::common::ne::outer::Kind(rp_v as i32);
+          rp_field_1 = crate::nestenum::common::ne::outer::Kind(rp_v as i32);
         }
         if rp_rest.first() == ::core::option::Option::Some(&18u8) {
           rp_rest = &rp_rest[1..];
@@ -258,7 +258,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_2 = ::rapidproto::decode_value(|rp_out| outer::Inner::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_2 = ::rapidproto::decode_value(|rp_out| crate::nestenum::arena::ne::outer::Inner::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 0;
         }
         loop {
@@ -284,7 +284,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = super::super::common::ne::outer::Kind(rp_v as i32);
+              rp_field_1 = crate::nestenum::common::ne::outer::Kind(rp_v as i32);
             }
             18u32 => {
               if (rp_presence & (1 << 0)) != 0 {
@@ -295,7 +295,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_2 = ::rapidproto::decode_value(|rp_out| outer::Inner::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_2 = ::rapidproto::decode_value(|rp_out| crate::nestenum::arena::ne::outer::Inner::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 0;
             }
             _ => {
@@ -318,25 +318,21 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod ne {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-    #[doc(hidden)]
-    pub type rp_stream_ty_0 = super::super::common::ne::outer::Kind;
-    #[doc(hidden)]
-    pub type rp_stream_ty_1<'a> = outer::Inner<'a>;
-
     /// Streaming visitor for `Outer`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `outer_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait OuterVisitor<'a> {
       const WANT_k: bool = false;
       #[inline(always)]
-      fn on_k(&mut self, _rp_v: super::super::common::ne::outer::Kind) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_k(&mut self, _rp_v: crate::nestenum::common::ne::outer::Kind) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_i: bool = false;
       #[inline(always)]
-      fn on_i(&mut self, _rp_v: outer::Inner<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_i(&mut self, _rp_v: crate::nestenum::stream::ne::outer::Inner<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -368,7 +364,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_k(super::super::common::ne::outer::Kind(rp_v as i32))? {
+            match rp_vis.on_k(crate::nestenum::common::ne::outer::Kind(rp_v as i32))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -387,7 +383,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_i(self::outer::Inner::new(rp_p))? {
+            match rp_vis.on_i(crate::nestenum::stream::ne::outer::Inner::new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -421,7 +417,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_k(super::super::common::ne::outer::Kind(rp_v as i32))? {
+              match rp_vis.on_k(crate::nestenum::common::ne::outer::Kind(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -432,7 +428,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_i(self::outer::Inner::new(rp_p))? {
+              match rp_vis.on_i(crate::nestenum::stream::ne::outer::Inner::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -462,37 +458,30 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::ne as rp_mod_2ne5Outer;
     /// Builds a `OuterVisitor` from per-field closures: `outer_stream! { field => |value| .. }`, or
     /// `outer_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_8nestenum_2ne5Outer {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2ne5Outer::outer_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2ne5Outer::outer_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] k => $c:expr, $($r:tt)*) => { rp_mod_2ne5Outer::outer_stream!(@f [$($a)* WANT_k on_k: rp_mod_2ne5Outer::rp_stream_ty_0 = $c;] $($r)*) };
-      (@f [$($a:tt)*] i => $c:expr, $($r:tt)*) => { rp_mod_2ne5Outer::outer_stream!(@f [$($a)* WANT_i on_i: rp_mod_2ne5Outer::rp_stream_ty_1<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2ne5Outer::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2ne5Outer::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::nestenum::stream::ne::outer_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::nestenum::stream::ne::outer_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] k => $c:expr, $($r:tt)*) => { $crate::nestenum::stream::ne::outer_stream!(@f [$($a)* WANT_k on_k: $crate::nestenum::common::ne::outer::Kind = $c;] $($r)*) };
+      (@f [$($a:tt)*] i => $c:expr, $($r:tt)*) => { $crate::nestenum::stream::ne::outer_stream!(@f [$($a)* WANT_i on_i: $crate::nestenum::stream::ne::outer::Inner<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::nestenum::stream::ne::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::nestenum::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: k, i, unknown")) };
-      (@f $a:tt) => { rp_mod_2ne5Outer::rp_rt::stream_visitor!(rp_mod_2ne5Outer OuterVisitor $a) };
+      (@f $a:tt) => { $crate::nestenum::stream::rp_rt::stream_visitor!($crate::nestenum::stream::ne::OuterVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_8nestenum_2ne5Outer as outer_stream;
 
     pub mod outer {
-      #[doc(hidden)]
-      pub use ::rapidproto::rp_rt;
-      #[doc(hidden)]
-      pub type rp_stream_ty_0 = super::super::super::common::ne::outer::inner::Deep;
-
       /// Streaming visitor for `Inner`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `inner_stream` macro does both); a field left at the default
       /// `WANT_<field> = false` is skipped on the wire with no dispatch.
       pub trait InnerVisitor<'a> {
         const WANT_d: bool = false;
         #[inline(always)]
-        fn on_d(&mut self, _rp_v: super::super::super::common::ne::outer::inner::Deep) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_d(&mut self, _rp_v: crate::nestenum::common::ne::outer::inner::Deep) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -524,7 +513,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_d(super::super::super::common::ne::outer::inner::Deep(rp_v as i32))? {
+              match rp_vis.on_d(crate::nestenum::common::ne::outer::inner::Deep(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -558,7 +547,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_d(super::super::super::common::ne::outer::inner::Deep(rp_v as i32))? {
+                match rp_vis.on_d(crate::nestenum::common::ne::outer::inner::Deep(rp_v as i32))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -588,19 +577,17 @@ pub mod stream {
         }
       }
 
-      #[doc(hidden)]
-      pub use super::outer as rp_mod_2ne5Outer5Inner;
       /// Builds a `InnerVisitor` from per-field closures: `inner_stream! { field => |value| .. }`, or
       /// `inner_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_8nestenum_2ne5Outer5Inner {
-        ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2ne5Outer5Inner::inner_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2ne5Outer5Inner::inner_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { rp_mod_2ne5Outer5Inner::inner_stream!(@f [$($a)* WANT_d on_d: rp_mod_2ne5Outer5Inner::rp_stream_ty_0 = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2ne5Outer5Inner::inner_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2ne5Outer5Inner::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::nestenum::stream::ne::outer::inner_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::nestenum::stream::ne::outer::inner_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { $crate::nestenum::stream::ne::outer::inner_stream!(@f [$($a)* WANT_d on_d: $crate::nestenum::common::ne::outer::inner::Deep = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::nestenum::stream::ne::outer::inner_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::nestenum::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: d, unknown")) };
-        (@f $a:tt) => { rp_mod_2ne5Outer5Inner::rp_rt::stream_visitor!(rp_mod_2ne5Outer5Inner InnerVisitor $a) };
+        (@f $a:tt) => { $crate::nestenum::stream::rp_rt::stream_visitor!($crate::nestenum::stream::ne::outer::InnerVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_8nestenum_2ne5Outer5Inner as inner_stream;

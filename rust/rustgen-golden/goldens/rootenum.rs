@@ -113,20 +113,20 @@ pub mod arena {
   pub mod re {
     #[derive(Default)]
     pub struct Holder<'a> {
-      s: super::super::common::re::stream,
-      a: super::super::common::re::arena,
-      c: super::super::common::re::common,
+      s: crate::rootenum::common::re::stream,
+      a: crate::rootenum::common::re::arena,
+      c: crate::rootenum::common::re::common,
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
     impl<'a> Holder<'a> {
-      pub fn s(&self) -> super::super::common::re::stream {
+      pub fn s(&self) -> crate::rootenum::common::re::stream {
         self.s
       }
-      pub fn a(&self) -> super::super::common::re::arena {
+      pub fn a(&self) -> crate::rootenum::common::re::arena {
         self.a
       }
-      pub fn c(&self) -> super::super::common::re::common {
+      pub fn c(&self) -> crate::rootenum::common::re::common {
         self.c
       }
     }
@@ -176,9 +176,9 @@ pub mod arena {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
-        let mut rp_field_1: super::super::common::re::stream = super::super::common::re::stream(0);
-        let mut rp_field_2: super::super::common::re::arena = super::super::common::re::arena(0);
-        let mut rp_field_3: super::super::common::re::common = super::super::common::re::common(0);
+        let mut rp_field_1: crate::rootenum::common::re::stream = crate::rootenum::common::re::stream(0);
+        let mut rp_field_2: crate::rootenum::common::re::arena = crate::rootenum::common::re::arena(0);
+        let mut rp_field_3: crate::rootenum::common::re::common = crate::rootenum::common::re::common(0);
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -187,7 +187,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_1 = super::super::common::re::stream(rp_v as i32);
+          rp_field_1 = crate::rootenum::common::re::stream(rp_v as i32);
         }
         if rp_rest.first() == ::core::option::Option::Some(&16u8) {
           rp_rest = &rp_rest[1..];
@@ -196,7 +196,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_2 = super::super::common::re::arena(rp_v as i32);
+          rp_field_2 = crate::rootenum::common::re::arena(rp_v as i32);
         }
         if rp_rest.first() == ::core::option::Option::Some(&24u8) {
           rp_rest = &rp_rest[1..];
@@ -205,7 +205,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_3 = super::super::common::re::common(rp_v as i32);
+          rp_field_3 = crate::rootenum::common::re::common(rp_v as i32);
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -230,7 +230,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_1 = super::super::common::re::stream(rp_v as i32);
+              rp_field_1 = crate::rootenum::common::re::stream(rp_v as i32);
             }
             16u32 => {
               let mut rp_v = 0u64;
@@ -238,7 +238,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_2 = super::super::common::re::arena(rp_v as i32);
+              rp_field_2 = crate::rootenum::common::re::arena(rp_v as i32);
             }
             24u32 => {
               let mut rp_v = 0u64;
@@ -246,7 +246,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_3 = super::super::common::re::common(rp_v as i32);
+              rp_field_3 = crate::rootenum::common::re::common(rp_v as i32);
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -269,30 +269,24 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod re {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-    #[doc(hidden)]
-    pub type rp_stream_ty_0 = super::super::common::re::stream;
-    #[doc(hidden)]
-    pub type rp_stream_ty_1 = super::super::common::re::arena;
-    #[doc(hidden)]
-    pub type rp_stream_ty_2 = super::super::common::re::common;
-
     /// Streaming visitor for `Holder`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `holder_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
     pub trait HolderVisitor<'a> {
       const WANT_s: bool = false;
       #[inline(always)]
-      fn on_s(&mut self, _rp_v: super::super::common::re::stream) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_s(&mut self, _rp_v: crate::rootenum::common::re::stream) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_a: bool = false;
       #[inline(always)]
-      fn on_a(&mut self, _rp_v: super::super::common::re::arena) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_a(&mut self, _rp_v: crate::rootenum::common::re::arena) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_c: bool = false;
       #[inline(always)]
-      fn on_c(&mut self, _rp_v: super::super::common::re::common) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_c(&mut self, _rp_v: crate::rootenum::common::re::common) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -324,7 +318,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_s(super::super::common::re::stream(rp_v as i32))? {
+            match rp_vis.on_s(crate::rootenum::common::re::stream(rp_v as i32))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -343,7 +337,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_a(super::super::common::re::arena(rp_v as i32))? {
+            match rp_vis.on_a(crate::rootenum::common::re::arena(rp_v as i32))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -362,7 +356,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_c(super::super::common::re::common(rp_v as i32))? {
+            match rp_vis.on_c(crate::rootenum::common::re::common(rp_v as i32))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -396,7 +390,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_s(super::super::common::re::stream(rp_v as i32))? {
+              match rp_vis.on_s(crate::rootenum::common::re::stream(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -407,7 +401,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_a(super::super::common::re::arena(rp_v as i32))? {
+              match rp_vis.on_a(crate::rootenum::common::re::arena(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -418,7 +412,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_c(super::super::common::re::common(rp_v as i32))? {
+              match rp_vis.on_c(crate::rootenum::common::re::common(rp_v as i32))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -448,21 +442,19 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::re as rp_mod_2re6Holder;
     /// Builds a `HolderVisitor` from per-field closures: `holder_stream! { field => |value| .. }`, or
     /// `holder_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_8rootenum_2re6Holder {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_2re6Holder::holder_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_2re6Holder::holder_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { rp_mod_2re6Holder::holder_stream!(@f [$($a)* WANT_s on_s: rp_mod_2re6Holder::rp_stream_ty_0 = $c;] $($r)*) };
-      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { rp_mod_2re6Holder::holder_stream!(@f [$($a)* WANT_a on_a: rp_mod_2re6Holder::rp_stream_ty_1 = $c;] $($r)*) };
-      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { rp_mod_2re6Holder::holder_stream!(@f [$($a)* WANT_c on_c: rp_mod_2re6Holder::rp_stream_ty_2 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_2re6Holder::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_2re6Holder::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::rootenum::stream::re::holder_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rootenum::stream::re::holder_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::rootenum::stream::re::holder_stream!(@f [$($a)* WANT_s on_s: $crate::rootenum::common::re::stream = $c;] $($r)*) };
+      (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { $crate::rootenum::stream::re::holder_stream!(@f [$($a)* WANT_a on_a: $crate::rootenum::common::re::arena = $c;] $($r)*) };
+      (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { $crate::rootenum::stream::re::holder_stream!(@f [$($a)* WANT_c on_c: $crate::rootenum::common::re::common = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rootenum::stream::re::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rootenum::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, a, c, unknown")) };
-      (@f $a:tt) => { rp_mod_2re6Holder::rp_rt::stream_visitor!(rp_mod_2re6Holder HolderVisitor $a) };
+      (@f $a:tt) => { $crate::rootenum::stream::rp_rt::stream_visitor!($crate::rootenum::stream::re::HolderVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_8rootenum_2re6Holder as holder_stream;

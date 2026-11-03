@@ -110,11 +110,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod sib {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-
     /// Streaming visitor for `logging`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `logging_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -217,19 +217,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::sib as rp_mod_3sib7logging;
     /// Builds a `loggingVisitor` from per-field closures: `logging_stream! { field => |value| .. }`, or
     /// `logging_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_9sibparent_3sib7logging {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3sib7logging::logging_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3sib7logging::logging_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_3sib7logging::logging_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3sib7logging::logging_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3sib7logging::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::sibparent::stream::sib::logging_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::sibparent::stream::sib::logging_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::sibparent::stream::sib::logging_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::sibparent::stream::sib::logging_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::sibparent::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, unknown")) };
-      (@f $a:tt) => { rp_mod_3sib7logging::rp_rt::stream_visitor!(rp_mod_3sib7logging loggingVisitor $a) };
+      (@f $a:tt) => { $crate::sibparent::stream::rp_rt::stream_visitor!($crate::sibparent::stream::sib::loggingVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_9sibparent_3sib7logging as logging_stream;

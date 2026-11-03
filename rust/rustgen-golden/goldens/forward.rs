@@ -218,11 +218,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod fwd {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-
     /// Streaming visitor for `Fwd`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `fwd_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -325,28 +325,23 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::fwd as rp_mod_3fwd3Fwd;
     /// Builds a `FwdVisitor` from per-field closures: `fwd_stream! { field => |value| .. }`, or
     /// `fwd_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_7forward_3fwd3Fwd {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3fwd3Fwd::fwd_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3fwd3Fwd::fwd_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] z => $c:expr, $($r:tt)*) => { rp_mod_3fwd3Fwd::fwd_stream!(@f [$($a)* WANT_z on_z: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3fwd3Fwd::fwd_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3fwd3Fwd::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::forward::stream::fwd::fwd_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::forward::stream::fwd::fwd_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] z => $c:expr, $($r:tt)*) => { $crate::forward::stream::fwd::fwd_stream!(@f [$($a)* WANT_z on_z: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::forward::stream::fwd::fwd_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::forward::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: z, unknown")) };
-      (@f $a:tt) => { rp_mod_3fwd3Fwd::rp_rt::stream_visitor!(rp_mod_3fwd3Fwd FwdVisitor $a) };
+      (@f $a:tt) => { $crate::forward::stream::rp_rt::stream_visitor!($crate::forward::stream::fwd::FwdVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_7forward_3fwd3Fwd as fwd_stream;
   }
 
   pub mod r#pub {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-
     /// Streaming visitor for `Pub`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `pub_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -449,19 +444,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::r#pub as rp_mod_3pub3Pub;
     /// Builds a `PubVisitor` from per-field closures: `pub_stream! { field => |value| .. }`, or
     /// `pub_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_7forward_3pub3Pub {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_3pub3Pub::pub_stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_3pub3Pub::pub_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] w => $c:expr, $($r:tt)*) => { rp_mod_3pub3Pub::pub_stream!(@f [$($a)* WANT_w on_w: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_3pub3Pub::pub_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_3pub3Pub::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::forward::stream::r#pub::pub_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::forward::stream::r#pub::pub_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] w => $c:expr, $($r:tt)*) => { $crate::forward::stream::r#pub::pub_stream!(@f [$($a)* WANT_w on_w: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::forward::stream::r#pub::pub_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::forward::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: w, unknown")) };
-      (@f $a:tt) => { rp_mod_3pub3Pub::rp_rt::stream_visitor!(rp_mod_3pub3Pub PubVisitor $a) };
+      (@f $a:tt) => { $crate::forward::stream::rp_rt::stream_visitor!($crate::forward::stream::r#pub::PubVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_7forward_3pub3Pub as pub_stream;

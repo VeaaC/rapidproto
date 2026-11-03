@@ -11,22 +11,19 @@
 //!
 //! ```ignore
 //! // build.rs
-//! rapidproto_build::Config::new()
+//! rapidproto_build::Config::new("crate::example")
 //!     .stream(true)
-//!     .export_stream_macros("example")
 //!     .compile(&["weather.proto"])
 //!     .expect("generate decoders");
 //! ```
 //!
-//! then include the result:
+//! then include the result at that path:
 //!
 //! ```ignore
 //! pub mod example {
 //!     include!(concat!(env!("OUT_DIR"), "/weather.rs"));
 //! }
 //! ```
-//!
-//! Leave out `export_stream_macros` unless your `tests/` or other crates call the stream macros.
 //!
 //! The generated code has three modules, each with a `weather` module for the schema's package:
 //!
@@ -57,14 +54,13 @@
 //! # }
 //! ```
 //!
-//! Reading only the station names. A stream macro needs the rest of its module in scope, so
-//! glob-import it:
+//! Reading only the station names:
 //!
 //! ```
 //! # mod example { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/example/weather.rs")); }
 //! # fn main() -> Result<(), rapidproto::DecodeError> {
 //! # let bytes = b"\x0a\x12\x0a\x06Zurich\x22\x08\x00\x00\x48\x41\x00\x00\x50\x41";
-//! use example::stream::weather::*;
+//! use example::stream::weather::{report_stream, station_stream, Report};
 //!
 //! let mut names = Vec::new();
 //! Report::new(bytes).decode(report_stream! {

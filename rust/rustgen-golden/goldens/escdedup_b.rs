@@ -110,11 +110,11 @@ pub mod arena {
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod stream {
+  #[doc(hidden)]
+  pub use ::rapidproto::rp_rt;
+
 
   pub mod escdedup {
-    #[doc(hidden)]
-    pub use ::rapidproto::rp_rt;
-
     /// Streaming visitor for `decode_`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `decode__stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -217,19 +217,17 @@ pub mod stream {
       }
     }
 
-    #[doc(hidden)]
-    pub use super::escdedup as rp_mod_8escdedup7decode_;
     /// Builds a `decode_Visitor` from per-field closures: `decode__stream! { field => |value| .. }`, or
     /// `decode__stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_10escdedup_b_8escdedup7decode_ {
-      ($($f:ident => $c:expr),* $(,)?) => { rp_mod_8escdedup7decode_::decode__stream!(@f [[]] $($f => $c,)*) };
-      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { rp_mod_8escdedup7decode_::decode__stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { rp_mod_8escdedup7decode_::decode__stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { rp_mod_8escdedup7decode_::decode__stream!(@f [$($a)* WANT_UNKNOWN on_unknown: rp_mod_8escdedup7decode_::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::escdedup_b::stream::escdedup::decode__stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::escdedup_b::stream::escdedup::decode__stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::escdedup_b::stream::escdedup::decode__stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::escdedup_b::stream::escdedup::decode__stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::escdedup_b::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, unknown")) };
-      (@f $a:tt) => { rp_mod_8escdedup7decode_::rp_rt::stream_visitor!(rp_mod_8escdedup7decode_ decode_Visitor $a) };
+      (@f $a:tt) => { $crate::escdedup_b::stream::rp_rt::stream_visitor!($crate::escdedup_b::stream::escdedup::decode_Visitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_10escdedup_b_8escdedup7decode_ as decode__stream;

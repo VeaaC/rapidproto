@@ -1,0 +1,15 @@
+[package]
+name = "rustgen-golden-macro-check"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+# Compile check for the generated `*_stream!` macros: `build.rs` writes one call of every macro in the
+# goldens, selecting every field. A macro row's type path resolves only when a call selects its field,
+# so the golden crate compiling proves nothing about them.
+#
+# No dependency on `rapidproto`, on purpose: the macros must expand in a crate that depends only on the
+# crate holding the generated code.
+[dependencies]
+rustgen-golden = { path = ".." }
