@@ -72,6 +72,55 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! Stopping at the first temperature of the whole report. The handler returns the station's `decode`
+//! result, so the stop ends the report's `decode` too:
+//!
+//! ```
+//! # mod example { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/example/weather.rs")); }
+//! # fn main() -> Result<(), rapidproto::DecodeError> {
+//! # let bytes = b"\x0a\x12\x0a\x06Zurich\x22\x08\x00\x00\x48\x41\x00\x00\x50\x41\
+//! #               \x0a\x10\x0a\x04Oslo\x22\x08\x00\x00\x80\x3f\x00\x00\x00\x40";
+//! use example::stream::weather::{report_stream, station_stream, Report};
+//! use rapidproto::stream::Flow;
+//!
+//! let mut temperatures = Vec::new();
+//! let flow = Report::new(bytes).decode(report_stream! {
+//!     stations => |station| station.decode(station_stream! {
+//!         temperatures => |t| { temperatures.push(t); Flow::Stop },
+//!     }),
+//! })?;
+//! assert_eq!(temperatures, [12.5]);
+//! assert_eq!(flow, Flow::Stop);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! Reading the first temperature of every station. The handler discards the station's result, so the
+//! stop ends only that station:
+//!
+//! ```
+//! # mod example { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/example/weather.rs")); }
+//! # fn main() -> Result<(), rapidproto::DecodeError> {
+//! # let bytes = b"\x0a\x12\x0a\x06Zurich\x22\x08\x00\x00\x48\x41\x00\x00\x50\x41\
+//! #               \x0a\x10\x0a\x04Oslo\x22\x08\x00\x00\x80\x3f\x00\x00\x00\x40";
+//! use example::stream::weather::{report_stream, station_stream, Report};
+//! use rapidproto::stream::Flow;
+//!
+//! let mut temperatures = Vec::new();
+//! let flow = Report::new(bytes).decode(report_stream! {
+//!     stations => |station| {
+//!         station.decode(station_stream! {
+//!             temperatures => |t| { temperatures.push(t); Flow::Stop },
+//!         })?;
+//!         Ok(())
+//!     },
+//! })?;
+//! assert_eq!(temperatures, [12.5, 1.0]);
+//! assert_eq!(flow, Flow::Continue);
+//! # Ok(())
+//! # }
+//! ```
 
 // tests/test_rustgen.cpp checks weather.rs against weather.proto and regenerates it.
 include!("example/weather.rs");

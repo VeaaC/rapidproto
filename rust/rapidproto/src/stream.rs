@@ -12,9 +12,13 @@
 //! many fields into one accumulator (or parse into one struct), which exclusive-`&mut` captures cannot
 //! express. The decode driver gates each field on `V::WANT_<field>` (an associated `const`, so a release
 //! build folds the branch and drops the decode+dispatch for every unselected field, leaving only the
-//! wire-skip). A handler returns `()`, a [`Flow`], or a `Result` of either: `Flow::Stop` ends the
-//! decode early as a clean `Ok(())`, and an `Err(DecodeError)` propagates out of `decode` — so a handler
-//! that decodes a sub-message with `child.decode(..)?` surfaces a malformed-child error naturally.
+//! wire-skip). A handler returns `()`, a [`Flow`], or a `Result` of either. An `Err(DecodeError)` ends
+//! the `decode` with that error. `Flow::Stop` ends it with `Ok(Flow::Stop)`, and a `decode` that reaches
+//! the end of its message returns `Ok(Flow::Continue)`.
+//!
+//! A handler for a sub-message chooses how far a stop reaches. `|child| child.decode(..)` returns the
+//! result, so a stop inside the child ends the outer `decode` too. `|child| { child.decode(..)?; Ok(()) }`
+//! discards the `Flow`, so it ends only the child. Both pass an error on.
 //!
 //! The macro expands one recursion step per selected field, and calls nested inside handlers share
 //! rustc's macro recursion budget: selecting more than about 120 fields in one call (fewer across nested
@@ -71,13 +75,14 @@
 use crate::error::DecodeError;
 pub use crate::wire::WireType;
 
-/// Whether a streaming handler wants decoding to continue after a field, or stop early with the
-/// message decoded so far. A handler may return `()` ([`Flow::Continue`]) or a `Flow`.
+/// Whether a streaming decode goes on. A handler returns it to continue or stop, and `decode` returns it
+/// to say which happened.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Flow {
-    /// Keep decoding.
+    /// From a handler: keep decoding, which is also what returning `()` means. From `decode`: the
+    /// message was read to its end.
     Continue,
-    /// Stop now; `decode` returns `Ok(())`.
+    /// From a handler: end this message's `decode`. From `decode`: a handler ended it.
     Stop,
 }
 
