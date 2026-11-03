@@ -1,10 +1,10 @@
 [package]
 name = "rapidproto-build"
-version = "0.0.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "Generate Rust protobuf decoders from .proto files in a build script, no protoc needed (RapidProto; work in progress)."
-repository = "https://github.com/VeaaC/rapidproto"
+repository = "https://github.com/VeaaC/rapidproto/tree/rust"
 readme = "README.md"
 keywords = ["protobuf", "protocol-buffers", "codegen", "build-dependencies", "wasm"]
 categories = ["development-tools::build-utils", "encoding"]
@@ -12,7 +12,6 @@ categories = ["development-tools::build-utils", "encoding"]
 # `rustgen-golden` goldens and drive the `examples/consumer` schema), so they cannot run from a
 # published tarball -- keep them out of the package rather than ship tests that can't build.
 exclude = ["tests"]
-publish = false
 
 # Two ways to run the generator (see the crate docs): natively, compiled from its C++ by build.rs, or
 # as the embedded WebAssembly module in the wasmi interpreter. With both (the default), the native
