@@ -27,7 +27,7 @@
 //! the selection mechanism -- and the type checker enforces each handler's value type).
 
 use rapidproto::stream::Flow;
-use rapidproto::wire::WireType;
+use rapidproto::stream::WireType;
 use rapidproto::{DecodeError, ErrorKind};
 use rustgen_golden::proto3::stream::p3::*;
 
@@ -1265,6 +1265,40 @@ fn the_protoc_container_fixture_decodes_message_and_enum_valued_maps() {
         [("alpha".to_owned(), 11), ("beta".to_owned(), 22)]
     );
     assert_eq!(seen.by_id, [(1, Color::RED), (2, Color::NEG)]);
+}
+
+#[test]
+fn a_truncated_value_errors_at_its_start_relative_to_its_message() {
+    use rustgen_golden::wire_all::stream::wire::*;
+    // A one-byte tag, then a value cut short: a fixed32, a double, a string. Selected or skipped.
+    let cut_short: [&[u8]; 3] = [
+        &[0x1d, 1, 2, 3],
+        &[0x11, 1, 2, 3, 4, 5, 6, 7],
+        &[0x22, 5, b'a'],
+    ];
+    for input in cut_short {
+        let selected = AllWire::new(input)
+            .decode(all_wire_stream! { fx => |_| (), db => |_| (), s => |_| () })
+            .unwrap_err();
+        let skipped = AllWire::new(input).decode(all_wire_stream! {}).unwrap_err();
+        for err in [selected, skipped] {
+            assert_eq!(
+                (err.kind(), err.offset()),
+                (ErrorKind::Truncated, 1),
+                "{input:02x?}"
+            );
+        }
+    }
+    // In a sub-message that starts at byte 4, the offset still counts from the sub-message.
+    let err = AllWire::new(&[0x08, 0x00, 0x32, 0x04, 0x1d, 1, 2, 3])
+        .decode(all_wire_stream! { nested => |n| n.decode(all_wire_stream! { fx => |_| () }) })
+        .unwrap_err();
+    assert_eq!((err.kind(), err.offset()), (ErrorKind::Truncated, 1));
+    // A group with no end tag fails at the value that follows its start tag.
+    let err = AllWire::new(&[0x08, 0x00, 0x43, 0x48])
+        .decode(all_wire_stream! {})
+        .unwrap_err();
+    assert_eq!((err.kind(), err.offset()), (ErrorKind::Truncated, 3));
 }
 
 #[test]

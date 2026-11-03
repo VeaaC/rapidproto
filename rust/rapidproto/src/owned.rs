@@ -145,10 +145,6 @@ mod tests {
     }
     struct MockDecoder;
 
-    fn oom(_: crate::ArenaExhausted) -> DecodeError {
-        DecodeError::new(crate::ErrorKind::InputTooLarge, 0)
-    }
-
     // SAFETY: `Mock<'a>` holds only `&'a` shared references, into the input and into arena-allocated
     // memory -- covariant, layout-stable, no interior mutability over `'a`, no `&Arena`.
     unsafe impl ArenaDecode for MockDecoder {
@@ -157,8 +153,10 @@ mod tests {
             input: &'a [u8],
             arena: &'a Arena<'a>,
         ) -> Result<&'a Mock<'a>, DecodeError> {
-            let len: &u32 = arena.alloc(input.len() as u32).map_err(oom)?;
-            let node = arena.alloc(Mock { bytes: input, len }).map_err(oom)?;
+            let len: &u32 =
+                arena.emplace(|slot| Ok::<_, DecodeError>(slot.write(input.len() as u32)))?;
+            let node = arena
+                .emplace(|slot| Ok::<_, DecodeError>(slot.write(Mock { bytes: input, len })))?;
             Ok(node)
         }
     }

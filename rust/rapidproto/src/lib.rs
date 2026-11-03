@@ -21,6 +21,17 @@
 //! `Config::serde`, and enable this crate's `serde` feature, which is off by default. RapidProto only
 //! decodes, so there is no `Deserialize`.
 //!
+//! A message serializes as a map from proto field name to value. It holds `optional` fields that are
+//! set, proto3 fields with a non-default value, `required` fields, non-empty `repeated` and `map`
+//! fields, and the set member of a `oneof`. An enum serializes as its `i32`.
+//!
+//! `bytes` goes through `serialize_bytes`, so the format decides how it looks. `serde_json` writes an
+//! array of numbers. A `string` with invalid UTF-8 serializes as bytes too. A `map` key repeated on the
+//! wire appears more than once.
+//!
+//! With `serde_json`, a non-finite `float` or `double` becomes `null`, and a `map` fails if a `string`
+//! key has invalid UTF-8.
+//!
 //! `no_std` outside of tests whenever the `std` feature is off; the test harness keeps `std` so
 //! the no-allocator path can still be unit-tested with `--no-default-features`.
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
@@ -73,7 +84,8 @@ pub use owned::{ArenaDecode, Owned};
 pub use packed_slice::PackedSlice;
 pub use proto_str::{PackedStr, ProtoStr};
 
-// Generated code expands in the user's crate, so what it builds on stays `pub`, but users never touch it.
+// Generated code, which expands in the user's crate, and tests outside this crate build on these. So
+// they stay `pub`, but users never touch them.
 #[doc(hidden)]
 pub use arena::ArenaExhausted;
 #[doc(hidden)]

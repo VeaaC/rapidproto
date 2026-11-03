@@ -34,10 +34,9 @@
 
 use crate::error::ErrorKind;
 
-/// How a field's value is encoded on the wire: the low 3 bits of its tag. A field that the schema does
-/// not declare reports it through
-/// [`UnknownField::wire_type`](crate::stream::UnknownField::wire_type). `wire as u8` gives the value
-/// on the wire.
+/// How a field's value is encoded on the wire. A field the schema does not declare reports it through
+/// [`UnknownField::wire_type`](crate::stream::UnknownField::wire_type). Cast it with `as u8` to get the
+/// numeric wire type, the low 3 bits of the field's tag.
 // Each variant is pinned to its wire code, so generated decoders can use it as a raw tag component.
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -88,7 +87,7 @@ const MAX_FIELD_NUMBER: u32 = (1 << 29) - 1;
 /// How deep [`skip`] and [`read_group`] let groups nest, counting the outermost group. Deeper
 /// nesting fails with [`ErrorKind::DepthLimitExceeded`], which bounds recursion on untrusted input.
 /// Matches the C++ reader's `kMaxGroupDepth`.
-pub const MAX_GROUP_DEPTH: u32 = 100;
+const MAX_GROUP_DEPTH: u32 = 100;
 
 // ── Value-threaded wire readers ────────────────────────────────────────────────────────────────
 // The hot decode primitives. Each takes the not-yet-consumed bytes BY VALUE and returns the slice past
@@ -386,7 +385,7 @@ pub fn read_length_delimited<'a>(
 /// Skip the value of the field whose `tag` was just read, such as an unknown or dropped field, and
 /// return the slice past it. A group ([`WireType::SGroup`]) is skipped through its matching end tag,
 /// the one with the same field number, as in the C++ reader. Groups nest at most
-/// [`MAX_GROUP_DEPTH`] deep. `tag.field` matters only for groups.
+/// `MAX_GROUP_DEPTH` deep. `tag.field` matters only for groups.
 pub fn skip(rest: &[u8], tag: Tag) -> Result<&[u8], ErrorKind> {
     skip_depth(rest, tag, 0)
 }
@@ -439,7 +438,7 @@ fn skip_depth(rest: &[u8], tag: Tag, depth: u32) -> Result<&[u8], ErrorKind> {
 
 /// Read a proto2 group. `rest` starts at the group body, just past the start tag, and `field` is the
 /// group's field number. Scans to the matching end tag, the one with field number `field`; groups
-/// nest at most [`MAX_GROUP_DEPTH`] deep. Writes the group body, the bytes between the start tag and
+/// nest at most `MAX_GROUP_DEPTH` deep. Writes the group body, the bytes between the start tag and
 /// that end tag, to `out` and returns the slice past the end tag. The generated decoder then decodes
 /// `out` as the group message, as it decodes a length-delimited payload. Mirrors C++
 /// `wire::read_group`.

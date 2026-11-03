@@ -1,27 +1,19 @@
-//! `serde::Serialize` support for the runtime's borrowed types, plus helpers generated code uses.
+//! `serde::Serialize` support for the runtime's borrowed types, plus helpers generated code uses. The
+//! crate root documents the output.
 //!
-//! Compiled only with the `serde` feature. Serialize-only — RapidProto is decode-only, so there is
-//! no `Deserialize`. These impls live here (not in generated code) because the orphan rule requires
-//! `impl Serialize for` a runtime type to be in this crate; the generated per-message impls (and the
-//! enum newtype impls) are emitted by `rustgen` and reference `::rapidproto::serde` + these helpers.
+//! These impls live here (not in generated code) because the orphan rule requires `impl Serialize for`
+//! a runtime type to be in this crate; the generated per-message impls (and the enum newtype impls) are
+//! emitted by `rustgen` and reference `::rapidproto::serde` + these helpers.
 //!
-//! What the impls deliberately do, and why generated code routes `bytes` through [`Bytes`]: serde's
-//! blanket `impl Serialize for [T]` would render a `&[u8]` field as a sequence of integers. Protobuf
-//! `bytes` is a single opaque value, so generated code wraps it in [`Bytes`], which calls
-//! `serialize_bytes` and lets the chosen serializer decide the representation (e.g. hex). Scalars,
-//! enums (as their `i32`), strings and sub-messages serialize through their own impls.
-//!
-//! Serializer caveat: these impls are faithful to the protobuf value model, but a given serializer
-//! may not support all of it. `serde_json`, for one, errors on non-string map keys (so a
-//! `map<bool, _>` / `map<int32, _>` fails) and turns a non-finite `float`/`double` into `null`. A
-//! serializer that handles those (or a different target format) is needed for such schemas.
+//! Generated code wraps `bytes` in [`Bytes`] because serde's blanket `impl Serialize for [T]` would call
+//! `serialize_seq`, and a format with a byte type could not use it.
 
 use serde::ser::{Serialize, SerializeMap, Serializer};
 
 use crate::{MapView, PackedSlice, PackedStr, ProtoStr};
 
-/// A protobuf `bytes` value. Serializes via `serialize_bytes` so a format renders it as an opaque
-/// byte string rather than serde's default sequence-of-`u8` for `&[u8]`.
+/// A protobuf `bytes` value. Serializes via `serialize_bytes`, so a format with a byte type can use it,
+/// rather than serde's default sequence of `u8` for `&[u8]`.
 pub struct Bytes<'a>(pub &'a [u8]);
 
 impl Serialize for Bytes<'_> {

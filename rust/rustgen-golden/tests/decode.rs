@@ -555,6 +555,33 @@ fn truncated_value_errors_at_a_body_relative_offset() {
 }
 
 #[test]
+fn a_truncated_value_errors_at_its_start_relative_to_its_message() {
+    let error = |input: &[u8]| {
+        let arena = Arena::new();
+        let err = AllWire::decode(input, &arena)
+            .err()
+            .expect("a decode error");
+        (err.kind(), err.offset())
+    };
+    // A one-byte tag, then a value cut short: a fixed32, a double, a string.
+    let cut_short: [&[u8]; 3] = [
+        &[0x1d, 1, 2, 3],
+        &[0x11, 1, 2, 3, 4, 5, 6, 7],
+        &[0x22, 5, b'a'],
+    ];
+    for input in cut_short {
+        assert_eq!(error(input), (ErrorKind::Truncated, 1), "{input:02x?}");
+    }
+    // In a sub-message that starts at byte 4, the offset still counts from the sub-message.
+    assert_eq!(
+        error(&[0x08, 0x00, 0x32, 0x04, 0x1d, 1, 2, 3]),
+        (ErrorKind::Truncated, 1)
+    );
+    // A group with no end tag fails at the value that follows its start tag.
+    assert_eq!(error(&[0x08, 0x00, 0x43, 0x48]), (ErrorKind::Truncated, 3));
+}
+
+#[test]
 fn oneof_repeated_message_member_is_rejected() {
     let arena = Arena::new();
     let nested = |x: i64| {
