@@ -18,9 +18,8 @@ pub enum ErrorKind {
     VarintOverflow,
     /// A field's wire type is not one the decoder accepts for that position.
     InvalidWireType,
-    /// Nesting exceeded a depth cap: [`MAX_DECODE_DEPTH`](crate::MAX_DECODE_DEPTH) for decoded
-    /// sub-messages and groups, [`MAX_GROUP_DEPTH`](crate::wire::MAX_GROUP_DEPTH) for groups the
-    /// wire reader skips or reads.
+    /// Nesting exceeded a depth limit: [`MAX_DECODE_DEPTH`](crate::MAX_DECODE_DEPTH) for decoded
+    /// sub-messages and groups, and an equal limit for groups that are skipped.
     DepthLimitExceeded,
     /// The arena could not satisfy an allocation (no allocator, or the host allocator failed).
     ArenaExhausted,
@@ -59,6 +58,7 @@ impl DecodeError {
     }
 
     /// Attach the field number this error concerns (e.g. a missing `required` field).
+    #[doc(hidden)]
     #[inline]
     #[must_use]
     pub fn with_field(mut self, field: u32) -> Self {

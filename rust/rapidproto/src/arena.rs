@@ -164,6 +164,7 @@ impl<'buf> Arena<'buf> {
     // `#[inline(always)]`: every decoded sub-message and array allocates here, so the bump fast path
     // inlines into the decoder (with `align` a constant there, the checks fold); a grow takes the cold
     // out-of-line slow path. The C++ decoder inlines its bump too, through `RP_FLATTEN`.
+    #[doc(hidden)]
     #[inline(always)]
     pub fn alloc_bytes(&self, bytes: usize, align: usize) -> Result<NonNull<u8>, ArenaExhausted> {
         if !align.is_power_of_two() {
@@ -183,6 +184,7 @@ impl<'buf> Arena<'buf> {
     /// The arena never runs `T`'s destructor, so `T` must not own resources that need `Drop`.
     /// Decoded values are borrowed or plain data (scalars, `PackedSlice`, `PackedStr`, `MapView`),
     /// so this holds; do not arena-allocate a `Drop` type.
+    #[doc(hidden)]
     #[allow(clippy::mut_from_ref)]
     pub fn alloc<T>(&self, val: T) -> Result<&mut T, ArenaExhausted> {
         let p = self
@@ -201,6 +203,7 @@ impl<'buf> Arena<'buf> {
     /// `&mut T` is returned only if `f` succeeds. On `Err` the slot is abandoned, never read (the
     /// arena never frees, so the reserved bytes are simply unused). This is the Rust equivalent of the
     /// C++ decoder allocating the slot then `rp_decode_into(*slot, ...)`.
+    #[doc(hidden)]
     #[allow(clippy::mut_from_ref)]
     // `#[inline(always)]`: the closure captures the sub-message payload slice (and arena/depth) by
     // reference, so an out-of-line `emplace` would pass that environment by pointer and pin the 16-byte
@@ -237,7 +240,7 @@ impl<'buf> Arena<'buf> {
     ///
     /// A zero-sized `T` (e.g. an empty generated message) needs no storage, so any `n > 0` yields a
     /// valid aligned pointer to a 0-byte region, as for any ZST slice.
-    pub fn alloc_array<T>(&self, n: usize) -> Result<NonNull<T>, ArenaExhausted> {
+    pub(crate) fn alloc_array<T>(&self, n: usize) -> Result<NonNull<T>, ArenaExhausted> {
         let elem = core::mem::size_of::<T>();
         if n == 0 || (elem != 0 && n > usize::MAX / elem) {
             return Err(ArenaExhausted);

@@ -12,7 +12,7 @@
 //! many fields into one accumulator (or parse into one struct), which exclusive-`&mut` captures cannot
 //! express. The decode driver gates each field on `V::WANT_<field>` (an associated `const`, so a release
 //! build folds the branch and drops the decode+dispatch for every unselected field, leaving only the
-//! wire-skip). A handler returns `()`/`Flow`/`Result` (see [`HandlerRet`]): `Flow::Stop` ends the
+//! wire-skip). A handler returns `()`, a [`Flow`], or a `Result` of either: `Flow::Stop` ends the
 //! decode early as a clean `Ok(())`, and an `Err(DecodeError)` propagates out of `decode` — so a handler
 //! that decodes a sub-message with `child.decode(..)?` surfaces a malformed-child error naturally.
 //!
@@ -69,7 +69,7 @@
 //! ```
 
 use crate::error::DecodeError;
-use crate::wire::WireType;
+pub use crate::wire::WireType;
 
 /// Whether a streaming handler wants decoding to continue after a field, or stop early with the
 /// message decoded so far. A handler may return `()` ([`Flow::Continue`]) or a `Flow`.
@@ -85,6 +85,7 @@ pub enum Flow {
 /// `()` continues, a [`Flow`] continues or stops, and a `Result<_, DecodeError>` lets a handler
 /// propagate a failure (e.g. `child.decode(..)?` on a malformed sub-message) out of the outer
 /// `decode`. Implemented for `()`, `Flow`, `Result<(), DecodeError>`, and `Result<Flow, DecodeError>`.
+#[doc(hidden)]
 pub trait HandlerRet {
     /// Normalize this return value into the driver's outcome.
     fn into_outcome(self) -> Result<Flow, DecodeError>;
@@ -122,6 +123,7 @@ impl HandlerRet for Result<Flow, DecodeError> {
 /// `msg_stream!` macro bounds each selected field's closure as `Handler<V>` and calls
 /// [`call`](Handler::call); not implemented by consumers (the blanket impl covers every suitable
 /// closure).
+#[doc(hidden)]
 pub trait Handler<V> {
     /// Deliver one occurrence of the field's value, returning the driver's outcome.
     fn call(&mut self, value: V) -> Result<Flow, DecodeError>;
@@ -150,6 +152,7 @@ pub fn typed<V, R, F: FnMut(V) -> R>(f: F) -> F {
 /// passing one reborrow of the visitor's `&mut state` per occurrence; because the state is passed, not
 /// captured, every field's handler can touch it without the aliasing an `FnMut(V)` capture would need.
 /// Not implemented by consumers (the blanket impl covers every suitable closure).
+#[doc(hidden)]
 pub trait Handler2<S: ?Sized, V> {
     /// Deliver one occurrence of the field's value together with the lent state, returning the outcome.
     fn call(&mut self, state: &mut S, value: V) -> Result<Flow, DecodeError>;

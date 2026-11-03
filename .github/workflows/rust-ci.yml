@@ -82,6 +82,13 @@ jobs:
         run: |
           cargo docs-rs -p rapidproto
           cargo docs-rs -p rapidproto-build
+      # A link to a `#[doc(hidden)]` item renders as literal text or a dead `crate::` href, and
+      # `-D warnings` does not catch either.
+      - name: No links to hidden items
+        run: |
+          ! grep -rlE --include='*.html' '\[<code>|href="(crate|super|self)::' \
+            target/x86_64-unknown-linux-gnu/doc/rapidproto \
+            target/x86_64-unknown-linux-gnu/doc/rapidproto_build
 
   test:
     runs-on: ubuntu-latest

@@ -15,7 +15,7 @@ use alloc::boxed::Box;
 
 use crate::{Arena, DecodeError};
 
-/// How [`decode_owned`] decodes a message type whose borrow it will own. Generated code implements it
+/// How `decode_owned` decodes a message type whose borrow it will own. Generated code implements it
 /// on the message type itself at `'static` (a zero-cost tag): the `Message<'a>` GAT names the message
 /// at the borrow `'a`, and `decode_borrowed` is the ordinary `T::decode`.
 ///
@@ -47,8 +47,8 @@ pub unsafe trait ArenaDecode {
 }
 
 /// A decoded message that owns everything it borrows: the input bytes and the [`Arena`] holding the
-/// tree. Construct it with [`decode_owned`] (or a generated `T::decode_owned`); read the message with
-/// [`get`](Owned::get). `'static`-capable — it carries no borrowed lifetime.
+/// tree. Construct it with a generated `T::decode_owned`; read the message with [`get`](Owned::get).
+/// `'static`-capable — it carries no borrowed lifetime.
 pub struct Owned<D: ArenaDecode> {
     // The decoded root, with its borrow erased to `'static`. It points INTO `arena`'s chunks and
     // `input`'s bytes, both owned below and never moved/mutated/freed until this `Owned` drops, so

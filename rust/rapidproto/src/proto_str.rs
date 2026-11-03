@@ -23,6 +23,7 @@ pub struct ProtoStr([u8]);
 
 impl ProtoStr {
     /// View raw bytes as a string (no validation).
+    #[doc(hidden)]
     #[inline]
     pub fn new(bytes: &[u8]) -> &ProtoStr {
         // SAFETY: `ProtoStr` is a `repr(transparent)` wrapper of `[u8]`, so both references have
