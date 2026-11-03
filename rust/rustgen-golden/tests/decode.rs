@@ -577,8 +577,11 @@ fn a_truncated_value_errors_at_its_start_relative_to_its_message() {
         error(&[0x08, 0x00, 0x32, 0x04, 0x1d, 1, 2, 3]),
         (ErrorKind::Truncated, 1)
     );
-    // A group with no end tag fails at the value that follows its start tag.
-    assert_eq!(error(&[0x08, 0x00, 0x43, 0x48]), (ErrorKind::Truncated, 3));
+    // A group with no end tag fails at the start of its body, just past its start tag.
+    assert_eq!(
+        error(&[0x08, 0x00, 0x43, 0x48, 0x01]),
+        (ErrorKind::Truncated, 3)
+    );
 }
 
 #[test]

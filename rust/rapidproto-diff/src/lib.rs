@@ -9,7 +9,7 @@
 //! as a quoted lowercase-hex string; an open enum as its bare `i32` (the oracle compares enums as
 //! numbers); strings quoted and JSON-escaped; repeated as arrays; maps as objects whose keys are
 //! quoted strings (so integer/bool keys round-trip). serde_json can't do this (it turns NaN/Inf into
-//! `null` and rejects non-string map keys), which is why this is a bespoke serializer.
+//! `null` and writes `bytes` as an array of numbers), which is why this is a bespoke serializer.
 //!
 //! Not for shipping: it only formats, is dev/test-only, and makes no promises beyond this contract.
 

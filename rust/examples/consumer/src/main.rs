@@ -89,8 +89,7 @@ fn main() {
     println!("streamed the same demo.Shape; its fields agree with the arena decode");
 
     // With this example's optional `serde` feature, build.rs generates `serde::Serialize` impls. Run
-    // with `--features serde` to also print the shape as JSON. serde_json writes a non-finite float as
-    // `null`, but demo.Shape has none.
+    // with `--features serde` to also print the shape as JSON.
     #[cfg(feature = "serde")]
     {
         let json = serde_json::to_string(shape).expect("serialize demo.Shape");

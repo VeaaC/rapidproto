@@ -21,13 +21,18 @@
 //! `Config::serde`, and enable this crate's `serde` feature, which is off by default. RapidProto only
 //! decodes, so there is no `Deserialize`.
 //!
-//! A message serializes as a map from proto field name to value. It holds `optional` fields that are
-//! set, proto3 fields with a non-default value, `required` fields, non-empty `repeated` and `map`
-//! fields, and the set member of a `oneof`. An enum serializes as its `i32`.
+//! A message serializes as a map from proto field name to value. A field with presence appears when it
+//! is set, even at its default value. That covers `optional` fields, message fields and groups, and
+//! editions fields with explicit presence. A field without presence, such as a proto3 scalar with no
+//! `optional`, appears when its value is not the default. `required` fields always appear. `repeated`
+//! and `map` fields appear when they are not empty, and a `oneof` appears as its set member. An enum
+//! serializes as its `i32`. A field a decode profile drops does not appear, and a `raw` field serializes
+//! as bytes.
 //!
 //! `bytes` goes through `serialize_bytes`, so the format decides how it looks. `serde_json` writes an
 //! array of numbers. A `string` with invalid UTF-8 serializes as bytes too. A `map` key repeated on the
-//! wire appears more than once.
+//! wire appears more than once. A message gives the serializer no length up front, so a format that
+//! needs one cannot serialize it.
 //!
 //! With `serde_json`, a non-finite `float` or `double` becomes `null`, and a `map` fails if a `string`
 //! key has invalid UTF-8.
