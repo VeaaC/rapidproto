@@ -7,9 +7,14 @@
 //   unknown .p3.Msg
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod common {
-  pub(in crate::proto3_modes::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+#[doc(hidden)]
+mod rp_check {
+  pub(in crate::proto3_modes::rp_check) // This path must be where this file is included.
+  const C: () = ();
+}
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod common {
   pub mod p3 {
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
@@ -268,6 +273,7 @@ pub mod arena {
       }
 
       #[inline(always)]
+      #[doc(hidden)]
       pub(in crate::proto3_modes::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Msg<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));

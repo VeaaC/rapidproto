@@ -38,10 +38,8 @@ using arenagen::LayoutSet;
 // enum (top-level and nested), under `pub mod common` with one `pub mod` per package component. Enums
 // are model-agnostic (plain `i32` newtypes), identical whichever decoder model is also generated.
 // Same-package files merge into one module scope; nested enums live in a per-message submodule. `serde`
-// also implements `serde::Serialize` for each enum. The tree opens with a line that fails to compile
-// unless the file is included at `module_path` (see RustOptions).
-std::string generate_common(const std::vector<const FileNode*>& files, bool serde = false,
-                            const std::string& module_path = "crate");
+// also implements `serde::Serialize` for each enum.
+std::string generate_common(const std::vector<const FileNode*>& files, bool serde = false);
 
 // Emit the `arena` module body for `files`: the arena decoder's message structs (nested messages in
 // per-message submodules, oneofs as native enums), under `pub mod arena` with one `pub mod` per
@@ -86,7 +84,8 @@ struct RustOptions {
     bool serde = false;
 };
 
-// The full generated Rust source for `files`: the `common` tree, then the selected decoder tree(s)
+// The full generated Rust source for `files`: a private `rp_check` module that fails to compile unless
+// the file is included at `options.module_path`, the `common` tree, then the selected decoder tree(s)
 // (`arena` and/or `stream`), all siblings included together under one parent module. This is the single
 // source of truth for an invocation's `.rs` content -- the CLI writes it and the golden test compares
 // against it. `modes` is the resolved field-modes profile (default: materialize everything).

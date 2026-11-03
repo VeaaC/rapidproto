@@ -205,8 +205,7 @@ std::optional<std::string> check_options(const Request& request) {
     }
     if (!is_module_path(request.module_path)) {
         return "module path '" + request.module_path +
-               "' is not a path of ASCII identifiers from the crate root, such as `crate` or "
-               "`crate::proto`";
+               "' must be `crate` or a path from it of ASCII identifiers, such as `crate::proto`";
     }
     return std::nullopt;
 }

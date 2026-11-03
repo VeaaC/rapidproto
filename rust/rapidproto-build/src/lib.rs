@@ -391,16 +391,16 @@ pub struct Config {
 
 impl Config {
     /// A config for generated code included at `module_path`: `crate` for the crate root, or a path
-    /// from it such as `crate::schema`. Segments are ASCII identifiers, and a keyword is written
-    /// `r#type`.
+    /// from it such as `crate::schema`. Segments are ASCII identifiers. Write a keyword as a raw
+    /// identifier, such as `r#type`.
     ///
-    /// The generated code names its own types through this path, so it must be where you `include!`
-    /// the file. Any other path fails to compile.
+    /// The generated code names its own types through this path, so it must lead to where you
+    /// `include!` the file. A path that does not fails to compile.
     ///
-    /// Include a file once per crate, at the crate root or in a module, and not inside a function. A
-    /// doctest counts as a function unless it declares `fn main`. Each file needs its own path, so two
-    /// schemas need two `Config`s. A lib, a bin and each file in `tests/` are separate crates, so each
-    /// can include the same file at the same path.
+    /// Include a file once per crate, and not inside a function. A doctest counts as a function unless
+    /// it declares `fn main`. Each generated file needs its own path, so two files in one crate need
+    /// two `Config`s. A lib, a bin and each file in `tests/` are separate crates, so each can include
+    /// the same file at the same path.
     pub fn new(module_path: impl Into<String>) -> Self {
         Config {
             module_path: module_path.into(),
@@ -446,8 +446,8 @@ impl Config {
     ///
     /// A macro expands where you call it and reaches the rest of the generated code through the path
     /// given to [`Config::new`], so each module on that path must be visible from the call. Make the
-    /// modules `pub` to call it from `tests/` or another crate. A module nested below the crate root
-    /// needs `pub(crate)` to be called from elsewhere in the crate.
+    /// modules `pub` to call it from `tests/` or another crate. To call it from elsewhere in the
+    /// crate, a module nested below the crate root needs `pub(crate)`.
     ///
     /// A `proc-macro` crate cannot export macros, so this model does not compile there. Put the
     /// generated code in a separate crate instead.

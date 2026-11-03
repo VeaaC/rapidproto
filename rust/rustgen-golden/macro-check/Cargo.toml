@@ -6,8 +6,8 @@ license = "Apache-2.0"
 publish = false
 
 # Compile check for the generated `*_stream!` macros: `build.rs` writes two calls of every macro in the
-# goldens, one per form, selecting every field. A macro row's type path resolves only when a call selects its field,
-# so the golden crate compiling proves nothing about them.
+# goldens, one per form, selecting every field. A macro row's type path resolves only when a call
+# selects its field, so the golden crate compiling proves nothing about them.
 #
 # No dependency on `rapidproto`, on purpose: the macros must expand in a crate that depends only on the
 # crate holding the generated code.

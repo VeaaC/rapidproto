@@ -31,7 +31,7 @@ fn the_module_path_reaches_the_output() {
         let output = run(args);
         assert!(output.status.success(), "{output:?}");
         let rust = String::from_utf8_lossy(&output.stdout);
-        assert!(rust.contains("pub(in crate::schema::common) const _"));
+        assert!(rust.contains("pub(in crate::schema::rp_check)"));
         assert!(!rust.contains("pub mod stream"), "stream is opt-in");
     }
 }
@@ -51,7 +51,7 @@ fn a_bad_module_path_is_reported() {
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("is not a path of ASCII identifiers"),
+        stderr.contains("must be `crate` or a path from it"),
         "{stderr}"
     );
 }

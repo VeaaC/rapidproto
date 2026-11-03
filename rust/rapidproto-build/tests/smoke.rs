@@ -135,7 +135,7 @@ fn an_invalid_module_path_is_rejected() {
             let error = result.expect_err("invalid module path should fail");
             assert_eq!(error.code, 2, "bad-frame exit code for {module_path:?}");
             assert!(
-                error.message.contains("is not a path of ASCII identifiers"),
+                error.message.contains("must be `crate` or a path from it"),
                 "error for {module_path:?}: {}",
                 error.message
             );

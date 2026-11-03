@@ -149,6 +149,9 @@ fn goldens_match(backend: Backend) {
     let nestenum = root.join("tests/corpus/nsedge/nestenum.proto");
     let generated = gen_stream_only(&nestenum, "streamonly", backend);
     check("streamonly", &generated, backend, &mut verified);
+    let sibpkg = root.join("tests/corpus/nsedge/sibpkg.proto");
+    let generated = gen_stream_only(&sibpkg, "streamonly_flat", backend);
+    check("streamonly_flat", &generated, backend, &mut verified);
 
     // Field-modes goldens — profiles mirrored from test_rustgen.cpp's *_spec() helpers (no `name`
     // directive, matching their empty profile_name).

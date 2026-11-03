@@ -58,12 +58,10 @@ inline std::string escape_rust_ident(std::string name) {
 
 // A schema-derived name that shares a namespace with the generator's own names never starts with `rp_`
 // followed by anything but `_`: such a name gains a `_` after the prefix (`rp_x` -> `rp__x`). That shape
-// belongs to the generator -- in a message type its `rp_presence` / `rp_unknown` storage and
-// `rp_decode_into` worker, and in a generated body its locals, which an enum newtype's constructor
-// (in the same namespace) would capture -- so no such name can equal one of them. A name already
-// starting `rp__` keeps
-// its spelling; if it meets a reserved `rp_x` -> `rp__x` in one scope, the scope's dedup separates them
-// like any other collision.
+// belongs to the generator: a message's `rp_presence` / `rp_unknown` storage and `rp_decode_into` worker,
+// which accessors share a namespace with, and a generated body's locals, which an enum newtype's
+// constructor would capture. A name already starting `rp__` keeps its spelling; if it meets a reserved
+// `rp_x` -> `rp__x` in one scope, the scope's dedup separates them like any other collision.
 inline std::string reserve_rp_prefix(std::string name) {
     if (name.rfind("rp_", 0) == 0 && name.rfind("rp__", 0) != 0) {
         name.insert(3, 1, '_');
@@ -81,15 +79,15 @@ inline bool is_rust_primitive(std::string_view s) {
     return kPrimitives.count(s) != 0;
 }
 
-// A schema-derived TYPE name (a message struct / stream handle, an enum newtype): keyword-escaped, a
-// primitive name gaining a trailing `_` (no generated item is ever named like a primitive), and
-// `rp_`-reserved. Not yet deduped.
+// A schema-derived TYPE name (a message struct / stream handle, an enum newtype): keyword-escaped, with
+// a primitive name gaining a trailing `_` (no generated item is ever named like a primitive). Not yet
+// deduped.
 inline std::string type_ident(std::string_view raw) {
     std::string name = escape_rust_ident(std::string(raw));
     if (is_rust_primitive(name)) {
         name += '_';
     }
-    return reserve_rp_prefix(std::move(name));
+    return name;
 }
 
 // The identifier an escaped name denotes: the raw identifier `r#type` IS `type`. Dedup sets and

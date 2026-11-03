@@ -201,7 +201,7 @@ void build_scope(const std::vector<const MessageNode*>& msgs,
         for (const EnumNode* node : enums) {
             EnumNames names;
             names.module = module;
-            names.type_name = dedup_ident(taken, type_ident(node->name));
+            names.type_name = dedup_ident(taken, reserve_rp_prefix(type_ident(node->name)));
             names.class_name =
                 dedup_ident(taken, std::string(ident_identity(names.type_name)) + "Class");
             table.enums.emplace(node->fqn, std::move(names));
@@ -1697,8 +1697,8 @@ void emit_map_arm(Printer& printer, const NameTable& table, const MapFieldNode& 
 // `match rp_tagkey` to read each known regular / oneof-member / map field by its `field << 3 | wire`
 // key (a wrong wire type for a known field falls to `skip_field`, like an unknown field), accumulating
 // repeated fields and maps in `DecodeVec`s and recursing into sub-messages, then constructing the
-// message (checking proto2 `required` fields were all seen). `rp_decode_into` is `pub(crate)` so
-// sub-messages in other modules can recurse into it.
+// message (checking proto2 `required` fields were all seen). `rp_decode_into` is visible to the whole
+// arena tree, so sub-messages in other modules can recurse into it.
 // The decode locals: a repeated field / map accumulates into a `DecodeVec`; a oneof holds its enum
 // (None until a member is seen); a proto2 `required` field a transient seen-flag; `unknown-fields` a
 // bool; the rest plain values at their proto3 zero / None default. A dropped field/map has no local
@@ -2128,6 +2128,7 @@ void emit_decode(Printer& printer, const NameTable& table, const MessageNode& ms
     // `rp_arena` is unused when the body neither accumulates a repeated field nor allocates a
     // sub-message (a message of only singular scalar/enum/string/bytes fields); name it `_rp_arena`
     // then to avoid an unused-variable warning.
+    printer.print("#[doc(hidden)]\n");
     // Takes a branded write-once `Slot` and returns the `Init<'id>` proof that `Slot::write` yields --
     // an unforgeable witness that the slot was initialized. The in-place helpers
     // (`Arena::emplace`/`DecodeVec::emplace`/`decode_value`) publish the slot only against that proof,
@@ -3352,7 +3353,7 @@ void emit_stream_node(Printer& printer, const NameTable& table, const PkgTrie& n
     }
 }
 
-// Goes on every top-level generated module, so that including a generated file adds no diagnostics to
+// Goes on every top-level generated item, so that including a generated file adds no diagnostics to
 // the consumer's crate. `warnings` covers every lint the crate has at warning level. The other names
 // cover a crate that raises a lint to `deny`: the lints a private include trips, and the two that this
 // attribute itself trips. Nothing else is named, because naming a lint the crate forbids is a hard
@@ -3363,10 +3364,27 @@ constexpr const char* kModuleLints =
     "unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, "
     "clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]\n";
 
+// A module that fails to compile unless the file is included at `module_path`. A visibility must name
+// the current module or an ancestor, and only this file defines `rp_check`, so its path can only name
+// itself. Nothing else checks the path of a file whose types never refer to each other, whose macros
+// would then fail at their first call, possibly in another crate. The comment shares the visibility's
+// line because rustc shows that line in the error.
+std::string module_path_check(const std::string& module_path) {
+    Printer printer;
+    printer.print(kModuleLints);
+    printer.print("#[doc(hidden)]\nmod rp_check {\n");
+    printer.indent();
+    printer.print("pub(in $p$::rp_check) // This path must be where this file is included.\n",
+                  {{"p", module_path}});
+    printer.print("const C: () = ();\n");
+    printer.outdent();
+    printer.print("}\n");
+    return printer.str();
+}
+
 }  // namespace
 
-std::string generate_common(const std::vector<const FileNode*>& files, bool serde,
-                            const std::string& module_path) {
+std::string generate_common(const std::vector<const FileNode*>& files, bool serde) {
     const PkgTrie root = [&] {
         PkgTrie trie = build_pkg_trie(files);
         assign_emitted_names(trie);
@@ -3377,13 +3395,6 @@ std::string generate_common(const std::vector<const FileNode*>& files, bool serd
     printer.print(kModuleLints);
     printer.print("pub mod common {\n");
     printer.indent();
-    // A visibility must name this module or one above it, and nothing else in rustc checks the path of
-    // a file whose types never refer to each other. With `::common`, the path cannot be merely an
-    // ancestor of the real location either. rustc shows this line, comment included, when it fails.
-    printer.print(
-        "pub(in $p$::common) const _: () = (); // This file must be included at the path given to "
-        "rapidproto-build.\n\n",
-        {{"p", module_path}});
     emit_common_node(printer, table, root, serde);
     printer.outdent();
     printer.print("}\n");
@@ -3462,7 +3473,8 @@ std::string generate_file(const std::vector<const FileNode*>& files, const Layou
     // `common` (shared enum/newtype defs) is emitted whenever any decoder model is, since both the
     // arena and stream trees reference it. At least one model is always selected (the caller enforces
     // it); default is arena only.
-    std::string out = banner + "\n" + generate_common(files, options.serde, options.module_path);
+    std::string out = banner + "\n" + module_path_check(options.module_path) + "\n" +
+                      generate_common(files, options.serde);
     if (options.arena) {
         out += "\n" + generate_arena(files, layouts, modes, options.serde, options.module_path);
     }

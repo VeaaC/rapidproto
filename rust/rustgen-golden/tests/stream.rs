@@ -553,7 +553,7 @@ fn schema_names_shaped_like_the_stream_glue_do_not_collide_with_it() {
                 x => |s, x| x.decode(x_stream!(&mut *s; { v => |s, v| s.x = v })),
             })),
             sub => |s, sub| sub.decode(sub_stream!(&mut *s; {
-                inner => |s, i| i.decode(sub_pkg::rp__rt_stream!(&mut *s; { v => |s, v| s.inner = v })),
+                inner => |s, i| i.decode(sub_pkg::rp_rt_stream!(&mut *s; { v => |s, v| s.inner = v })),
             })),
             sized => |s, z| z.decode(sized_stream!(&mut *s; { v => |s, v| s.sized = v })),
             foo => |s, f| f.decode(foo_stream!(&mut *s; { v => |s, v| s.foo = v })),

@@ -2,8 +2,7 @@
 //!
 //! The same code generation as [`rapidproto_build::Config`] (used from a `build.rs`), exposed as a
 //! standalone tool: pass the module path, entry `.proto`s, `-I` include dirs, and decode-profile
-//! options, and it writes the generated Rust to a file or stdout. No `protoc` needed. Argument parsing
-//! and output live here; the generation itself is [`rapidproto_build::Config::generate`].
+//! options, and it writes the generated Rust to a file or stdout. No `protoc` needed.
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
