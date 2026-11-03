@@ -1,4 +1,5 @@
-// Write one call of every `*_stream!` macro in the goldens, each selecting every field, as one block.
+// Write two calls of every `*_stream!` macro in the goldens, one per form, each selecting every field,
+// as one block.
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -15,11 +16,11 @@ fn main() {
     files.sort();
 
     let (mut macros, mut called) = (0, 0);
-    let mut calls = String::from("{\n");
+    let mut calls = String::from("{\nlet mut state = ();\n");
     for file in files {
         let text = fs::read_to_string(&file).expect("read golden");
         let mut path = "";
-        let mut fields = Vec::new();
+        let mut keys = Vec::new();
         for line in text.lines().map(str::trim_start) {
             if line.starts_with("macro_rules! ") {
                 macros += 1;
@@ -28,12 +29,16 @@ fn main() {
             {
                 path = rest.split_once('!').expect("a macro call").0;
             } else if let Some(rest) = line.strip_prefix("(@f [$($a:tt)*] ") {
-                let key = rest.split_once(" =>").expect("a field row").0;
-                fields.push(format!("{key} => |_| ()"));
+                keys.push(rest.split_once(" =>").expect("a field row").0);
             } else if line.starts_with("(@f $a:tt) =>") {
-                let selected = fields.join(", ");
-                writeln!(calls, "let _ = ::rustgen_golden{path}! {{ {selected} }};").unwrap();
-                fields.clear();
+                let plain = keys.iter().map(|key| format!("{key} => |_| ()"));
+                let shared = keys.iter().map(|key| format!("{key} => |_, _| ()"));
+                let plain = plain.collect::<Vec<_>>().join(", ");
+                let shared = shared.collect::<Vec<_>>().join(", ");
+                let path = format!("::rustgen_golden{path}");
+                writeln!(calls, "let _ = {path}! {{ {plain} }};").unwrap();
+                writeln!(calls, "let _ = {path}!(&mut state; {{ {shared} }});").unwrap();
+                keys.clear();
                 called += 1;
             }
         }
