@@ -15,7 +15,7 @@ use alloc::boxed::Box;
 
 use crate::{Arena, DecodeError};
 
-/// How [`decode_owned`] decodes a message type whose borrow it will own. Generated code implements it
+/// How `decode_owned` decodes a message type whose borrow it will own. Generated code implements it
 /// on the message type itself at `'static` (a zero-cost tag): the `Message<'a>` GAT names the message
 /// at the borrow `'a`, and `decode_borrowed` is the ordinary `T::decode`.
 ///
@@ -47,8 +47,8 @@ pub unsafe trait ArenaDecode {
 }
 
 /// A decoded message that owns everything it borrows: the input bytes and the [`Arena`] holding the
-/// tree. Construct it with [`decode_owned`] (or a generated `T::decode_owned`); read the message with
-/// [`get`](Owned::get). `'static`-capable — it carries no borrowed lifetime.
+/// tree. Construct it with a generated `T::decode_owned`; read the message with [`get`](Owned::get).
+/// `'static`-capable — it carries no borrowed lifetime.
 pub struct Owned<D: ArenaDecode> {
     // The decoded root, with its borrow erased to `'static`. It points INTO `arena`'s chunks and
     // `input`'s bytes, both owned below and never moved/mutated/freed until this `Owned` drops, so
@@ -145,10 +145,6 @@ mod tests {
     }
     struct MockDecoder;
 
-    fn oom(_: crate::ArenaExhausted) -> DecodeError {
-        DecodeError::new(crate::ErrorKind::InputTooLarge, 0)
-    }
-
     // SAFETY: `Mock<'a>` holds only `&'a` shared references, into the input and into arena-allocated
     // memory -- covariant, layout-stable, no interior mutability over `'a`, no `&Arena`.
     unsafe impl ArenaDecode for MockDecoder {
@@ -157,8 +153,10 @@ mod tests {
             input: &'a [u8],
             arena: &'a Arena<'a>,
         ) -> Result<&'a Mock<'a>, DecodeError> {
-            let len: &u32 = arena.alloc(input.len() as u32).map_err(oom)?;
-            let node = arena.alloc(Mock { bytes: input, len }).map_err(oom)?;
+            let len: &u32 =
+                arena.emplace(|slot| Ok::<_, DecodeError>(slot.write(input.len() as u32)))?;
+            let node = arena
+                .emplace(|slot| Ok::<_, DecodeError>(slot.write(Mock { bytes: input, len })))?;
             Ok(node)
         }
     }

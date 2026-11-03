@@ -22,7 +22,8 @@ use crate::PackedSlice;
 pub struct ProtoStr([u8]);
 
 impl ProtoStr {
-    /// View raw bytes as a string (no validation).
+    /// View `bytes` as a string, without copying or validating them. Use it when a `&ProtoStr` does not
+    /// come from a decoded message, such as a lookup key or a test value.
     #[inline]
     pub fn new(bytes: &[u8]) -> &ProtoStr {
         // SAFETY: `ProtoStr` is a `repr(transparent)` wrapper of `[u8]`, so both references have

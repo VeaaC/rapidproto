@@ -11,8 +11,6 @@
 //!   strings in; they deref to `[T]` and [`ProtoStr`].
 //! - [`MapView`] — a borrowed view over a `map` field's entries.
 //! - [`DecodeError`] / [`ErrorKind`] — the error returned by generated `decode` entry points.
-//! - [`wire`] — the wire-decode primitives (varint, fixed, length-delimited, tag, skip) generated
-//!   `decode` bodies read fields with.
 //! - [`stream`] — the primitives a generated *streaming* decoder builds on (a visitor that reads only
 //!   the fields it selects, never materializing the message); emitted when `rapidproto-build`'s
 //!   `Config::stream` is enabled.
@@ -21,8 +19,23 @@
 //!
 //! Decoded messages can implement `serde::Serialize`. Ask for it with `rapidproto-build`'s
 //! `Config::serde`, and enable this crate's `serde` feature, which is off by default. RapidProto only
-//! decodes, so there is no `Deserialize`. The `serde_support` module, compiled only with that feature,
-//! documents what the runtime types serialize to.
+//! decodes, so there is no `Deserialize`.
+//!
+//! A message serializes as a map from proto field name to value. A field with presence appears when it
+//! is set, even at its default value. That covers `optional` fields, message fields and groups, and
+//! editions fields with explicit presence. A field without presence, such as a proto3 scalar with no
+//! `optional`, appears when its value is not the default. `required` fields always appear. `repeated`
+//! and `map` fields appear when they are not empty, and a `oneof` appears as its set member. An enum
+//! serializes as its `i32`. A field a decode profile drops does not appear, and a `raw` field serializes
+//! as bytes.
+//!
+//! `bytes` goes through `serialize_bytes`, so the format decides how it looks. `serde_json` writes an
+//! array of numbers. A `string` with invalid UTF-8 serializes as bytes too. A `map` key repeated on the
+//! wire appears more than once. A message gives the serializer no length up front, so a format that
+//! needs one cannot serialize it.
+//!
+//! With `serde_json`, a non-finite `float` or `double` becomes `null`, and a `map` fails if a `string`
+//! key has invalid UTF-8.
 //!
 //! `no_std` outside of tests whenever the `std` feature is off; the test harness keeps `std` so
 //! the no-allocator path can still be unit-tested with `--no-default-features`.
@@ -32,6 +45,7 @@
 #![cfg_attr(docsrs, doc(auto_cfg(hide(no_global_oom_handling))))]
 #![forbid(unsafe_op_in_unsafe_fn)]
 #![deny(clippy::undocumented_unsafe_blocks)]
+#![warn(missing_docs)]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -47,8 +61,11 @@ mod packed_slice;
 mod packed_varint;
 mod proto_str;
 #[cfg(feature = "serde")]
+#[doc(hidden)]
 pub mod serde_support;
 pub mod stream;
+// Generated code and benches read the wire through this. Reading it directly is not a user feature.
+#[doc(hidden)]
 pub mod wire;
 
 // The generated code in `example` names this crate `::rapidproto`, as it does in a user's crate.
@@ -59,20 +76,30 @@ extern crate self as rapidproto;
 #[cfg_attr(not(feature = "alloc"), cfg(not(doctest)))]
 pub mod example;
 
-/// Re-export of `serde`, available with the `serde` feature. Generated `Serialize` impls name it, so a
-/// crate using them needs no serde dependency of its own.
+// Generated `Serialize` impls name this, so a crate using them needs no serde dependency of its own.
 #[cfg(feature = "serde")]
+#[doc(hidden)]
 pub use serde;
 
-pub use arena::{Arena, ArenaExhausted};
-pub use decode_slot::{decode_value, Init, Slot};
-pub use decode_vec::DecodeVec;
+pub use arena::Arena;
 pub use error::{DecodeError, ErrorKind};
 pub use map::MapView;
 #[cfg(feature = "alloc")]
-pub use owned::{decode_owned, ArenaDecode, Owned};
+pub use owned::{ArenaDecode, Owned};
 pub use packed_slice::PackedSlice;
 pub use proto_str::{PackedStr, ProtoStr};
+
+// Generated code, which expands in the user's crate, and tests outside this crate build on these. So
+// they stay `pub`, but users never touch them.
+#[doc(hidden)]
+pub use arena::ArenaExhausted;
+#[doc(hidden)]
+pub use decode_slot::{decode_value, Init, Slot};
+#[doc(hidden)]
+pub use decode_vec::DecodeVec;
+#[cfg(feature = "alloc")]
+#[doc(hidden)]
+pub use owned::decode_owned;
 
 /// Re-export of the standard `Box` (only with `alloc`), so a generated `decode_owned` can name
 /// `::rapidproto::Box<[u8]>` without the consumer crate spelling an `alloc`/`std` path itself.

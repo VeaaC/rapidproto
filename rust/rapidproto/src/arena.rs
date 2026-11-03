@@ -164,6 +164,7 @@ impl<'buf> Arena<'buf> {
     // `#[inline(always)]`: every decoded sub-message and array allocates here, so the bump fast path
     // inlines into the decoder (with `align` a constant there, the checks fold); a grow takes the cold
     // out-of-line slow path. The C++ decoder inlines its bump too, through `RP_FLATTEN`.
+    #[doc(hidden)]
     #[inline(always)]
     pub fn alloc_bytes(&self, bytes: usize, align: usize) -> Result<NonNull<u8>, ArenaExhausted> {
         if !align.is_power_of_two() {
@@ -175,32 +176,12 @@ impl<'buf> Arena<'buf> {
         self.allocate_slow(bytes, align)
     }
 
-    /// Typed convenience: allocate and move `val` in, handing back `&mut T`.
-    ///
-    /// This is the bump-arena idiom of handing out `&mut` from `&self`; distinct allocations never
-    /// overlap, which is what makes it sound (verified under Miri's Stacked/Tree Borrows).
-    ///
-    /// The arena never runs `T`'s destructor, so `T` must not own resources that need `Drop`.
-    /// Decoded values are borrowed or plain data (scalars, `PackedSlice`, `PackedStr`, `MapView`),
-    /// so this holds; do not arena-allocate a `Drop` type.
-    #[allow(clippy::mut_from_ref)]
-    pub fn alloc<T>(&self, val: T) -> Result<&mut T, ArenaExhausted> {
-        let p = self
-            .alloc_bytes(core::mem::size_of::<T>(), core::mem::align_of::<T>())?
-            .cast::<T>();
-        // SAFETY: `p` points at `size_of::<T>()` freshly-reserved, `align_of::<T>()`-aligned bytes
-        // that no other reference aliases, so writing `val` and forming a `&mut T` is sound.
-        unsafe {
-            p.as_ptr().write(val);
-            Ok(&mut *p.as_ptr())
-        }
-    }
-
     /// Allocate a `T` slot and decode into it **in place** -- no by-value construct-then-copy. `f`
     /// initializes the slot (a generated `rp_decode_into` writing each field straight into it); the
     /// `&mut T` is returned only if `f` succeeds. On `Err` the slot is abandoned, never read (the
     /// arena never frees, so the reserved bytes are simply unused). This is the Rust equivalent of the
     /// C++ decoder allocating the slot then `rp_decode_into(*slot, ...)`.
+    #[doc(hidden)]
     #[allow(clippy::mut_from_ref)]
     // `#[inline(always)]`: the closure captures the sub-message payload slice (and arena/depth) by
     // reference, so an out-of-line `emplace` would pass that environment by pointer and pin the 16-byte
@@ -237,7 +218,7 @@ impl<'buf> Arena<'buf> {
     ///
     /// A zero-sized `T` (e.g. an empty generated message) needs no storage, so any `n > 0` yields a
     /// valid aligned pointer to a 0-byte region, as for any ZST slice.
-    pub fn alloc_array<T>(&self, n: usize) -> Result<NonNull<T>, ArenaExhausted> {
+    pub(crate) fn alloc_array<T>(&self, n: usize) -> Result<NonNull<T>, ArenaExhausted> {
         let elem = core::mem::size_of::<T>();
         if n == 0 || (elem != 0 && n > usize::MAX / elem) {
             return Err(ArenaExhausted);
@@ -488,6 +469,12 @@ impl Drop for Arena<'_> {
 mod tests {
     use super::*;
 
+    // Allocate and initialize one value, the way a decoder does.
+    #[allow(clippy::mut_from_ref)]
+    fn alloc<'a, T>(arena: &'a Arena<'_>, val: T) -> Result<&'a mut T, ArenaExhausted> {
+        arena.emplace(|slot| Ok(slot.write(val)))
+    }
+
     fn assert_aligned(p: NonNull<u8>, align: usize) {
         assert_eq!(p.as_ptr().addr() % align, 0, "mis-aligned allocation");
     }
@@ -544,8 +531,8 @@ mod tests {
     fn writes_round_trip() {
         let mut buf = [0u8; 256];
         let a = Arena::with_buffer(&mut buf);
-        let x: &mut u64 = a.alloc(0xDEAD_BEEF_1234_5678u64).unwrap();
-        let y: &mut u32 = a.alloc(0xA5A5_5A5Au32).unwrap();
+        let x: &mut u64 = alloc(&a, 0xDEAD_BEEF_1234_5678u64).unwrap();
+        let y: &mut u32 = alloc(&a, 0xA5A5_5A5Au32).unwrap();
         assert_eq!(*x, 0xDEAD_BEEF_1234_5678);
         assert_eq!(*y, 0xA5A5_5A5A);
         *x = 1;
@@ -630,7 +617,7 @@ mod tests {
         let a = Arena::new();
         let mut last = 0usize;
         for i in 0..5000 {
-            let p = a.alloc(i as u64).unwrap();
+            let p = alloc(&a, i as u64).unwrap();
             assert_eq!(*p, i as u64);
             last = *p as usize;
         }
@@ -643,7 +630,7 @@ mod tests {
         let mut buf = [0u8; 16];
         let a = Arena::with_buffer(&mut buf);
         for i in 0..1000u64 {
-            assert!(a.alloc(i).is_ok(), "seed→heap spill must be seamless");
+            assert!(alloc(&a, i).is_ok(), "seed→heap spill must be seamless");
         }
     }
 
@@ -675,13 +662,13 @@ mod tests {
         let mut a = Arena::with_buffer(&mut buf);
         let first = a.alloc_bytes(8, 8).unwrap().as_ptr().addr();
         for i in 0..2000u64 {
-            a.alloc(i).unwrap(); // spill past the seed into several grown chunks
+            alloc(&a, i).unwrap(); // spill past the seed into several grown chunks
         }
         let reserved = a.bytes_reserved();
         a.reset();
         assert_eq!(a.alloc_bytes(8, 8).unwrap().as_ptr().addr(), first);
         for i in 0..2000u64 {
-            a.alloc(i).unwrap();
+            alloc(&a, i).unwrap();
         }
         assert_eq!(
             a.bytes_reserved(),
@@ -776,7 +763,7 @@ mod tests {
     fn reset_keeps_chunks_and_reserved() {
         let a = Arena::new();
         for i in 0..5000u64 {
-            a.alloc(i).unwrap(); // force several chunk growths
+            alloc(&a, i).unwrap(); // force several chunk growths
         }
         let reserved_before = a.bytes_reserved();
         assert!(reserved_before > 0);
@@ -791,7 +778,7 @@ mod tests {
         );
         // The next allocations reuse held chunks (no new reservation until exceeded).
         for i in 0..5000u64 {
-            a.alloc(i).unwrap();
+            alloc(&a, i).unwrap();
         }
         assert_eq!(
             a.bytes_reserved(),

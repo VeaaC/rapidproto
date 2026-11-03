@@ -194,20 +194,6 @@ impl<'a, T> DecodeVec<'a, T> {
         Ok(())
     }
 
-    /// Number of elements pushed so far.
-    #[inline]
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    /// Whether nothing has been pushed.
-    #[inline]
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-
     /// Finish: the pushed elements as a borrowed slice tied to the arena. Empty when nothing was
     /// pushed (no allocation).
     #[inline]
@@ -269,12 +255,12 @@ mod tests {
     fn grows_and_preserves_order_across_reallocations() {
         let arena = Arena::new();
         let mut v = DecodeVec::<u32>::new(&arena);
-        assert!(v.is_empty());
+        assert_eq!(v.len, 0);
         // Push well past the initial capacity to force several geometric grows (4 -> 8 -> 16 -> ...).
         for i in 0..100u32 {
             v.push(i * 3).unwrap();
         }
-        assert_eq!(v.len(), 100);
+        assert_eq!(v.len, 100);
         let s = v.into_slice();
         assert_eq!(s.len(), 100);
         for (i, &x) in s.iter().enumerate() {
@@ -434,7 +420,7 @@ mod tests {
         let arena = Arena::new();
         let mut v = DecodeVec::<u32>::new(&arena);
         v.extend_from_le_bytes(&[]).unwrap();
-        assert!(v.is_empty());
+        assert_eq!(v.len, 0);
         assert_eq!(arena.bytes_used(), 0);
         assert_eq!(v.into_slice(), &[] as &[u32]);
     }
@@ -446,7 +432,7 @@ mod tests {
         // Ok: the slot is initialized in place (the returned `&mut` is the write witness) and published.
         v.emplace::<ArenaExhausted, _>(|slot| Ok(slot.write(42)))
             .unwrap();
-        assert_eq!(v.len(), 1);
+        assert_eq!(v.len, 1);
         // Err AFTER writing the slot: `len` must NOT advance, so the abandoned (initialized-but-
         // unpublished) slot never reaches `into_slice`. This is the never-crash-on-mid-decode-error
         // invariant at the helper boundary (and is checked under Miri via the gate).
@@ -455,7 +441,7 @@ mod tests {
             Err(ArenaExhausted)
         });
         assert!(r.is_err());
-        assert_eq!(v.len(), 1);
+        assert_eq!(v.len, 1);
         assert_eq!(v.into_slice(), &[42]); // the 999 slot was abandoned, not published
     }
 }

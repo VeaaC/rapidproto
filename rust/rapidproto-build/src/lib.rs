@@ -20,8 +20,7 @@
 //! ```
 //!
 //! The generated decoders use the `rapidproto` runtime crate. To get the generated code as a string
-//! instead of a file, use [`Config::generate`]; to generate from sources already in memory, use
-//! [`generate`].
+//! instead of a file, use [`Config::generate`].
 //!
 //! The same generator is also available as a command-line tool, `rapidproto-rust`, for generating
 //! decoders outside a build script. Install it with
@@ -51,6 +50,7 @@
 //! [profile.release.build-override]
 //! opt-level = 3
 //! ```
+#![warn(missing_docs)]
 
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
@@ -64,6 +64,7 @@ pub const NATIVE_FALLBACK: Option<&str> = option_env!("RAPIDPROTO_BUILD_FALLBACK
 
 /// One in-memory source file: `name` is how an `import` refers to it (e.g. `"types.proto"`), and
 /// `body` is its text.
+#[doc(hidden)]
 pub struct SourceFile {
     /// How an `import` statement spells this file (e.g. `"types.proto"`).
     pub name: String,
@@ -74,6 +75,7 @@ pub struct SourceFile {
 /// The inputs for one generation: the entry files (the roots of the import closure, each named the
 /// way an `import` would spell it), the sources those entries and their imports may pull in (a
 /// superset is fine — only what the closure reaches is used), and the generation options.
+#[doc(hidden)]
 pub struct Request {
     /// The entry `.proto`s, named as an `import` would spell them.
     pub entries: Vec<String>,
@@ -184,14 +186,6 @@ mod frame {
     }
 }
 
-/// Generate decoders from sources already in memory (no filesystem access), returning the generated
-/// Rust — one module tree covering the whole import closure — or a [`GenError`]. Generation is a
-/// pure function of the request: the same inputs always produce the same output. See [`Config`] to
-/// generate from `.proto` files on disk instead.
-pub fn generate(request: &Request) -> Result<String, GenError> {
-    generate_with(BACKENDS[0], request)
-}
-
 /// A way to run the generator (see [How the generator runs](crate#how-the-generator-runs)).
 #[doc(hidden)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -202,7 +196,7 @@ pub enum Backend {
     Wasm,
 }
 
-/// The backends this build has, the one [`generate`] uses first.
+/// The backends this build has, the one [`Config`] uses first.
 #[doc(hidden)]
 pub const BACKENDS: &[Backend] = &[
     #[cfg(rp_native)]
@@ -211,7 +205,7 @@ pub const BACKENDS: &[Backend] = &[
     Backend::Wasm,
 ];
 
-/// [`generate`] through a given backend -- for checking that the backends agree.
+/// Run the generator on `request` through a given backend. Public for checking that the backends agree.
 #[doc(hidden)]
 pub fn generate_with(backend: Backend, request: &Request) -> Result<String, GenError> {
     let frame = frame::encode(request)?;
