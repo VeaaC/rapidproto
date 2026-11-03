@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::pkgalias::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod pa {
     pub mod linux_ {
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
@@ -139,8 +141,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, linux__<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::pkgalias::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, linux__<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -283,8 +284,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Sub<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::pkgalias::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Sub<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -343,10 +343,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod pa {
     /// Streaming visitor for `linux__`. Select a field by overriding its `WANT_<field>` const AND
@@ -527,9 +528,9 @@ pub mod stream {
       (@f [$($a:tt)*] e => $c:expr, $($r:tt)*) => { $crate::pkgalias::stream::pa::linux___stream!(@f [$($a)* WANT_e on_e: $crate::pkgalias::common::pa::linux_::E = $c;] $($r)*) };
       (@f [$($a:tt)*] sub => $c:expr, $($r:tt)*) => { $crate::pkgalias::stream::pa::linux___stream!(@f [$($a)* WANT_sub on_sub: $crate::pkgalias::stream::pa::linux::Sub<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] f => $c:expr, $($r:tt)*) => { $crate::pkgalias::stream::pa::linux___stream!(@f [$($a)* WANT_f on_f: $crate::pkgalias::common::pa::linux::E = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::pkgalias::stream::pa::linux___stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::pkgalias::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::pkgalias::stream::pa::linux___stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::pkgalias::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: e, sub, f, unknown")) };
-      (@f $a:tt) => { $crate::pkgalias::stream::rp_rt::stream_visitor!($crate::pkgalias::stream::pa::linux__Visitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::pkgalias::rp_rt::stream_visitor!($crate::pkgalias::stream::pa::linux__Visitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_8pkgalias_2pa6linux_ as linux___stream;
@@ -645,9 +646,9 @@ pub mod stream {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::pkgalias::stream::pa::linux::sub_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::pkgalias::stream::pa::linux::sub_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] f => $c:expr, $($r:tt)*) => { $crate::pkgalias::stream::pa::linux::sub_stream!(@f [$($a)* WANT_f on_f: $crate::pkgalias::common::pa::linux::E = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::pkgalias::stream::pa::linux::sub_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::pkgalias::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::pkgalias::stream::pa::linux::sub_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::pkgalias::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: f, unknown")) };
-        (@f $a:tt) => { $crate::pkgalias::stream::rp_rt::stream_visitor!($crate::pkgalias::stream::pa::linux::SubVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::pkgalias::rp_rt::stream_visitor!($crate::pkgalias::stream::pa::linux::SubVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_8pkgalias_2pa5linux3Sub as sub_stream;

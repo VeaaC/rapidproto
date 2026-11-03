@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::arena_unknown::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod au {
   }
 }
@@ -89,8 +91,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Flag<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::arena_unknown::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Flag<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -163,8 +164,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Holder<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::arena_unknown::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Holder<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -250,10 +250,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod au {
     /// Streaming visitor for `Flag`. Select a field by overriding its `WANT_<field>` const AND
@@ -366,9 +367,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_unknown::stream::au::flag_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_unknown::stream::au::flag_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::arena_unknown::stream::au::flag_stream!(@f [$($a)* WANT_value on_value: ::core::primitive::bool = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_unknown::stream::au::flag_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_unknown::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_unknown::stream::au::flag_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_unknown::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: value, unknown")) };
-      (@f $a:tt) => { $crate::arena_unknown::stream::rp_rt::stream_visitor!($crate::arena_unknown::stream::au::FlagVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::arena_unknown::rp_rt::stream_visitor!($crate::arena_unknown::stream::au::FlagVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_13arena_unknown_2au4Flag as flag_stream;
@@ -517,9 +518,9 @@ pub mod stream {
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_unknown::stream::au::holder_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] flag => $c:expr, $($r:tt)*) => { $crate::arena_unknown::stream::au::holder_stream!(@f [$($a)* WANT_flag on_flag: $crate::arena_unknown::stream::au::Flag<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { $crate::arena_unknown::stream::au::holder_stream!(@f [$($a)* WANT_n on_n: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_unknown::stream::au::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_unknown::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_unknown::stream::au::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_unknown::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: flag, n, unknown")) };
-      (@f $a:tt) => { $crate::arena_unknown::stream::rp_rt::stream_visitor!($crate::arena_unknown::stream::au::HolderVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::arena_unknown::rp_rt::stream_visitor!($crate::arena_unknown::stream::au::HolderVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_13arena_unknown_2au6Holder as holder_stream;

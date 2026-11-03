@@ -1,7 +1,6 @@
-// Names that collide with the Rust stream glue unless the generator keeps them apart. The glue is
-// the `rp_` name the generator reserves at module scope, the runtime re-export `rp_rt`, plus the bare
-// names a macro expansion would otherwise rely on. Each name below is protoc-valid; the Rust golden
-// compiling (and the golden crate's tests driving `Holder`'s macros) is the check.
+// Names shaped like what a Rust stream macro relies on: the runtime re-export `rp_rt`, and the bare
+// names an expansion must not capture. Each name below is protoc-valid; the Rust golden compiling (and
+// the golden crate's tests driving `Holder`'s macros) is the check.
 syntax = "proto3";
 
 package gluenames;

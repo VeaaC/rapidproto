@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::example::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod weather {
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
@@ -121,8 +123,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Location<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::example::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Location<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -206,8 +207,7 @@ pub mod arena {
       }
 
       #[inline(never)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Station<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::example::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Station<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -545,8 +545,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Report<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::example::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Report<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -603,10 +602,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod weather {
     /// Streaming visitor for `Location`. Select a field by overriding its `WANT_<field>` const AND
@@ -753,9 +753,9 @@ pub mod stream {
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::example::stream::weather::location_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] latitude => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::location_stream!(@f [$($a)* WANT_latitude on_latitude: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] longitude => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::location_stream!(@f [$($a)* WANT_longitude on_longitude: ::core::primitive::f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::location_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::example::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::location_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::example::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: latitude, longitude, unknown")) };
-      (@f $a:tt) => { $crate::example::stream::rp_rt::stream_visitor!($crate::example::stream::weather::LocationVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::example::rp_rt::stream_visitor!($crate::example::stream::weather::LocationVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_7example_7weather8Location as location_stream;
@@ -1234,17 +1234,17 @@ pub mod stream {
     macro_rules! __rp_7example_7weather7Station {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::example::stream::weather::station_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::example::stream::weather::station_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::example::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::example::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] location => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_location on_location: $crate::example::stream::weather::Location<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unit => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_unit on_unit: $crate::example::common::weather::Unit = $c;] $($r)*) };
       (@f [$($a:tt)*] temperatures => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_temperatures on_temperatures: ::core::primitive::f32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] note => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_note on_note: &'rp_a $crate::example::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] labels => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_labels on_labels: (&'rp_a $crate::example::stream::rp_rt::ProtoStr, &'rp_a $crate::example::stream::rp_rt::ProtoStr) = $c;] $($r)*) };
-      (@f [$($a:tt)*] error => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_error on_error: &'rp_a $crate::example::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] note => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_note on_note: &'rp_a $crate::example::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] labels => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_labels on_labels: (&'rp_a $crate::example::rp_rt::ProtoStr, &'rp_a $crate::example::rp_rt::ProtoStr) = $c;] $($r)*) };
+      (@f [$($a:tt)*] error => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_error on_error: &'rp_a $crate::example::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] uptime_seconds => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_uptime_seconds on_uptime_seconds: ::core::primitive::u64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::example::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::example::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, location, unit, temperatures, note, labels, error, uptime_seconds, unknown")) };
-      (@f $a:tt) => { $crate::example::stream::rp_rt::stream_visitor!($crate::example::stream::weather::StationVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::example::rp_rt::stream_visitor!($crate::example::stream::weather::StationVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_7example_7weather7Station as station_stream;
@@ -1359,9 +1359,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::example::stream::weather::report_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::example::stream::weather::report_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] stations => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::report_stream!(@f [$($a)* WANT_stations on_stations: $crate::example::stream::weather::Station<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::report_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::example::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::report_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::example::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: stations, unknown")) };
-      (@f $a:tt) => { $crate::example::stream::rp_rt::stream_visitor!($crate::example::stream::weather::ReportVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::example::rp_rt::stream_visitor!($crate::example::stream::weather::ReportVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_7example_7weather6Report as report_stream;

@@ -651,7 +651,7 @@ def build_rust_harness(work: Path, meta: dict, tools: dict[str, Path]) -> Path |
         arms.append(
             "        %s => run(&payloads, |p| {\n"
             "            let arena = ::rapidproto::Arena::new();\n"
-            "            schema::%s::decode(p, &arena).ok()"
+            "            %s::decode(p, &arena).ok()"
             ".map(|m| ::rapidproto_diff::to_line(m).unwrap())\n"
             "        })," % (json.dumps(fqn), path))
     (work / "harness.rs").write_text(RUST_HARNESS_TEMPLATE % {"arms": "\n".join(arms)})

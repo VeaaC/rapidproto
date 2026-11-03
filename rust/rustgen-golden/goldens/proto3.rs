@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::proto3::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod p3 {
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
@@ -286,8 +288,7 @@ pub mod arena {
       }
 
       #[inline(never)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Msg<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::proto3::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Msg<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1383,10 +1384,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod p3 {
     /// Streaming visitor for `Msg`. Select a field by overriding its `WANT_<field>` const AND
@@ -2981,7 +2983,7 @@ pub mod stream {
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::proto3::stream::p3::msg_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] implicit_i => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_implicit_i on_implicit_i: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] explicit_i => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_explicit_i on_explicit_i: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::proto3::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::proto3::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] state => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_state on_state: $crate::proto3::common::p3::State = $c;] $($r)*) };
       (@f [$($a:tt)*] self_ => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_self_ on_self_: $crate::proto3::stream::p3::Msg<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] nums => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_nums on_nums: ::core::primitive::i32 = $c;] $($r)*) };
@@ -2993,19 +2995,19 @@ pub mod stream {
       (@f [$($a:tt)*] ratio => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_ratio on_ratio: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] scale => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_scale on_scale: ::core::primitive::f32 = $c;] $($r)*) };
       (@f [$($a:tt)*] chunks => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_chunks on_chunks: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
-      (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_counts on_counts: (&'rp_a $crate::proto3::stream::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
-      (@f [$($a:tt)*] flags => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_flags on_flags: (::core::primitive::bool, &'rp_a $crate::proto3::stream::rp_rt::ProtoStr) = $c;] $($r)*) };
-      (@f [$($a:tt)*] toggles => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_toggles on_toggles: (&'rp_a $crate::proto3::stream::rp_rt::ProtoStr, ::core::primitive::bool) = $c;] $($r)*) };
-      (@f [$($a:tt)*] ratios => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_ratios on_ratios: (&'rp_a $crate::proto3::stream::rp_rt::ProtoStr, ::core::primitive::f64) = $c;] $($r)*) };
-      (@f [$($a:tt)*] blobs => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_blobs on_blobs: (&'rp_a $crate::proto3::stream::rp_rt::ProtoStr, &'rp_a [::core::primitive::u8]) = $c;] $($r)*) };
+      (@f [$($a:tt)*] counts => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_counts on_counts: (&'rp_a $crate::proto3::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] flags => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_flags on_flags: (::core::primitive::bool, &'rp_a $crate::proto3::rp_rt::ProtoStr) = $c;] $($r)*) };
+      (@f [$($a:tt)*] toggles => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_toggles on_toggles: (&'rp_a $crate::proto3::rp_rt::ProtoStr, ::core::primitive::bool) = $c;] $($r)*) };
+      (@f [$($a:tt)*] ratios => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_ratios on_ratios: (&'rp_a $crate::proto3::rp_rt::ProtoStr, ::core::primitive::f64) = $c;] $($r)*) };
+      (@f [$($a:tt)*] blobs => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_blobs on_blobs: (&'rp_a $crate::proto3::rp_rt::ProtoStr, &'rp_a [::core::primitive::u8]) = $c;] $($r)*) };
       (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_b on_b: &'rp_a $crate::proto3::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_b on_b: &'rp_a $crate::proto3::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_c on_c: ::core::primitive::bool = $c;] $($r)*) };
       (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_d on_d: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] e => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_e on_e: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::proto3::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::proto3::stream::p3::msg_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::proto3::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: implicit_i, explicit_i, name, state, self_, nums, unpacked, states, reals, codes, bools, ratio, scale, chunks, counts, flags, toggles, ratios, blobs, a, b, c, d, e, unknown")) };
-      (@f $a:tt) => { $crate::proto3::stream::rp_rt::stream_visitor!($crate::proto3::stream::p3::MsgVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::proto3::rp_rt::stream_visitor!($crate::proto3::stream::p3::MsgVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_6proto3_2p33Msg as msg_stream;

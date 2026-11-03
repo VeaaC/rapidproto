@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::streamonly::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod ne {
     pub mod outer {
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
@@ -80,10 +82,11 @@ pub mod common {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod ne {
     /// Streaming visitor for `Outer`. Select a field by overriding its `WANT_<field>` const AND
@@ -230,9 +233,9 @@ pub mod stream {
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::streamonly::stream::ne::outer_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] k => $c:expr, $($r:tt)*) => { $crate::streamonly::stream::ne::outer_stream!(@f [$($a)* WANT_k on_k: $crate::streamonly::common::ne::outer::Kind = $c;] $($r)*) };
       (@f [$($a:tt)*] i => $c:expr, $($r:tt)*) => { $crate::streamonly::stream::ne::outer_stream!(@f [$($a)* WANT_i on_i: $crate::streamonly::stream::ne::outer::Inner<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::streamonly::stream::ne::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::streamonly::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::streamonly::stream::ne::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::streamonly::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: k, i, unknown")) };
-      (@f $a:tt) => { $crate::streamonly::stream::rp_rt::stream_visitor!($crate::streamonly::stream::ne::OuterVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::streamonly::rp_rt::stream_visitor!($crate::streamonly::stream::ne::OuterVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_10streamonly_2ne5Outer as outer_stream;
@@ -348,9 +351,9 @@ pub mod stream {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::streamonly::stream::ne::outer::inner_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::streamonly::stream::ne::outer::inner_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { $crate::streamonly::stream::ne::outer::inner_stream!(@f [$($a)* WANT_d on_d: $crate::streamonly::common::ne::outer::inner::Deep = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::streamonly::stream::ne::outer::inner_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::streamonly::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::streamonly::stream::ne::outer::inner_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::streamonly::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: d, unknown")) };
-        (@f $a:tt) => { $crate::streamonly::stream::rp_rt::stream_visitor!($crate::streamonly::stream::ne::outer::InnerVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::streamonly::rp_rt::stream_visitor!($crate::streamonly::stream::ne::outer::InnerVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_10streamonly_2ne5Outer5Inner as inner_stream;

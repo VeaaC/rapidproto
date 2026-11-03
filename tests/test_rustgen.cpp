@@ -417,7 +417,7 @@ TEST_CASE("rustgen arena: message struct with scalar/string/bytes/enum accessors
     CHECK(has(out, "pub fn active(&self) -> bool {"));
     CHECK(has(out,
               "pub fn maybe(&self) -> ::core::option::Option<i32> {"));  // `optional` -> explicit
-    // enum-typed field references the common tree (super x (1 arena + 2 package) = 3).
+    // enum-typed field references the common tree.
     CHECK(has(out, "pub fn color(&self) -> crate::common::m::n::Color {"));
     // repeated is a later slice -> noted, not emitted as an accessor.
     CHECK(has(out, "pub fn nums(&self) -> &'a [i32] {"));  // repeated scalar -> borrowed slice
@@ -478,7 +478,7 @@ TEST_CASE("rustgen arena: decode-body names stay apart from field names") {
     CHECK(has(out, "pub fn rp__out(&self) -> i32 {"));
     CHECK(has(out, "rp__out: rp_field_2,"));
     CHECK(has(out, "pub fn decode_into(&self) -> i32 {"));  // the worker is `rp_decode_into`
-    CHECK(has(out, "pub(crate) fn rp_decode_into<'id>("));
+    CHECK(has(out, "pub(in crate::arena) fn rp_decode_into<'id>("));
 }
 
 TEST_CASE("rustgen: a message named like a primitive gains a `_`") {
@@ -594,12 +594,12 @@ TEST_CASE("rustgen arena: nested messages/enums and message-typed fields") {
         "pub fn inner(&self) -> ::core::option::Option<&'a crate::arena::p::outer::Inner<'a>> {"));
     CHECK(has(out, "pub fn many(&self) -> &'a [crate::arena::p::outer::Inner<'a>] {"));
     CHECK(has(out, "pub fn kind(&self) -> crate::common::p::outer::Kind {"));
-    // Inner lives in a snake-case submodule; its back-reference to Outer climbs `super`.
+    // Inner lives in a snake-case submodule; it refers back to Outer.
     CHECK(has(out, "pub mod outer {"));
     CHECK(has(out, "pub struct Inner<'a> {"));
     CHECK(has(out,
               "pub fn parent(&self) -> ::core::option::Option<&'a crate::arena::p::Outer<'a>> {"));
-    // A top-level sibling reference is bare.
+    // A top-level sibling reference.
     CHECK(has(out,
               "pub fn outer(&self) -> ::core::option::Option<&'a crate::arena::p::Outer<'a>> {"));
 }
@@ -921,8 +921,8 @@ TEST_CASE("rustgen modes: a raw group field stores its scanned body undecoded") 
 
 TEST_CASE("rustgen imports: a cross-file closure merges into one tree with resolving refs") {
     // imports/main.proto (package main) imports dep.proto (package dep) and references dep.Dep. The
-    // whole closure emits as ONE module tree; the cross-package reference climbs to the arena root
-    // and descends `dep`, and dep's enum resolves into the shared common tree.
+    // whole closure emits as ONE module tree; the cross-package reference goes through `arena::dep`,
+    // and dep's enum resolves into the shared common tree.
     const std::string out = gen_corpus("imports/main.proto");
     CHECK(has(out, "pub mod main {"));  // both packages are sibling sub-modules of one tree
     CHECK(has(out, "pub mod dep {"));
@@ -1173,14 +1173,37 @@ TEST_CASE("rustgen frame: the module path is a path from the crate root") {
         const FrameOptions options{true, true, good, ""};
         CHECK(run_frame(frame_for(kFrameSchema, options)).status == FrameStatus::kOk);
     }
-    for (const std::string_view bad :
-         {"", "a", "::a", "crates", "crate::", "crate::a::", "crate:a", "crate::::a", "crate::1a",
-          "crate::a-b", "crate::a b", "crate::r#", "crate::r#1a", "self::a", "super::a"}) {
+    for (const std::string_view bad : {"",
+                                       "a",
+                                       "::a",
+                                       "crates",
+                                       "crate::",
+                                       "crate::a::",
+                                       "crate:a",
+                                       "crate::::a",
+                                       "crate::1a",
+                                       "crate::a-b",
+                                       "crate::a b",
+                                       "crate::r#",
+                                       "crate::r#1a",
+                                       "self::a",
+                                       "super::a",
+                                       "crate::_",
+                                       "crate::self",
+                                       "crate::super",
+                                       "crate::crate",
+                                       "crate::Self",
+                                       "crate::r#_",
+                                       "crate::r#self",
+                                       "crate::r#crate",
+                                       "crate::r#super",
+                                       "crate::é",
+                                       "crate::a\n"}) {
         CAPTURE(bad);
         const FrameOptions options{true, true, bad, ""};
         const auto result = run_frame(frame_for(kFrameSchema, options));
         CHECK(result.status == FrameStatus::kBadFrame);
-        CHECK(has(result.text, "is not a path from the crate root"));
+        CHECK(has(result.text, "is not a path of ASCII identifiers from the crate root"));
     }
 }
 
@@ -1192,6 +1215,8 @@ TEST_CASE("rustgen frame: generated paths and macro names start from the module 
 
     const FrameOptions nested{true, true, "crate::a::r#type", ""};
     const std::string out = run_frame(frame_for(kSchema, nested)).text;
+    CHECK(has(out, "pub(in crate::a::r#type::common) const _: () = ();"));
+    CHECK(has(out, "pub(in crate::a::r#type::arena) fn rp_decode_into<'id>("));
     CHECK(has(out, "child: crate::a::r#type::arena::p::Child<'a>,"));
     CHECK(has(out, "fn on_child(&mut self, _rp_v: crate::a::r#type::stream::p::Child<'a>)"));
     CHECK(has(out, "fn on_e(&mut self, _rp_v: crate::a::r#type::common::p::E)"));
@@ -1199,12 +1224,13 @@ TEST_CASE("rustgen frame: generated paths and macro names start from the module 
     CHECK(has(out, "=> { $crate::a::r#type::stream::p::parent_stream!(@f [[]] "));
     CHECK(has(out, "on_child: $crate::a::r#type::stream::p::Child<'rp_a> = $c;"));
     CHECK(has(out, "on_e: $crate::a::r#type::common::p::E = $c;"));
-    CHECK(has(out, "on_s: &'rp_a $crate::a::r#type::stream::rp_rt::ProtoStr = $c;"));
+    CHECK(has(out, "on_s: &'rp_a $crate::a::r#type::rp_rt::ProtoStr = $c;"));
     CHECK(has(out,
-              "$crate::a::r#type::stream::rp_rt::stream_visitor!("
+              "$crate::a::r#type::rp_rt::stream_visitor!("
               "$crate::a::r#type::stream::p::ParentVisitor<'rp_a> $a)"));
 
     const std::string root = run_frame(frame_for(kSchema, {true, true, "crate", ""})).text;
+    CHECK(has(root, "pub(in crate::common) const _: () = ();"));
     CHECK(has(root, "child: crate::arena::p::Child<'a>,"));
     CHECK(has(root, "macro_rules! __rp__1p6Parent {"));
 }

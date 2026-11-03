@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::arena_modes::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod fm {
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
@@ -311,8 +313,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Grp<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::arena_modes::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Grp<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -382,8 +383,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Blob<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::arena_modes::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Blob<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -472,8 +472,7 @@ pub mod arena {
       }
 
       #[inline(never)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Holder<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::arena_modes::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Holder<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -967,10 +966,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod fm {
     /// Streaming visitor for `Blob`. Select a field by overriding its `WANT_<field>` const AND
@@ -1117,9 +1117,9 @@ pub mod stream {
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_modes::stream::fm::blob_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] payload => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::blob_stream!(@f [$($a)* WANT_payload on_payload: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
       (@f [$($a:tt)*] kind => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::blob_stream!(@f [$($a)* WANT_kind on_kind: $crate::arena_modes::common::fm::blob::Kind = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::blob_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_modes::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::blob_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_modes::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: payload, kind, unknown")) };
-      (@f $a:tt) => { $crate::arena_modes::stream::rp_rt::stream_visitor!($crate::arena_modes::stream::fm::BlobVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::arena_modes::rp_rt::stream_visitor!($crate::arena_modes::stream::fm::BlobVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_11arena_modes_2fm4Blob as blob_stream;
@@ -1884,10 +1884,10 @@ pub mod stream {
       (@f [$($a:tt)*] level => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_level on_level: $crate::arena_modes::common::fm::Level = $c;] $($r)*) };
       (@f [$($a:tt)*] req_blob => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_req_blob on_req_blob: $crate::arena_modes::stream::fm::Blob<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] grp => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_grp on_grp: $crate::arena_modes::stream::fm::holder::Grp<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] by_name => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_by_name on_by_name: (&'rp_a $crate::arena_modes::stream::rp_rt::ProtoStr, $crate::arena_modes::stream::fm::Blob<'rp_a>) = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_modes::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] by_name => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_by_name on_by_name: (&'rp_a $crate::arena_modes::rp_rt::ProtoStr, $crate::arena_modes::stream::fm::Blob<'rp_a>) = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_modes::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: keep, debug, extra, old_ids, must, big_num, blob, blobs, samples, spread, level, req_blob, grp, by_name, unknown")) };
-      (@f $a:tt) => { $crate::arena_modes::stream::rp_rt::stream_visitor!($crate::arena_modes::stream::fm::HolderVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::arena_modes::rp_rt::stream_visitor!($crate::arena_modes::stream::fm::HolderVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_11arena_modes_2fm6Holder as holder_stream;
@@ -2003,9 +2003,9 @@ pub mod stream {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_modes::stream::fm::holder::grp_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_modes::stream::fm::holder::grp_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] g => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder::grp_stream!(@f [$($a)* WANT_g on_g: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder::grp_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_modes::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder::grp_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_modes::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: g, unknown")) };
-        (@f $a:tt) => { $crate::arena_modes::stream::rp_rt::stream_visitor!($crate::arena_modes::stream::fm::holder::GrpVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::arena_modes::rp_rt::stream_visitor!($crate::arena_modes::stream::fm::holder::GrpVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_11arena_modes_2fm6Holder3Grp as grp_stream;

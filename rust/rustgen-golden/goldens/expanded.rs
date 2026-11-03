@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::expanded::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod xp {
     pub mod expanded {
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
@@ -129,8 +131,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Expanded<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::expanded::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Expanded<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -396,10 +397,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod xp {
     /// Streaming visitor for `Expanded`. Select a field by overriding its `WANT_<field>` const AND
@@ -874,9 +876,9 @@ pub mod stream {
       (@f [$($a:tt)*] uk => $c:expr, $($r:tt)*) => { $crate::expanded::stream::xp::expanded_stream!(@f [$($a)* WANT_uk on_uk: $crate::expanded::common::xp::expanded::Kind = $c;] $($r)*) };
       (@f [$($a:tt)*] ufx => $c:expr, $($r:tt)*) => { $crate::expanded::stream::xp::expanded_stream!(@f [$($a)* WANT_ufx on_ufx: ::core::primitive::u64 = $c;] $($r)*) };
       (@f [$($a:tt)*] usf => $c:expr, $($r:tt)*) => { $crate::expanded::stream::xp::expanded_stream!(@f [$($a)* WANT_usf on_usf: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::expanded::stream::xp::expanded_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::expanded::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::expanded::stream::xp::expanded_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::expanded::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: uzz, ub, uk, ufx, usf, unknown")) };
-      (@f $a:tt) => { $crate::expanded::stream::rp_rt::stream_visitor!($crate::expanded::stream::xp::ExpandedVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::expanded::rp_rt::stream_visitor!($crate::expanded::stream::xp::ExpandedVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_8expanded_2xp8Expanded as expanded_stream;

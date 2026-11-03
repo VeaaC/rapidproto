@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::samepkg_b::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod samepkg {
   }
 }
@@ -50,8 +52,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, SecondB<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::samepkg_b::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, SecondB<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -113,10 +114,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod samepkg {
     /// Streaming visitor for `SecondB`. Select a field by overriding its `WANT_<field>` const AND
@@ -229,9 +231,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::samepkg_b::stream::samepkg::second_b_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::samepkg_b::stream::samepkg::second_b_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { $crate::samepkg_b::stream::samepkg::second_b_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::samepkg_b::stream::samepkg::second_b_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::samepkg_b::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::samepkg_b::stream::samepkg::second_b_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::samepkg_b::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
-      (@f $a:tt) => { $crate::samepkg_b::stream::rp_rt::stream_visitor!($crate::samepkg_b::stream::samepkg::SecondBVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::samepkg_b::rp_rt::stream_visitor!($crate::samepkg_b::stream::samepkg::SecondBVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_9samepkg_b_7samepkg7SecondB as second_b_stream;

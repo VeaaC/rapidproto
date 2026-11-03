@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::usewkt::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod google {
     pub mod protobuf {
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
@@ -687,8 +689,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Timestamp<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::usewkt::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Timestamp<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -772,8 +773,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Duration<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::usewkt::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Duration<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -857,8 +857,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Any<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::usewkt::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Any<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -941,8 +940,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, SourceContext<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::usewkt::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, SourceContext<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -1006,8 +1004,7 @@ pub mod arena {
         }
 
         #[inline(never)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Type<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::usewkt::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Type<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -1172,8 +1169,7 @@ pub mod arena {
         }
 
         #[inline(never)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Field<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::usewkt::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Field<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -1416,8 +1412,7 @@ pub mod arena {
         }
 
         #[inline(never)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Enum<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::usewkt::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Enum<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -1563,8 +1558,7 @@ pub mod arena {
         }
 
         #[inline(never)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, EnumValue<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::usewkt::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, EnumValue<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -1666,8 +1660,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Option<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::usewkt::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Option<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -1805,8 +1798,7 @@ pub mod arena {
       }
 
       #[inline(never)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Event<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::usewkt::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Event<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1925,10 +1917,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod google {
 
@@ -2077,9 +2070,9 @@ pub mod stream {
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::timestamp_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] seconds => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::timestamp_stream!(@f [$($a)* WANT_seconds on_seconds: ::core::primitive::i64 = $c;] $($r)*) };
         (@f [$($a:tt)*] nanos => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::timestamp_stream!(@f [$($a)* WANT_nanos on_nanos: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::timestamp_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::timestamp_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: seconds, nanos, unknown")) };
-        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::TimestampVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::usewkt::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::TimestampVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf9Timestamp as timestamp_stream;
@@ -2228,9 +2221,9 @@ pub mod stream {
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::duration_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] seconds => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::duration_stream!(@f [$($a)* WANT_seconds on_seconds: ::core::primitive::i64 = $c;] $($r)*) };
         (@f [$($a:tt)*] nanos => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::duration_stream!(@f [$($a)* WANT_nanos on_nanos: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::duration_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::duration_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: seconds, nanos, unknown")) };
-        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::DurationVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::usewkt::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::DurationVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf8Duration as duration_stream;
@@ -2377,11 +2370,11 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf3Any {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::any_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::any_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::any_stream!(@f [$($a)* WANT_type_url on_type_url: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::any_stream!(@f [$($a)* WANT_type_url on_type_url: &'rp_a $crate::usewkt::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::any_stream!(@f [$($a)* WANT_value on_value: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::any_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::any_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: type_url, value, unknown")) };
-        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::AnyVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::usewkt::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::AnyVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf3Any as any_stream;
@@ -2495,10 +2488,10 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf13SourceContext {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::source_context_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::source_context_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] file_name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::source_context_stream!(@f [$($a)* WANT_file_name on_file_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::source_context_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] file_name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::source_context_stream!(@f [$($a)* WANT_file_name on_file_name: &'rp_a $crate::usewkt::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::source_context_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: file_name, unknown")) };
-        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::SourceContextVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::usewkt::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::SourceContextVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf13SourceContext as source_context_stream;
@@ -2777,15 +2770,15 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf4Type {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] fields => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_fields on_fields: $crate::usewkt::stream::google::protobuf::Field<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] oneofs => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_oneofs on_oneofs: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] oneofs => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_oneofs on_oneofs: &'rp_a $crate::usewkt::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_options on_options: $crate::usewkt::stream::google::protobuf::Option<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] source_context => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_source_context on_source_context: $crate::usewkt::stream::google::protobuf::SourceContext<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] syntax => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_syntax on_syntax: $crate::usewkt::common::google::protobuf::Syntax = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::type_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, fields, oneofs, options, source_context, syntax, unknown")) };
-        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::TypeVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::usewkt::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::TypeVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf4Type as type_stream;
@@ -3199,16 +3192,16 @@ pub mod stream {
         (@f [$($a:tt)*] kind => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_kind on_kind: $crate::usewkt::common::google::protobuf::field::Kind = $c;] $($r)*) };
         (@f [$($a:tt)*] cardinality => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_cardinality on_cardinality: $crate::usewkt::common::google::protobuf::field::Cardinality = $c;] $($r)*) };
         (@f [$($a:tt)*] number => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_number on_number: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_type_url on_type_url: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] type_url => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_type_url on_type_url: &'rp_a $crate::usewkt::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] oneof_index => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_oneof_index on_oneof_index: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] packed => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_packed on_packed: ::core::primitive::bool = $c;] $($r)*) };
         (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_options on_options: $crate::usewkt::stream::google::protobuf::Option<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] json_name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_json_name on_json_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] default_value => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_default_value on_default_value: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] json_name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_json_name on_json_name: &'rp_a $crate::usewkt::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] default_value => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_default_value on_default_value: &'rp_a $crate::usewkt::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::field_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: kind, cardinality, number, name, type_url, oneof_index, packed, options, json_name, default_value, unknown")) };
-        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::FieldVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::usewkt::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::FieldVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf5Field as field_stream;
@@ -3454,14 +3447,14 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf4Enum {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] enumvalue => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_enumvalue on_enumvalue: $crate::usewkt::stream::google::protobuf::EnumValue<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_options on_options: $crate::usewkt::stream::google::protobuf::Option<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] source_context => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_source_context on_source_context: $crate::usewkt::stream::google::protobuf::SourceContext<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] syntax => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_syntax on_syntax: $crate::usewkt::common::google::protobuf::Syntax = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, enumvalue, options, source_context, syntax, unknown")) };
-        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::EnumVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::usewkt::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::EnumVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf4Enum as enum_stream;
@@ -3641,12 +3634,12 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf9EnumValue {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] number => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [$($a)* WANT_number on_number: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] options => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [$($a)* WANT_options on_options: $crate::usewkt::stream::google::protobuf::Option<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::enum_value_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, number, options, unknown")) };
-        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::EnumValueVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::usewkt::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::EnumValueVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf9EnumValue as enum_value_stream;
@@ -3793,11 +3786,11 @@ pub mod stream {
       macro_rules! __rp_6usewkt_6google8protobuf6Option {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::usewkt::stream::google::protobuf::option_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::usewkt::stream::google::protobuf::option_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::option_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::option_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::usewkt::rp_rt::ProtoStr = $c;] $($r)*) };
         (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::option_stream!(@f [$($a)* WANT_value on_value: $crate::usewkt::stream::google::protobuf::Any<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::option_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::google::protobuf::option_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, value, unknown")) };
-        (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::OptionVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::usewkt::rp_rt::stream_visitor!($crate::usewkt::stream::google::protobuf::OptionVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf6Option as option_stream;
@@ -3983,9 +3976,9 @@ pub mod stream {
       (@f [$($a:tt)*] at => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::uw::event_stream!(@f [$($a)* WANT_at on_at: $crate::usewkt::stream::google::protobuf::Timestamp<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] took => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::uw::event_stream!(@f [$($a)* WANT_took on_took: $crate::usewkt::stream::google::protobuf::Duration<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] shape => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::uw::event_stream!(@f [$($a)* WANT_shape on_shape: $crate::usewkt::stream::google::protobuf::Type<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::uw::event_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::usewkt::stream::uw::event_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::usewkt::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: at, took, shape, unknown")) };
-      (@f $a:tt) => { $crate::usewkt::stream::rp_rt::stream_visitor!($crate::usewkt::stream::uw::EventVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::usewkt::rp_rt::stream_visitor!($crate::usewkt::stream::uw::EventVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_6usewkt_2uw5Event as event_stream;

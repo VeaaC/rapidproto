@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::arena_manyreq::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod mr {
   }
 }
@@ -637,8 +639,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Small<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::arena_manyreq::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Small<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -728,8 +729,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, ReqInline<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::arena_manyreq::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, ReqInline<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -828,8 +828,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, ManyRequired<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::arena_manyreq::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, ManyRequired<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2493,10 +2492,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod mr {
     /// Streaming visitor for `Small`. Select a field by overriding its `WANT_<field>` const AND
@@ -2643,9 +2643,9 @@ pub mod stream {
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_manyreq::stream::mr::small_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::small_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::small_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::small_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_manyreq::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::small_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_manyreq::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, y, unknown")) };
-      (@f $a:tt) => { $crate::arena_manyreq::stream::rp_rt::stream_visitor!($crate::arena_manyreq::stream::mr::SmallVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::arena_manyreq::rp_rt::stream_visitor!($crate::arena_manyreq::stream::mr::SmallVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_13arena_manyreq_2mr5Small as small_stream;
@@ -2794,9 +2794,9 @@ pub mod stream {
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_manyreq::stream::mr::req_inline_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::req_inline_stream!(@f [$($a)* WANT_s on_s: $crate::arena_manyreq::stream::mr::Small<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] tag => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::req_inline_stream!(@f [$($a)* WANT_tag on_tag: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::req_inline_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_manyreq::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::req_inline_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_manyreq::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, tag, unknown")) };
-      (@f $a:tt) => { $crate::arena_manyreq::stream::rp_rt::stream_visitor!($crate::arena_manyreq::stream::mr::ReqInlineVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::arena_manyreq::rp_rt::stream_visitor!($crate::arena_manyreq::stream::mr::ReqInlineVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_13arena_manyreq_2mr9ReqInline as req_inline_stream;
@@ -5087,9 +5087,9 @@ pub mod stream {
       (@f [$($a:tt)*] f63 => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::many_required_stream!(@f [$($a)* WANT_f63 on_f63: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] f64 => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::many_required_stream!(@f [$($a)* WANT_f64 on_f64: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] f65 => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::many_required_stream!(@f [$($a)* WANT_f65 on_f65: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::many_required_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_manyreq::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_manyreq::stream::mr::many_required_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_manyreq::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23, f24, f25, f26, f27, f28, f29, f30, f31, f32, f33, f34, f35, f36, f37, f38, f39, f40, f41, f42, f43, f44, f45, f46, f47, f48, f49, f50, f51, f52, f53, f54, f55, f56, f57, f58, f59, f60, f61, f62, f63, f64, f65, unknown")) };
-      (@f $a:tt) => { $crate::arena_manyreq::stream::rp_rt::stream_visitor!($crate::arena_manyreq::stream::mr::ManyRequiredVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::arena_manyreq::rp_rt::stream_visitor!($crate::arena_manyreq::stream::mr::ManyRequiredVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_13arena_manyreq_2mr12ManyRequired as many_required_stream;

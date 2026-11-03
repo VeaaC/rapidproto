@@ -21,6 +21,7 @@
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
 #include "rapidproto/rustgen/generator.hpp"  // RustOptions
+#include "rapidproto/rustgen/names.hpp"      // is_raw_ineligible
 #include "rapidproto/rustgen/pipeline.hpp"
 #include "rapidproto/source.hpp"
 
@@ -108,8 +109,10 @@ private:
     std::string m_error;
 };
 
-// A path from the crate root: `crate`, then `::`-separated identifiers, each optionally raw. Generated
-// paths and the macros' crate-root names embed it, so nothing else may get through.
+// A path from the crate root: `crate`, then `::`-separated ASCII identifiers, each optionally raw, and
+// none that cannot name a module below the root, raw or not. Generated paths and the macros' crate-root
+// names embed it. A bare keyword gets through (`gen` is an identifier in older editions); rustc reports
+// that one.
 bool is_module_path(std::string_view path) {
     constexpr std::string_view kRoot = "crate";
     constexpr std::string_view kSeparator = "::";
@@ -131,7 +134,7 @@ bool is_module_path(std::string_view path) {
         path.remove_prefix(seg.size());
         const std::string_view name =
             seg.substr(0, kRaw.size()) == kRaw ? seg.substr(kRaw.size()) : seg;
-        if (name.empty() || !alpha(name.front()) ||
+        if (name.empty() || name == "_" || is_raw_ineligible(name) || !alpha(name.front()) ||
             !std::all_of(name.begin(), name.end(), [&](char c) { return alpha(c) || digit(c); })) {
             return false;
         }
@@ -202,7 +205,8 @@ std::optional<std::string> check_options(const Request& request) {
     }
     if (!is_module_path(request.module_path)) {
         return "module path '" + request.module_path +
-               "' is not a path from the crate root, such as `crate` or `crate::proto`";
+               "' is not a path of ASCII identifiers from the crate root, such as `crate` or "
+               "`crate::proto`";
     }
     return std::nullopt;
 }

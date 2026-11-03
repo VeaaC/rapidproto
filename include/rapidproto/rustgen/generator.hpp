@@ -38,8 +38,10 @@ using arenagen::LayoutSet;
 // enum (top-level and nested), under `pub mod common` with one `pub mod` per package component. Enums
 // are model-agnostic (plain `i32` newtypes), identical whichever decoder model is also generated.
 // Same-package files merge into one module scope; nested enums live in a per-message submodule. `serde`
-// also implements `serde::Serialize` for each enum.
-std::string generate_common(const std::vector<const FileNode*>& files, bool serde = false);
+// also implements `serde::Serialize` for each enum. The tree opens with a line that fails to compile
+// unless the file is included at `module_path` (see RustOptions).
+std::string generate_common(const std::vector<const FileNode*>& files, bool serde = false,
+                            const std::string& module_path = "crate");
 
 // Emit the `arena` module body for `files`: the arena decoder's message structs (nested messages in
 // per-message submodules, oneofs as native enums), under `pub mod arena` with one `pub mod` per
@@ -65,11 +67,9 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 // streaming ignores them.
 //
 // Each macro expands at the consumer's call site and names everything by a path from `$crate` through
-// `module_path`, with the runtime behind a `#[doc(hidden)] rp_rt` re-export in `stream`, so it needs
-// nothing else in scope and works from another crate. It is a hidden `#[macro_export]
-// __rp_<path>_<fqn>`, re-exported at its module path under its friendly name. The generator reserves
-// the `rp_` prefix for its own names (a schema-derived module-scope name starting with `rp_` becomes
-// `rp__...`; see reserve_rp_prefix).
+// `module_path`, with the runtime behind a `#[doc(hidden)] rp_rt` re-export beside the `stream` tree,
+// so it needs nothing else in scope and works from another crate. It is a hidden `#[macro_export]
+// __rp_<path>_<fqn>`, re-exported at its module path under its friendly name.
 std::string generate_stream(const std::vector<const FileNode*>& files,
                             const std::string& module_path = "crate");
 
@@ -93,11 +93,11 @@ struct RustOptions {
 std::string generate_file(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
                           const FieldModes& modes = {}, const RustOptions& options = {});
 
-// The absolute arena type path (e.g. `arena::pkg::Msg`) for every message in `files`, keyed by its
-// protobuf FQN -- the path that `include!`-ing the generated `.rs` exposes. The differential test's
-// harness generator uses this to decode a message named at runtime by its FQN (the Rust analog of
-// the C++ harness computing C++ type names); it is independent of the layout/modes, since naming is.
+// The arena type path (e.g. `crate::schema::arena::pkg::Msg`) for every message in `files`, keyed by
+// its protobuf FQN. The differential test's harness generator uses this to decode a message named at
+// runtime by its FQN (the Rust analog of the C++ harness computing C++ type names); it is independent
+// of the layout/modes, since naming is.
 std::vector<std::pair<std::string, std::string>> arena_type_paths(
-    const std::vector<const FileNode*>& files);
+    const std::vector<const FileNode*>& files, const std::string& module_path);
 
 }  // namespace rapidproto::rustgen

@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::weakmain::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod wd {
   }
   pub mod wm {
@@ -52,8 +54,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, WDep<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::weakmain::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, WDep<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -153,8 +154,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, WMain<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::weakmain::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, WMain<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -221,10 +221,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod wd {
     /// Streaming visitor for `WDep`. Select a field by overriding its `WANT_<field>` const AND
@@ -337,9 +338,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::weakmain::stream::wd::w_dep_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::weakmain::stream::wd::w_dep_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { $crate::weakmain::stream::wd::w_dep_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::weakmain::stream::wd::w_dep_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::weakmain::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::weakmain::stream::wd::w_dep_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::weakmain::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
-      (@f $a:tt) => { $crate::weakmain::stream::rp_rt::stream_visitor!($crate::weakmain::stream::wd::WDepVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::weakmain::rp_rt::stream_visitor!($crate::weakmain::stream::wd::WDepVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_8weakmain_2wd4WDep as w_dep_stream;
@@ -456,9 +457,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::weakmain::stream::wm::w_main_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::weakmain::stream::wm::w_main_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { $crate::weakmain::stream::wm::w_main_stream!(@f [$($a)* WANT_d on_d: $crate::weakmain::stream::wd::WDep<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::weakmain::stream::wm::w_main_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::weakmain::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::weakmain::stream::wm::w_main_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::weakmain::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: d, unknown")) };
-      (@f $a:tt) => { $crate::weakmain::stream::rp_rt::stream_visitor!($crate::weakmain::stream::wm::WMainVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::weakmain::rp_rt::stream_visitor!($crate::weakmain::stream::wm::WMainVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_8weakmain_2wm5WMain as w_main_stream;

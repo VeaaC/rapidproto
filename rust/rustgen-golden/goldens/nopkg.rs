@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::nopkg::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
@@ -84,8 +86,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Sub<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::nopkg::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Sub<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -151,8 +152,7 @@ pub mod arena {
     }
 
     #[inline(never)]
-    #[doc(hidden)]
-    pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Root<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+    pub(in crate::nopkg::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Root<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
       if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
         return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
       }
@@ -243,10 +243,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
   /// Streaming visitor for `Root`. Select a field by overriding its `WANT_<field>` const AND
   /// its `on_<field>` method (the `root_stream` macro does both); a field left at the default
   /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -391,9 +392,9 @@ pub mod stream {
     ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::nopkg::stream::root_stream!(@f [[$s]] $($f => $c,)*) };
     (@f [$($a:tt)*] sub => $c:expr, $($r:tt)*) => { $crate::nopkg::stream::root_stream!(@f [$($a)* WANT_sub on_sub: $crate::nopkg::stream::root::Sub<'rp_a> = $c;] $($r)*) };
     (@f [$($a:tt)*] self_ => $c:expr, $($r:tt)*) => { $crate::nopkg::stream::root_stream!(@f [$($a)* WANT_self_ on_self_: $crate::nopkg::stream::Root<'rp_a> = $c;] $($r)*) };
-    (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::nopkg::stream::root_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::nopkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+    (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::nopkg::stream::root_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::nopkg::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
     (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: sub, self_, unknown")) };
-    (@f $a:tt) => { $crate::nopkg::stream::rp_rt::stream_visitor!($crate::nopkg::stream::RootVisitor<'rp_a> $a) };
+    (@f $a:tt) => { $crate::nopkg::rp_rt::stream_visitor!($crate::nopkg::stream::RootVisitor<'rp_a> $a) };
   }
   #[doc(inline)]
   pub use __rp_5nopkg_4Root as root_stream;
@@ -509,9 +510,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::nopkg::stream::root::sub_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::nopkg::stream::root::sub_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { $crate::nopkg::stream::root::sub_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::nopkg::stream::root::sub_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::nopkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::nopkg::stream::root::sub_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::nopkg::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: y, unknown")) };
-      (@f $a:tt) => { $crate::nopkg::stream::rp_rt::stream_visitor!($crate::nopkg::stream::root::SubVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::nopkg::rp_rt::stream_visitor!($crate::nopkg::stream::root::SubVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5nopkg_4Root3Sub as sub_stream;

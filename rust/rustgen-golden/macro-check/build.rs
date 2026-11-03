@@ -31,6 +31,8 @@ fn main() {
             } else if let Some(rest) = line.strip_prefix("(@f [$($a:tt)*] ") {
                 keys.push(rest.split_once(" =>").expect("a field row").0);
             } else if line.starts_with("(@f $a:tt) =>") {
+                // Every macro has at least `unknown`. No rows found means the shape changed.
+                assert!(!keys.is_empty(), "no field rows in {}", file.display());
                 let plain = keys.iter().map(|key| format!("{key} => |_| ()"));
                 let shared = keys.iter().map(|key| format!("{key} => |_, _| ()"));
                 let plain = plain.collect::<Vec<_>>().join(", ");

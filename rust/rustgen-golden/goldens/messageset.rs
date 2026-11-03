@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::messageset::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod ms {
   }
 }
@@ -77,8 +79,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Container<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::messageset::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Container<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -153,8 +154,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Outer<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::messageset::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Outer<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -249,8 +249,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Ext<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::messageset::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Ext<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -311,10 +310,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod ms {
     /// Streaming visitor for `Outer`. Select a field by overriding its `WANT_<field>` const AND
@@ -461,9 +461,9 @@ pub mod stream {
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::messageset::stream::ms::outer_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] ordinary => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::outer_stream!(@f [$($a)* WANT_ordinary on_ordinary: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] container => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::outer_stream!(@f [$($a)* WANT_container on_container: $crate::messageset::stream::ms::outer::Container<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::messageset::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::outer_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::messageset::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: ordinary, container, unknown")) };
-      (@f $a:tt) => { $crate::messageset::stream::rp_rt::stream_visitor!($crate::messageset::stream::ms::OuterVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::messageset::rp_rt::stream_visitor!($crate::messageset::stream::ms::OuterVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_10messageset_2ms5Outer as outer_stream;
@@ -545,9 +545,9 @@ pub mod stream {
       macro_rules! __rp_10messageset_2ms5Outer9Container {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::messageset::stream::ms::outer::container_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::messageset::stream::ms::outer::container_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::outer::container_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::messageset::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::outer::container_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::messageset::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: unknown")) };
-        (@f $a:tt) => { $crate::messageset::stream::rp_rt::stream_visitor!($crate::messageset::stream::ms::outer::ContainerVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::messageset::rp_rt::stream_visitor!($crate::messageset::stream::ms::outer::ContainerVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_10messageset_2ms5Outer9Container as container_stream;
@@ -662,10 +662,10 @@ pub mod stream {
     macro_rules! __rp_10messageset_2ms3Ext {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::messageset::stream::ms::ext_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::messageset::stream::ms::ext_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::ext_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::messageset::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::ext_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::messageset::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::ext_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::messageset::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::ext_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::messageset::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, unknown")) };
-      (@f $a:tt) => { $crate::messageset::stream::rp_rt::stream_visitor!($crate::messageset::stream::ms::ExtVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::messageset::rp_rt::stream_visitor!($crate::messageset::stream::ms::ExtVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_10messageset_2ms3Ext as ext_stream;

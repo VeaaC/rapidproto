@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::bench::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod bench {
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
@@ -967,8 +969,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Address<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Address<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1070,8 +1071,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Attribute<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Attribute<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1154,8 +1154,7 @@ pub mod arena {
       }
 
       #[inline(never)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Person<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Person<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1530,8 +1529,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Dataset<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Dataset<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1633,8 +1631,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Wide<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Wide<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1861,8 +1858,7 @@ pub mod arena {
       }
 
       #[inline(never)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, WideSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, WideSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1926,8 +1922,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Big<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Big<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2140,8 +2135,7 @@ pub mod arena {
       }
 
       #[inline(never)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, BigSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, BigSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2205,8 +2199,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Vec3<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Vec3<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2309,8 +2302,7 @@ pub mod arena {
       }
 
       #[inline(never)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Particle<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Particle<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2443,8 +2435,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, ParticleSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, ParticleSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2508,8 +2499,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Sample<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Sample<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2677,8 +2667,7 @@ pub mod arena {
       }
 
       #[inline(never)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Record<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Record<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -3123,8 +3112,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, RecordSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, RecordSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -3181,10 +3169,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod bench {
     /// Streaming visitor for `Address`. Select a field by overriding its `WANT_<field>` const AND
@@ -3362,12 +3351,12 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench7Address {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::bench::stream::bench::address_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::bench::stream::bench::address_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] street => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_street on_street: &'rp_a $crate::bench::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] city => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_city on_city: &'rp_a $crate::bench::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] street => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_street on_street: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] city => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_city on_city: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] zip => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_zip on_zip: ::core::primitive::u32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: street, city, zip, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::AddressVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::AddressVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench7Address as address_stream;
@@ -3514,11 +3503,11 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench9Attribute {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::bench::stream::bench::attribute_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::bench::stream::bench::attribute_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] key => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::attribute_stream!(@f [$($a)* WANT_key on_key: &'rp_a $crate::bench::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::attribute_stream!(@f [$($a)* WANT_value on_value: &'rp_a $crate::bench::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::attribute_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] key => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::attribute_stream!(@f [$($a)* WANT_key on_key: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::attribute_stream!(@f [$($a)* WANT_value on_value: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::attribute_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: key, value, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::AttributeVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::AttributeVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench9Attribute as attribute_stream;
@@ -4099,19 +4088,19 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::bench::stream::bench::person_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::bench::stream::bench::person_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] id => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_id on_id: ::core::primitive::i64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::bench::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] email => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_email on_email: &'rp_a $crate::bench::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] email => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_email on_email: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] active => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_active on_active: ::core::primitive::bool = $c;] $($r)*) };
       (@f [$($a:tt)*] score => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_score on_score: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] created => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_created on_created: ::core::primitive::u64 = $c;] $($r)*) };
       (@f [$($a:tt)*] address => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_address on_address: $crate::bench::stream::bench::Address<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] tags => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_tags on_tags: &'rp_a $crate::bench::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] tags => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_tags on_tags: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] history => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_history on_history: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] attributes => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_attributes on_attributes: $crate::bench::stream::bench::Attribute<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] counters => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_counters on_counters: (&'rp_a $crate::bench::stream::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] counters => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_counters on_counters: (&'rp_a $crate::bench::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: id, name, email, active, score, created, address, tags, history, attributes, counters, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::PersonVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::PersonVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench6Person as person_stream;
@@ -4291,12 +4280,12 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench7Dataset {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::bench::stream::bench::dataset_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::bench::stream::bench::dataset_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::dataset_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::bench::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::dataset_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] version => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::dataset_stream!(@f [$($a)* WANT_version on_version: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] people => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::dataset_stream!(@f [$($a)* WANT_people on_people: $crate::bench::stream::bench::Person<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::dataset_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::dataset_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, version, people, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::DatasetVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::DatasetVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench7Dataset as dataset_stream;
@@ -4763,11 +4752,11 @@ pub mod stream {
       (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_b on_b: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_c on_c: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_d on_d: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::bench::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] t => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_t on_t: &'rp_a $crate::bench::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] t => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_t on_t: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, b, c, d, s, t, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::WideVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::WideVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench4Wide as wide_stream;
@@ -4882,9 +4871,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::bench::stream::bench::wide_set_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::bench::stream::bench::wide_set_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] items => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_set_stream!(@f [$($a)* WANT_items on_items: $crate::bench::stream::bench::Wide<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_set_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_set_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: items, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::WideSetVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::WideSetVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench7WideSet as wide_set_stream;
@@ -5283,9 +5272,9 @@ pub mod stream {
       (@f [$($a:tt)*] reals => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::big_stream!(@f [$($a)* WANT_reals on_reals: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] zz => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::big_stream!(@f [$($a)* WANT_zz on_zz: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] kinds => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::big_stream!(@f [$($a)* WANT_kinds on_kinds: $crate::bench::common::bench::Kind = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::big_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::big_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: numbers, reals, zz, kinds, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::BigVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::BigVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench3Big as big_stream;
@@ -5400,9 +5389,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::bench::stream::bench::big_set_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::bench::stream::bench::big_set_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] items => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::big_set_stream!(@f [$($a)* WANT_items on_items: $crate::bench::stream::bench::Big<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::big_set_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::big_set_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: items, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::BigSetVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::BigSetVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench6BigSet as big_set_stream;
@@ -5585,9 +5574,9 @@ pub mod stream {
       (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::vec3_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::vec3_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] z => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::vec3_stream!(@f [$($a)* WANT_z on_z: ::core::primitive::f64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::vec3_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::vec3_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, y, z, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::Vec3Visitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::Vec3Visitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench4Vec3 as vec3_stream;
@@ -5804,9 +5793,9 @@ pub mod stream {
       (@f [$($a:tt)*] position => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::particle_stream!(@f [$($a)* WANT_position on_position: $crate::bench::stream::bench::Vec3<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] velocity => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::particle_stream!(@f [$($a)* WANT_velocity on_velocity: $crate::bench::stream::bench::Vec3<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] color => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::particle_stream!(@f [$($a)* WANT_color on_color: ::core::primitive::u32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::particle_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::particle_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: id, position, velocity, color, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::ParticleVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::ParticleVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench8Particle as particle_stream;
@@ -5921,9 +5910,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::bench::stream::bench::particle_set_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::bench::stream::bench::particle_set_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] items => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::particle_set_stream!(@f [$($a)* WANT_items on_items: $crate::bench::stream::bench::Particle<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::particle_set_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::particle_set_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: items, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::ParticleSetVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::ParticleSetVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench11ParticleSet as particle_set_stream;
@@ -6208,9 +6197,9 @@ pub mod stream {
       (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::sample_stream!(@f [$($a)* WANT_d on_d: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] e => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::sample_stream!(@f [$($a)* WANT_e on_e: ::core::primitive::bool = $c;] $($r)*) };
       (@f [$($a:tt)*] f => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::sample_stream!(@f [$($a)* WANT_f on_f: ::core::primitive::u32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::sample_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::sample_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, b, c, d, e, f, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::SampleVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::SampleVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench6Sample as sample_stream;
@@ -6971,9 +6960,9 @@ pub mod stream {
       (@f [$($a:tt)*] f18 => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::record_stream!(@f [$($a)* WANT_f18 on_f18: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] f19 => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::record_stream!(@f [$($a)* WANT_f19 on_f19: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] f20 => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::record_stream!(@f [$($a)* WANT_f20 on_f20: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::record_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::record_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, s1, s2, f18, f19, f20, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::RecordVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::RecordVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench6Record as record_stream;
@@ -7088,9 +7077,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::bench::stream::bench::record_set_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::bench::stream::bench::record_set_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] records => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::record_set_stream!(@f [$($a)* WANT_records on_records: $crate::bench::stream::bench::Record<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::record_set_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::record_set_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: records, unknown")) };
-      (@f $a:tt) => { $crate::bench::stream::rp_rt::stream_visitor!($crate::bench::stream::bench::RecordSetVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::RecordSetVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5bench_5bench9RecordSet as record_set_stream;

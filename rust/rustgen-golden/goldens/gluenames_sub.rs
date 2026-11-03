@@ -2,8 +2,10 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::gluenames_sub::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod gluenames {
-    pub mod rp__rt {
+    pub mod rp_rt {
     }
   }
 }
@@ -13,7 +15,7 @@ pub mod arena {
 
   pub mod gluenames {
 
-    pub mod rp__rt {
+    pub mod rp_rt {
       #[derive(Default)]
       pub struct rp__rt<'a> {
         v: i32,
@@ -46,12 +48,12 @@ pub mod arena {
 
       #[derive(Default)]
       pub struct Sub<'a> {
-        inner: crate::gluenames_sub::arena::gluenames::rp__rt::rp__rt<'a>,
+        inner: crate::gluenames_sub::arena::gluenames::rp_rt::rp__rt<'a>,
         rp_presence: u8,
       }
 
       impl<'a> Sub<'a> {
-        pub fn inner(&self) -> ::core::option::Option<&crate::gluenames_sub::arena::gluenames::rp__rt::rp__rt<'a>> {
+        pub fn inner(&self) -> ::core::option::Option<&crate::gluenames_sub::arena::gluenames::rp_rt::rp__rt<'a>> {
           ((self.rp_presence & (1 << 0)) != 0).then_some(&self.inner)
         }
       }
@@ -83,8 +85,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, rp__rt<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::gluenames_sub::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, rp__rt<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -149,13 +150,12 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Sub<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::gluenames_sub::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Sub<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
           let mut rp_presence: u8 = 0;
-          let mut rp_field_1: crate::gluenames_sub::arena::gluenames::rp__rt::rp__rt<'a> = ::core::default::Default::default();
+          let mut rp_field_1: crate::gluenames_sub::arena::gluenames::rp_rt::rp__rt<'a> = ::core::default::Default::default();
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -167,7 +167,7 @@ pub mod arena {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::gluenames_sub::arena::gluenames::rp__rt::rp__rt::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+            rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::gluenames_sub::arena::gluenames::rp_rt::rp__rt::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
             rp_presence |= 1 << 0;
           }
           loop {
@@ -196,7 +196,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::gluenames_sub::arena::gluenames::rp__rt::rp__rt::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+                rp_field_1 = ::rapidproto::decode_value(|rp_out| crate::gluenames_sub::arena::gluenames::rp_rt::rp__rt::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
                 rp_presence |= 1 << 0;
               }
               _ => {
@@ -218,14 +218,15 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod gluenames {
 
-    pub mod rp__rt {
+    pub mod rp_rt {
       /// Streaming visitor for `rp__rt`. Select a field by overriding its `WANT_<field>` const AND
       /// its `on_<field>` method (the `rp__rt_stream` macro does both); a field left at the default
       /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -333,12 +334,12 @@ pub mod stream {
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_13gluenames_sub_9gluenames5rp_rt5rp_rt {
-        ($($f:ident => $c:expr),* $(,)?) => { $crate::gluenames_sub::stream::gluenames::rp__rt::rp__rt_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::gluenames_sub::stream::gluenames::rp__rt::rp__rt_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { $crate::gluenames_sub::stream::gluenames::rp__rt::rp__rt_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::gluenames_sub::stream::gluenames::rp__rt::rp__rt_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::gluenames_sub::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::gluenames_sub::stream::gluenames::rp_rt::rp__rt_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::gluenames_sub::stream::gluenames::rp_rt::rp__rt_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { $crate::gluenames_sub::stream::gluenames::rp_rt::rp__rt_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::gluenames_sub::stream::gluenames::rp_rt::rp__rt_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::gluenames_sub::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
-        (@f $a:tt) => { $crate::gluenames_sub::stream::rp_rt::stream_visitor!($crate::gluenames_sub::stream::gluenames::rp__rt::rp__rtVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::gluenames_sub::rp_rt::stream_visitor!($crate::gluenames_sub::stream::gluenames::rp_rt::rp__rtVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_13gluenames_sub_9gluenames5rp_rt5rp_rt as rp__rt_stream;
@@ -349,7 +350,7 @@ pub mod stream {
       pub trait SubVisitor<'a> {
         const WANT_inner: bool = false;
         #[inline(always)]
-        fn on_inner(&mut self, _rp_v: crate::gluenames_sub::stream::gluenames::rp__rt::rp__rt<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_inner(&mut self, _rp_v: crate::gluenames_sub::stream::gluenames::rp_rt::rp__rt<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -381,7 +382,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_inner(crate::gluenames_sub::stream::gluenames::rp__rt::rp__rt::new(rp_p))? {
+              match rp_vis.on_inner(crate::gluenames_sub::stream::gluenames::rp_rt::rp__rt::new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -415,7 +416,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_inner(crate::gluenames_sub::stream::gluenames::rp__rt::rp__rt::new(rp_p))? {
+                match rp_vis.on_inner(crate::gluenames_sub::stream::gluenames::rp_rt::rp__rt::new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -450,12 +451,12 @@ pub mod stream {
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_13gluenames_sub_9gluenames5rp_rt3Sub {
-        ($($f:ident => $c:expr),* $(,)?) => { $crate::gluenames_sub::stream::gluenames::rp__rt::sub_stream!(@f [[]] $($f => $c,)*) };
-        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::gluenames_sub::stream::gluenames::rp__rt::sub_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] inner => $c:expr, $($r:tt)*) => { $crate::gluenames_sub::stream::gluenames::rp__rt::sub_stream!(@f [$($a)* WANT_inner on_inner: $crate::gluenames_sub::stream::gluenames::rp__rt::rp__rt<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::gluenames_sub::stream::gluenames::rp__rt::sub_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::gluenames_sub::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        ($($f:ident => $c:expr),* $(,)?) => { $crate::gluenames_sub::stream::gluenames::rp_rt::sub_stream!(@f [[]] $($f => $c,)*) };
+        ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::gluenames_sub::stream::gluenames::rp_rt::sub_stream!(@f [[$s]] $($f => $c,)*) };
+        (@f [$($a:tt)*] inner => $c:expr, $($r:tt)*) => { $crate::gluenames_sub::stream::gluenames::rp_rt::sub_stream!(@f [$($a)* WANT_inner on_inner: $crate::gluenames_sub::stream::gluenames::rp_rt::rp__rt<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::gluenames_sub::stream::gluenames::rp_rt::sub_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::gluenames_sub::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: inner, unknown")) };
-        (@f $a:tt) => { $crate::gluenames_sub::stream::rp_rt::stream_visitor!($crate::gluenames_sub::stream::gluenames::rp__rt::SubVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::gluenames_sub::rp_rt::stream_visitor!($crate::gluenames_sub::stream::gluenames::rp_rt::SubVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_13gluenames_sub_9gluenames5rp_rt3Sub as sub_stream;

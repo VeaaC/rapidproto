@@ -57,11 +57,11 @@ inline std::string escape_rust_ident(std::string name) {
 }
 
 // A schema-derived name that shares a namespace with the generator's own names never starts with `rp_`
-// followed by anything but `_`: such a name gains a `_` after the prefix (`rp_rt` -> `rp__rt`). That
-// shape belongs to the generator -- at module scope the `stream` tree's `rp_rt` re-export; in a message
-// type its `rp_presence` / `rp_unknown` storage and `rp_decode_into` worker; and the decode body's
-// locals -- so no schema name, nor anything derived from one (`<T>Visitor`, a dedup `_`,
-// `<snake>_stream`), can equal one of them. A name already starting `rp__` keeps
+// followed by anything but `_`: such a name gains a `_` after the prefix (`rp_x` -> `rp__x`). That shape
+// belongs to the generator -- in a message type its `rp_presence` / `rp_unknown` storage and
+// `rp_decode_into` worker, and in a generated body its locals, which an enum newtype's constructor
+// (in the same namespace) would capture -- so no such name can equal one of them. A name already
+// starting `rp__` keeps
 // its spelling; if it meets a reserved `rp_x` -> `rp__x` in one scope, the scope's dedup separates them
 // like any other collision.
 inline std::string reserve_rp_prefix(std::string name) {

@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::collide_option::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod collide {
     pub mod Option {
     }
@@ -114,8 +116,7 @@ pub mod arena {
           }
 
           #[inline(always)]
-          #[doc(hidden)]
-          pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, In<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+          pub(in crate::collide_option::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, In<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
             if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
               return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
             }
@@ -241,8 +242,7 @@ pub mod arena {
           }
 
           #[inline(always)]
-          #[doc(hidden)]
-          pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, In<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+          pub(in crate::collide_option::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, In<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
             if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
               return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
             }
@@ -368,8 +368,7 @@ pub mod arena {
           }
 
           #[inline(always)]
-          #[doc(hidden)]
-          pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, In<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+          pub(in crate::collide_option::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, In<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
             if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
               return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
             }
@@ -435,8 +434,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Opt<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::collide_option::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Opt<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -505,8 +503,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, U8<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::collide_option::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, U8<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -580,8 +577,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, U32<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::collide_option::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, U32<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -655,8 +651,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Bool<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::collide_option::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Bool<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -724,10 +719,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod collide {
 
@@ -842,9 +838,9 @@ pub mod stream {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::collide_option::stream::collide::Option::opt_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::collide_option::stream::collide::Option::opt_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::opt_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::opt_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::opt_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
-        (@f $a:tt) => { $crate::collide_option::stream::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::OptVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::collide_option::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::OptVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_14collide_option_7collide6Option3Opt as opt_stream;
@@ -959,9 +955,9 @@ pub mod stream {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::collide_option::stream::collide::Option::u8_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::collide_option::stream::collide::Option::u8_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] nested => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::u8_stream!(@f [$($a)* WANT_nested on_nested: $crate::collide_option::stream::collide::Option::u8::In<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::u8_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::u8_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: nested, unknown")) };
-        (@f $a:tt) => { $crate::collide_option::stream::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::U8Visitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::collide_option::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::U8Visitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_14collide_option_7collide6Option2U8 as u8_stream;
@@ -1077,9 +1073,9 @@ pub mod stream {
           ($($f:ident => $c:expr),* $(,)?) => { $crate::collide_option::stream::collide::Option::u8::in_stream!(@f [[]] $($f => $c,)*) };
           ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::collide_option::stream::collide::Option::u8::in_stream!(@f [[$s]] $($f => $c,)*) };
           (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::u8::in_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
-          (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::u8::in_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+          (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::u8::in_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
           (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
-          (@f $a:tt) => { $crate::collide_option::stream::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::u8::InVisitor<'rp_a> $a) };
+          (@f $a:tt) => { $crate::collide_option::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::u8::InVisitor<'rp_a> $a) };
         }
         #[doc(inline)]
         pub use __rp_14collide_option_7collide6Option2U82In as in_stream;
@@ -1195,9 +1191,9 @@ pub mod stream {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::collide_option::stream::collide::Option::u32_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::collide_option::stream::collide::Option::u32_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] nested => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::u32_stream!(@f [$($a)* WANT_nested on_nested: $crate::collide_option::stream::collide::Option::u32::In<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::u32_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::u32_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: nested, unknown")) };
-        (@f $a:tt) => { $crate::collide_option::stream::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::U32Visitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::collide_option::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::U32Visitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_14collide_option_7collide6Option3U32 as u32_stream;
@@ -1313,9 +1309,9 @@ pub mod stream {
           ($($f:ident => $c:expr),* $(,)?) => { $crate::collide_option::stream::collide::Option::u32::in_stream!(@f [[]] $($f => $c,)*) };
           ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::collide_option::stream::collide::Option::u32::in_stream!(@f [[$s]] $($f => $c,)*) };
           (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::u32::in_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
-          (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::u32::in_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+          (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::u32::in_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
           (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
-          (@f $a:tt) => { $crate::collide_option::stream::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::u32::InVisitor<'rp_a> $a) };
+          (@f $a:tt) => { $crate::collide_option::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::u32::InVisitor<'rp_a> $a) };
         }
         #[doc(inline)]
         pub use __rp_14collide_option_7collide6Option3U322In as in_stream;
@@ -1431,9 +1427,9 @@ pub mod stream {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::collide_option::stream::collide::Option::bool_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::collide_option::stream::collide::Option::bool_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] nested => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::bool_stream!(@f [$($a)* WANT_nested on_nested: $crate::collide_option::stream::collide::Option::bool::In<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::bool_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::bool_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: nested, unknown")) };
-        (@f $a:tt) => { $crate::collide_option::stream::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::BoolVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::collide_option::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::BoolVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_14collide_option_7collide6Option4Bool as bool_stream;
@@ -1549,9 +1545,9 @@ pub mod stream {
           ($($f:ident => $c:expr),* $(,)?) => { $crate::collide_option::stream::collide::Option::bool::in_stream!(@f [[]] $($f => $c,)*) };
           ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::collide_option::stream::collide::Option::bool::in_stream!(@f [[$s]] $($f => $c,)*) };
           (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::bool::in_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::i32 = $c;] $($r)*) };
-          (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::bool::in_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+          (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide_option::stream::collide::Option::bool::in_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide_option::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
           (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
-          (@f $a:tt) => { $crate::collide_option::stream::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::bool::InVisitor<'rp_a> $a) };
+          (@f $a:tt) => { $crate::collide_option::rp_rt::stream_visitor!($crate::collide_option::stream::collide::Option::bool::InVisitor<'rp_a> $a) };
         }
         #[doc(inline)]
         pub use __rp_14collide_option_7collide6Option4Bool2In as in_stream;

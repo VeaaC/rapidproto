@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::wire_all::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod wire {
   }
 }
@@ -158,8 +160,7 @@ pub mod arena {
         }
 
         #[inline(always)]
-        #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, G<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::wire_all::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, G<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -229,8 +230,7 @@ pub mod arena {
       }
 
       #[inline(never)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, AllWire<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::wire_all::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, AllWire<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -486,10 +486,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod wire {
     /// Streaming visitor for `AllWire`. Select a field by overriding its `WANT_<field>` const AND
@@ -928,16 +929,16 @@ pub mod stream {
       (@f [$($a:tt)*] zz => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_zz on_zz: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] db => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_db on_db: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] fx => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_fx on_fx: ::core::primitive::u32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::wire_all::stream::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::wire_all::rp_rt::ProtoStr = $c;] $($r)*) };
       (@f [$($a:tt)*] by => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_by on_by: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
       (@f [$($a:tt)*] nested => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_nested on_nested: $crate::wire_all::stream::wire::AllWire<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] packed => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_packed on_packed: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] g => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_g on_g: $crate::wire_all::stream::wire::all_wire::G<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] oi => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_oi on_oi: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] os => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_os on_os: &'rp_a $crate::wire_all::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::wire_all::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] os => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_os on_os: &'rp_a $crate::wire_all::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::wire_all::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: zz, db, fx, s, by, nested, packed, g, oi, os, unknown")) };
-      (@f $a:tt) => { $crate::wire_all::stream::rp_rt::stream_visitor!($crate::wire_all::stream::wire::AllWireVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::wire_all::rp_rt::stream_visitor!($crate::wire_all::stream::wire::AllWireVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_8wire_all_4wire7AllWire as all_wire_stream;
@@ -1053,9 +1054,9 @@ pub mod stream {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::wire_all::stream::wire::all_wire::g_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::wire_all::stream::wire::all_wire::g_stream!(@f [[$s]] $($f => $c,)*) };
         (@f [$($a:tt)*] a => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire::g_stream!(@f [$($a)* WANT_a on_a: ::core::primitive::i32 = $c;] $($r)*) };
-        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire::g_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::wire_all::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+        (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire::g_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::wire_all::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, unknown")) };
-        (@f $a:tt) => { $crate::wire_all::stream::rp_rt::stream_visitor!($crate::wire_all::stream::wire::all_wire::GVisitor<'rp_a> $a) };
+        (@f $a:tt) => { $crate::wire_all::rp_rt::stream_visitor!($crate::wire_all::stream::wire::all_wire::GVisitor<'rp_a> $a) };
       }
       #[doc(inline)]
       pub use __rp_8wire_all_4wire7AllWire1G as g_stream;

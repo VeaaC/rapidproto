@@ -36,7 +36,7 @@ mod schema {
 }
 ```
 
-A CLI (`rapidproto-rust`) mirrors the same generation surface for committing generated code instead.
+The `rapidproto-rust` command-line tool generates the same code, for projects that commit it.
 
 ## How the generator runs
 

@@ -86,7 +86,7 @@ PkgTrie build_pkg_trie(const std::vector<const FileNode*>& files) {
 void assign_emitted_names(PkgTrie& node) {
     std::unordered_set<std::string> taken;
     for (auto& [component, child] : node.children) {
-        child.emitted = dedup_ident(taken, reserve_rp_prefix(escape_rust_ident(component)));
+        child.emitted = dedup_ident(taken, escape_rust_ident(component));
         assign_emitted_names(child);
     }
 }
@@ -167,8 +167,7 @@ void build_scope(const std::vector<const MessageNode*>& msgs,
     for (std::size_t i = 0; i < msgs.size(); ++i) {
         if (!msgs[i]->nested_messages.empty() || !msgs[i]->oneofs.empty() ||
             codegen::holds_enum(*msgs[i])) {
-            submodule[i] = dedup_ident(
-                submods, reserve_rp_prefix(escape_rust_ident(to_snake_case(msgs[i]->name))));
+            submodule[i] = dedup_ident(submods, escape_rust_ident(to_snake_case(msgs[i]->name)));
         }
     }
     // Arena submodule items: submodule + sub-package names reserved first (shared type namespace),
@@ -419,10 +418,10 @@ std::string message_path(const NameTable& table, const std::string& fqn) {
     return tree_module_path(table, table.tree, loc.module) + "::" + loc.type_name;
 }
 
-// The path to a oneof's enum, which lives in its message's submodule, without its lifetime.
+// The path to a oneof's enum, which lives in its message's arena submodule, without its lifetime.
 std::string oneof_path(const NameTable& table, const MessageNode& msg, const OneofNode& oneof) {
     const MsgNames& loc = table.messages.at(msg.fqn);
-    return tree_module_path(table, table.tree, loc.module) + "::" + loc.submodule +
+    return tree_module_path(table, "arena", loc.module) + "::" + loc.submodule +
            "::" + table.oneofs.at(&oneof);
 }
 
@@ -2129,16 +2128,17 @@ void emit_decode(Printer& printer, const NameTable& table, const MessageNode& ms
     // `rp_arena` is unused when the body neither accumulates a repeated field nor allocates a
     // sub-message (a message of only singular scalar/enum/string/bytes fields); name it `_rp_arena`
     // then to avoid an unused-variable warning.
-    printer.print("#[doc(hidden)]\n");
     // Takes a branded write-once `Slot` and returns the `Init<'id>` proof that `Slot::write` yields --
     // an unforgeable witness that the slot was initialized. The in-place helpers
     // (`Arena::emplace`/`DecodeVec::emplace`/`decode_value`) publish the slot only against that proof,
     // so they stay sound for ANY safe caller (no init-on-trust), not just this generated one.
+    // Visible to the whole arena tree, which decodes sub-messages through it, and to nothing else.
     printer.print(
-        "pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, $M$<'a>>, rp_body: "
+        "pub(in $root$::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, $M$<'a>>, "
+        "rp_body: "
         "&'a [u8], $ap$: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> "
         "::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {\n",
-        {{"ap", body_uses_arena(msg, modes) ? "rp_arena" : "_rp_arena"}});
+        {{"root", table.root}, {"ap", body_uses_arena(msg, modes) ? "rp_arena" : "_rp_arena"}});
     printer.indent();
     printer.print("if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {\n");
     printer.indent();
@@ -2730,8 +2730,8 @@ std::string encoded_fqn(const MessageNode& msg) {
 
 // The crate-root name of `msg`'s macro: `__rp_<path>_<fqn>`, with the segments of the module path after
 // `crate` length-prefixed, raw prefixes dropped. Two generated files in one crate can share a message,
-// so the path keeps their names apart. A schema-derived name cannot clash: this name is only ever at the
-// crate root, where the generated file adds nothing else of its own.
+// so the path keeps their names apart. A schema-derived name cannot clash: the only other macro names
+// the file defines are friendly ones, inside the `stream` tree.
 std::string stream_export_name(std::string_view root, const MessageNode& msg) {
     std::string name = "__rp_";
     std::size_t pos = std::min(root.find("::"), root.size());
@@ -2752,7 +2752,7 @@ std::string stream_export_name(std::string_view root, const MessageNode& msg) {
 
 // How a macro expansion names the runtime (see generate_stream).
 std::string stream_runtime_path(const NameTable& table) {
-    return "$" + table.root + "::stream::rp_rt";
+    return "$" + table.root + "::rp_rt";
 }
 
 // The handler value type for a field, with its borrow written as lifetime `lt`: message/group -> the
@@ -3325,9 +3325,8 @@ void emit_stream_messages(Printer& printer, const NameTable& table,
             printer.print("\n");
         }
         const std::string macro_name = dedup_ident(
-            macro_names, reserve_rp_prefix(to_snake_case(ident_identity(
-                                               table.messages.at(msgs[i]->fqn).type_name)) +
-                                           "_stream"));
+            macro_names,
+            to_snake_case(ident_identity(table.messages.at(msgs[i]->fqn).type_name)) + "_stream");
         emit_stream_message(printer, table, *msgs[i], macro_name);
         if (!msgs[i]->nested_messages.empty()) {
             const std::string& sub = table.messages.at(msgs[i]->fqn).submodule;
@@ -3366,7 +3365,8 @@ constexpr const char* kModuleLints =
 
 }  // namespace
 
-std::string generate_common(const std::vector<const FileNode*>& files, bool serde) {
+std::string generate_common(const std::vector<const FileNode*>& files, bool serde,
+                            const std::string& module_path) {
     const PkgTrie root = [&] {
         PkgTrie trie = build_pkg_trie(files);
         assign_emitted_names(trie);
@@ -3377,6 +3377,13 @@ std::string generate_common(const std::vector<const FileNode*>& files, bool serd
     printer.print(kModuleLints);
     printer.print("pub mod common {\n");
     printer.indent();
+    // A visibility must name this module or one above it, and nothing else in rustc checks the path of
+    // a file whose types never refer to each other. With `::common`, the path cannot be merely an
+    // ancestor of the real location either. rustc shows this line, comment included, when it fails.
+    printer.print(
+        "pub(in $p$::common) const _: () = (); // This file must be included at the path given to "
+        "rapidproto-build.\n\n",
+        {{"p", module_path}});
     emit_common_node(printer, table, root, serde);
     printer.outdent();
     printer.print("}\n");
@@ -3384,25 +3391,19 @@ std::string generate_common(const std::vector<const FileNode*>& files, bool serd
 }
 
 std::vector<std::pair<std::string, std::string>> arena_type_paths(
-    const std::vector<const FileNode*>& files) {
+    const std::vector<const FileNode*>& files, const std::string& module_path) {
     // Rebuilds the name table independently of generate_rust (a caller may want the paths alone, and
     // naming is modes-independent, so this stays a standalone entry point). The rebuild is
-    // generation-time and O(small); the type path mirrors emission -- `arena` + the module segments
-    // + the type name -- so the two must move together.
+    // generation-time and O(small).
     PkgTrie root = build_pkg_trie(files);
     assign_emitted_names(root);
-    const NameTable table = build_name_table(root);
+    NameTable table = build_name_table(root);
+    table.root = module_path;
+    table.tree = "arena";
     std::vector<std::pair<std::string, std::string>> out;
     out.reserve(table.messages.size());
     for (const auto& [fqn, names] : table.messages) {
-        std::string path = "arena";
-        for (const std::string& seg : names.module) {
-            path += "::";
-            path += seg;
-        }
-        path += "::";
-        path += names.type_name;
-        out.emplace_back(fqn, path);
+        out.emplace_back(fqn, message_path(table, fqn));
     }
     return out;
 }
@@ -3432,13 +3433,13 @@ std::string generate_stream(const std::vector<const FileNode*>& files,
     table.root = module_path;
     table.tree = "stream";
     Printer printer;
+    // The runtime's module of this name, for the macros (stream_runtime_path), which can expand in a
+    // crate with no direct `rapidproto` dependency. Beside the trees, so no schema name can meet it.
+    printer.print(kModuleLints);
+    printer.print("#[doc(hidden)]\npub use ::rapidproto::rp_rt;\n\n");
     printer.print(kModuleLints);
     printer.print("pub mod stream {\n");
     printer.indent();
-    // The runtime's module of this name, for the macros (stream_runtime_path), which can expand in a
-    // crate with no direct `rapidproto` dependency. Schema-derived names here never take this shape
-    // (reserve_rp_prefix).
-    printer.print("#[doc(hidden)]\npub use ::rapidproto::rp_rt;\n\n");
     emit_stream_node(printer, table, root);
     printer.outdent();
     printer.print("}\n");
@@ -3461,7 +3462,7 @@ std::string generate_file(const std::vector<const FileNode*>& files, const Layou
     // `common` (shared enum/newtype defs) is emitted whenever any decoder model is, since both the
     // arena and stream trees reference it. At least one model is always selected (the caller enforces
     // it); default is arena only.
-    std::string out = banner + "\n" + generate_common(files, options.serde);
+    std::string out = banner + "\n" + generate_common(files, options.serde, options.module_path);
     if (options.arena) {
         out += "\n" + generate_arena(files, layouts, modes, options.serde, options.module_path);
     }

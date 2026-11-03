@@ -2,6 +2,8 @@
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
+  pub(in crate::rppkg::common) const _: () = (); // This file must be included at the path given to rapidproto-build.
+
   pub mod rapidproto {
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
     #[repr(transparent)]
@@ -203,8 +205,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, wire<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::rppkg::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, wire<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -269,8 +270,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Arena<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::rppkg::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Arena<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -335,8 +335,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Tag<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::rppkg::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Tag<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -400,8 +399,7 @@ pub mod arena {
       }
 
       #[inline(always)]
-      #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, ByteView<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::rppkg::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, ByteView<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -458,10 +456,11 @@ pub mod arena {
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
-pub mod stream {
-  #[doc(hidden)]
-  pub use ::rapidproto::rp_rt;
+#[doc(hidden)]
+pub use ::rapidproto::rp_rt;
 
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+pub mod stream {
 
   pub mod rapidproto {
     /// Streaming visitor for `wire`. Select a field by overriding its `WANT_<field>` const AND
@@ -574,9 +573,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::rppkg::stream::rapidproto::wire_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rppkg::stream::rapidproto::wire_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] x => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::wire_stream!(@f [$($a)* WANT_x on_x: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::wire_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rppkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::wire_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rppkg::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: x, unknown")) };
-      (@f $a:tt) => { $crate::rppkg::stream::rp_rt::stream_visitor!($crate::rppkg::stream::rapidproto::wireVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::rppkg::rp_rt::stream_visitor!($crate::rppkg::stream::rapidproto::wireVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5rppkg_10rapidproto4wire as wire_stream;
@@ -691,9 +690,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::rppkg::stream::rapidproto::arena_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rppkg::stream::rapidproto::arena_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] y => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::arena_stream!(@f [$($a)* WANT_y on_y: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::arena_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rppkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::arena_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rppkg::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: y, unknown")) };
-      (@f $a:tt) => { $crate::rppkg::stream::rp_rt::stream_visitor!($crate::rppkg::stream::rapidproto::ArenaVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::rppkg::rp_rt::stream_visitor!($crate::rppkg::stream::rapidproto::ArenaVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5rppkg_10rapidproto5Arena as arena_stream;
@@ -807,10 +806,10 @@ pub mod stream {
     macro_rules! __rp_5rppkg_10rapidproto3Tag {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::rppkg::stream::rapidproto::tag_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rppkg::stream::rapidproto::tag_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::tag_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::rppkg::stream::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::tag_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rppkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::tag_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::rppkg::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::tag_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rppkg::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, unknown")) };
-      (@f $a:tt) => { $crate::rppkg::stream::rp_rt::stream_visitor!($crate::rppkg::stream::rapidproto::TagVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::rppkg::rp_rt::stream_visitor!($crate::rppkg::stream::rapidproto::TagVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5rppkg_10rapidproto3Tag as tag_stream;
@@ -925,9 +924,9 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::rppkg::stream::rapidproto::byte_view_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::rppkg::stream::rapidproto::byte_view_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::byte_view_stream!(@f [$($a)* WANT_b on_b: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
-      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::byte_view_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rppkg::stream::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::rppkg::stream::rapidproto::byte_view_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::rppkg::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: b, unknown")) };
-      (@f $a:tt) => { $crate::rppkg::stream::rp_rt::stream_visitor!($crate::rppkg::stream::rapidproto::ByteViewVisitor<'rp_a> $a) };
+      (@f $a:tt) => { $crate::rppkg::rp_rt::stream_visitor!($crate::rppkg::stream::rapidproto::ByteViewVisitor<'rp_a> $a) };
     }
     #[doc(inline)]
     pub use __rp_5rppkg_10rapidproto8ByteView as byte_view_stream;

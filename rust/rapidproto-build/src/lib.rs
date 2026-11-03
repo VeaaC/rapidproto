@@ -1,5 +1,5 @@
-//! Generate Rust protobuf **decoders** from `.proto` files in a build script — no `protoc` and no
-//! separate code generator to install.
+//! Generate Rust protobuf decoders from `.proto` files in a build script. You do not need `protoc` or
+//! a separate code generator.
 //!
 //! Most consumers call [`Config`] from a `build.rs` to generate at build time:
 //!
@@ -11,7 +11,7 @@
 //!     .expect("generate decoders");
 //! ```
 //!
-//! then include the generated code (one file per import closure) at that path and decode with it:
+//! Then include the generated file at that path:
 //!
 //! ```ignore
 //! mod schema {
@@ -134,12 +134,12 @@ impl std::fmt::Display for GenError {
 
 impl std::error::Error for GenError {}
 
-/// Encodes a [`Request`] into the byte frame the generator takes, through either backend: a `RPWF4`
+/// Encodes a [`Request`] into the byte frame the generator takes, through either backend: a `RPWF5`
 /// magic, then little-endian-u32-counted entry names, u32-counted `{name, body}` sources, the
 /// `.modes` text, a one-byte unknown-all flag, two one-byte model flags (arena, stream), a one-byte
 /// serde flag, and the module path. Bodies are length-prefixed, so a proto's newlines/quotes need no
-/// escaping. The generator
-/// validates the options; the decode side is `rapidproto/rustgen/frame.hpp` in the repository.
+/// escaping. The generator validates the options; the decode side is `rapidproto/rustgen/frame.hpp`
+/// in the repository.
 mod frame {
     use super::{GenError, Request};
 
@@ -376,21 +376,8 @@ fn internal(error: impl std::fmt::Display) -> GenError {
 }
 
 /// Generate decoders from a `build.rs`: run the generator over a schema's import closure, write the
-/// result into `OUT_DIR`, and register the inputs so cargo re-runs when a `.proto` changes.
-///
-/// ```no_run
-/// // build.rs
-/// rapidproto_build::Config::new("crate::schema")
-///     .include("proto")
-///     .compile(&["proto/message.proto"])
-///     .expect("generate decoders");
-/// ```
-/// then include the generated file (one per import closure) at that path in your crate:
-/// ```ignore
-/// mod schema {
-///     include!(concat!(env!("OUT_DIR"), "/message.rs"));
-/// }
-/// ```
+/// result into `OUT_DIR`, and register the inputs so cargo re-runs when a `.proto` changes. The
+/// [crate docs](crate) show an example.
 pub struct Config {
     module_path: String,
     includes: Vec<PathBuf>,
@@ -405,11 +392,15 @@ pub struct Config {
 impl Config {
     /// A config for generated code included at `module_path`: `crate` for the crate root, or a path
     /// from it such as `crate::schema`. Segments are ASCII identifiers, and a keyword is written
-    /// `r#type`. The config starts with no include dirs, no decode profile, and the `arena` model only.
+    /// `r#type`.
     ///
-    /// The generated code names its own types through this path, so it must match your `include!`. A
-    /// path that does not match fails to compile. Include each generated file once, in a module and
-    /// not inside a function, and give each file its own path.
+    /// The generated code names its own types through this path, so it must be where you `include!`
+    /// the file. Any other path fails to compile.
+    ///
+    /// Include a file once per crate, at the crate root or in a module, and not inside a function. A
+    /// doctest counts as a function unless it declares `fn main`. Each file needs its own path, so two
+    /// schemas need two `Config`s. A lib, a bin and each file in `tests/` are separate crates, so each
+    /// can include the same file at the same path.
     pub fn new(module_path: impl Into<String>) -> Self {
         Config {
             module_path: module_path.into(),
@@ -454,10 +445,12 @@ impl Config {
     /// materializing the message. Off by default.
     ///
     /// A macro expands where you call it and reaches the rest of the generated code through the path
-    /// given to [`Config::new`], so each module on that path must be visible from the call: `pub` to
-    /// call it from `tests/` or from another crate, and `pub(crate)` for a nested module to call it
-    /// elsewhere in the crate. A `proc-macro` crate cannot export macros, so this model does not
-    /// compile there. Put the generated code in a separate crate instead.
+    /// given to [`Config::new`], so each module on that path must be visible from the call. Make the
+    /// modules `pub` to call it from `tests/` or another crate. A module nested below the crate root
+    /// needs `pub(crate)` to be called from elsewhere in the crate.
+    ///
+    /// A `proc-macro` crate cannot export macros, so this model does not compile there. Put the
+    /// generated code in a separate crate instead.
     pub fn stream(mut self, yes: bool) -> Self {
         self.stream = yes;
         self
@@ -540,9 +533,10 @@ impl Config {
     }
 
     /// Generate decoders for `entries` (one import closure) into `OUT_DIR` and return the path to the
-    /// generated file to `include!`. Registers the entries and every `.proto` on the include path
-    /// with cargo, so editing a schema re-runs the build. Call this from a `build.rs` (it reads the
-    /// `OUT_DIR` cargo sets).
+    /// generated file to `include!`. The file is named after the first entry: `proto/message.proto`
+    /// gives `message.rs`. Registers the entries and every `.proto` on the include path with cargo, so
+    /// editing a schema re-runs the build. Call this from a `build.rs` (it reads the `OUT_DIR` cargo
+    /// sets).
     pub fn compile(&self, entries: &[impl AsRef<Path>]) -> Result<PathBuf, GenError> {
         // Warned from here, the consumer's own build script, because cargo hides the warnings of a
         // dependency's build script.

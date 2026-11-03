@@ -117,7 +117,14 @@ fn a_missing_import_is_reported_not_panicked() {
 /// error (exit 2) naming the option.
 #[test]
 fn an_invalid_module_path_is_rejected() {
-    for module_path in ["", "demo", "crate::", "crate::1demo", "crate::de-mo"] {
+    for module_path in [
+        "",
+        "demo",
+        "crate::",
+        "crate::1demo",
+        "crate::de-mo",
+        "crate::self",
+    ] {
         let request = Request {
             entries: vec!["message.proto".to_owned()],
             sources: vec![proto("message.proto"), proto("types.proto")],
@@ -128,7 +135,7 @@ fn an_invalid_module_path_is_rejected() {
             let error = result.expect_err("invalid module path should fail");
             assert_eq!(error.code, 2, "bad-frame exit code for {module_path:?}");
             assert!(
-                error.message.contains("is not a path from the crate root"),
+                error.message.contains("is not a path of ASCII identifiers"),
                 "error for {module_path:?}: {}",
                 error.message
             );
