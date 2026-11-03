@@ -73,8 +73,8 @@
 //! # }
 //! ```
 //!
-//! Stopping at the first temperature of the whole report. The handler returns the station's `decode`
-//! result, so the stop ends the report's `decode` too:
+//! Stopping at the first temperature of the whole report. The `stations` handler returns the station's
+//! `decode` result, so the stop ends the report's `decode` too:
 //!
 //! ```
 //! # mod example { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/example/weather.rs")); }
@@ -96,8 +96,8 @@
 //! # }
 //! ```
 //!
-//! Reading the first temperature of every station. The handler discards the station's result, so the
-//! stop ends only that station:
+//! Reading the first temperature of every station. The `stations` handler discards the station's
+//! `Flow`, so the stop ends only that station:
 //!
 //! ```
 //! # mod example { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/example/weather.rs")); }

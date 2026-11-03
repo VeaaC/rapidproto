@@ -251,8 +251,9 @@ const TWO_CHILDREN: &[u8] = &[
 
 #[test]
 fn a_handler_returning_a_childs_decode_passes_a_stop_on() {
-    // From the ordered prefix of the child, and from the dispatch loop of the parent: `nums` comes
-    // after `self`, and the child's `nums` is reached through its own prefix.
+    // The first `self` arrives through the parent's field-order probe and the child's `nums` through
+    // its own, so this stop never reaches a dispatch loop. A stop in the second `self`, which goes
+    // through the parent's loop, is pinned by the tests below.
     let mut seen = Vec::new();
     let flow = Msg::new(TWO_CHILDREN).decode(msg_stream!(&mut seen; {
         self_ => |seen, child| child.decode(msg_stream!(&mut *seen; {
@@ -323,6 +324,82 @@ fn one_handler_can_stop_a_child_or_everything() {
     }));
     assert_eq!(flow, Ok(Flow::Stop));
     assert_eq!(st.seen, [1, 3]);
+}
+
+#[test]
+fn a_stop_ends_the_decode_from_every_field_shape() {
+    // An unknown field matches no probe, so what follows it goes through the dispatch loop.
+    const LATE: &[u8] = &[0x98, 0x06, 0x2a]; // field 99
+    macro_rules! stops {
+        ($($field:ident: $bytes:expr;)*) => {$(
+            for prefix in [&[][..], LATE] {
+                let (bytes, mut calls): (Vec<u8>, _) = ([prefix, &$bytes[..]].concat(), 0);
+                let flow = Msg::new(&bytes)
+                    .decode(msg_stream! { $field => |_| { calls += 1; Flow::Stop } });
+                assert_eq!((flow, calls), (Ok(Flow::Stop), 1), "{}", stringify!($field));
+            }
+        )*};
+    }
+    let d = [0u8; 8];
+    stops! {
+        implicit_i: [0x08, 1, 0x08, 2];
+        explicit_i: [0x10, 1, 0x10, 2];
+        name: [0x1a, 1, b'a', 0x1a, 1, b'b'];
+        state: [0x20, 1, 0x20, 1];
+        self_: [0x2a, 0, 0x2a, 0];
+        nums: [0x30, 1, 0x30, 2];
+        nums: [0x32, 2, 1, 2];
+        unpacked: [0x38, 1, 0x38, 2];
+        unpacked: [0x3a, 2, 1, 2];
+        states: [0x40, 1, 0x40, 1];
+        states: [0x42, 2, 1, 1];
+        counts: [0x4a, 0, 0x4a, 0];
+        a: [0x50, 1, 0x50, 2];
+        b: [0x5a, 0, 0x5a, 0];
+        reals: [&[0x61][..], &d, &[0x61], &d].concat();
+        reals: [&[0x62, 16][..], &d, &d].concat();
+        codes: [0x6d, 0, 0, 0, 0, 0x6d, 0, 0, 0, 0];
+        codes: [0x6a, 8, 0, 0, 0, 0, 0, 0, 0, 0];
+        flags: [0x72, 0, 0x72, 0];
+        c: [0x78, 1, 0x78, 0];
+        d: [&[0x81, 0x01][..], &d, &[0x81, 0x01], &d].concat();
+        bools: [0x88, 0x01, 1, 0x88, 0x01, 0];
+        bools: [0x8a, 0x01, 2, 1, 0];
+        toggles: [0x92, 0x01, 0, 0x92, 0x01, 0];
+        ratios: [0x9a, 0x01, 0, 0x9a, 0x01, 0];
+        ratio: [&[0xa1, 0x01][..], &d, &[0xa1, 0x01], &d].concat();
+        scale: [0xad, 0x01, 0, 0, 0, 0, 0xad, 0x01, 0, 0, 0, 0];
+        blobs: [0xb2, 0x01, 0, 0xb2, 0x01, 0];
+        e: [0xba, 0x01, 0, 0xba, 0x01, 0];
+        chunks: [0xc2, 0x01, 0, 0xc2, 0x01, 0];
+        unknown: [0xf8, 0x07, 1, 0xf8, 0x07, 1];
+    }
+}
+
+#[test]
+fn a_stop_passes_up_through_a_group_and_a_map_value() {
+    use rustgen_golden::arena_layout::stream::al::*;
+    use rustgen_golden::proto2::stream::p2::repeated_group::*;
+    use rustgen_golden::proto2::stream::p2::*;
+    // RepeatedGroup { Item { v: 1 }, Item { v: 2 }, tail: 9 }
+    const GROUPS: &[u8] = &[0x0b, 0x10, 1, 0x0c, 0x0b, 0x10, 2, 0x0c, 0x18, 9];
+    let mut seen = Vec::new();
+    let flow = RepeatedGroup::new(GROUPS).decode(repeated_group_stream!(&mut seen; {
+        item => |s, g| g.decode(item_stream!(&mut *s; { v => |s, v| { s.push(v); Flow::Stop } })),
+        tail => |s, v| s.push(v),
+    }));
+    assert_eq!((flow, seen), (Ok(Flow::Stop), vec![1]));
+
+    // Layout { grid[7] = { x: 3 }, grid[8] = { x: 5 } }
+    const GRID: &[u8] = &[
+        0x82, 0x01, 0x06, 0x08, 0x07, 0x12, 0x02, 0x08, 0x03, //
+        0x82, 0x01, 0x06, 0x08, 0x08, 0x12, 0x02, 0x08, 0x05,
+    ];
+    let mut seen = Vec::new();
+    let flow = Layout::new(GRID).decode(layout_stream! {
+        grid => |(_k, pt)| pt.decode(point_stream! { x => |v| { seen.push(v); Flow::Stop } }),
+    });
+    assert_eq!((flow, seen), (Ok(Flow::Stop), vec![3]));
 }
 
 #[test]

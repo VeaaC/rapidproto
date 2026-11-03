@@ -75,8 +75,8 @@
 use crate::error::DecodeError;
 pub use crate::wire::WireType;
 
-/// Whether a streaming decode goes on. A handler returns it to continue or stop, and `decode` returns it
-/// to say which happened.
+/// Whether a streaming decode continues or stops. A handler returns it to choose, and `decode` returns
+/// it to say which happened.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Flow {
     /// From a handler: keep decoding, which is also what returning `()` means. From `decode`: the
