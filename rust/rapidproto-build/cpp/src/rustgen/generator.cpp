@@ -3364,19 +3364,19 @@ constexpr const char* kModuleLints =
     "unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, "
     "clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]\n";
 
-// A module that fails to compile unless the file is included at `module_path`. A visibility must name
-// the current module or an ancestor, and only this file defines `rp_check`, so its path can only name
-// itself. Nothing else checks the path of a file whose types never refer to each other, whose macros
-// would then fail at their first call, possibly in another crate. The comment shares the visibility's
-// line because rustc shows that line in the error.
+// A module that fails to compile unless the file is included at `module_path`: it reaches its own
+// private constant through that path. Nothing else checks the path of a file whose types never refer
+// to each other, whose macros would then fail at their first call, possibly in another crate. The
+// comment shares the path's line because rustc shows that line in the error.
 std::string module_path_check(const std::string& module_path) {
     Printer printer;
     printer.print(kModuleLints);
     printer.print("#[doc(hidden)]\nmod rp_check {\n");
     printer.indent();
-    printer.print("pub(in $p$::rp_check) // This path must be where this file is included.\n",
-                  {{"p", module_path}});
     printer.print("const C: () = ();\n");
+    printer.print(
+        "const _: () = $p$::rp_check::C; // This path must be where this file is included.\n",
+        {{"p", module_path}});
     printer.outdent();
     printer.print("}\n");
     return printer.str();

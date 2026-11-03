@@ -31,7 +31,7 @@ fn the_module_path_reaches_the_output() {
         let output = run(args);
         assert!(output.status.success(), "{output:?}");
         let rust = String::from_utf8_lossy(&output.stdout);
-        assert!(rust.contains("pub(in crate::schema::rp_check)"));
+        assert!(rust.contains("const _: () = crate::schema::rp_check::C;"));
         assert!(!rust.contains("pub mod stream"), "stream is opt-in");
     }
 }

@@ -32,9 +32,28 @@ message FooStream {
   In inner = 1;
 }
 
+// Named like generated bindings: a `Serialize` parameter, a macro expansion's local, and decode locals.
+// An enum's tuple constructor would break a binding of that name in its scope, so its Rust name changes.
+// A message has named fields only, so it keeps its name.
+enum rp_ser {
+  RP_SER_ZERO = 0;
+}
+enum rp_state {
+  RP_STATE_ZERO = 0;
+  RP_STATE_ONE = 1;
+}
+message rp_v {}
+message rp_rest {
+  fixed32 v = 1;
+}
+
 message Holder {
   RpRt nested = 1;
   gluenames.rp_rt.Sub sub = 2;  // a child in the `rp_rt` sub-package
   Sized sized = 3;
   Foo foo = 4;
+  rp_ser ser = 5;
+  rp_state state = 6;
+  rp_v empty = 7;
+  rp_rest rest = 8;
 }

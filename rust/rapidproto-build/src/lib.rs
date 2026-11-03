@@ -395,7 +395,7 @@ impl Config {
     /// identifier, such as `r#type`.
     ///
     /// The generated code names its own types through this path, so it must lead to where you
-    /// `include!` the file. A path that does not fails to compile.
+    /// `include!` the file. A wrong path fails to compile.
     ///
     /// Include a file once per crate, and not inside a function. A doctest counts as a function unless
     /// it declares `fn main`. Each generated file needs its own path, so two files in one crate need

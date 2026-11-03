@@ -522,22 +522,24 @@ fn one_package_globbed_from_two_generated_files_keeps_both_macros_usable() {
 #[test]
 fn schema_names_shaped_like_the_stream_glue_do_not_collide_with_it() {
     // nsedge/gluenames.proto declares protoc-valid names that macro code could clash with: a message
-    // submodule and a sub-package named like the `rp_rt` re-export, a `Sized`, and a `Foo` whose macro
-    // shares `FooStream`'s submodule name. Most of the check is the golden compiling; this drives
-    // `Holder`'s macros with all of those names in scope, through the shared-state form (whose
-    // expansion bounds its state `?Sized`).
+    // submodule and a sub-package named like the `rp_rt` re-export, a `Sized`, an enum named like the
+    // expansion's `rp_state` local, and a `Foo` whose macro shares `FooStream`'s submodule name. Most of
+    // the check is the golden compiling; this drives `Holder`'s macros with all of those names in scope,
+    // through the shared-state form (whose expansion bounds its state `?Sized`).
+    use rustgen_golden::gluenames::common::gluenames::*;
     use rustgen_golden::gluenames::stream::gluenames as top;
     use rustgen_golden::gluenames::stream::gluenames::rp_rt::*; // the `rp_rt` sub-package
     use rustgen_golden::gluenames::stream::gluenames::rp_rt_::*; // `RpRt`'s nested types
     use rustgen_golden::gluenames::stream::gluenames::*;
     use top::rp_rt as sub_pkg;
     // Holder { nested: RpRt { x: X { v: 1 } }, sub: Sub { inner: rp_rt { v: 2 } },
-    //          sized: Sized { v: 4 }, foo: Foo { v: 3 } }
+    //          sized: Sized { v: 4 }, foo: Foo { v: 3 }, state: ONE }
     const HOLDER: &[u8] = &[
         0x0a, 0x04, 0x0a, 0x02, 0x08, 0x01, // nested (field 1)
         0x12, 0x04, 0x0a, 0x02, 0x08, 0x02, // sub (field 2)
         0x1a, 0x02, 0x08, 0x04, // sized (field 3)
         0x22, 0x02, 0x08, 0x03, // foo (field 4)
+        0x30, 0x01, // state (field 6)
     ];
     #[derive(Default)]
     struct Seen {
@@ -545,6 +547,7 @@ fn schema_names_shaped_like_the_stream_glue_do_not_collide_with_it() {
         inner: i32,
         sized: i32,
         foo: i32,
+        state: rp__state,
     }
     let mut seen = Seen::default();
     Holder::new(HOLDER)
@@ -557,9 +560,11 @@ fn schema_names_shaped_like_the_stream_glue_do_not_collide_with_it() {
             })),
             sized => |s, z| z.decode(sized_stream!(&mut *s; { v => |s, v| s.sized = v })),
             foo => |s, f| f.decode(foo_stream!(&mut *s; { v => |s, v| s.foo = v })),
+            state => |s, v| s.state = v,
         }))
         .unwrap();
     assert_eq!((seen.x, seen.inner, seen.sized, seen.foo), (1, 2, 4, 3));
+    assert_eq!(seen.state, rp__state::ONE);
 }
 
 // The collide.Holder input of the test below, built outside its scope: there the globbed modules

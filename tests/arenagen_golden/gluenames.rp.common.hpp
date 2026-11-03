@@ -7,4 +7,21 @@
 
 namespace rp::common::gluenames {
 
+enum class rp_ser_ : std::int32_t {
+  ZERO = 0,
+  rp_known_min = 0,
+  rp_known_max = 0,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+
+enum class rp_state_ : std::int32_t {
+  ZERO = 0,
+  ONE = 1,
+  rp_known_min = 0,
+  rp_known_max = 1,
+  rp_non_exhaustive_min = INT32_MIN,
+  rp_non_exhaustive_max = INT32_MAX,
+};
+
 }  // namespace rp::common::gluenames

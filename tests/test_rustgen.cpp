@@ -1070,6 +1070,18 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
             "//! fn main() {}\n"
             "//! ```\n"
             "//!\n"
+            "//! A module named like the check does not hide a wrong path:\n"
+            "//!\n"
+            "//! ```compile_fail\n"
+            "//! mod streamonly_flat {\n"
+            "//!     mod rp_check {\n"
+            "//!         include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), "
+            "\"/goldens/streamonly_flat.rs\"));\n"
+            "//!     }\n"
+            "//! }\n"
+            "//! fn main() {}\n"
+            "//! ```\n"
+            "//!\n"
             "//! The same file at its own path compiles:\n"
             "//!\n"
             "//! ```\n"
@@ -1250,7 +1262,7 @@ TEST_CASE("rustgen frame: generated paths and macro names start from the module 
 
     const FrameOptions nested{true, true, "crate::a::r#type", ""};
     const std::string out = run_frame(frame_for(kSchema, nested)).text;
-    CHECK(has(out, "pub(in crate::a::r#type::rp_check)"));
+    CHECK(has(out, "const _: () = crate::a::r#type::rp_check::C;"));
     CHECK(has(out, "pub(in crate::a::r#type::arena) fn rp_decode_into<'id>("));
     CHECK(has(out, "child: crate::a::r#type::arena::p::Child<'a>,"));
     CHECK(has(out, "fn on_child(&mut self, _rp_v: crate::a::r#type::stream::p::Child<'a>)"));
@@ -1265,7 +1277,7 @@ TEST_CASE("rustgen frame: generated paths and macro names start from the module 
               "$crate::a::r#type::stream::p::ParentVisitor<'rp_a> $a)"));
 
     const std::string root = run_frame(frame_for(kSchema, {true, true, "crate", ""})).text;
-    CHECK(has(root, "pub(in crate::rp_check)"));
+    CHECK(has(root, "const _: () = crate::rp_check::C;"));
     CHECK(has(root, "child: crate::arena::p::Child<'a>,"));
     CHECK(has(root, "macro_rules! __rp__1p6Parent {"));
 }

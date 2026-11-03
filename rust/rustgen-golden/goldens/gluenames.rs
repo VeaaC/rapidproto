@@ -3,13 +3,83 @@
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 #[doc(hidden)]
 mod rp_check {
-  pub(in crate::gluenames::rp_check) // This path must be where this file is included.
   const C: () = ();
+  const _: () = crate::gluenames::rp_check::C; // This path must be where this file is included.
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod gluenames {
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+    #[repr(transparent)]
+    pub struct rp__ser(pub i32);
+
+    impl ::rapidproto::serde::Serialize for rp__ser {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        rp_ser.serialize_i32(self.0)
+      }
+    }
+
+    impl rp__ser {
+      pub const ZERO: rp__ser = rp__ser(0);
+
+      /// The matchable classification of this value.
+      #[inline]
+      #[must_use]
+      pub fn classify(self) -> rp__serClass {
+        match self.0 {
+          0 => rp__serClass::Zero,
+          rp_other => rp__serClass::Unknown(rp_other),
+        }
+      }
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[non_exhaustive]
+    pub enum rp__serClass {
+      Zero,
+      Unknown(i32),
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+    #[repr(transparent)]
+    pub struct rp__state(pub i32);
+
+    impl ::rapidproto::serde::Serialize for rp__state {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        rp_ser.serialize_i32(self.0)
+      }
+    }
+
+    impl rp__state {
+      pub const ZERO: rp__state = rp__state(0);
+      pub const ONE: rp__state = rp__state(1);
+
+      /// The matchable classification of this value.
+      #[inline]
+      #[must_use]
+      pub fn classify(self) -> rp__stateClass {
+        match self.0 {
+          0 => rp__stateClass::Zero,
+          1 => rp__stateClass::One,
+          rp_other => rp__stateClass::Unknown(rp_other),
+        }
+      }
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[non_exhaustive]
+    pub enum rp__stateClass {
+      Zero,
+      One,
+      Unknown(i32),
+    }
     pub mod rp_rt {
     }
   }
@@ -334,11 +404,63 @@ pub mod arena {
     }
 
     #[derive(Default)]
+    pub struct rp_v<'a> {
+      _marker: ::core::marker::PhantomData<&'a ()>,
+    }
+
+    impl<'a> ::rapidproto::serde::Serialize for rp_v<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        rp_map.end()
+      }
+    }
+
+    ::rapidproto::impl_decode_owned!(rp_v);
+
+    #[derive(Default)]
+    pub struct rp_rest<'a> {
+      v: u32,
+      _marker: ::core::marker::PhantomData<&'a ()>,
+    }
+
+    impl<'a> rp_rest<'a> {
+      pub fn v(&self) -> u32 {
+        self.v
+      }
+    }
+    impl<'a> ::rapidproto::serde::Serialize for rp_rest<'a> {
+      fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
+      where
+        RpS: ::rapidproto::serde::Serializer,
+      {
+        use ::rapidproto::serde::ser::SerializeMap as _;
+        let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
+        {
+          let rp_v = self.v();
+          if rp_v != 0 {
+            rp_map.serialize_entry("v", &rp_v)?;
+          }
+        }
+        rp_map.end()
+      }
+    }
+
+    ::rapidproto::impl_decode_owned!(rp_rest);
+
+    #[derive(Default)]
     pub struct Holder<'a> {
       nested: crate::gluenames::arena::gluenames::RpRt<'a>,
       sub: crate::gluenames::arena::gluenames::rp_rt::Sub<'a>,
       sized: crate::gluenames::arena::gluenames::Sized<'a>,
       foo: crate::gluenames::arena::gluenames::Foo<'a>,
+      ser: crate::gluenames::common::gluenames::rp__ser,
+      state: crate::gluenames::common::gluenames::rp__state,
+      empty: crate::gluenames::arena::gluenames::rp_v<'a>,
+      rest: crate::gluenames::arena::gluenames::rp_rest<'a>,
       rp_presence: u8,
     }
 
@@ -354,6 +476,18 @@ pub mod arena {
       }
       pub fn foo(&self) -> ::core::option::Option<&crate::gluenames::arena::gluenames::Foo<'a>> {
         ((self.rp_presence & (1 << 3)) != 0).then_some(&self.foo)
+      }
+      pub fn ser(&self) -> crate::gluenames::common::gluenames::rp__ser {
+        self.ser
+      }
+      pub fn state(&self) -> crate::gluenames::common::gluenames::rp__state {
+        self.state
+      }
+      pub fn empty(&self) -> ::core::option::Option<&crate::gluenames::arena::gluenames::rp_v<'a>> {
+        ((self.rp_presence & (1 << 4)) != 0).then_some(&self.empty)
+      }
+      pub fn rest(&self) -> ::core::option::Option<&crate::gluenames::arena::gluenames::rp_rest<'a>> {
+        ((self.rp_presence & (1 << 5)) != 0).then_some(&self.rest)
       }
     }
     impl<'a> ::rapidproto::serde::Serialize for Holder<'a> {
@@ -381,6 +515,28 @@ pub mod arena {
         {
           if let ::core::option::Option::Some(rp_v) = self.foo() {
             rp_map.serialize_entry("foo", rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.ser();
+          if rp_v.0 != 0 {
+            rp_map.serialize_entry("ser", &rp_v)?;
+          }
+        }
+        {
+          let rp_v = self.state();
+          if rp_v.0 != 0 {
+            rp_map.serialize_entry("state", &rp_v)?;
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.empty() {
+            rp_map.serialize_entry("empty", rp_v)?;
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.rest() {
+            rp_map.serialize_entry("rest", rp_v)?;
           }
         }
         rp_map.end()
@@ -671,6 +827,119 @@ pub mod arena {
       }
     }
 
+    impl<'a> rp_v<'a> {
+      pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a rp_v<'a>, ::rapidproto::DecodeError> {
+        if input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        let rp_root = arena.emplace(|rp_out| Self::rp_decode_into(rp_out, input, arena, 0))?;
+        ::core::result::Result::Ok(&*rp_root)
+      }
+
+      #[inline(always)]
+      #[doc(hidden)]
+      pub(in crate::gluenames::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, rp_v<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
+        }
+        let mut rp_rest: &'a [u8] = rp_body;
+        loop {
+          let rp_b = match rp_rest.first() {
+            ::core::option::Option::Some(&rp_b) => rp_b,
+            ::core::option::Option::None => break,
+          };
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            rp_b as u32
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            _ => {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+            }
+          }
+        }
+        ::core::result::Result::Ok(rp_out.write(rp_v {
+          _marker: ::core::marker::PhantomData,
+        }))
+      }
+    }
+
+    impl<'a> rp_rest<'a> {
+      pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a rp_rest<'a>, ::rapidproto::DecodeError> {
+        if input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        let rp_root = arena.emplace(|rp_out| Self::rp_decode_into(rp_out, input, arena, 0))?;
+        ::core::result::Result::Ok(&*rp_root)
+      }
+
+      #[inline(always)]
+      #[doc(hidden)]
+      pub(in crate::gluenames::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, rp_rest<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
+        }
+        let mut rp_field_1: u32 = 0;
+        let mut rp_rest: &'a [u8] = rp_body;
+        if rp_rest.first() == ::core::option::Option::Some(&13u8) {
+          rp_rest = &rp_rest[1..];
+          let mut rp_v = 0u32;
+          rp_rest = match ::rapidproto::wire::read_fixed32(rp_rest, &mut rp_v) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          rp_field_1 = rp_v;
+        }
+        loop {
+          let rp_b = match rp_rest.first() {
+            ::core::option::Option::Some(&rp_b) => rp_b,
+            ::core::option::Option::None => break,
+          };
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            rp_b as u32
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            13u32 => {
+              let mut rp_v = 0u32;
+              rp_rest = match ::rapidproto::wire::read_fixed32(rp_rest, &mut rp_v) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_field_1 = rp_v;
+            }
+            _ => {
+              rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+            }
+          }
+        }
+        ::core::result::Result::Ok(rp_out.write(rp_rest {
+          v: rp_field_1,
+          _marker: ::core::marker::PhantomData,
+        }))
+      }
+    }
+
     impl<'a> Holder<'a> {
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Holder<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -691,6 +960,10 @@ pub mod arena {
         let mut rp_field_2: crate::gluenames::arena::gluenames::rp_rt::Sub<'a> = ::core::default::Default::default();
         let mut rp_field_3: crate::gluenames::arena::gluenames::Sized<'a> = ::core::default::Default::default();
         let mut rp_field_4: crate::gluenames::arena::gluenames::Foo<'a> = ::core::default::Default::default();
+        let mut rp_field_5: crate::gluenames::common::gluenames::rp__ser = crate::gluenames::common::gluenames::rp__ser(0);
+        let mut rp_field_6: crate::gluenames::common::gluenames::rp__state = crate::gluenames::common::gluenames::rp__state(0);
+        let mut rp_field_7: crate::gluenames::arena::gluenames::rp_v<'a> = ::core::default::Default::default();
+        let mut rp_field_8: crate::gluenames::arena::gluenames::rp_rest<'a> = ::core::default::Default::default();
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -743,6 +1016,50 @@ pub mod arena {
           };
           rp_field_4 = ::rapidproto::decode_value(|rp_out| crate::gluenames::arena::gluenames::Foo::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 3;
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&40u8) {
+          rp_rest = &rp_rest[1..];
+          let mut rp_v = 0u64;
+          rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          rp_field_5 = crate::gluenames::common::gluenames::rp__ser(rp_v as i32);
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&48u8) {
+          rp_rest = &rp_rest[1..];
+          let mut rp_v = 0u64;
+          rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          rp_field_6 = crate::gluenames::common::gluenames::rp__state(rp_v as i32);
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&58u8) {
+          rp_rest = &rp_rest[1..];
+          if (rp_presence & (1 << 4)) != 0 {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(7));
+          }
+          let mut rp_p: &[u8] = &[];
+          rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          rp_field_7 = ::rapidproto::decode_value(|rp_out| crate::gluenames::arena::gluenames::rp_v::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_presence |= 1 << 4;
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&66u8) {
+          rp_rest = &rp_rest[1..];
+          if (rp_presence & (1 << 5)) != 0 {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(8));
+          }
+          let mut rp_p: &[u8] = &[];
+          rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+            ::core::result::Result::Ok(r) => r,
+            ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+          };
+          rp_field_8 = ::rapidproto::decode_value(|rp_out| crate::gluenames::arena::gluenames::rp_rest::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_presence |= 1 << 5;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -809,6 +1126,46 @@ pub mod arena {
               rp_field_4 = ::rapidproto::decode_value(|rp_out| crate::gluenames::arena::gluenames::Foo::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 3;
             }
+            40u32 => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_field_5 = crate::gluenames::common::gluenames::rp__ser(rp_v as i32);
+            }
+            48u32 => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint(rp_rest, &mut rp_v) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_field_6 = crate::gluenames::common::gluenames::rp__state(rp_v as i32);
+            }
+            58u32 => {
+              if (rp_presence & (1 << 4)) != 0 {
+                return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(7));
+              }
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_field_7 = ::rapidproto::decode_value(|rp_out| crate::gluenames::arena::gluenames::rp_v::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_presence |= 1 << 4;
+            }
+            66u32 => {
+              if (rp_presence & (1 << 5)) != 0 {
+                return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::RepeatedSingularMessage, rp_body.len() - rp_rest.len()).with_field(8));
+              }
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              rp_field_8 = ::rapidproto::decode_value(|rp_out| crate::gluenames::arena::gluenames::rp_rest::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_presence |= 1 << 5;
+            }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                 ::core::result::Result::Ok(r) => r,
@@ -822,6 +1179,10 @@ pub mod arena {
           sub: rp_field_2,
           sized: rp_field_3,
           foo: rp_field_4,
+          ser: rp_field_5,
+          state: rp_field_6,
+          empty: rp_field_7,
+          rest: rp_field_8,
           rp_presence,
         }))
       }
@@ -1745,6 +2106,206 @@ pub mod stream {
       pub use __rp_9gluenames_9gluenames9FooStream2In as in_stream;
     }
 
+    /// Streaming visitor for `rp_v`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `rp_v_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+    pub trait rp_vVisitor<'a> {
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+    }
+
+    #[derive(Clone, Copy)]
+    pub struct rp_v<'a> {
+      rp_input: &'a [u8],
+    }
+
+    impl<'a> rp_v<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> rp_v<'a> { rp_v { rp_input } }
+
+      /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
+      /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
+      /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+      #[inline(always)]
+      pub fn bytes(&self) -> &'a [u8] { self.rp_input }
+
+      pub fn decode<V: rp_vVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
+        let mut rp_rest: &'a [u8] = rp_body;
+        loop {
+          let rp_b = match rp_rest.first() {
+            ::core::option::Option::Some(&rp_b) => rp_b,
+            ::core::option::Option::None => break,
+          };
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            rp_b as u32
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            _ => {
+              if V::WANT_UNKNOWN {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  ::core::result::Result::Ok(r) => r,
+                  ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  ::core::result::Result::Ok(r) => r,
+                  ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+          }
+        }
+        ::core::result::Result::Ok(())
+      }
+    }
+
+    /// Builds a `rp_vVisitor` from per-field closures: `rp_v_stream! { field => |value| .. }`, or
+    /// `rp_v_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9gluenames_9gluenames4rp_v {
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::gluenames::stream::gluenames::rp_v_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::gluenames::stream::gluenames::rp_v_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::gluenames::stream::gluenames::rp_v_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::gluenames::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: unknown")) };
+      (@f $a:tt) => { $crate::gluenames::rp_rt::stream_visitor!($crate::gluenames::stream::gluenames::rp_vVisitor<'rp_a> $a) };
+    }
+    #[doc(inline)]
+    pub use __rp_9gluenames_9gluenames4rp_v as rp_v_stream;
+
+    /// Streaming visitor for `rp_rest`. Select a field by overriding its `WANT_<field>` const AND
+    /// its `on_<field>` method (the `rp_rest_stream` macro does both); a field left at the default
+    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+    pub trait rp_restVisitor<'a> {
+      const WANT_v: bool = false;
+      #[inline(always)]
+      fn on_v(&mut self, _rp_v: u32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_UNKNOWN: bool = false;
+      #[inline(always)]
+      fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+    }
+
+    #[derive(Clone, Copy)]
+    pub struct rp_rest<'a> {
+      rp_input: &'a [u8],
+    }
+
+    impl<'a> rp_rest<'a> {
+      #[inline(always)]
+      pub fn new(rp_input: &'a [u8]) -> rp_rest<'a> { rp_rest { rp_input } }
+
+      /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
+      /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
+      /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+      #[inline(always)]
+      pub fn bytes(&self) -> &'a [u8] { self.rp_input }
+
+      pub fn decode<V: rp_restVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        let rp_body: &'a [u8] = self.rp_input;
+        let mut rp_rest: &'a [u8] = rp_body;
+        if rp_rest.first() == ::core::option::Option::Some(&13u8) {
+          rp_rest = &rp_rest[1..];
+          if V::WANT_v {
+            let mut rp_v = 0u32;
+            rp_rest = match ::rapidproto::wire::read_fixed32(rp_rest, &mut rp_v) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            match rp_vis.on_v(rp_v)? {
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Continue => {}
+            }
+          } else {
+            rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 13u32) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+          }
+        }
+        loop {
+          let rp_b = match rp_rest.first() {
+            ::core::option::Option::Some(&rp_b) => rp_b,
+            ::core::option::Option::None => break,
+          };
+          let rp_tagkey: u32 = if rp_b < 0x80 {
+            rp_rest = &rp_rest[1..];
+            rp_b as u32
+          } else {
+            let mut rp_tag = ::rapidproto::wire::Tag { field: 0, wire: ::rapidproto::wire::WireType::Varint };
+            rp_rest = match ::rapidproto::wire::read_tag(rp_rest, &mut rp_tag) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            (rp_tag.field << 3) | rp_tag.wire as u32
+          };
+          match rp_tagkey {
+            13u32 if V::WANT_v => {
+              let mut rp_v = 0u32;
+              rp_rest = match ::rapidproto::wire::read_fixed32(rp_rest, &mut rp_v) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              match rp_vis.on_v(rp_v)? {
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Continue => {}
+              }
+            }
+            _ => {
+              if V::WANT_UNKNOWN && !::core::matches!(rp_tagkey >> 3, 1) {
+                let rp_before = rp_rest;
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  ::core::result::Result::Ok(r) => r,
+                  ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+                let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
+                match rp_vis.on_unknown(rp_u)? {
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Continue => {}
+                }
+              } else {
+                rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
+                  ::core::result::Result::Ok(r) => r,
+                  ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+                };
+              }
+            }
+          }
+        }
+        ::core::result::Result::Ok(())
+      }
+    }
+
+    /// Builds a `rp_restVisitor` from per-field closures: `rp_rest_stream! { field => |value| .. }`, or
+    /// `rp_rest_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __rp_9gluenames_9gluenames7rp_rest {
+      ($($f:ident => $c:expr),* $(,)?) => { $crate::gluenames::stream::gluenames::rp_rest_stream!(@f [[]] $($f => $c,)*) };
+      ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::gluenames::stream::gluenames::rp_rest_stream!(@f [[$s]] $($f => $c,)*) };
+      (@f [$($a:tt)*] v => $c:expr, $($r:tt)*) => { $crate::gluenames::stream::gluenames::rp_rest_stream!(@f [$($a)* WANT_v on_v: ::core::primitive::u32 = $c;] $($r)*) };
+      (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::gluenames::stream::gluenames::rp_rest_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::gluenames::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
+      (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: v, unknown")) };
+      (@f $a:tt) => { $crate::gluenames::rp_rt::stream_visitor!($crate::gluenames::stream::gluenames::rp_restVisitor<'rp_a> $a) };
+    }
+    #[doc(inline)]
+    pub use __rp_9gluenames_9gluenames7rp_rest as rp_rest_stream;
+
     /// Streaming visitor for `Holder`. Select a field by overriding its `WANT_<field>` const AND
     /// its `on_<field>` method (the `holder_stream` macro does both); a field left at the default
     /// `WANT_<field> = false` is skipped on the wire with no dispatch.
@@ -1761,6 +2322,18 @@ pub mod stream {
       const WANT_foo: bool = false;
       #[inline(always)]
       fn on_foo(&mut self, _rp_v: crate::gluenames::stream::gluenames::Foo<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_ser: bool = false;
+      #[inline(always)]
+      fn on_ser(&mut self, _rp_v: crate::gluenames::common::gluenames::rp__ser) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_state: bool = false;
+      #[inline(always)]
+      fn on_state(&mut self, _rp_v: crate::gluenames::common::gluenames::rp__state) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_empty: bool = false;
+      #[inline(always)]
+      fn on_empty(&mut self, _rp_v: crate::gluenames::stream::gluenames::rp_v<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      const WANT_rest: bool = false;
+      #[inline(always)]
+      fn on_rest(&mut self, _rp_v: crate::gluenames::stream::gluenames::rp_rest<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -1860,6 +2433,82 @@ pub mod stream {
             };
           }
         }
+        if rp_rest.first() == ::core::option::Option::Some(&40u8) {
+          rp_rest = &rp_rest[1..];
+          if V::WANT_ser {
+            let mut rp_v = 0u64;
+            rp_rest = match ::rapidproto::wire::read_varint_inline(rp_rest, &mut rp_v) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            match rp_vis.on_ser(crate::gluenames::common::gluenames::rp__ser(rp_v as i32))? {
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Continue => {}
+            }
+          } else {
+            rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 40u32) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+          }
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&48u8) {
+          rp_rest = &rp_rest[1..];
+          if V::WANT_state {
+            let mut rp_v = 0u64;
+            rp_rest = match ::rapidproto::wire::read_varint_inline(rp_rest, &mut rp_v) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            match rp_vis.on_state(crate::gluenames::common::gluenames::rp__state(rp_v as i32))? {
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Continue => {}
+            }
+          } else {
+            rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 48u32) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+          }
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&58u8) {
+          rp_rest = &rp_rest[1..];
+          if V::WANT_empty {
+            let mut rp_p: &[u8] = &[];
+            rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            match rp_vis.on_empty(crate::gluenames::stream::gluenames::rp_v::new(rp_p))? {
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Continue => {}
+            }
+          } else {
+            rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 58u32) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+          }
+        }
+        if rp_rest.first() == ::core::option::Option::Some(&66u8) {
+          rp_rest = &rp_rest[1..];
+          if V::WANT_rest {
+            let mut rp_p: &[u8] = &[];
+            rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+            match rp_vis.on_rest(crate::gluenames::stream::gluenames::rp_rest::new(rp_p))? {
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Continue => {}
+            }
+          } else {
+            rp_rest = match ::rapidproto::wire::skip_field(rp_rest, 66u32) {
+              ::core::result::Result::Ok(r) => r,
+              ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+            };
+          }
+        }
         loop {
           let rp_b = match rp_rest.first() {
             ::core::option::Option::Some(&rp_b) => rp_b,
@@ -1921,8 +2570,52 @@ pub mod stream {
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
+            40u32 if V::WANT_ser => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint_inline(rp_rest, &mut rp_v) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              match rp_vis.on_ser(crate::gluenames::common::gluenames::rp__ser(rp_v as i32))? {
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Continue => {}
+              }
+            }
+            48u32 if V::WANT_state => {
+              let mut rp_v = 0u64;
+              rp_rest = match ::rapidproto::wire::read_varint_inline(rp_rest, &mut rp_v) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              match rp_vis.on_state(crate::gluenames::common::gluenames::rp__state(rp_v as i32))? {
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Continue => {}
+              }
+            }
+            58u32 if V::WANT_empty => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              match rp_vis.on_empty(crate::gluenames::stream::gluenames::rp_v::new(rp_p))? {
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Continue => {}
+              }
+            }
+            66u32 if V::WANT_rest => {
+              let mut rp_p: &[u8] = &[];
+              rp_rest = match ::rapidproto::wire::read_length_delimited(rp_rest, &mut rp_p) {
+                ::core::result::Result::Ok(r) => r,
+                ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
+              };
+              match rp_vis.on_rest(crate::gluenames::stream::gluenames::rp_rest::new(rp_p))? {
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Continue => {}
+              }
+            }
             _ => {
-              if V::WANT_UNKNOWN && !::core::matches!(rp_tagkey >> 3, 1 | 2 | 3 | 4) {
+              if V::WANT_UNKNOWN && !::core::matches!(rp_tagkey >> 3, 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) {
                 let rp_before = rp_rest;
                 rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
                   ::core::result::Result::Ok(r) => r,
@@ -1957,8 +2650,12 @@ pub mod stream {
       (@f [$($a:tt)*] sub => $c:expr, $($r:tt)*) => { $crate::gluenames::stream::gluenames::holder_stream!(@f [$($a)* WANT_sub on_sub: $crate::gluenames::stream::gluenames::rp_rt::Sub<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] sized => $c:expr, $($r:tt)*) => { $crate::gluenames::stream::gluenames::holder_stream!(@f [$($a)* WANT_sized on_sized: $crate::gluenames::stream::gluenames::Sized<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] foo => $c:expr, $($r:tt)*) => { $crate::gluenames::stream::gluenames::holder_stream!(@f [$($a)* WANT_foo on_foo: $crate::gluenames::stream::gluenames::Foo<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] ser => $c:expr, $($r:tt)*) => { $crate::gluenames::stream::gluenames::holder_stream!(@f [$($a)* WANT_ser on_ser: $crate::gluenames::common::gluenames::rp__ser = $c;] $($r)*) };
+      (@f [$($a:tt)*] state => $c:expr, $($r:tt)*) => { $crate::gluenames::stream::gluenames::holder_stream!(@f [$($a)* WANT_state on_state: $crate::gluenames::common::gluenames::rp__state = $c;] $($r)*) };
+      (@f [$($a:tt)*] empty => $c:expr, $($r:tt)*) => { $crate::gluenames::stream::gluenames::holder_stream!(@f [$($a)* WANT_empty on_empty: $crate::gluenames::stream::gluenames::rp_v<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] rest => $c:expr, $($r:tt)*) => { $crate::gluenames::stream::gluenames::holder_stream!(@f [$($a)* WANT_rest on_rest: $crate::gluenames::stream::gluenames::rp_rest<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::gluenames::stream::gluenames::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::gluenames::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
-      (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: nested, sub, sized, foo, unknown")) };
+      (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: nested, sub, sized, foo, ser, state, empty, rest, unknown")) };
       (@f $a:tt) => { $crate::gluenames::rp_rt::stream_visitor!($crate::gluenames::stream::gluenames::HolderVisitor<'rp_a> $a) };
     }
     #[doc(inline)]

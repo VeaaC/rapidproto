@@ -14,6 +14,17 @@
 //! fn main() {}
 //! ```
 //!
+//! A module named like the check does not hide a wrong path:
+//!
+//! ```compile_fail
+//! mod streamonly_flat {
+//!     mod rp_check {
+//!         include!(concat!(env!("CARGO_MANIFEST_DIR"), "/goldens/streamonly_flat.rs"));
+//!     }
+//! }
+//! fn main() {}
+//! ```
+//!
 //! The same file at its own path compiles:
 //!
 //! ```
