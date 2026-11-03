@@ -8,11 +8,12 @@
 //! consumer's build script actually runs.
 //!
 //! The golden set mirrors that C++ case: one plain golden per `tests/corpus/**.proto` (stem =
-//! basename) plus the `tests/bench/bench.proto` and `tests/wire_fixtures/wire_all.proto` goldens,
-//! each with exported stream macros under its stem; the stream-only golden; four field-modes
-//! goldens, whose profiles are mirrored from `test_rustgen.cpp` (the `*_spec()` helpers); and the
-//! bench schema under `tests/bench/records_sparse.modes`, a profile file both sides read. If either
-//! side changes, this test fails loudly with a diff, which is the point.
+//! basename) plus the `tests/bench/bench.proto` and `tests/wire_fixtures/wire_all.proto` goldens;
+//! the stream-only golden; four field-modes goldens, whose profiles are mirrored from
+//! `test_rustgen.cpp` (the `*_spec()` helpers); and the bench schema under
+//! `tests/bench/records_sparse.modes`, a profile file both sides read. Each is generated for its
+//! module in the golden crate, named after its stem. If either side changes, this test fails loudly
+//! with a diff, which is the point.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -44,10 +45,11 @@ fn check(stem: &str, generated: &str, backend: Backend, verified: &mut BTreeSet<
     verified.insert(stem.to_owned());
 }
 
-/// The config every golden starts from: the proto's own directory as the include path, and the
-/// `Serialize` impls.
-fn config_for(proto: &Path, backend: Backend) -> Config {
-    Config::new()
+/// The config every golden starts from: its module in the golden crate (test_rustgen's
+/// `golden_module`), the proto's own directory as the include path, and the `Serialize` impls.
+fn config_for(proto: &Path, stem: &str, backend: Backend) -> Config {
+    let segment = if stem == "pub" { "r#pub" } else { stem };
+    Config::new(format!("crate::{segment}"))
         .include(proto.parent().expect("proto has a parent dir"))
         .serde(true)
         .backend(backend)
@@ -60,27 +62,24 @@ fn gen(config: Config, proto: &Path) -> String {
         .unwrap_or_else(|e| panic!("generate {}: {e}", proto.display()))
 }
 
-/// A plain golden (no field modes), emitted with BOTH models (arena + stream) and its stream macros
-/// exported under `stem`, matching the committed plain goldens (test_rustgen's `both`).
+/// A plain golden (no field modes), emitted with BOTH models (arena + stream), matching the committed
+/// plain goldens (test_rustgen's `both`).
 fn gen_plain(proto: &Path, stem: &str, backend: Backend) -> String {
-    gen(
-        config_for(proto, backend)
-            .stream(true)
-            .export_stream_macros(stem),
-        proto,
-    )
+    gen(config_for(proto, stem, backend).stream(true), proto)
 }
 
 /// A field-modes golden: `modes` is a `.modes` profile. Emitted arena-only (field modes are
 /// arena-storage options, N/A to a streaming visitor), matching test_rustgen's modes goldens.
-fn gen_modes(proto: &Path, modes: &str, backend: Backend) -> String {
-    gen(config_for(proto, backend).field_modes(modes), proto)
+fn gen_modes(proto: &Path, stem: &str, modes: &str, backend: Backend) -> String {
+    gen(config_for(proto, stem, backend).field_modes(modes), proto)
 }
 
-/// A stream-only golden (stream model, no arena, macros not exported): the
-/// `Config::arena(false).stream(true)` path.
-fn gen_stream_only(proto: &Path, backend: Backend) -> String {
-    gen(config_for(proto, backend).arena(false).stream(true), proto)
+/// A stream-only golden (stream model, no arena): the `Config::arena(false).stream(true)` path.
+fn gen_stream_only(proto: &Path, stem: &str, backend: Backend) -> String {
+    gen(
+        config_for(proto, stem, backend).arena(false).stream(true),
+        proto,
+    )
 }
 
 /// Every `*.proto` under `dir`, recursively, sorted (deterministic) — the plain-golden corpus.
@@ -137,7 +136,7 @@ fn goldens_match(backend: Backend) {
         .expect("read records_sparse.modes");
     check(
         "bench_records_sparse",
-        &gen_modes(&bench, &modes, backend),
+        &gen_modes(&bench, "bench_records_sparse", &modes, backend),
         backend,
         &mut verified,
     );
@@ -146,11 +145,13 @@ fn goldens_match(backend: Backend) {
     let generated = gen_plain(&wire_all, "wire_all", backend);
     check("wire_all", &generated, backend, &mut verified);
 
-    // The stream-only golden (no arena, macros not exported), mirroring test_rustgen.cpp's
-    // `streamonly` case.
+    // The stream-only golden (no arena), mirroring test_rustgen.cpp's `streamonly` case.
     let nestenum = root.join("tests/corpus/nsedge/nestenum.proto");
-    let generated = gen_stream_only(&nestenum, backend);
+    let generated = gen_stream_only(&nestenum, "streamonly", backend);
     check("streamonly", &generated, backend, &mut verified);
+    let sibpkg = root.join("tests/corpus/nsedge/sibpkg.proto");
+    let generated = gen_stream_only(&sibpkg, "streamonly_flat", backend);
+    check("streamonly_flat", &generated, backend, &mut verified);
 
     // Field-modes goldens — profiles mirrored from test_rustgen.cpp's *_spec() helpers (no `name`
     // directive, matching their empty profile_name).
@@ -179,7 +180,7 @@ fn goldens_match(backend: Backend) {
             "unknown-fields ms.Outer.Container\n",
         ),
     ] {
-        let generated = gen_modes(&corpus(proto), modes, backend);
+        let generated = gen_modes(&corpus(proto), stem, modes, backend);
         check(stem, &generated, backend, &mut verified);
     }
 

@@ -3,7 +3,9 @@
 //! and `stream::OSMPBF` (the streaming visitor model, used by [`walk_stream`](crate::walk_stream)).
 //! The same workload is run through both -- the point of the example.
 
-mod generated {
+// `pub(crate)`, not private: the stream macros reach the generated code through this path, and
+// `walk_stream` calls them from outside this module.
+pub(crate) mod generated {
     include!(concat!(env!("OUT_DIR"), "/fileformat.rs"));
 }
 

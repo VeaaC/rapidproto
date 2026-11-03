@@ -21,6 +21,7 @@
 #include "rapidproto/resolver.hpp"
 #include "rapidproto/result.hpp"
 #include "rapidproto/rustgen/generator.hpp"  // RustOptions
+#include "rapidproto/rustgen/names.hpp"      // is_raw_ineligible
 #include "rapidproto/rustgen/pipeline.hpp"
 #include "rapidproto/source.hpp"
 
@@ -40,10 +41,10 @@ public:
     explicit FrameReader(std::string_view data) : m_data(data) {}
 
     void expect_magic() {
-        static constexpr std::string_view kMagic = "RPWF4\n";
+        static constexpr std::string_view kMagic = "RPWF5\n";
         // substr clamps to what is present, so a short input simply compares unequal -- no throw.
         if (m_data.substr(m_pos, kMagic.size()) != kMagic) {
-            fail("input is not a RPWF4 frame");
+            fail("input is not a RPWF5 frame");
             return;
         }
         m_pos += kMagic.size();
@@ -108,14 +109,37 @@ private:
     std::string m_error;
 };
 
-// The exported macros' crate-root names embed the prefix, so it must be an identifier.
-bool is_export_prefix(std::string_view prefix) {
+// A path from the crate root: `crate`, then `::`-separated ASCII identifiers, each optionally raw, and
+// none that cannot name a module below the root, raw or not. Generated paths and the macros' crate-root
+// names embed it. A bare keyword gets through (`gen` is an identifier in older editions); rustc reports
+// that one.
+bool is_module_path(std::string_view path) {
+    constexpr std::string_view kRoot = "crate";
+    constexpr std::string_view kSeparator = "::";
+    constexpr std::string_view kRaw = "r#";
+    if (path.substr(0, kRoot.size()) != kRoot) {
+        return false;
+    }
+    path.remove_prefix(kRoot.size());
     const auto alpha = [](char c) {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
     };
     const auto digit = [](char c) { return c >= '0' && c <= '9'; };
-    return !prefix.empty() && alpha(prefix.front()) &&
-           std::all_of(prefix.begin(), prefix.end(), [&](char c) { return alpha(c) || digit(c); });
+    while (!path.empty()) {
+        if (path.substr(0, kSeparator.size()) != kSeparator) {
+            return false;
+        }
+        path.remove_prefix(kSeparator.size());
+        const std::string_view seg = path.substr(0, path.find(kSeparator));
+        path.remove_prefix(seg.size());
+        const std::string_view name =
+            seg.substr(0, kRaw.size()) == kRaw ? seg.substr(kRaw.size()) : seg;
+        if (name.empty() || name == "_" || is_raw_ineligible(name) || !alpha(name.front()) ||
+            !std::all_of(name.begin(), name.end(), [&](char c) { return alpha(c) || digit(c); })) {
+            return false;
+        }
+    }
+    return true;
 }
 
 FrameResult failure(FrameStatus status, std::string message) {
@@ -131,8 +155,7 @@ struct Request {
     bool emit_arena = false;
     bool emit_stream = false;
     bool emit_serde = false;
-    bool export_macros = false;
-    std::string export_prefix;
+    std::string module_path;
 };
 
 // Decode the frame into `request`; the reader's error if it is malformed.
@@ -164,8 +187,7 @@ std::optional<std::string> read_request(std::string_view frame, Request& request
     request.emit_arena = reader.u8() != 0;
     request.emit_stream = reader.u8() != 0;
     request.emit_serde = reader.u8() != 0;
-    request.export_macros = reader.u8() != 0;
-    request.export_prefix = reader.bytes();
+    request.module_path = reader.bytes();
     reader.expect_end();
     if (!reader.ok()) {
         return reader.error();
@@ -181,18 +203,9 @@ std::optional<std::string> check_options(const Request& request) {
     if (!request.emit_arena && !request.emit_stream) {
         return "no decoder model selected: enable arena and/or stream";
     }
-    if (!request.export_macros) {
-        if (!request.export_prefix.empty()) {
-            return "a stream-macro export prefix without exporting";
-        }
-        return std::nullopt;
-    }
-    if (!request.emit_stream) {
-        return "exporting the stream macros needs the stream model: enable stream";
-    }
-    if (!is_export_prefix(request.export_prefix)) {
-        return "stream-macro export prefix '" + request.export_prefix +
-               "' is not an identifier ([A-Za-z_][A-Za-z0-9_]*)";
+    if (!is_module_path(request.module_path)) {
+        return "module path '" + request.module_path +
+               "' must be `crate` or a path from it of ASCII identifiers, such as `crate::proto`";
     }
     return std::nullopt;
 }
@@ -253,7 +266,7 @@ FrameResult generate(const Request& request) {
 
     // Plan layouts and emit the merged module tree through the shared post-analysis pipeline, the
     // exact tail native rustgen runs (see rustgen/pipeline.hpp) -- so the two cannot drift.
-    const RustOptions options{request.emit_arena, request.emit_stream, request.export_prefix,
+    const RustOptions options{request.emit_arena, request.emit_stream, request.module_path,
                               request.emit_serde};
     return FrameResult{FrameStatus::kOk, generate_rust(set, symbols, modes, options)};
 }

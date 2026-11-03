@@ -57,14 +57,11 @@ inline std::string escape_rust_ident(std::string name) {
 }
 
 // A schema-derived name that shares a namespace with the generator's own names never starts with `rp_`
-// followed by anything but `_`: such a name gains a `_` after the prefix (`rp_rt` -> `rp__rt`). That
-// shape belongs to the generator -- at module scope the stream modules' `rp_rt` / `rp_mod_*` /
-// `rp_stream_ty_*` re-exports and `rp_mac_*` macros; in a message type its `rp_presence` /
-// `rp_unknown` storage and `rp_decode_into` worker; and the decode body's locals -- so no schema name,
-// nor anything derived from one (`<T>Visitor`, a dedup `_`, `<snake>_stream`), can equal one of them.
-// (A trailing `_` would not do: glue names end in schema names.) A name already starting `rp__` keeps
-// its spelling; if it meets a reserved `rp_x` -> `rp__x` in one scope, the scope's dedup separates them
-// like any other collision.
+// followed by anything but `_`: such a name gains a `_` after the prefix (`rp_x` -> `rp__x`). That shape
+// belongs to the generator: a message's `rp_presence` / `rp_unknown` storage and `rp_decode_into` worker,
+// which accessors share a namespace with, and a generated body's locals, which an enum newtype's
+// constructor would capture. A name already starting `rp__` keeps its spelling; if it meets a reserved
+// `rp_x` -> `rp__x` in one scope, the scope's dedup separates them like any other collision.
 inline std::string reserve_rp_prefix(std::string name) {
     if (name.rfind("rp_", 0) == 0 && name.rfind("rp__", 0) != 0) {
         name.insert(3, 1, '_');
@@ -74,8 +71,7 @@ inline std::string reserve_rp_prefix(std::string name) {
 
 // Rust's primitive type names. Not keywords -- a struct may be called `u8` -- but a schema TYPE of
 // that name would shadow the primitive for every generated reference in its module (`&'a [u8]`,
-// `u32::MAX`, an `enum i32` newtype wrapping itself), and a consumer's glob of a stream module would
-// import it over the primitive a `*_stream!` row names at the call site.
+// `u32::MAX`, an `enum i32` newtype wrapping itself).
 inline bool is_rust_primitive(std::string_view s) {
     static const std::unordered_set<std::string_view> kPrimitives = {
         "bool", "char", "str", "i8",  "i16",  "i32",   "i64", "i128", "isize",
@@ -83,15 +79,15 @@ inline bool is_rust_primitive(std::string_view s) {
     return kPrimitives.count(s) != 0;
 }
 
-// A schema-derived TYPE name (a message struct / stream handle, an enum newtype): keyword-escaped, a
-// primitive name gaining a trailing `_` (no generated item is ever named like a primitive), and
-// `rp_`-reserved. Not yet deduped.
+// A schema-derived TYPE name (a message struct / stream handle, an enum newtype): keyword-escaped, with
+// a primitive name gaining a trailing `_` (no generated item is ever named like a primitive). Not yet
+// deduped.
 inline std::string type_ident(std::string_view raw) {
     std::string name = escape_rust_ident(std::string(raw));
     if (is_rust_primitive(name)) {
         name += '_';
     }
-    return reserve_rp_prefix(std::move(name));
+    return name;
 }
 
 // The identifier an escaped name denotes: the raw identifier `r#type` IS `type`. Dedup sets and

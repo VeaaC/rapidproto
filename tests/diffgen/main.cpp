@@ -82,6 +82,9 @@ std::string json_escaped(std::string_view text) {
     return out;
 }
 
+// Where tests/differential.py includes the generated Rust.
+constexpr const char* kRustModulePath = "crate::schema";
+
 // The schema's file stem ("dir/proto3.proto" -> "proto3"), which names its generated headers.
 std::string stem_of(const std::string& filename) {
     std::string stem = filename;
@@ -244,15 +247,15 @@ int main(int argc, char** argv) {
         }
     }
 
-    // The Rust type path for each message (the Rust arm's dispatch: FQN -> `arena::pkg::Type`), from
-    // rustgen's own naming. Covers every file in the set, so an imported message resolves too.
+    // The Rust type path for each message (the Rust arm's dispatch: FQN -> its path), from rustgen's
+    // own naming. Covers every file in the set, so an imported message resolves too.
     std::vector<const rapidproto::FileNode*> rust_files;
     rust_files.reserve(set.files.size());
     for (const rapidproto::FileNode& each : set.files) {
         rust_files.push_back(&each);
     }
     const std::vector<std::pair<std::string, std::string>> rust_paths =
-        rapidproto::rustgen::arena_type_paths(rust_files);
+        rapidproto::rustgen::arena_type_paths(rust_files, kRustModulePath);
 
     // The dumper prints the C++ enumerator name, which codegen::enum_value_names computes -- the
     // same call the enum and the dumper's own table make, so this table is what a dump contains.
@@ -311,6 +314,7 @@ int main(int argc, char** argv) {
     if (!rust_out_path.empty()) {
         rapidproto::rustgen::RustOptions rust_options;
         rust_options.serde = true;
+        rust_options.module_path = kRustModulePath;
         const std::string rust =
             rapidproto::rustgen::generate_rust(set, analyzed->second, {}, rust_options);
         std::ofstream rust_out(rust_out_path, std::ios::binary);

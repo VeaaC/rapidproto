@@ -1299,6 +1299,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustgen-golden-macro-check"
+version = "0.0.0"
+dependencies = [
+ "rustgen-golden",
+]
+
+[[package]]
 name = "rustix"
 version = "0.38.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"

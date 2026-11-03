@@ -19,6 +19,13 @@
 //   drop .bench.Record.s2
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+#[doc(hidden)]
+mod rp_check {
+  const C: () = ();
+  const _: () = crate::bench_records_sparse::rp_check::C; // This path must be where this file is included.
+}
+
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod bench {
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
@@ -156,10 +163,10 @@ pub mod arena {
       email: ::rapidproto::PackedStr<'a>,
       score: f64,
       created: u64,
-      address: ::core::option::Option<&'a Address<'a>>,
+      address: ::core::option::Option<&'a crate::bench_records_sparse::arena::bench::Address<'a>>,
       tags: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
       history: ::rapidproto::PackedSlice<'a, i32>,
-      attributes: ::rapidproto::PackedSlice<'a, Attribute<'a>>,
+      attributes: ::rapidproto::PackedSlice<'a, crate::bench_records_sparse::arena::bench::Attribute<'a>>,
       rp_presence: u8,
       counters: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32>,
     }
@@ -183,7 +190,7 @@ pub mod arena {
       pub fn created(&self) -> u64 {
         self.created
       }
-      pub fn address(&self) -> ::core::option::Option<&'a Address<'a>> {
+      pub fn address(&self) -> ::core::option::Option<&'a crate::bench_records_sparse::arena::bench::Address<'a>> {
         self.address
       }
       pub fn tags(&self) -> &'a [::rapidproto::PackedStr<'a>] {
@@ -192,7 +199,7 @@ pub mod arena {
       pub fn history(&self) -> &'a [i32] {
         self.history.as_slice()
       }
-      pub fn attributes(&self) -> &'a [Attribute<'a>] {
+      pub fn attributes(&self) -> &'a [crate::bench_records_sparse::arena::bench::Attribute<'a>] {
         self.attributes.as_slice()
       }
       pub fn counters(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32> {
@@ -280,7 +287,7 @@ pub mod arena {
     pub struct Dataset<'a> {
       name: ::rapidproto::PackedStr<'a>,
       version: i64,
-      people: ::rapidproto::PackedSlice<'a, Person<'a>>,
+      people: ::rapidproto::PackedSlice<'a, crate::bench_records_sparse::arena::bench::Person<'a>>,
     }
 
     impl<'a> Dataset<'a> {
@@ -290,7 +297,7 @@ pub mod arena {
       pub fn version(&self) -> i64 {
         self.version
       }
-      pub fn people(&self) -> &'a [Person<'a>] {
+      pub fn people(&self) -> &'a [crate::bench_records_sparse::arena::bench::Person<'a>] {
         self.people.as_slice()
       }
     }
@@ -404,11 +411,11 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Wide);
 
     pub struct WideSet<'a> {
-      items: ::rapidproto::PackedSlice<'a, Wide<'a>>,
+      items: ::rapidproto::PackedSlice<'a, crate::bench_records_sparse::arena::bench::Wide<'a>>,
     }
 
     impl<'a> WideSet<'a> {
-      pub fn items(&self) -> &'a [Wide<'a>] {
+      pub fn items(&self) -> &'a [crate::bench_records_sparse::arena::bench::Wide<'a>] {
         self.items.as_slice()
       }
     }
@@ -435,7 +442,7 @@ pub mod arena {
       numbers: ::rapidproto::PackedSlice<'a, i64>,
       reals: ::rapidproto::PackedSlice<'a, f64>,
       zz: ::rapidproto::PackedSlice<'a, i64>,
-      kinds: ::rapidproto::PackedSlice<'a, super::super::common::bench::Kind>,
+      kinds: ::rapidproto::PackedSlice<'a, crate::bench_records_sparse::common::bench::Kind>,
     }
 
     impl<'a> Big<'a> {
@@ -448,7 +455,7 @@ pub mod arena {
       pub fn zz(&self) -> &'a [i64] {
         self.zz.as_slice()
       }
-      pub fn kinds(&self) -> &'a [super::super::common::bench::Kind] {
+      pub fn kinds(&self) -> &'a [crate::bench_records_sparse::common::bench::Kind] {
         self.kinds.as_slice()
       }
     }
@@ -490,11 +497,11 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Big);
 
     pub struct BigSet<'a> {
-      items: ::rapidproto::PackedSlice<'a, Big<'a>>,
+      items: ::rapidproto::PackedSlice<'a, crate::bench_records_sparse::arena::bench::Big<'a>>,
     }
 
     impl<'a> BigSet<'a> {
-      pub fn items(&self) -> &'a [Big<'a>] {
+      pub fn items(&self) -> &'a [crate::bench_records_sparse::arena::bench::Big<'a>] {
         self.items.as_slice()
       }
     }
@@ -569,8 +576,8 @@ pub mod arena {
 
     pub struct Particle<'a> {
       id: i64,
-      position: ::core::option::Option<&'a Vec3<'a>>,
-      velocity: ::core::option::Option<&'a Vec3<'a>>,
+      position: ::core::option::Option<&'a crate::bench_records_sparse::arena::bench::Vec3<'a>>,
+      velocity: ::core::option::Option<&'a crate::bench_records_sparse::arena::bench::Vec3<'a>>,
       color: u32,
     }
 
@@ -578,10 +585,10 @@ pub mod arena {
       pub fn id(&self) -> i64 {
         self.id
       }
-      pub fn position(&self) -> ::core::option::Option<&'a Vec3<'a>> {
+      pub fn position(&self) -> ::core::option::Option<&'a crate::bench_records_sparse::arena::bench::Vec3<'a>> {
         self.position
       }
-      pub fn velocity(&self) -> ::core::option::Option<&'a Vec3<'a>> {
+      pub fn velocity(&self) -> ::core::option::Option<&'a crate::bench_records_sparse::arena::bench::Vec3<'a>> {
         self.velocity
       }
       pub fn color(&self) -> u32 {
@@ -624,11 +631,11 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Particle);
 
     pub struct ParticleSet<'a> {
-      items: ::rapidproto::PackedSlice<'a, Particle<'a>>,
+      items: ::rapidproto::PackedSlice<'a, crate::bench_records_sparse::arena::bench::Particle<'a>>,
     }
 
     impl<'a> ParticleSet<'a> {
-      pub fn items(&self) -> &'a [Particle<'a>] {
+      pub fn items(&self) -> &'a [crate::bench_records_sparse::arena::bench::Particle<'a>] {
         self.items.as_slice()
       }
     }
@@ -782,11 +789,11 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Record);
 
     pub struct RecordSet<'a> {
-      records: ::rapidproto::PackedSlice<'a, Record<'a>>,
+      records: ::rapidproto::PackedSlice<'a, crate::bench_records_sparse::arena::bench::Record<'a>>,
     }
 
     impl<'a> RecordSet<'a> {
-      pub fn records(&self) -> &'a [Record<'a>] {
+      pub fn records(&self) -> &'a [crate::bench_records_sparse::arena::bench::Record<'a>] {
         self.records.as_slice()
       }
     }
@@ -820,7 +827,7 @@ pub mod arena {
 
       #[inline(always)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Address<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Address<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -923,7 +930,7 @@ pub mod arena {
 
       #[inline(always)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Attribute<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Attribute<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1007,7 +1014,7 @@ pub mod arena {
 
       #[inline(never)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Person<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Person<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1017,7 +1024,7 @@ pub mod arena {
         let mut rp_field_3: &'a [u8] = &[];
         let mut rp_field_5: f64 = 0.0;
         let mut rp_field_6: u64 = 0;
-        let mut rp_field_7: ::core::option::Option<&'a Address<'a>> = ::core::option::Option::None;
+        let mut rp_field_7: ::core::option::Option<&'a crate::bench_records_sparse::arena::bench::Address<'a>> = ::core::option::Option::None;
         let mut rp_acc_8 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_acc_9 = ::rapidproto::DecodeVec::new(rp_arena);
         let mut rp_acc_10 = ::rapidproto::DecodeVec::new(rp_arena);
@@ -1091,7 +1098,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_7 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Address::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+          rp_field_7 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Address::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
         }
         while rp_rest.first() == ::core::option::Option::Some(&66u8) {
           rp_rest = &rp_rest[1..];
@@ -1127,7 +1134,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_10.emplace(|rp_out| Attribute::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_acc_10.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Attribute::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
         }
         while rp_rest.first() == ::core::option::Option::Some(&90u8) {
           rp_rest = &rp_rest[1..];
@@ -1261,7 +1268,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_7 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Address::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              rp_field_7 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Address::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             66u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1293,7 +1300,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_10.emplace(|rp_out| Attribute::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_acc_10.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Attribute::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
             }
             90u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1383,7 +1390,7 @@ pub mod arena {
 
       #[inline(always)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Dataset<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Dataset<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1416,7 +1423,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_3.emplace(|rp_out| Person::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_acc_3.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Person::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -1457,7 +1464,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_3.emplace(|rp_out| Person::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_acc_3.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Person::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1486,7 +1493,7 @@ pub mod arena {
 
       #[inline(always)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Wide<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Wide<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1714,7 +1721,7 @@ pub mod arena {
 
       #[inline(never)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, WideSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, WideSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1727,7 +1734,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_1.emplace(|rp_out| Wide::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_acc_1.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Wide::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -1752,7 +1759,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_1.emplace(|rp_out| Wide::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_acc_1.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Wide::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1779,7 +1786,7 @@ pub mod arena {
 
       #[inline(always)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Big<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Big<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -1861,7 +1868,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_4.push(super::super::common::bench::Kind(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_4.push(crate::bench_records_sparse::common::bench::Kind(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         if rp_rest.first() == ::core::option::Option::Some(&34u8) {
           rp_rest = &rp_rest[1..];
@@ -1870,7 +1877,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_4.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| super::super::common::bench::Kind(rp_v as i32))?;
+          rp_acc_4.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| crate::bench_records_sparse::common::bench::Kind(rp_v as i32))?;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -1955,7 +1962,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_4.push(super::super::common::bench::Kind(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_4.push(crate::bench_records_sparse::common::bench::Kind(rp_v as i32)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             34u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1963,7 +1970,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_4.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| super::super::common::bench::Kind(rp_v as i32))?;
+              rp_acc_4.fill_packed_varints(rp_p, rp_body.len() - rp_rest.len() - rp_p.len(), |rp_v| crate::bench_records_sparse::common::bench::Kind(rp_v as i32))?;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -1993,7 +2000,7 @@ pub mod arena {
 
       #[inline(never)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, BigSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, BigSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2006,7 +2013,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_1.emplace(|rp_out| Big::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_acc_1.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Big::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -2031,7 +2038,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_1.emplace(|rp_out| Big::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_acc_1.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Big::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -2058,7 +2065,7 @@ pub mod arena {
 
       #[inline(always)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Vec3<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Vec3<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2162,13 +2169,13 @@ pub mod arena {
 
       #[inline(never)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Particle<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Particle<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
         let mut rp_field_1: i64 = 0;
-        let mut rp_field_2: ::core::option::Option<&'a Vec3<'a>> = ::core::option::Option::None;
-        let mut rp_field_3: ::core::option::Option<&'a Vec3<'a>> = ::core::option::Option::None;
+        let mut rp_field_2: ::core::option::Option<&'a crate::bench_records_sparse::arena::bench::Vec3<'a>> = ::core::option::Option::None;
+        let mut rp_field_3: ::core::option::Option<&'a crate::bench_records_sparse::arena::bench::Vec3<'a>> = ::core::option::Option::None;
         let mut rp_field_4: u32 = 0;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
@@ -2190,7 +2197,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Vec3::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+          rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Vec3::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
         }
         if rp_rest.first() == ::core::option::Option::Some(&26u8) {
           rp_rest = &rp_rest[1..];
@@ -2202,7 +2209,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_3 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Vec3::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+          rp_field_3 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Vec3::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
         }
         if rp_rest.first() == ::core::option::Option::Some(&37u8) {
           rp_rest = &rp_rest[1..];
@@ -2247,7 +2254,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Vec3::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              rp_field_2 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Vec3::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             26u32 => {
               if rp_field_3.is_some() {
@@ -2258,7 +2265,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_3 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| Vec3::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
+              rp_field_3 = ::core::option::Option::Some(rp_arena.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Vec3::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?);
             }
             37u32 => {
               let mut rp_v = 0u32;
@@ -2296,7 +2303,7 @@ pub mod arena {
 
       #[inline(always)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, ParticleSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, ParticleSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2309,7 +2316,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_1.emplace(|rp_out| Particle::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_acc_1.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Particle::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -2334,7 +2341,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_1.emplace(|rp_out| Particle::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_acc_1.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Particle::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -2361,7 +2368,7 @@ pub mod arena {
 
       #[inline(always)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Sample<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Sample<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2530,7 +2537,7 @@ pub mod arena {
 
       #[inline(always)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Record<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Record<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2753,7 +2760,7 @@ pub mod arena {
 
       #[inline(always)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, RecordSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::bench_records_sparse::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, RecordSet<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
@@ -2766,7 +2773,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_1.emplace(|rp_out| Record::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_acc_1.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Record::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -2791,7 +2798,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_1.emplace(|rp_out| Record::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_acc_1.emplace(|rp_out| crate::bench_records_sparse::arena::bench::Record::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {

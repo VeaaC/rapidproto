@@ -3,6 +3,13 @@
 //   unknown .ms.Outer.Container
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+#[doc(hidden)]
+mod rp_check {
+  const C: () = ();
+  const _: () = crate::messageset_unknown::rp_check::C; // This path must be where this file is included.
+}
+
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod ms {
   }
@@ -15,7 +22,7 @@ pub mod arena {
     #[derive(Default)]
     pub struct Outer<'a> {
       ordinary: i32,
-      container: outer::Container<'a>,
+      container: crate::messageset_unknown::arena::ms::outer::Container<'a>,
       rp_presence: u8,
     }
 
@@ -23,7 +30,7 @@ pub mod arena {
       pub fn ordinary(&self) -> ::core::option::Option<i32> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.ordinary)
       }
-      pub fn container(&self) -> ::core::option::Option<&outer::Container<'a>> {
+      pub fn container(&self) -> ::core::option::Option<&crate::messageset_unknown::arena::ms::outer::Container<'a>> {
         ((self.rp_presence & (1 << 1)) != 0).then_some(&self.container)
       }
     }
@@ -86,7 +93,7 @@ pub mod arena {
 
         #[inline(always)]
         #[doc(hidden)]
-        pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Container<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+        pub(in crate::messageset_unknown::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Container<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
           if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
           }
@@ -165,13 +172,13 @@ pub mod arena {
 
       #[inline(always)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Outer<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::messageset_unknown::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Outer<'a>>, rp_body: &'a [u8], rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }
         let mut rp_presence: u8 = 0;
         let mut rp_field_1: i32 = 0;
-        let mut rp_field_2: outer::Container<'a> = ::core::default::Default::default();
+        let mut rp_field_2: crate::messageset_unknown::arena::ms::outer::Container<'a> = ::core::default::Default::default();
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -193,7 +200,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_field_2 = ::rapidproto::decode_value(|rp_out| outer::Container::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+          rp_field_2 = ::rapidproto::decode_value(|rp_out| crate::messageset_unknown::arena::ms::outer::Container::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
           rp_presence |= 1 << 1;
         }
         loop {
@@ -231,7 +238,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_field_2 = ::rapidproto::decode_value(|rp_out| outer::Container::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
+              rp_field_2 = ::rapidproto::decode_value(|rp_out| crate::messageset_unknown::arena::ms::outer::Container::rp_decode_into(rp_out, rp_p, rp_arena, rp_depth + 1))?;
               rp_presence |= 1 << 1;
             }
             _ => {
@@ -261,7 +268,7 @@ pub mod arena {
 
       #[inline(always)]
       #[doc(hidden)]
-      pub(crate) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Ext<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
+      pub(in crate::messageset_unknown::arena) fn rp_decode_into<'id>(rp_out: ::rapidproto::Slot<'id, Ext<'a>>, rp_body: &'a [u8], _rp_arena: &'a ::rapidproto::Arena<'a>, rp_depth: u32) -> ::core::result::Result<::rapidproto::Init<'id>, ::rapidproto::DecodeError> {
         if rp_depth > ::rapidproto::MAX_DECODE_DEPTH {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::DepthLimitExceeded, 0));
         }

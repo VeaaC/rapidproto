@@ -113,29 +113,30 @@ fn a_missing_import_is_reported_not_panicked() {
     }
 }
 
-/// The generator is the one place the options are validated; an invalid combination is a clean
-/// bad-frame error (exit 2) naming the option.
+/// The generator is the one place the options are validated; an invalid one is a clean bad-frame
+/// error (exit 2) naming the option.
 #[test]
-fn invalid_stream_macro_exports_are_rejected() {
-    let request = |stream: bool, prefix: &str| Request {
-        entries: vec!["message.proto".to_owned()],
-        sources: vec![proto("message.proto"), proto("types.proto")],
-        stream,
-        export_stream_macros: Some(prefix.to_owned()),
-        ..Request::default()
-    };
-    for (stream, prefix, expected) in [
-        (false, "demo", "needs the stream model"),
-        (true, "", "is not an identifier"),
-        (true, "1demo", "is not an identifier"),
-        (true, "de-mo", "is not an identifier"),
+fn an_invalid_module_path_is_rejected() {
+    for module_path in [
+        "",
+        "demo",
+        "crate::",
+        "crate::1demo",
+        "crate::de-mo",
+        "crate::self",
     ] {
-        for result in generate_each(&request(stream, prefix)) {
-            let error = result.expect_err("invalid export should fail");
-            assert_eq!(error.code, 2, "bad-frame exit code for {prefix:?}");
+        let request = Request {
+            entries: vec!["message.proto".to_owned()],
+            sources: vec![proto("message.proto"), proto("types.proto")],
+            module_path: module_path.to_owned(),
+            ..Request::default()
+        };
+        for result in generate_each(&request) {
+            let error = result.expect_err("invalid module path should fail");
+            assert_eq!(error.code, 2, "bad-frame exit code for {module_path:?}");
             assert!(
-                error.message.contains(expected),
-                "error for {prefix:?} should say {expected:?}: {}",
+                error.message.contains("must be `crate` or a path from it"),
+                "error for {module_path:?}: {}",
                 error.message
             );
         }

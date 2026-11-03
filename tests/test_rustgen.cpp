@@ -181,10 +181,17 @@ std::string gen_corpus(std::string_view rel, const rustgen::RustOptions& options
     return gen_file(std::string(RAPIDPROTO_CORPUS_DIR) + "/" + std::string(rel), options);
 }
 
-// Generate a corpus schema under a resolved field-modes profile (drop/raw/unknown). Modes are a
-// generation option over the SAME global schema, so this reuses the corpus rather than a
-// modes-specific proto.
-std::string gen_corpus_modes(std::string_view rel, const arenagen::FieldModesSpec& spec) {
+// Where a golden is included: its module in the golden crate's lib.rs, named after its stem (Rust-
+// escaped, so a keyword stem like `pub` becomes `r#pub`).
+std::string golden_module(const std::string& stem) {
+    return "crate::" + rustgen::escape_rust_ident(stem);
+}
+
+// Generate a corpus schema under a resolved field-modes profile (drop/raw/unknown), for the golden
+// `stem`. Modes are a generation option over the SAME global schema, so this reuses the corpus rather
+// than a modes-specific proto.
+std::string gen_corpus_modes(std::string_view rel, const arenagen::FieldModesSpec& spec,
+                             std::string_view stem) {
     const std::string path = std::string(RAPIDPROTO_CORPUS_DIR) + "/" + std::string(rel);
     cli::Options opts;
     opts.config.include_paths = {std::filesystem::path(path).parent_path().string()};
@@ -198,7 +205,7 @@ std::string gen_corpus_modes(std::string_view rel, const arenagen::FieldModesSpe
     return rustgen::generate_rust(
         analyzed_set.first, analyzed_set.second, modes.value(),
         rustgen::RustOptions{/*arena=*/true, /*stream=*/false,
-                             /*stream_export_prefix=*/{}, /*serde=*/true});
+                             /*module_path=*/golden_module(std::string(stem)), /*serde=*/true});
 }
 
 // The field-modes golden: proto3 under a drop/raw/unknown profile, compiled by the golden crate and
@@ -410,8 +417,8 @@ TEST_CASE("rustgen arena: message struct with scalar/string/bytes/enum accessors
     CHECK(has(out, "pub fn active(&self) -> bool {"));
     CHECK(has(out,
               "pub fn maybe(&self) -> ::core::option::Option<i32> {"));  // `optional` -> explicit
-    // enum-typed field references the common tree (super x (1 arena + 2 package) = 3).
-    CHECK(has(out, "pub fn color(&self) -> super::super::super::common::m::n::Color {"));
+    // enum-typed field references the common tree.
+    CHECK(has(out, "pub fn color(&self) -> crate::common::m::n::Color {"));
     // repeated is a later slice -> noted, not emitted as an accessor.
     CHECK(has(out, "pub fn nums(&self) -> &'a [i32] {"));  // repeated scalar -> borrowed slice
 
@@ -471,7 +478,7 @@ TEST_CASE("rustgen arena: decode-body names stay apart from field names") {
     CHECK(has(out, "pub fn rp__out(&self) -> i32 {"));
     CHECK(has(out, "rp__out: rp_field_2,"));
     CHECK(has(out, "pub fn decode_into(&self) -> i32 {"));  // the worker is `rp_decode_into`
-    CHECK(has(out, "pub(crate) fn rp_decode_into<'id>("));
+    CHECK(has(out, "pub(in crate::arena) fn rp_decode_into<'id>("));
 }
 
 TEST_CASE("rustgen: a message named like a primitive gains a `_`") {
@@ -508,15 +515,15 @@ TEST_CASE("rustgen stream: a visitor trait yields to a sibling item of its name"
     CHECK(has(out, "pub struct NodeVisitor<'a> {"));
     CHECK(has(out, "pub trait NodeVisitor_<'a> {"));
     CHECK(has(out, "pub fn decode<V: NodeVisitor_<'a>>("));
-    CHECK(has(out, "stream_visitor!(rp_mod_1p4Node NodeVisitor_ $a)"));
+    CHECK(has(out, "stream_visitor!($crate::stream::p::NodeVisitor_<'rp_a> $a)"));
     CHECK(has(out, "pub trait NodeVisitorVisitor<'a> {"));
 }
 
-TEST_CASE("rustgen stream: a child handle path in the decode driver is anchored at `self::`") {
+TEST_CASE("rustgen stream: a child handle path in the decode driver is absolute") {
     // The driver's type parameter `V` would take over a relative path starting at a message `V`.
     const std::string out = gen_stream(R"(syntax = "proto3"; package p;
         message V { V child = 1; })");
-    CHECK(has(out, "rp_vis.on_child(self::V::new(rp_p))"));
+    CHECK(has(out, "rp_vis.on_child(crate::stream::p::V::new(rp_p))"));
 }
 
 TEST_CASE("rustgen arena: repeated fields become borrowed slices") {
@@ -532,9 +539,10 @@ TEST_CASE("rustgen arena: repeated fields become borrowed slices") {
     CHECK(has(out, "pub fn nums(&self) -> &'a [i32] {"));
     CHECK(has(out, "pub fn names(&self) -> &'a [::rapidproto::PackedStr<'a>] {"));
     CHECK(has(out, "pub fn blobs(&self) -> &'a [::rapidproto::PackedSlice<'a, u8>] {"));
-    CHECK(has(out, "pub fn palette(&self) -> &'a [super::super::common::p::Color] {"));
-    CHECK(has(out,
-              "pub fn children(&self) -> &'a [M<'a>] {"));  // repeated message -> slice of values
+    CHECK(has(out, "pub fn palette(&self) -> &'a [crate::common::p::Color] {"));
+    CHECK(has(
+        out,
+        "pub fn children(&self) -> &'a [crate::arena::p::M<'a>] {"));  // repeated message -> slice of values
 }
 
 TEST_CASE("rustgen arena: maps become MapView accessors") {
@@ -552,13 +560,13 @@ TEST_CASE("rustgen arena: maps become MapView accessors") {
               "i32> {"));
     CHECK(has(out,
               "pub fn colors(&self) -> ::rapidproto::MapView<'a, i32, "
-              "super::super::common::p::Color> {"));
+              "crate::common::p::Color> {"));
     CHECK(has(out,
               "pub fn nested(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, "
-              "Inner<'a>> {"));  // message-valued map -> inline value
+              "crate::arena::p::Inner<'a>> {"));  // message-valued map -> inline value
     CHECK(has(
         out,
-        "pub fn pick(&self) -> ::core::option::Option<&m::Pick<'a>> {"));  // oneof accessor (borrowed)
+        "pub fn pick(&self) -> ::core::option::Option<&crate::arena::p::m::Pick<'a>> {"));  // oneof accessor (borrowed)
     CHECK(has(out, "pub mod m {"));          // M's submodule holds the enum
     CHECK(has(out, "pub enum Pick<'a> {"));  // borrows (string) -> <'a>
     CHECK(has(out, "A(i32),"));
@@ -581,15 +589,19 @@ TEST_CASE("rustgen arena: nested messages/enums and message-typed fields") {
 
     // Outer's accessors: nested message inner (singular -> Option<&>), repeated -> slice, nested enum.
     CHECK(has(out, "pub struct Outer<'a> {"));
-    CHECK(has(out, "pub fn inner(&self) -> ::core::option::Option<&'a outer::Inner<'a>> {"));
-    CHECK(has(out, "pub fn many(&self) -> &'a [outer::Inner<'a>] {"));
-    CHECK(has(out, "pub fn kind(&self) -> super::super::common::p::outer::Kind {"));
-    // Inner lives in a snake-case submodule; its back-reference to Outer climbs `super`.
+    CHECK(has(
+        out,
+        "pub fn inner(&self) -> ::core::option::Option<&'a crate::arena::p::outer::Inner<'a>> {"));
+    CHECK(has(out, "pub fn many(&self) -> &'a [crate::arena::p::outer::Inner<'a>] {"));
+    CHECK(has(out, "pub fn kind(&self) -> crate::common::p::outer::Kind {"));
+    // Inner lives in a snake-case submodule; it refers back to Outer.
     CHECK(has(out, "pub mod outer {"));
     CHECK(has(out, "pub struct Inner<'a> {"));
-    CHECK(has(out, "pub fn parent(&self) -> ::core::option::Option<&'a super::Outer<'a>> {"));
-    // A top-level sibling reference is bare.
-    CHECK(has(out, "pub fn outer(&self) -> ::core::option::Option<&'a Outer<'a>> {"));
+    CHECK(has(out,
+              "pub fn parent(&self) -> ::core::option::Option<&'a crate::arena::p::Outer<'a>> {"));
+    // A top-level sibling reference.
+    CHECK(has(out,
+              "pub fn outer(&self) -> ::core::option::Option<&'a crate::arena::p::Outer<'a>> {"));
 }
 
 TEST_CASE("rustgen common: nested enums live in a per-message submodule") {
@@ -698,15 +710,15 @@ TEST_CASE("rustgen oneof: native enum in the message submodule, variants over al
           }
         })");
     // Accessor on M returns a borrow into M's own submodule; enum borrows -> carries <'a>.
-    CHECK(has(out, "pub fn choice(&self) -> ::core::option::Option<&m::Choice<'a>> {"));
+    CHECK(has(out,
+              "pub fn choice(&self) -> ::core::option::Option<&crate::arena::p::m::Choice<'a>> {"));
     CHECK(has(out, "pub mod m {"));
     CHECK(has(out, "pub enum Choice<'a> {"));
     CHECK(has(out, "Num(i32),"));
     CHECK(has(out, "Text(::rapidproto::PackedStr<'a>),"));
     CHECK(has(out, "Blob(::rapidproto::PackedSlice<'a, u8>),"));
-    CHECK(
-        has(out, "Col(super::super::super::common::p::Color),"));  // enum variant -> common newtype
-    CHECK(has(out, "Sub(&'a super::Sub<'a>),"));  // message variant -> borrowed arena ref
+    CHECK(has(out, "Col(crate::common::p::Color),"));       // enum variant -> common newtype
+    CHECK(has(out, "Sub(&'a crate::arena::p::Sub<'a>),"));  // message variant -> borrowed arena ref
 }
 
 TEST_CASE("rustgen oneof: a oneof that borrows nothing carries no lifetime") {
@@ -715,9 +727,9 @@ TEST_CASE("rustgen oneof: a oneof that borrows nothing carries no lifetime") {
         message M { oneof pick { int32 n = 1; E e = 2; } })");
     CHECK(has(out, "pub enum Pick {"));  // only scalar + enum (Copy) variants -> no <'a>
     CHECK(!has(out, "pub enum Pick<'a>"));
-    CHECK(has(out, "pub fn pick(&self) -> ::core::option::Option<&m::Pick> {"));
+    CHECK(has(out, "pub fn pick(&self) -> ::core::option::Option<&crate::arena::p::m::Pick> {"));
     CHECK(has(out, "N(i32),"));
-    CHECK(has(out, "E(super::super::super::common::p::E),"));
+    CHECK(has(out, "E(crate::common::p::E),"));
 }
 
 TEST_CASE("rustgen oneof: a message with only a oneof still gets a submodule") {
@@ -737,8 +749,8 @@ TEST_CASE("rustgen oneof: multiple oneofs become separate enums") {
         })");
     CHECK(has(out, "pub enum A {"));      // borrows nothing
     CHECK(has(out, "pub enum B<'a> {"));  // borrows (string)
-    CHECK(has(out, "pub fn a(&self) -> ::core::option::Option<&m::A> {"));
-    CHECK(has(out, "pub fn b(&self) -> ::core::option::Option<&m::B<'a>> {"));
+    CHECK(has(out, "pub fn a(&self) -> ::core::option::Option<&crate::arena::p::m::A> {"));
+    CHECK(has(out, "pub fn b(&self) -> ::core::option::Option<&crate::arena::p::m::B<'a>> {"));
 }
 
 TEST_CASE(
@@ -750,7 +762,7 @@ TEST_CASE(
         })");
     CHECK(has(
         out,
-        "pub fn decode_(&self) -> ::core::option::Option<&m::Decode> {"));  // vs the decode() method
+        "pub fn decode_(&self) -> ::core::option::Option<&crate::arena::p::m::Decode> {"));  // vs the decode() method
     CHECK(has(out, "pub fn decode(input: &'a [u8],"));  // the real decode still present
     CHECK(has(out, "Foo(i32),"));                       // foo
     CHECK(has(out, "Foo_(i32),"));                      // foo_ -> same PascalCase -> bumped
@@ -790,11 +802,11 @@ TEST_CASE("rustgen decode: a required small fixed-size message inlines with no p
     // The never-emit-`1 << -1` invariant, stated directly.
     CHECK_FALSE(has(out, "1 << -1"));
     // Inlined by value (bare `T`, not a pointer), with a derived zero for the absent/default local.
-    CHECK(has(out, "s: Small<'a>,"));
+    CHECK(has(out, "s: crate::arena::p::Small<'a>,"));
     CHECK(has(out, "#[derive(Default)]"));
     // Required inlined message: always present on a successful decode -> getter returns `Some(&..)`
     // unconditionally (no bit test), matching how a required scalar reads its bare value.
-    CHECK(has(out, "pub fn s(&self) -> ::core::option::Option<&Small<'a>> {"));
+    CHECK(has(out, "pub fn s(&self) -> ::core::option::Option<&crate::arena::p::Small<'a>> {"));
     CHECK(has(out, "::core::option::Option::Some(&self.s)"));
     // Decoded in place; duplicate rejected via the required seen-flag (not a mask bit); then validated.
     CHECK(has(out, "::rapidproto::decode_value(|rp_out|"));
@@ -824,9 +836,7 @@ TEST_CASE(
         has(out, "let mut rp_presence: u8 = 0;"));  // packed presence mask for the explicit fields
     CHECK(has(out, "let mut rp_field_2: i32 = 0;"));  // bare storage; default 42 NOT materialized
     CHECK(has(out, "let mut rp_field_3: &'a [u8] = &[];"));  // a string local holds its slice
-    CHECK(has(
-        out,
-        "let mut rp_field_4: super::super::common::p::Color = super::super::common::p::Color(0);"));
+    CHECK(has(out, "let mut rp_field_4: crate::common::p::Color = crate::common::p::Color(0);"));
     // The default-literal machinery is gone: no default values appear anywhere.
     CHECK_FALSE(has(out, "= 42"));
     CHECK_FALSE(has(out, "Color::RED"));
@@ -911,15 +921,15 @@ TEST_CASE("rustgen modes: a raw group field stores its scanned body undecoded") 
 
 TEST_CASE("rustgen imports: a cross-file closure merges into one tree with resolving refs") {
     // imports/main.proto (package main) imports dep.proto (package dep) and references dep.Dep. The
-    // whole closure emits as ONE module tree; the cross-package reference climbs to the arena root
-    // and descends `dep`, and dep's enum resolves into the shared common tree.
+    // whole closure emits as ONE module tree; the cross-package reference goes through `arena::dep`,
+    // and dep's enum resolves into the shared common tree.
     const std::string out = gen_corpus("imports/main.proto");
     CHECK(has(out, "pub mod main {"));  // both packages are sibling sub-modules of one tree
     CHECK(has(out, "pub mod dep {"));
     // cross-package message; Dep is fixed-size so it inlines by value (getter borrows `&self`, not 'a)
-    CHECK(has(out, "pub fn d(&self) -> ::core::option::Option<&super::dep::Dep<'a>> {"));
+    CHECK(has(out, "pub fn d(&self) -> ::core::option::Option<&crate::arena::dep::Dep<'a>> {"));
     CHECK(has(out,
-              "pub fn e(&self) -> ::core::option::Option<super::super::common::dep::DepEnum> "
+              "pub fn e(&self) -> ::core::option::Option<crate::common::dep::DepEnum> "
               "{"));  // cross-pkg enum
 }
 
@@ -929,7 +939,7 @@ TEST_CASE("rustgen imports: a package whose Rust name is a keyword is raw-escape
     CHECK(has(out, "pub mod r#pub {"));
     CHECK(has(
         out,
-        "pub fn p(&self) -> ::core::option::Option<&super::r#pub::Pub<'a>> {"));  // Pub inlines by value
+        "pub fn p(&self) -> ::core::option::Option<&crate::arena::r#pub::Pub<'a>> {"));  // Pub inlines by value
 }
 
 TEST_CASE("rustgen imports: a message submodule yields to a colliding sibling sub-package") {
@@ -965,15 +975,13 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     // Every corpus golden carries BOTH decoder models (arena + stream) in one file, so streaming
     // coverage tracks arena coverage over the whole corpus automatically (no bespoke stream schema)
     // and the two trees are proven to coexist. Streaming is still opt-in for a consumer (the default
-    // `generate_rust` emits arena only); the golden just always exercises both. Each also exports its
-    // stream macros under its stem (`Config::export_stream_macros`), so the golden crate's
-    // integration tests drive them cross-crate as they do the arena types -- and since many goldens
-    // carry the same imported messages (`dep.Dep` in both `dep` and `main`), only those prefixes keep
-    // the crate-root names apart. Every golden also has the `Serialize` impls, so they compile over the
-    // whole corpus too. Output without them has its own test case below.
+    // `generate_rust` emits arena only); the golden just always exercises both. Many goldens carry the
+    // same imported messages (`dep.Dep` in both `dep` and `main`), so only their module paths keep the
+    // macros' crate-root names apart. Every golden also has the `Serialize` impls, so they compile over
+    // the whole corpus too. Output without them has its own test case below.
     const auto both = [](const std::string& stem) {
-        return rustgen::RustOptions{/*arena=*/true, /*stream=*/true, /*stream_export_prefix=*/stem,
-                                    /*serde=*/true};
+        return rustgen::RustOptions{/*arena=*/true, /*stream=*/true,
+                                    /*module_path=*/golden_module(stem), /*serde=*/true};
     };
     std::vector<std::string> stems;
     for (const std::string& rel : corpus_schemas()) {
@@ -983,19 +991,22 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     }
     // A field-modes variant golden alongside the plain corpus goldens (see kModesGoldenStem).
     check_golden(std::string(kModesGoldenStem),
-                 gen_corpus_modes("proto3.proto", modes_golden_spec()));
+                 gen_corpus_modes("proto3.proto", modes_golden_spec(), kModesGoldenStem));
     stems.emplace_back(kModesGoldenStem);
     // A second modes golden: the proto2 arena_modes schema (raw group + raw/drop fields), mirroring
     // the C++ arena_modes profile, so the Rust raw-group decode path has a compiled round-trip.
     check_golden(std::string(kArenaModesLeanGoldenStem),
-                 gen_corpus_modes("arena_modes.proto", arena_modes_golden_spec()));
+                 gen_corpus_modes("arena_modes.proto", arena_modes_golden_spec(),
+                                  kArenaModesLeanGoldenStem));
     stems.emplace_back(kArenaModesLeanGoldenStem);
     // Unknown-tracked goldens for the two MessageSet / inlined-wrapper unknown-mask decode round-trips.
     check_golden(std::string(kArenaUnknownTrackedGoldenStem),
-                 gen_corpus_modes("arena_unknown.proto", arena_unknown_tracked_spec()));
+                 gen_corpus_modes("arena_unknown.proto", arena_unknown_tracked_spec(),
+                                  kArenaUnknownTrackedGoldenStem));
     stems.emplace_back(kArenaUnknownTrackedGoldenStem);
     check_golden(std::string(kMessageSetUnknownGoldenStem),
-                 gen_corpus_modes("messageset.proto", messageset_unknown_spec()));
+                 gen_corpus_modes("messageset.proto", messageset_unknown_spec(),
+                                  kMessageSetUnknownGoldenStem));
     stems.emplace_back(kMessageSetUnknownGoldenStem);
     // The shared benchmark schema (tests/bench/bench.proto, package `bench`) -- generated so the Rust
     // decode benchmark (rust/rustgen-golden/benches/decode.rs) measures a realistic record decoder over
@@ -1004,7 +1015,8 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     stems.emplace_back("bench");
     // The same schema under the `records sparse (dropped)` profile, the Rust bench's decoder for it.
     check_golden(std::string(kBenchRecordsSparseGoldenStem),
-                 gen_corpus_modes("../bench/bench.proto", bench_records_sparse_spec()));
+                 gen_corpus_modes("../bench/bench.proto", bench_records_sparse_spec(),
+                                  kBenchRecordsSparseGoldenStem));
     stems.emplace_back(kBenchRecordsSparseGoldenStem);
     // The wire-fixture schema (tests/wire_fixtures/wire_all.proto, package `wire`): every wire type
     // incl. a group, the schema of the protoc-encoded all_wire.bin the streaming tests decode -- as
@@ -1013,21 +1025,28 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
     stems.emplace_back("wire_all");
     // A stream-ONLY golden (no arena): guards that `common` + the stream tree compile on their own --
     // the public `Config::arena(false).stream(true)` path, which the both-model goldens never exercise.
-    // nestenum is compact yet has enums (common) + nested messages. It is also the one golden whose
-    // macros are NOT exported, pinning that default (`pub(crate)`) form; the consumer and OSM examples
-    // drive it at runtime.
-    check_golden("streamonly", gen_corpus("nsedge/nestenum.proto",
-                                          rustgen::RustOptions{/*arena=*/false, /*stream=*/true,
-                                                               /*stream_export_prefix=*/{},
-                                                               /*serde=*/true}));
+    // nestenum is compact yet has enums (common) + nested messages.
+    check_golden("streamonly",
+                 gen_corpus("nsedge/nestenum.proto",
+                            rustgen::RustOptions{/*arena=*/false, /*stream=*/true,
+                                                 /*module_path=*/golden_module("streamonly"),
+                                                 /*serde=*/true}));
     stems.emplace_back("streamonly");
+    // Stream-only with no references between its types: only the generated module path check can
+    // reject a wrong path for this one. The golden crate's doctests pin that.
+    check_golden("streamonly_flat",
+                 gen_corpus("nsedge/sibpkg.proto",
+                            rustgen::RustOptions{/*arena=*/false, /*stream=*/true,
+                                                 /*module_path=*/golden_module("streamonly_flat"),
+                                                 /*serde=*/true}));
+    stems.emplace_back("streamonly_flat");
     // Golden file names (and lib.rs module names) are the bare stems, so they must be distinct across
     // subdirs -- otherwise two schemas (e.g. nsedge/foo + imports/foo) would silently share one
     // golden and one module. Pin that invariant rather than trust the hand-kept list.
     CHECK(std::set<std::string>(stems.begin(), stems.end()).size() == stems.size());
     // Under regen, rewrite the golden crate's lib.rs so its `pub mod` list stays in lockstep with the
-    // goldens (one module per golden, each `include!`-ing its file; the module name is the stem,
-    // Rust-escaped so a keyword stem like `pub` becomes `r#pub`). kCorpusGoldens is the single source.
+    // goldens (one module per golden, each `include!`-ing its file, at golden_module(stem)).
+    // kCorpusGoldens is the single source.
     if (regenerating()) {
         std::string lib =
             "//! Compile check for the Rust generator's emitted output: each committed golden is\n"
@@ -1038,7 +1057,46 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
             "//! a consumer includes one schema's generated file. Generated by the "
             "`[rustgen-golden]`\n"
             "//! test from the no-import corpus; regenerate with tests/regen_goldens.sh.\n"
+            "//!\n"
+            "//! A file must be included at the module path it was generated for. This one has no\n"
+            "//! references between its types, so only its generated check can reject a wrong "
+            "path:\n"
+            "//!\n"
+            "//! ```compile_fail\n"
+            "//! mod elsewhere {\n"
+            "//!     include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), "
+            "\"/goldens/streamonly_flat.rs\"));\n"
+            "//! }\n"
+            "//! fn main() {}\n"
+            "//! ```\n"
+            "//!\n"
+            "//! A module named like the check does not hide a wrong path:\n"
+            "//!\n"
+            "//! ```compile_fail\n"
+            "//! mod streamonly_flat {\n"
+            "//!     mod rp_check {\n"
+            "//!         include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), "
+            "\"/goldens/streamonly_flat.rs\"));\n"
+            "//!     }\n"
+            "//! }\n"
+            "//! fn main() {}\n"
+            "//! ```\n"
+            "//!\n"
+            "//! The same file at its own path compiles:\n"
+            "//!\n"
+            "//! ```\n"
+            "//! mod streamonly_flat {\n"
+            "//!     include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), "
+            "\"/goldens/streamonly_flat.rs\"));\n"
+            "//! }\n"
+            "//! fn main() {}\n"
+            "//! ```\n"
             "#![cfg_attr(not(feature = \"std\"), no_std)]\n"
+            "// A crate that denies `unused` must be able to include generated code. The `extern "
+            "crate`\n"
+            "// below is this crate's own, not generated.\n"
+            "#![deny(unused)]\n"
+            "#![allow(unused_extern_crates)]\n"
             "// Generated code names every prelude item by its full path, since a schema type\n"
             "// (`Option`, `Result`) or a caller's macro (`matches!`) can shadow the bare name: "
             "without\n"
@@ -1062,14 +1120,14 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
 
 // The runtime crate's documentation example: the code generated for rust/rapidproto/src/example/
 // weather.proto, shown on docs.rs as `rapidproto::example` and included by the crate's doctests.
-// Both models with exported stream macros, as `Config::stream(true).export_stream_macros(..)`
-// generates them, so the docs show each message's `<msg>_stream!` macro.
+// Both models, as `Config::new("crate::example").stream(true)` generates them, so the docs show each
+// message's `<msg>_stream!` macro.
 TEST_CASE("rustgen docs example matches its schema", "[rustgen-golden]") {
     const std::string dir = RAPIDPROTO_RUST_EXAMPLE_DIR;
     check_generated(
         dir + "/weather.rs",
         gen_file(dir + "/weather.proto", rustgen::RustOptions{/*arena=*/true, /*stream=*/true,
-                                                              /*stream_export_prefix=*/"example"}));
+                                                              /*module_path=*/"crate::example"}));
 }
 
 // ---- the request frame (rapidproto/rustgen/frame.hpp) ----------------------------------------------
@@ -1078,7 +1136,7 @@ namespace {
 
 // Builds a frame field by field, as the rapidproto-build crate encodes one.
 struct FrameBuilder {
-    std::string bytes = "RPWF4\n";
+    std::string bytes = "RPWF5\n";
     FrameBuilder& u32(std::uint32_t value) {
         for (unsigned i = 0; i < 4; ++i) {
             bytes.push_back(static_cast<char>((value >> (8U * i)) & 0xFFU));
@@ -1099,7 +1157,7 @@ struct FrameBuilder {
 struct FrameOptions {
     bool arena = true;
     bool stream = false;
-    std::string_view export_prefix;  // exported when non-empty
+    std::string_view module_path = "crate";
     std::string_view modes;
     bool serde = false;
 };
@@ -1110,7 +1168,7 @@ std::string frame_for(std::string_view body, const FrameOptions& options = {}) {
     frame.u32(1).str("a.proto");
     frame.u32(1).str("a.proto").str(body);
     frame.str(options.modes).u8(false).u8(options.arena).u8(options.stream).u8(options.serde);
-    frame.u8(!options.export_prefix.empty()).str(options.export_prefix);
+    frame.str(options.module_path);
     return frame.bytes;
 }
 
@@ -1135,8 +1193,8 @@ TEST_CASE("rustgen frame: a malformed frame fails with its first error") {
         CHECK(result.status == FrameStatus::kBadFrame);
         CHECK(has(result.text, message));
     };
-    bad_frame("", "not a RPWF4 frame");
-    bad_frame("RPWF3\n", "not a RPWF4 frame");
+    bad_frame("", "not a RPWF5 frame");
+    bad_frame("RPWF4\n", "not a RPWF5 frame");
     bad_frame(valid.substr(0, valid.size() - 1), "truncated");  // the last length prefix cut short
     bad_frame(valid + "x", "trailing bytes");
     // A count far past the data stops at the first failed read (and reserves only what fits).
@@ -1144,31 +1202,96 @@ TEST_CASE("rustgen frame: a malformed frame fails with its first error") {
 }
 
 TEST_CASE("rustgen frame: bad options, an unresolved schema and a bad profile each have a status") {
-    CHECK(run_frame(frame_for(kFrameSchema, {false, false, "", ""})).status ==
+    CHECK(run_frame(frame_for(kFrameSchema, {false, false, "crate", ""})).status ==
           FrameStatus::kBadFrame);
-    CHECK(has(run_frame(frame_for(kFrameSchema, {true, false, "p", ""})).text,
-              "needs the stream model"));
-    CHECK(has(run_frame(frame_for(kFrameSchema, {true, true, "1p", ""})).text,
-              "is not an identifier"));
 
     const auto missing = run_frame(frame_for(R"(syntax = "proto3"; import "b.proto";)"));
     CHECK(missing.status == FrameStatus::kResolveError);
     CHECK(has(missing.text, "b.proto"));
 
-    const auto profile = run_frame(frame_for(kFrameSchema, {true, false, "", "drop t.Nope\n"}));
+    const auto profile =
+        run_frame(frame_for(kFrameSchema, {true, false, "crate", "drop t.Nope\n"}));
     CHECK(profile.status == FrameStatus::kModesError);
+}
+
+TEST_CASE("rustgen frame: the module path is a path from the crate root") {
+    for (const std::string_view good : {"crate", "crate::a", "crate::a::_b1::r#type"}) {
+        CAPTURE(good);
+        const FrameOptions options{true, true, good, ""};
+        CHECK(run_frame(frame_for(kFrameSchema, options)).status == FrameStatus::kOk);
+    }
+    for (const std::string_view bad : {"",
+                                       "a",
+                                       "::a",
+                                       "crates",
+                                       "crate::",
+                                       "crate::a::",
+                                       "crate:a",
+                                       "crate::::a",
+                                       "crate::1a",
+                                       "crate::a-b",
+                                       "crate::a b",
+                                       "crate::r#",
+                                       "crate::r#1a",
+                                       "self::a",
+                                       "super::a",
+                                       "crate::_",
+                                       "crate::self",
+                                       "crate::super",
+                                       "crate::crate",
+                                       "crate::Self",
+                                       "crate::r#_",
+                                       "crate::r#self",
+                                       "crate::r#crate",
+                                       "crate::r#super",
+                                       "crate::é",
+                                       "crate::a\n"}) {
+        CAPTURE(bad);
+        const FrameOptions options{true, true, bad, ""};
+        const auto result = run_frame(frame_for(kFrameSchema, options));
+        CHECK(result.status == FrameStatus::kBadFrame);
+        CHECK(has(result.text, "must be `crate` or a path from it of ASCII identifiers"));
+    }
+}
+
+TEST_CASE("rustgen frame: generated paths and macro names start from the module path") {
+    constexpr std::string_view kSchema = R"(syntax = "proto3"; package p;
+        enum E { A = 0; }
+        message Child { int32 v = 1; }
+        message Parent { Child child = 1; E e = 2; string s = 3; })";
+
+    const FrameOptions nested{true, true, "crate::a::r#type", ""};
+    const std::string out = run_frame(frame_for(kSchema, nested)).text;
+    CHECK(has(out, "const _: () = crate::a::r#type::rp_check::C;"));
+    CHECK(has(out, "pub(in crate::a::r#type::arena) fn rp_decode_into<'id>("));
+    CHECK(has(out, "child: crate::a::r#type::arena::p::Child<'a>,"));
+    CHECK(has(out, "fn on_child(&mut self, _rp_v: crate::a::r#type::stream::p::Child<'a>)"));
+    CHECK(has(out, "fn on_e(&mut self, _rp_v: crate::a::r#type::common::p::E)"));
+    CHECK(has(out, "macro_rules! __rp_1a4type_1p6Parent {"));
+    CHECK(has(out, "=> { $crate::a::r#type::stream::p::parent_stream!(@f [[]] "));
+    CHECK(has(out, "on_child: $crate::a::r#type::stream::p::Child<'rp_a> = $c;"));
+    CHECK(has(out, "on_e: $crate::a::r#type::common::p::E = $c;"));
+    CHECK(has(out, "on_s: &'rp_a $crate::a::r#type::rp_rt::ProtoStr = $c;"));
+    CHECK(has(out,
+              "$crate::a::r#type::rp_rt::stream_visitor!("
+              "$crate::a::r#type::stream::p::ParentVisitor<'rp_a> $a)"));
+
+    const std::string root = run_frame(frame_for(kSchema, {true, true, "crate", ""})).text;
+    CHECK(has(root, "const _: () = crate::rp_check::C;"));
+    CHECK(has(root, "child: crate::arena::p::Child<'a>,"));
+    CHECK(has(root, "macro_rules! __rp__1p6Parent {"));
 }
 
 TEST_CASE("rustgen frame: Serialize impls are opt-in, and no output reads a cargo feature") {
     constexpr std::string_view kSchema =
         R"(syntax = "proto3"; package t; enum E { A = 0; } message M { E e = 1; })";
 
-    const auto plain = run_frame(frame_for(kSchema, {true, true, "", ""}));
+    const auto plain = run_frame(frame_for(kSchema, {true, true, "crate", ""}));
     REQUIRE(plain.status == FrameStatus::kOk);
     CHECK_FALSE(has(plain.text, "serde"));
     CHECK_FALSE(has(plain.text, "feature"));
 
-    const auto serde = run_frame(frame_for(kSchema, {true, true, "", "", /*serde=*/true}));
+    const auto serde = run_frame(frame_for(kSchema, {true, true, "crate", "", /*serde=*/true}));
     REQUIRE(serde.status == FrameStatus::kOk);
     CHECK(has(serde.text, "impl ::rapidproto::serde::Serialize for E {"));
     CHECK(has(serde.text, "impl<'a> ::rapidproto::serde::Serialize for M<'a> {"));

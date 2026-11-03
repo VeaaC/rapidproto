@@ -225,7 +225,7 @@ TEST_CASE("arenagen: generated headers match the goldens", "[arenagen]") {
     // A package named `rapidproto` keeps its spelling: under the roots it sits three levels
     // below the runtime's own namespace, and the compile smoke proves the two stay apart.
     check_golden("rppkg", generate(nsedge, "rppkg.proto"));
-    // Names shaped like the Rust stream glue (`rp_rt`, `rp_mod_*`, `Sized`, ...): a Rust concern, but
+    // Names shaped like the Rust stream glue (`rp_rt`, `Sized`, ...): a Rust concern, but
     // the corpus is shared, so every generator compiles them too.
     check_golden("gluenames", generate(nsedge, "gluenames.proto"));
     check_golden("gluenames_sub", generate(nsedge, "gluenames_sub.proto"));

@@ -9,7 +9,7 @@ Use it from a build script:
 ```rust
 // build.rs
 fn main() {
-    rapidproto_build::Config::new()
+    rapidproto_build::Config::new("crate::schema")
         .include("proto")
         .compile(&["proto/my_schema.proto"])
         .expect("generate decoders");
@@ -27,8 +27,16 @@ rapidproto-build = "=0.1.0-alpha.1"
 
 Pin both crates to the same version, because generated code targets the matching runtime.
 
-The decoders land in `OUT_DIR`; `include!` them from your crate. A CLI (`rapidproto-rust`) mirrors the
-same generation surface for committing generated code instead.
+The decoders land in `OUT_DIR`. `include!` them at the path you passed to `Config::new`:
+
+```rust
+// src/lib.rs
+mod schema {
+    include!(concat!(env!("OUT_DIR"), "/my_schema.rs"));
+}
+```
+
+The `rapidproto-rust` command-line tool generates the same code, for projects that commit it.
 
 ## How the generator runs
 

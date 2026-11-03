@@ -276,7 +276,6 @@ fn gm2_walk(m: &gm2::arena::benchmarks::proto2::GoogleMessage2) -> u64 {
 }
 
 fn gm2_stream(b: &[u8]) -> u64 {
-    use gm2::stream::benchmarks::proto2::google_message2::*;
     use gm2::stream::benchmarks::proto2::*;
     let mut s = 0u64;
     GoogleMessage2::new(b)

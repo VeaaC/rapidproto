@@ -81,8 +81,8 @@ fn main() {
 fn external() {
     println!("cargo::rustc-check-cfg=cfg(rp_bench_gm)");
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let generate = |includes: &[&Path], entries: &[PathBuf], stream: bool| {
-        let mut cfg = rapidproto_build::Config::new().stream(stream);
+    let generate = |includes: &[&Path], entries: &[PathBuf], path: &str, stream: bool| {
+        let mut cfg = rapidproto_build::Config::new(path).stream(stream);
         for dir in includes {
             cfg = cfg.include(dir);
         }
@@ -94,6 +94,7 @@ fn external() {
     generate(
         &[&osm],
         &[osm.join("fileformat.proto"), osm.join("osmformat.proto")],
+        "crate::external::osm::generated",
         true,
     );
 
@@ -107,10 +108,14 @@ fn external() {
         datasets.join("google_message2/benchmark_message2.proto"),
     ];
     if gm.iter().all(|p| p.is_file()) {
-        for proto in &gm {
+        for (proto, path) in gm.iter().zip([
+            "crate::external::messages::gm1",
+            "crate::external::messages::gm2",
+        ]) {
             generate(
                 &[proto.parent().unwrap()],
                 std::slice::from_ref(proto),
+                path,
                 true,
             );
         }
@@ -128,6 +133,7 @@ fn external() {
         generate(
             &[&googleapis, &corpus.join("protobuf/src")],
             &[proto],
+            "crate::external::compute::generated",
             false,
         );
     }
