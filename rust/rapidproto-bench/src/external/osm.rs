@@ -398,7 +398,7 @@ fn stream_block_sum<'a>(payload: &'a [u8], strings: &mut Vec<&'a [u8]>) -> u64 {
 fn stream_info(
     w: &mut Walk,
     info: generated::stream::OSMPBF::Info,
-) -> Result<(), rapidproto::DecodeError> {
+) -> Result<rapidproto::stream::Flow, rapidproto::DecodeError> {
     use generated::stream::OSMPBF::*;
     info.decode(info_stream!(&mut *w; {
         version => |w, v| w.add(u(i64::from(v))),

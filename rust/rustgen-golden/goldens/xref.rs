@@ -2965,7 +2965,7 @@ pub mod stream {
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-      pub fn decode<V: AVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+      pub fn decode<V: AVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -2977,7 +2977,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_b(crate::xref::stream::xr::B::new(rp_p))? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -2996,7 +2996,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_id(rp_v as i32)? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -3030,7 +3030,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_b(crate::xref::stream::xr::B::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -3041,7 +3041,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_id(rp_v as i32)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -3054,7 +3054,7 @@ pub mod stream {
                 };
                 let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                 match rp_vis.on_unknown(rp_u)? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
@@ -3066,7 +3066,7 @@ pub mod stream {
             }
           }
         }
-        ::core::result::Result::Ok(())
+        ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
       }
     }
 
@@ -3113,7 +3113,7 @@ pub mod stream {
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-      pub fn decode<V: BVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+      pub fn decode<V: BVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -3125,7 +3125,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_a(crate::xref::stream::xr::A::new(rp_p))? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -3159,7 +3159,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_a(crate::xref::stream::xr::A::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -3172,7 +3172,7 @@ pub mod stream {
                 };
                 let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                 match rp_vis.on_unknown(rp_u)? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
@@ -3184,7 +3184,7 @@ pub mod stream {
             }
           }
         }
-        ::core::result::Result::Ok(())
+        ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
       }
     }
 
@@ -3227,7 +3227,7 @@ pub mod stream {
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-      pub fn decode<V: NestedVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+      pub fn decode<V: NestedVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
@@ -3256,7 +3256,7 @@ pub mod stream {
                 };
                 let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                 match rp_vis.on_unknown(rp_u)? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
@@ -3268,7 +3268,7 @@ pub mod stream {
             }
           }
         }
-        ::core::result::Result::Ok(())
+        ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
       }
     }
 
@@ -3341,7 +3341,7 @@ pub mod stream {
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-        pub fn decode<V: UserVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        pub fn decode<V: UserVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -3353,7 +3353,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_single(crate::xref::stream::xr::nested::Def::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -3372,7 +3372,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_many(crate::xref::stream::xr::nested::Def::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -3436,7 +3436,7 @@ pub mod stream {
                 }
               }
               match rp_vis.on_by_name((rp_key, crate::xref::stream::xr::nested::Def::new(rp_val)))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -3455,7 +3455,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_chosen(crate::xref::stream::xr::nested::Def::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -3474,7 +3474,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_kind(crate::xref::common::xr::nested::def::Kind(rp_v as i32))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -3493,7 +3493,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_kinds(crate::xref::common::xr::nested::def::Kind(rp_v as i32))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -3519,7 +3519,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_pv.remaining().len())),
                 };
                 match rp_vis.on_kinds(crate::xref::common::xr::nested::def::Kind(rp_v as i32))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -3584,7 +3584,7 @@ pub mod stream {
                 }
               }
               match rp_vis.on_ranked((rp_key, rp_val))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -3603,7 +3603,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_tagged(crate::xref::common::xr::nested::def::Kind(rp_v as i32))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -3622,7 +3622,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_inner(crate::xref::stream::xr::nested::def::Inner::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -3641,7 +3641,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_inners(crate::xref::stream::xr::nested::def::Inner::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -3675,7 +3675,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_single(crate::xref::stream::xr::nested::Def::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -3686,7 +3686,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_many(crate::xref::stream::xr::nested::Def::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -3697,7 +3697,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_kind(crate::xref::common::xr::nested::def::Kind(rp_v as i32))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -3708,7 +3708,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_kinds(crate::xref::common::xr::nested::def::Kind(rp_v as i32))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -3726,7 +3726,7 @@ pub mod stream {
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len() - rp_pv.remaining().len())),
                   };
                   match rp_vis.on_kinds(crate::xref::common::xr::nested::def::Kind(rp_v as i32))? {
-                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
                 }
@@ -3738,7 +3738,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_inner(crate::xref::stream::xr::nested::def::Inner::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -3749,7 +3749,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_inners(crate::xref::stream::xr::nested::def::Inner::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -3805,7 +3805,7 @@ pub mod stream {
                   }
                 }
                 match rp_vis.on_by_name((rp_key, crate::xref::stream::xr::nested::Def::new(rp_val)))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -3861,7 +3861,7 @@ pub mod stream {
                   }
                 }
                 match rp_vis.on_ranked((rp_key, rp_val))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -3872,7 +3872,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_chosen(crate::xref::stream::xr::nested::Def::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -3883,7 +3883,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_tagged(crate::xref::common::xr::nested::def::Kind(rp_v as i32))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -3896,7 +3896,7 @@ pub mod stream {
                   };
                   let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                   match rp_vis.on_unknown(rp_u)? {
-                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
@@ -3908,7 +3908,7 @@ pub mod stream {
               }
             }
           }
-          ::core::result::Result::Ok(())
+          ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
         }
       }
 
@@ -3966,7 +3966,7 @@ pub mod stream {
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-        pub fn decode<V: DefVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        pub fn decode<V: DefVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -3978,7 +3978,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -3997,7 +3997,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_n(rp_v as i32)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -4031,7 +4031,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -4042,7 +4042,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_n(rp_v as i32)? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -4055,7 +4055,7 @@ pub mod stream {
                   };
                   let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                   match rp_vis.on_unknown(rp_u)? {
-                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
@@ -4067,7 +4067,7 @@ pub mod stream {
               }
             }
           }
-          ::core::result::Result::Ok(())
+          ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
         }
       }
 
@@ -4115,7 +4115,7 @@ pub mod stream {
           #[inline(always)]
           pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-          pub fn decode<V: InnerVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+          pub fn decode<V: InnerVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
             let rp_body: &'a [u8] = self.rp_input;
             let mut rp_rest: &'a [u8] = rp_body;
             if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -4127,7 +4127,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
@@ -4161,7 +4161,7 @@ pub mod stream {
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
                   match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
-                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
                 }
@@ -4174,7 +4174,7 @@ pub mod stream {
                     };
                     let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                     match rp_vis.on_unknown(rp_u)? {
-                      ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                      ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                       ::rapidproto::stream::Flow::Continue => {}
                     }
                   } else {
@@ -4186,7 +4186,7 @@ pub mod stream {
                 }
               }
             }
-            ::core::result::Result::Ok(())
+            ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
           }
         }
 
@@ -4233,7 +4233,7 @@ pub mod stream {
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-        pub fn decode<V: PVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        pub fn decode<V: PVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -4245,7 +4245,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_q(crate::xref::stream::xr::nested::Q::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -4279,7 +4279,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_q(crate::xref::stream::xr::nested::Q::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -4292,7 +4292,7 @@ pub mod stream {
                   };
                   let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                   match rp_vis.on_unknown(rp_u)? {
-                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
@@ -4304,7 +4304,7 @@ pub mod stream {
               }
             }
           }
-          ::core::result::Result::Ok(())
+          ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
         }
       }
 
@@ -4350,7 +4350,7 @@ pub mod stream {
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-        pub fn decode<V: QVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        pub fn decode<V: QVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -4362,7 +4362,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_p(crate::xref::stream::xr::nested::P::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -4396,7 +4396,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_p(crate::xref::stream::xr::nested::P::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -4409,7 +4409,7 @@ pub mod stream {
                   };
                   let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                   match rp_vis.on_unknown(rp_u)? {
-                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
@@ -4421,7 +4421,7 @@ pub mod stream {
               }
             }
           }
-          ::core::result::Result::Ok(())
+          ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
         }
       }
 
@@ -4465,7 +4465,7 @@ pub mod stream {
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-      pub fn decode<V: FwdMsgVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+      pub fn decode<V: FwdMsgVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
@@ -4494,7 +4494,7 @@ pub mod stream {
                 };
                 let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                 match rp_vis.on_unknown(rp_u)? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
@@ -4506,7 +4506,7 @@ pub mod stream {
             }
           }
         }
-        ::core::result::Result::Ok(())
+        ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
       }
     }
 
@@ -4561,7 +4561,7 @@ pub mod stream {
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-        pub fn decode<V: RefVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        pub fn decode<V: RefVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -4573,7 +4573,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_one(crate::xref::stream::xr::fwd_msg::Target::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -4592,7 +4592,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_many(crate::xref::stream::xr::fwd_msg::Target::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -4656,7 +4656,7 @@ pub mod stream {
                 }
               }
               match rp_vis.on_by_id((rp_key, crate::xref::stream::xr::fwd_msg::Target::new(rp_val)))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -4675,7 +4675,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_chosen(crate::xref::stream::xr::fwd_msg::Target::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -4709,7 +4709,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_one(crate::xref::stream::xr::fwd_msg::Target::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -4720,7 +4720,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_many(crate::xref::stream::xr::fwd_msg::Target::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -4776,7 +4776,7 @@ pub mod stream {
                   }
                 }
                 match rp_vis.on_by_id((rp_key, crate::xref::stream::xr::fwd_msg::Target::new(rp_val)))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -4787,7 +4787,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_chosen(crate::xref::stream::xr::fwd_msg::Target::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -4800,7 +4800,7 @@ pub mod stream {
                   };
                   let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                   match rp_vis.on_unknown(rp_u)? {
-                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
@@ -4812,7 +4812,7 @@ pub mod stream {
               }
             }
           }
-          ::core::result::Result::Ok(())
+          ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
         }
       }
 
@@ -4864,7 +4864,7 @@ pub mod stream {
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-        pub fn decode<V: TargetVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        pub fn decode<V: TargetVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -4876,7 +4876,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -4895,7 +4895,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_n(rp_v as i32)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -4929,7 +4929,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -4940,7 +4940,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_n(rp_v as i32)? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -4953,7 +4953,7 @@ pub mod stream {
                   };
                   let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                   match rp_vis.on_unknown(rp_u)? {
-                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
@@ -4965,7 +4965,7 @@ pub mod stream {
               }
             }
           }
-          ::core::result::Result::Ok(())
+          ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
         }
       }
 
@@ -5010,7 +5010,7 @@ pub mod stream {
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-      pub fn decode<V: CousinAVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+      pub fn decode<V: CousinAVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
@@ -5039,7 +5039,7 @@ pub mod stream {
                 };
                 let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                 match rp_vis.on_unknown(rp_u)? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
@@ -5051,7 +5051,7 @@ pub mod stream {
             }
           }
         }
-        ::core::result::Result::Ok(())
+        ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
       }
     }
 
@@ -5103,7 +5103,7 @@ pub mod stream {
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-        pub fn decode<V: UseVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        pub fn decode<V: UseVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -5115,7 +5115,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_thing(crate::xref::stream::xr::cousin_b::Thing::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -5134,7 +5134,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_things(crate::xref::stream::xr::cousin_b::Thing::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -5153,7 +5153,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_tag(crate::xref::common::xr::cousin_b::Tag(rp_v as i32))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -5187,7 +5187,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_thing(crate::xref::stream::xr::cousin_b::Thing::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -5198,7 +5198,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_things(crate::xref::stream::xr::cousin_b::Thing::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -5209,7 +5209,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_tag(crate::xref::common::xr::cousin_b::Tag(rp_v as i32))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -5222,7 +5222,7 @@ pub mod stream {
                   };
                   let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                   match rp_vis.on_unknown(rp_u)? {
-                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
@@ -5234,7 +5234,7 @@ pub mod stream {
               }
             }
           }
-          ::core::result::Result::Ok(())
+          ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
         }
       }
 
@@ -5280,7 +5280,7 @@ pub mod stream {
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-      pub fn decode<V: CousinBVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+      pub fn decode<V: CousinBVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
@@ -5309,7 +5309,7 @@ pub mod stream {
                 };
                 let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                 match rp_vis.on_unknown(rp_u)? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
@@ -5321,7 +5321,7 @@ pub mod stream {
             }
           }
         }
-        ::core::result::Result::Ok(())
+        ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
       }
     }
 
@@ -5367,7 +5367,7 @@ pub mod stream {
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-        pub fn decode<V: ThingVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+        pub fn decode<V: ThingVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -5379,7 +5379,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             } else {
@@ -5413,7 +5413,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               }
@@ -5426,7 +5426,7 @@ pub mod stream {
                   };
                   let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                   match rp_vis.on_unknown(rp_u)? {
-                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                    ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
                 } else {
@@ -5438,7 +5438,7 @@ pub mod stream {
               }
             }
           }
-          ::core::result::Result::Ok(())
+          ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
         }
       }
 
@@ -5503,7 +5503,7 @@ pub mod stream {
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-      pub fn decode<V: ReservedNamesVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+      pub fn decode<V: ReservedNamesVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
@@ -5515,7 +5515,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_value(rp_v as i32)? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -5534,7 +5534,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_tag(rp_v as i32)? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -5553,7 +5553,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_status(rp_v as i32)? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -5572,7 +5572,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_reader(rp_v as i32)? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -5591,7 +5591,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_dispatch(rp_v as i32)? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -5610,7 +5610,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_callbacks(rp_v as i32)? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -5629,7 +5629,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_read(rp_v as i32)? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -5663,7 +5663,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_value(rp_v as i32)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -5674,7 +5674,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_tag(rp_v as i32)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -5685,7 +5685,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_status(rp_v as i32)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -5696,7 +5696,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_reader(rp_v as i32)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -5707,7 +5707,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_dispatch(rp_v as i32)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -5718,7 +5718,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_callbacks(rp_v as i32)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -5729,7 +5729,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_read(rp_v as i32)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -5742,7 +5742,7 @@ pub mod stream {
                 };
                 let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                 match rp_vis.on_unknown(rp_u)? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
@@ -5754,7 +5754,7 @@ pub mod stream {
             }
           }
         }
-        ::core::result::Result::Ok(())
+        ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
       }
     }
 
@@ -5806,7 +5806,7 @@ pub mod stream {
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-      pub fn decode<V: IntWrapVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+      pub fn decode<V: IntWrapVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
@@ -5818,7 +5818,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_value(rp_v as i32)? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -5852,7 +5852,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_value(rp_v as i32)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -5865,7 +5865,7 @@ pub mod stream {
                 };
                 let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                 match rp_vis.on_unknown(rp_u)? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
@@ -5877,7 +5877,7 @@ pub mod stream {
             }
           }
         }
-        ::core::result::Result::Ok(())
+        ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
       }
     }
 
@@ -5923,7 +5923,7 @@ pub mod stream {
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-      pub fn decode<V: BoolWrapVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+      pub fn decode<V: BoolWrapVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
@@ -5935,7 +5935,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_value(rp_v != 0)? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -5969,7 +5969,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_value(rp_v != 0)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -5982,7 +5982,7 @@ pub mod stream {
                 };
                 let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                 match rp_vis.on_unknown(rp_u)? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
@@ -5994,7 +5994,7 @@ pub mod stream {
             }
           }
         }
-        ::core::result::Result::Ok(())
+        ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
       }
     }
 
@@ -6040,7 +6040,7 @@ pub mod stream {
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
-      pub fn decode<V: BytesWrapVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<(), ::rapidproto::DecodeError> {
+      pub fn decode<V: BytesWrapVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
@@ -6052,7 +6052,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             match rp_vis.on_value(rp_p)? {
-              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+              ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
           } else {
@@ -6086,7 +6086,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               match rp_vis.on_value(rp_p)? {
-                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
             }
@@ -6099,7 +6099,7 @@ pub mod stream {
                 };
                 let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, &rp_before[..rp_before.len() - rp_rest.len()]);
                 match rp_vis.on_unknown(rp_u)? {
-                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),
+                  ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
               } else {
@@ -6111,7 +6111,7 @@ pub mod stream {
             }
           }
         }
-        ::core::result::Result::Ok(())
+        ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)
       }
     }
 
