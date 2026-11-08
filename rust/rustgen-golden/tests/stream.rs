@@ -214,23 +214,192 @@ fn an_unknown_handler_receives_only_non_schema_fields() {
 
     // An unknown handler can end the walk early, like any handler.
     let mut first = Vec::new();
-    Msg::new(&buf)
+    let flow = Msg::new(&buf)
         .decode(msg_stream! {
             unknown => |u| { first.push(u.field_number()); Flow::Stop },
         })
         .unwrap();
     assert_eq!(first, vec![99]);
+    assert_eq!(flow, Flow::Stop);
 }
 
 #[test]
 fn flow_stop_halts_early() {
     let mut seen = Vec::new();
-    Msg::new(MSG)
+    let flow = Msg::new(MSG)
         .decode(msg_stream! {
             nums => |v| { seen.push(v); Flow::Stop },
         })
         .unwrap();
     assert_eq!(seen, vec![1]); // stopped after the first packed element
+    assert_eq!(flow, Flow::Stop);
+
+    // Reaching the end of the message says so, whether or not a handler ran.
+    let flow = Msg::new(MSG)
+        .decode(msg_stream! { nums => |_v| () })
+        .unwrap();
+    assert_eq!(flow, Flow::Continue);
+    assert_eq!(Msg::new(&[]).decode(msg_stream! {}), Ok(Flow::Continue));
+}
+
+// Msg { self: Msg { nums: [1, 2] }, self: Msg { nums: [3, 4] }, nums: [9] }
+const TWO_CHILDREN: &[u8] = &[
+    0x2a, 0x04, 0x32, 0x02, 1, 2, // self (field 5)
+    0x2a, 0x04, 0x32, 0x02, 3, 4, // self
+    0x32, 0x01, 9, // nums (field 6)
+];
+
+#[test]
+fn a_handler_returning_a_childs_decode_passes_a_stop_on() {
+    // The first `self` arrives through the parent's field-order probe and the child's `nums` through
+    // its own, so this stop never reaches a dispatch loop. A stop in the second `self`, which goes
+    // through the parent's loop, is pinned by the tests below.
+    let mut seen = Vec::new();
+    let flow = Msg::new(TWO_CHILDREN).decode(msg_stream!(&mut seen; {
+        self_ => |seen, child| child.decode(msg_stream!(&mut *seen; {
+            nums => |seen, v| { seen.push(v); Flow::Stop },
+        })),
+        nums => |seen, v| seen.push(v),
+    }));
+    assert_eq!(flow, Ok(Flow::Stop));
+    assert_eq!(seen, [1]);
+
+    // A child that runs to its end does not stop the parent.
+    let mut seen = Vec::new();
+    let flow = Msg::new(TWO_CHILDREN).decode(msg_stream!(&mut seen; {
+        self_ => |seen, child| child.decode(msg_stream!(&mut *seen; {
+            nums => |seen, v| seen.push(v),
+        })),
+        nums => |seen, v| seen.push(v),
+    }));
+    assert_eq!(flow, Ok(Flow::Continue));
+    assert_eq!(seen, [1, 2, 3, 4, 9]);
+}
+
+#[test]
+fn a_handler_discarding_a_childs_flow_stops_only_the_child() {
+    let mut seen = Vec::new();
+    let flow = Msg::new(TWO_CHILDREN).decode(msg_stream!(&mut seen; {
+        self_ => |seen, child| {
+            child.decode(msg_stream!(&mut *seen; {
+                nums => |seen, v| { seen.push(v); Flow::Stop },
+            }))?;
+            Ok(())
+        },
+        nums => |seen, v| seen.push(v),
+    }));
+    assert_eq!(flow, Ok(Flow::Continue));
+    assert_eq!(seen, [1, 3, 9]);
+
+    // Discarding the `Flow` still passes an error on.
+    let mut seen = Vec::new();
+    let err = Msg::new(&[0x2a, 0x02, 0x32, 0x05]) // a child whose `nums` overruns it
+        .decode(msg_stream!(&mut seen; {
+            self_ => |seen, child| {
+                child.decode(msg_stream!(&mut *seen; { nums => |seen, v| seen.push(v) }))?;
+                Ok(())
+            },
+        }))
+        .unwrap_err();
+    assert_eq!(err.kind(), ErrorKind::Truncated);
+}
+
+#[test]
+fn one_handler_can_stop_a_child_or_everything() {
+    // The inner stop means two things here, so the outer handler needs state to tell them apart.
+    #[derive(Default)]
+    struct Firsts {
+        seen: Vec<i32>,
+        done: bool,
+    }
+    let mut st = Firsts::default();
+    let flow = Msg::new(TWO_CHILDREN).decode(msg_stream!(&mut st; {
+        self_ => |st, child| {
+            child.decode(msg_stream!(&mut *st; {
+                nums => |st, v| { st.seen.push(v); st.done = v == 3; Flow::Stop },
+            }))?;
+            Ok(if st.done { Flow::Stop } else { Flow::Continue })
+        },
+        nums => |st, v| st.seen.push(v),
+    }));
+    assert_eq!(flow, Ok(Flow::Stop));
+    assert_eq!(st.seen, [1, 3]);
+}
+
+#[test]
+fn a_stop_ends_the_decode_from_every_field_shape() {
+    // An unknown field matches no probe, so what follows it goes through the dispatch loop.
+    const LATE: &[u8] = &[0x98, 0x06, 0x2a]; // field 99
+    macro_rules! stops {
+        ($($field:ident: $bytes:expr;)*) => {$(
+            for prefix in [&[][..], LATE] {
+                let (bytes, mut calls): (Vec<u8>, _) = ([prefix, &$bytes[..]].concat(), 0);
+                let flow = Msg::new(&bytes)
+                    .decode(msg_stream! { $field => |_| { calls += 1; Flow::Stop } });
+                assert_eq!((flow, calls), (Ok(Flow::Stop), 1), "{}", stringify!($field));
+            }
+        )*};
+    }
+    let d = [0u8; 8];
+    stops! {
+        implicit_i: [0x08, 1, 0x08, 2];
+        explicit_i: [0x10, 1, 0x10, 2];
+        name: [0x1a, 1, b'a', 0x1a, 1, b'b'];
+        state: [0x20, 1, 0x20, 1];
+        self_: [0x2a, 0, 0x2a, 0];
+        nums: [0x30, 1, 0x30, 2];
+        nums: [0x32, 2, 1, 2];
+        unpacked: [0x38, 1, 0x38, 2];
+        unpacked: [0x3a, 2, 1, 2];
+        states: [0x40, 1, 0x40, 1];
+        states: [0x42, 2, 1, 1];
+        counts: [0x4a, 0, 0x4a, 0];
+        a: [0x50, 1, 0x50, 2];
+        b: [0x5a, 0, 0x5a, 0];
+        reals: [&[0x61][..], &d, &[0x61], &d].concat();
+        reals: [&[0x62, 16][..], &d, &d].concat();
+        codes: [0x6d, 0, 0, 0, 0, 0x6d, 0, 0, 0, 0];
+        codes: [0x6a, 8, 0, 0, 0, 0, 0, 0, 0, 0];
+        flags: [0x72, 0, 0x72, 0];
+        c: [0x78, 1, 0x78, 0];
+        d: [&[0x81, 0x01][..], &d, &[0x81, 0x01], &d].concat();
+        bools: [0x88, 0x01, 1, 0x88, 0x01, 0];
+        bools: [0x8a, 0x01, 2, 1, 0];
+        toggles: [0x92, 0x01, 0, 0x92, 0x01, 0];
+        ratios: [0x9a, 0x01, 0, 0x9a, 0x01, 0];
+        ratio: [&[0xa1, 0x01][..], &d, &[0xa1, 0x01], &d].concat();
+        scale: [0xad, 0x01, 0, 0, 0, 0, 0xad, 0x01, 0, 0, 0, 0];
+        blobs: [0xb2, 0x01, 0, 0xb2, 0x01, 0];
+        e: [0xba, 0x01, 0, 0xba, 0x01, 0];
+        chunks: [0xc2, 0x01, 0, 0xc2, 0x01, 0];
+        unknown: [0xf8, 0x07, 1, 0xf8, 0x07, 1];
+    }
+}
+
+#[test]
+fn a_stop_passes_up_through_a_group_and_a_map_value() {
+    use rustgen_golden::arena_layout::stream::al::*;
+    use rustgen_golden::proto2::stream::p2::repeated_group::*;
+    use rustgen_golden::proto2::stream::p2::*;
+    // RepeatedGroup { Item { v: 1 }, Item { v: 2 }, tail: 9 }
+    const GROUPS: &[u8] = &[0x0b, 0x10, 1, 0x0c, 0x0b, 0x10, 2, 0x0c, 0x18, 9];
+    let mut seen = Vec::new();
+    let flow = RepeatedGroup::new(GROUPS).decode(repeated_group_stream!(&mut seen; {
+        item => |s, g| g.decode(item_stream!(&mut *s; { v => |s, v| { s.push(v); Flow::Stop } })),
+        tail => |s, v| s.push(v),
+    }));
+    assert_eq!((flow, seen), (Ok(Flow::Stop), vec![1]));
+
+    // Layout { grid[7] = { x: 3 }, grid[8] = { x: 5 } }
+    const GRID: &[u8] = &[
+        0x82, 0x01, 0x06, 0x08, 0x07, 0x12, 0x02, 0x08, 0x03, //
+        0x82, 0x01, 0x06, 0x08, 0x08, 0x12, 0x02, 0x08, 0x05,
+    ];
+    let mut seen = Vec::new();
+    let flow = Layout::new(GRID).decode(layout_stream! {
+        grid => |(_k, pt)| pt.decode(point_stream! { x => |v| { seen.push(v); Flow::Stop } }),
+    });
+    assert_eq!((flow, seen), (Ok(Flow::Stop), vec![3]));
 }
 
 #[test]
@@ -327,12 +496,13 @@ fn shared_state_form_aggregates_many_fields() {
 fn shared_state_form_handles_stop_and_maps() {
     // Flow::Stop out of a state handler halts; a map entry arrives as `(key, value)` beside the state.
     let mut sum = 0i32;
-    Msg::new(MSG)
+    let flow = Msg::new(MSG)
         .decode(msg_stream!(&mut sum; {
             nums => |s, v| { *s += v; Flow::Stop },
         }))
         .unwrap();
     assert_eq!(sum, 1); // stopped after the first packed element
+    assert_eq!(flow, Flow::Stop);
 
     const MAP_MSG: &[u8] = &[
         0x4a, 0x05, 0x0a, 0x01, b'a', 0x10, 0x01, // counts["a"] = 1
@@ -371,6 +541,23 @@ fn a_visitor_type_can_be_hand_implemented() {
     let mut c = Count(0);
     Msg::new(MSG).decode(&mut c).unwrap();
     assert_eq!(c.0, 3);
+
+    // A recursive one returns the child's `decode`, so a stop at any depth ends the whole walk.
+    struct UntilThree(Vec<i32>);
+    impl<'a> MsgVisitor<'a> for &mut UntilThree {
+        const WANT_self_: bool = true;
+        const WANT_nums: bool = true;
+        fn on_self_(&mut self, child: Msg<'a>) -> Result<Flow, DecodeError> {
+            child.decode(&mut **self)
+        }
+        fn on_nums(&mut self, v: i32) -> Result<Flow, DecodeError> {
+            self.0.push(v);
+            Ok(if v == 3 { Flow::Stop } else { Flow::Continue })
+        }
+    }
+    let mut seen = UntilThree(Vec::new());
+    assert_eq!(Msg::new(TWO_CHILDREN).decode(&mut seen), Ok(Flow::Stop));
+    assert_eq!(seen.0, [1, 2, 3]);
 }
 
 #[test]
@@ -1154,10 +1341,11 @@ fn the_field_order_probes_and_the_loop_deliver_the_same_events() {
         .flat_map(|(b, _)| b.iter().copied())
         .collect();
     let mut nums = Vec::new();
-    Msg::new(&buf)
+    let flow = Msg::new(&buf)
         .decode(msg_stream! { nums => |v| { nums.push(v); Flow::Stop } })
         .unwrap();
     assert_eq!(nums, [5]);
+    assert_eq!(flow, Flow::Stop);
 
     // A malformed field nobody selected errors at its value either way: through its probe's
     // constant-key skip, and through the loop's catch-all once a oneof member came first.

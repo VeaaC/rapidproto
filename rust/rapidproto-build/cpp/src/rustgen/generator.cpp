@@ -2637,8 +2637,9 @@ void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& no
 // to every handler instead of each closure capturing it, so a walk can aggregate many fields into one
 // accumulator (or parse into one struct) -- which exclusive-`&mut` captures cannot. The decode driver
 // gates each field on `V::WANT_<field>` (const-folded: unselected => a wire-skip), and a handler's
-// `?`/`Flow::Stop` propagate out of `decode`. The loop, peek hub, wire reads and skip are shared with
-// the arena emitter above; streaming replaces storage+construct with a gate + a direct visitor call.
+// `Err` or `Flow::Stop` ends `decode`, which returns the `Flow` so that a handler returning a child's
+// `decode` passes a stop on. The loop, peek hub, wire reads and skip are shared with the arena emitter
+// above; streaming replaces storage+construct with a gate + a direct visitor call.
 //
 // The generated code is O(N): the trait, the driver and the macro are each one unit per field -- no
 // quadratic setter reconstruction (there is no builder). A map field is a selectable slot too: its
@@ -2836,12 +2837,15 @@ void emit_stream_visitor_trait(Printer& printer, const NameTable& table,
     printer.print("}\n");
 }
 
-// `match rp_vis.on_<name>(<value>)? { Flow::Stop => return Ok(()), Flow::Continue => {} }` -- deliver
-// one occurrence to the handler, propagating an `Err` out of `decode` and honoring an early stop.
+// `match rp_vis.on_<name>(<value>)? { Flow::Stop => return Ok(Flow::Stop), Flow::Continue => {} }` --
+// deliver one occurrence to the handler, propagating an `Err` out of `decode` and honoring an early
+// stop.
 void emit_stream_dispatch(Printer& printer, const std::string& name, const std::string& value) {
     printer.print("match rp_vis.on_$n$($v$)? {\n", {{"n", name}, {"v", value}});
     printer.indent();
-    printer.print("::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),\n");
+    printer.print(
+        "::rapidproto::stream::Flow::Stop => "
+        "return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),\n");
     printer.print("::rapidproto::stream::Flow::Continue => {}\n");
     printer.outdent();
     printer.print("}\n");
@@ -3155,12 +3159,7 @@ void emit_stream_unknown_arm(Printer& printer, const MessageNode& msg) {
     printer.print(
         "let rp_u = ::rapidproto::stream::UnknownField::new(rp_tagkey, "
         "&rp_before[..rp_before.len() - rp_rest.len()]);\n");
-    printer.print("match rp_vis.on_unknown(rp_u)? {\n");
-    printer.indent();
-    printer.print("::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(()),\n");
-    printer.print("::rapidproto::stream::Flow::Continue => {}\n");
-    printer.outdent();
-    printer.print("}\n");
+    emit_stream_dispatch(printer, "unknown", "rp_u");
     printer.outdent();
     printer.print("} else {\n");
     printer.indent();
@@ -3200,7 +3199,7 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
     printer.print("pub fn bytes(&self) -> &'a [u8] { self.rp_input }\n\n");
     printer.print(
         "pub fn decode<V: $Vis$<'a>>(self, mut rp_vis: V) "
-        "-> ::core::result::Result<(), ::rapidproto::DecodeError> {\n");
+        "-> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {\n");
     printer.indent();
     printer.print("let rp_body: &'a [u8] = self.rp_input;\n");
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
@@ -3218,7 +3217,7 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
     printer.print("}\n");  // match
     printer.outdent();
     printer.print("}\n");  // loop
-    printer.print("::core::result::Result::Ok(())\n");
+    printer.print("::core::result::Result::Ok(::rapidproto::stream::Flow::Continue)\n");
     printer.outdent();
     printer.print("}\n");  // decode
     printer.outdent();
