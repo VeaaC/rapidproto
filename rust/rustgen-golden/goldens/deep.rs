@@ -365,7 +365,8 @@ pub mod stream {
         }
 
         impl<'a> Outer<'a> {
-          /// A handle that reads the message body `rp_input`. Fails with `InputTooLarge` above `u32::MAX` bytes.
+          /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+          /// above `u32::MAX` bytes.
           #[inline(always)]
           pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Outer<'a>, ::rapidproto::DecodeError> {
             if rp_input.len() > u32::MAX as usize {
@@ -374,9 +375,8 @@ pub mod stream {
             ::core::result::Result::Ok(Outer { rp_input })
           }
 
-          #[doc(hidden)]
           #[inline(always)]
-          pub fn rp_new(rp_input: &'a [u8]) -> Outer<'a> { Outer { rp_input } }
+          pub(in crate::deep::stream) fn rp_new(rp_input: &'a [u8]) -> Outer<'a> { Outer { rp_input } }
 
           /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
           /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -555,7 +555,8 @@ pub mod stream {
           }
 
           impl<'a> Inner<'a> {
-            /// A handle that reads the message body `rp_input`. Fails with `InputTooLarge` above `u32::MAX` bytes.
+            /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+            /// above `u32::MAX` bytes.
             #[inline(always)]
             pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Inner<'a>, ::rapidproto::DecodeError> {
               if rp_input.len() > u32::MAX as usize {
@@ -564,9 +565,8 @@ pub mod stream {
               ::core::result::Result::Ok(Inner { rp_input })
             }
 
-            #[doc(hidden)]
             #[inline(always)]
-            pub fn rp_new(rp_input: &'a [u8]) -> Inner<'a> { Inner { rp_input } }
+            pub(in crate::deep::stream) fn rp_new(rp_input: &'a [u8]) -> Inner<'a> { Inner { rp_input } }
 
             /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
             /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead

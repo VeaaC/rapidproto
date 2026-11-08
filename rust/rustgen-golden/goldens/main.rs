@@ -854,7 +854,8 @@ pub mod stream {
     }
 
     impl<'a> Dep<'a> {
-      /// A handle that reads the message body `rp_input`. Fails with `InputTooLarge` above `u32::MAX` bytes.
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Dep<'a>, ::rapidproto::DecodeError> {
         if rp_input.len() > u32::MAX as usize {
@@ -863,9 +864,8 @@ pub mod stream {
         ::core::result::Result::Ok(Dep { rp_input })
       }
 
-      #[doc(hidden)]
       #[inline(always)]
-      pub fn rp_new(rp_input: &'a [u8]) -> Dep<'a> { Dep { rp_input } }
+      pub(in crate::main::stream) fn rp_new(rp_input: &'a [u8]) -> Dep<'a> { Dep { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -1014,7 +1014,8 @@ pub mod stream {
     }
 
     impl<'a> Fwd<'a> {
-      /// A handle that reads the message body `rp_input`. Fails with `InputTooLarge` above `u32::MAX` bytes.
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Fwd<'a>, ::rapidproto::DecodeError> {
         if rp_input.len() > u32::MAX as usize {
@@ -1023,9 +1024,8 @@ pub mod stream {
         ::core::result::Result::Ok(Fwd { rp_input })
       }
 
-      #[doc(hidden)]
       #[inline(always)]
-      pub fn rp_new(rp_input: &'a [u8]) -> Fwd<'a> { Fwd { rp_input } }
+      pub(in crate::main::stream) fn rp_new(rp_input: &'a [u8]) -> Fwd<'a> { Fwd { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -1164,7 +1164,8 @@ pub mod stream {
     }
 
     impl<'a> Main<'a> {
-      /// A handle that reads the message body `rp_input`. Fails with `InputTooLarge` above `u32::MAX` bytes.
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Main<'a>, ::rapidproto::DecodeError> {
         if rp_input.len() > u32::MAX as usize {
@@ -1173,9 +1174,8 @@ pub mod stream {
         ::core::result::Result::Ok(Main { rp_input })
       }
 
-      #[doc(hidden)]
       #[inline(always)]
-      pub fn rp_new(rp_input: &'a [u8]) -> Main<'a> { Main { rp_input } }
+      pub(in crate::main::stream) fn rp_new(rp_input: &'a [u8]) -> Main<'a> { Main { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -1600,7 +1600,8 @@ pub mod stream {
     }
 
     impl<'a> Pub<'a> {
-      /// A handle that reads the message body `rp_input`. Fails with `InputTooLarge` above `u32::MAX` bytes.
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Pub<'a>, ::rapidproto::DecodeError> {
         if rp_input.len() > u32::MAX as usize {
@@ -1609,9 +1610,8 @@ pub mod stream {
         ::core::result::Result::Ok(Pub { rp_input })
       }
 
-      #[doc(hidden)]
       #[inline(always)]
-      pub fn rp_new(rp_input: &'a [u8]) -> Pub<'a> { Pub { rp_input } }
+      pub(in crate::main::stream) fn rp_new(rp_input: &'a [u8]) -> Pub<'a> { Pub { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead

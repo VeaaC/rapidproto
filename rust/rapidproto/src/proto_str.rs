@@ -36,8 +36,8 @@ impl<'a> ProtoStr<'a> {
         Self::new_truncating(bytes)
     }
 
-    // A decode never reads more than `u32::MAX` bytes, since it rejects a longer input, so generated
-    // code skips the check of `new`.
+    // The arena `decode` and the stream handle's `new` reject an input over `u32::MAX` bytes, so
+    // generated code skips the check of `new`.
     #[doc(hidden)]
     #[inline]
     pub fn new_truncating(bytes: &'a [u8]) -> Self {

@@ -917,8 +917,8 @@ void emit_field_accessor(Printer& printer, const NameTable& table, const FieldNo
         value += ".as_slice()";
     } else if (store == RustStore::MaskedValue && field.type_name == "string") {
         // Rebuilt from its fields, not copied whole. Rust copies the packed 12 bytes as raw memory,
-        // which drops the fact that the pointer is non-null, the `None` niche. Every test of the
-        // returned `Option` would then load and test the pointer.
+        // and the copy loses LLVM's knowledge that the pointer is non-null. `None` is the null
+        // pointer, so every test of the returned `Option` would then load and test it.
         value = "::rapidproto::ProtoStr::new_truncating(" + value + ".as_bytes())";
     } else if (store == RustStore::MaskedValue && field.type_name == "bytes") {
         value = "::rapidproto::ProtoBytes::new_truncating(" + value + ".as_slice())";
@@ -2072,7 +2072,7 @@ void emit_threaded_prologue(Printer& printer, const NameTable& table, const Mess
 
 // Reject an `input` over `u32::MAX` bytes, the most a `ProtoStr`, `ProtoBytes` or `PackedSlice` holds.
 // It runs once per root, in the arena `decode` and the stream `new`. Every nested message and value is
-// a part of that input, so they need no check of their own and are stored unchecked.
+// a part of that input, so they need no check of their own and are built unchecked.
 void emit_input_size_check(Printer& printer, const std::string& input) {
     printer.print("if $i$.len() > u32::MAX as usize {\n", {{"i", input}});
     printer.indent();
@@ -3092,8 +3092,9 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
     // `decode`, so a check there would run at every level. Inline in `decode`, it also grew every decode
     // enough that LLVM stopped inlining the wire reads into some of them.
     printer.print(
-        "/// A handle that reads the message body `rp_input`. Fails with `InputTooLarge` above "
-        "`u32::MAX` bytes.\n");
+        "/// Wrap an encoded message for [`decode`](Self::decode). Fails with "
+        "`ErrorKind::InputTooLarge`\n"
+        "/// above `u32::MAX` bytes.\n");
     printer.print("#[inline(always)]\n");
     printer.print(
         "pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<$M$<'a>, "
@@ -3103,10 +3104,12 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
     printer.print("::core::result::Result::Ok($M$ { rp_input })\n");
     printer.outdent();
     printer.print("}\n\n");
-    // The handle a parent hands its handler for a nested message: a part of an input `new` checked.
-    printer.print("#[doc(hidden)]\n");
+    // The handle a parent hands its handler for a nested message, a part of an input `new` checked.
+    // Visible to the whole stream tree, so parents in other modules can build it, and to nothing else.
     printer.print("#[inline(always)]\n");
-    printer.print("pub fn rp_new(rp_input: &'a [u8]) -> $M$<'a> { $M$ { rp_input } }\n\n");
+    printer.print(
+        "pub(in $root$::stream) fn rp_new(rp_input: &'a [u8]) -> $M$<'a> { $M$ { rp_input } }\n\n",
+        {{"root", table.root}});
     // The handle wraps the message BODY (post-length-prefix) -- the same bytes the arena model's
     // `decode(bytes, &arena)` expects -- so exposing them lets a consumer stream the outer message and
     // materialize a chosen sub-message mid-stream (the stream->arena hybrid), composing the two models
