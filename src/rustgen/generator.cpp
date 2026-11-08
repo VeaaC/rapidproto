@@ -354,9 +354,8 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node, b
     printer.print("}\n");
 }
 
-// The arena Rust type for a proto scalar keyword. `string`/`bytes` are the 12-byte cells a decoded
-// message stores them in (`PackedStr`, `PackedSlice<u8>`), borrowing the input for `'a`; a singular
-// getter hands them out as `&'a ProtoStr` / `&'a [u8]` (see `public_value_type`).
+// The Rust type for a proto scalar keyword. `string`/`bytes` are `ProtoStr<'a>` / `ProtoBytes<'a>`,
+// 12-byte values borrowing the input for `'a`, which both models hand out as they are.
 std::string rust_scalar_type(std::string_view t) {
     if (t == "int32" || t == "sint32" || t == "sfixed32") {
         return "i32";
@@ -380,10 +379,10 @@ std::string rust_scalar_type(std::string_view t) {
         return "f64";
     }
     if (t == "string") {
-        return "::rapidproto::PackedStr<'a>";
+        return "::rapidproto::ProtoStr<'a>";
     }
     if (t == "bytes") {
-        return "::rapidproto::PackedSlice<'a, u8>";
+        return "::rapidproto::ProtoBytes<'a>";
     }
     return "()";  // defensive: not reached for a resolved scalar field
 }
@@ -426,8 +425,8 @@ std::string oneof_path(const NameTable& table, const MessageNode& msg, const One
 }
 
 // The Rust type of a field's singular VALUE as a decoded message stores it, ignoring repeated/presence
-// wrapping: scalar -> a Rust primitive, enum -> the common-tree path, string -> PackedStr<'a>, bytes ->
-// PackedSlice<'a, u8>, message -> the arena-tree path with its lifetime (`Inner<'a>`).
+// wrapping: scalar -> a Rust primitive, enum -> the common-tree path, string -> ProtoStr<'a>, bytes ->
+// ProtoBytes<'a>, message -> the arena-tree path with its lifetime (`Inner<'a>`).
 std::string field_value_type(const NameTable& table, const FieldNode& field) {
     if (field.is_message_type) {
         return message_path(table, field.resolved_type_fqn) + "<'a>";
@@ -445,19 +444,9 @@ bool is_string_or_bytes(const FieldNode& field) {
            (field.type_name == "string" || field.type_name == "bytes");
 }
 
-// The type a singular getter returns for `field`'s value: a string or `bytes` cell is handed out as
-// the `&'a ProtoStr` / `&'a [u8]` it holds; any other value as stored.
-std::string public_value_type(const NameTable& table, const FieldNode& field) {
-    if (is_string_or_bytes(field)) {
-        return field.type_name == "string" ? "&'a ::rapidproto::ProtoStr" : "&'a [u8]";
-    }
-    return field_value_type(table, field);
-}
-
 // The type carried by a oneof variant for `field`: a singular message is borrowed (`&'a T<'a>`, like
-// a singular message FIELD); everything else is the stored value type (PackedStr<'a>,
-// PackedSlice<'a, u8>, the enum newtype, or a scalar primitive). Oneof fields are never repeated or
-// maps.
+// a singular message FIELD); everything else is the stored value type (ProtoStr<'a>, ProtoBytes<'a>,
+// the enum newtype, or a scalar primitive). Oneof fields are never repeated or maps.
 std::string variant_payload_type(const NameTable& table, const FieldNode& field) {
     if (field.is_message_type) {
         return "&'a " + field_value_type(table, field);
@@ -712,9 +701,9 @@ bool slice_local(const FieldNode& field) {
 // presence in the mask). A proto2 `[default = ...]` is NOT materialized (matching the C++ decoder,
 // which reads an absent defaulted field as `None` and leaves the default to the consumer), so a
 // defaulted field is stored exactly like any other field of its presence. A `raw` message field keeps
-// its undecoded LEN payload instead of the decoded tree, in the `bytes` cell: `Option<PackedSlice<'a,
-// u8>>` singular (still 12 bytes, `None` being the null pointer), a `PackedSlice` of them repeated (the
-// consumer feeds a payload to the field type's `decode` itself).
+// its undecoded LEN payload instead of the decoded tree, as `bytes`: `Option<ProtoBytes<'a>>` singular
+// (still 12 bytes, `None` being the null pointer), a `PackedSlice` of them repeated (the consumer feeds
+// a payload to the field type's `decode` itself).
 std::string field_storage_type(const NameTable& table, const FieldNode& field,
                                const FieldModes& modes, const arenagen::MemberPlan* member) {
     const bool raw = field_mode(modes, field) == arenagen::FieldMode::Raw;
@@ -735,20 +724,18 @@ std::string field_storage_type(const NameTable& table, const FieldNode& field,
 
 // The getter's return type -- the SEMANTIC presence-wrapped type, which (unlike the storage type) still
 // wraps explicit presence in `Option`: masked scalar/enum/string -> `Option<T>`; inline/pointer message
-// -> `Option<&T>`; bool -> `bool` / `Option<bool>`; bare -> the plain value; a string or `bytes` cell
-// -> the `&'a ProtoStr` / `&'a [u8]` it holds; repeated -> the plain slice its `PackedSlice` holds
-// (of cells, for strings and `bytes`); raw -> `Option<&'a [u8]>` singular, a slice of `bytes` cells
-// repeated.
+// -> `Option<&T>`; bool -> `bool` / `Option<bool>`; bare -> the plain value; repeated -> the plain
+// slice its `PackedSlice` holds; raw -> `Option<ProtoBytes<'a>>` singular, a slice of them repeated.
 std::string field_getter_type(const NameTable& table, const FieldNode& field,
                               const FieldModes& modes, const arenagen::MemberPlan* member) {
     if (field_mode(modes, field) == arenagen::FieldMode::Raw) {
-        return field.is_repeated ? "&'a [" + rust_scalar_type("bytes") + "]"
-                                 : "::core::option::Option<&'a [u8]>";
+        const std::string bytes = rust_scalar_type("bytes");
+        return field.is_repeated ? "&'a [" + bytes + "]" : "::core::option::Option<" + bytes + ">";
     }
     if (field.is_repeated) {
         return "&'a [" + field_value_type(table, field) + "]";
     }
-    std::string value = public_value_type(table, field);
+    std::string value = field_value_type(table, field);
     switch (rust_store(member, field)) {
         case RustStore::PointerMsg:
             // A Copy arena borrow, outlives `&self`.
@@ -789,11 +776,8 @@ std::string field_default_expr(const NameTable& table, const FieldNode& field,
         return field_value_type(table, field) + "(0)";
     }
     const std::string& t = field.type_name;
-    if (t == "string") {
-        return "::rapidproto::PackedStr::new(&[])";
-    }
-    if (t == "bytes") {
-        return "::rapidproto::PackedSlice::new(&[])";
+    if (t == "string" || t == "bytes") {
+        return "::core::default::Default::default()";
     }
     if (t == "bool") {
         return "false";
@@ -857,8 +841,8 @@ std::string raw_tag_key(std::int64_t number, const std::string& wire) {
 }
 
 // The expression converting the just-read raw wire value (`rp_v`: u64 for Varint, u32 for I32, u64 for
-// I64; `rp_p`: &[u8] for Len) into the field's Rust value type, as a decoded message stores it (a
-// string or `bytes` value in its 12-byte cell; see `stream_convert_expr` for the streaming decoder).
+// I64; `rp_p`: &[u8] for Len) into the field's Rust value type. A string or `bytes` value skips the
+// length check of `new`: both decoders reject an input over `u32::MAX` bytes, so `rp_p` fits.
 std::string scalar_convert_expr(const NameTable& table, const FieldNode& field) {
     if (field.is_enum_type) {
         return field_value_type(table, field) + "(rp_v as i32)";
@@ -894,22 +878,12 @@ std::string scalar_convert_expr(const NameTable& table, const FieldNode& field) 
         return "f64::from_bits(rp_v)";
     }
     if (t == "string") {
-        return "::rapidproto::PackedStr::new(rp_p)";
+        return "::rapidproto::ProtoStr::new_truncating(rp_p)";
     }
     if (t == "bytes") {
-        return "::rapidproto::PackedSlice::new(rp_p)";
+        return "::rapidproto::ProtoBytes::new_truncating(rp_p)";
     }
     return "rp_v";  // defensive
-}
-
-// `scalar_convert_expr` for the streaming decoder, whose handlers take a string as `&'a ProtoStr` and
-// `bytes` as `&'a [u8]`, never a 12-byte cell: a stream has no input size limit, so its lengths stay
-// full width.
-std::string stream_convert_expr(const NameTable& table, const FieldNode& field) {
-    if (is_string_or_bytes(field)) {
-        return field.type_name == "string" ? "::rapidproto::ProtoStr::new(rp_p)" : "rp_p";
-    }
-    return scalar_convert_expr(table, field);
 }
 
 // Emit a `pub fn <field>(&self) -> ...` accessor. The return type is the SEMANTIC presence-wrapped
@@ -936,15 +910,11 @@ void emit_field_accessor(Printer& printer, const NameTable& table, const FieldNo
     // bit test, so evaluating it eagerly costs nothing.
     const std::string pbit =
         (masked && presence_bit >= 0) ? mask_test("self.rp_presence", presence_bit, mask_bits) : "";
-    // The stored value as the getter returns it: a `PackedSlice` hands back its plain slice and a
-    // `PackedStr` its `&ProtoStr`, for the full `'a`.
+    // The stored value as the getter returns it: a `PackedSlice` hands back its plain slice, for the
+    // full `'a`.
     std::string value = "self." + accessor;
     if (field.is_repeated) {
         value += ".as_slice()";
-    } else if (field_mode(modes, field) == arenagen::FieldMode::Raw) {
-        value += ".map(::rapidproto::PackedSlice::as_slice)";
-    } else if (is_string_or_bytes(field)) {
-        value += field.type_name == "string" ? ".get()" : ".as_slice()";
     }
     switch (store) {
         case RustStore::MaskedBool: {
@@ -1429,7 +1399,7 @@ void emit_field_arms(Printer& printer, const NameTable& table, const FieldNode& 
         printer.indent();
         if (field.is_repeated) {
             emit_msg_payload_read(printer, field, loop_read());
-            emit_push(printer, acc, "::rapidproto::PackedSlice::new(rp_p)");
+            emit_push(printer, acc, "::rapidproto::ProtoBytes::new_truncating(rp_p)");
         } else {
             const std::string local = field_local(field);
             printer.print("if $l$.is_some() {\n", {{"l", local}});
@@ -1853,10 +1823,11 @@ void emit_decode_construct(Printer& printer, const MessageNode& msg, const Field
             // string/bytes/raw local is packed here (see `slice_local`).
             const char* fmt = "$a$: $l$,\n";
             if (slice_local(field)) {
-                fmt = field.type_name == "string" ? "$a$: ::rapidproto::PackedStr::new($l$),\n"
-                                                  : "$a$: ::rapidproto::PackedSlice::new($l$),\n";
+                fmt = field.type_name == "string"
+                          ? "$a$: ::rapidproto::ProtoStr::new_truncating($l$),\n"
+                          : "$a$: ::rapidproto::ProtoBytes::new_truncating($l$),\n";
             } else if (field_mode(modes, field) == arenagen::FieldMode::Raw) {
-                fmt = "$a$: $l$.map(::rapidproto::PackedSlice::new),\n";
+                fmt = "$a$: $l$.map(::rapidproto::ProtoBytes::new_truncating),\n";
             }
             printer.print(fmt, {{"a", accessors.fields[i]}, {"l", field_local(field)}});
         }
@@ -2092,6 +2063,18 @@ void emit_threaded_prologue(Printer& printer, const NameTable& table, const Mess
     }
 }
 
+// Reject an `input` over `u32::MAX` bytes, the most a `ProtoStr`, `ProtoBytes` or `PackedSlice` holds.
+// Every value a decode reads is a part of its input, so this one check lets it store them unchecked.
+void emit_input_size_check(Printer& printer, const std::string& input) {
+    printer.print("if $i$.len() > u32::MAX as usize {\n", {{"i", input}});
+    printer.indent();
+    printer.print(
+        "return ::core::result::Result::Err(::rapidproto::DecodeError::new("
+        "::rapidproto::ErrorKind::InputTooLarge, 0));\n");
+    printer.outdent();
+    printer.print("}\n");
+}
+
 void emit_decode(Printer& printer, const NameTable& table, const MessageNode& msg,
                  const AccessorNames& accessors, const FieldModes& modes,
                  const arenagen::MessageLayout* layout) {
@@ -2099,13 +2082,7 @@ void emit_decode(Printer& printer, const NameTable& table, const MessageNode& ms
         "pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) "
         "-> ::core::result::Result<&'a $M$<'a>, ::rapidproto::DecodeError> {\n");
     printer.indent();
-    printer.print("if input.len() > u32::MAX as usize {\n");
-    printer.indent();
-    printer.print(
-        "return ::core::result::Result::Err(::rapidproto::DecodeError::new("
-        "::rapidproto::ErrorKind::InputTooLarge, 0));\n");
-    printer.outdent();
-    printer.print("}\n");
+    emit_input_size_check(printer, "input");
     // Decode the root message directly into its final arena slot (no by-value copy), mirroring the
     // caller side of every sub-message decode below.
     printer.print(
@@ -2292,92 +2269,50 @@ std::string rust_str_lit(const std::string& name) {
     return "\"" + name + "\"";
 }
 
-// Is a field/map-value/oneof-member a `bytes` scalar? (Shared so the three serialize sites -- field,
-// map value, oneof member, each over a different node struct -- test it one way.) The two bool flags
-// are both negated and ANDed, so transposing them cannot change the result.
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-bool is_scalar_bytes(bool is_message, bool is_enum, const std::string& type_name) {
-    return !is_message && !is_enum && type_name == "bytes";
-}
-
-// Serialized as an opaque `bytes` value? True for a `bytes` scalar and for any raw-mode field (its
-// payload materializes as bytes).
-bool serialize_as_bytes(const FieldModes& modes, const FieldNode& field) {
-    return field_mode(modes, field) == arenagen::FieldMode::Raw ||
-           is_scalar_bytes(field.is_message_type, field.is_enum_type, field.type_name);
-}
-
-void emit_field_serialize(Printer& printer, const FieldNode& field, const std::string& accessor,
-                          const FieldModes& modes) {
+void emit_field_serialize(Printer& printer, const FieldNode& field, const std::string& accessor) {
     const std::string key = rust_str_lit(field.name);
-    const arenagen::FieldMode mode = field_mode(modes, field);
-    const bool bytes = serialize_as_bytes(modes, field);
     printer.print("{\n");
     printer.indent();
     if (field.is_repeated) {
         printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
         printer.print("if !rp_v.is_empty() {\n");
         printer.indent();
-        if (bytes) {
-            printer.print(
-                "rp_map.serialize_entry($n$, &::rapidproto::serde_support::BytesSeq(rp_v))?;\n",
-                {{"n", key}});
+        printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n", {{"n", key}});
+        printer.outdent();
+        printer.print("}\n");
+    } else if (field.is_message_type || field.presence == FieldPresence::Explicit) {
+        // The getter returns an `Option`: a singular message for every presence (required => Some), a
+        // raw one as its payload's `ProtoBytes`, and any explicit-presence field.
+        printer.print("if let ::core::option::Option::Some(rp_v) = self.$a$() {\n",
+                      {{"a", accessor}});
+        printer.indent();
+        printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n", {{"n", key}});
+        printer.outdent();
+        printer.print("}\n");
+    } else if (field.presence == FieldPresence::Required) {
+        printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
+        printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n", {{"n", key}});
+    } else {  // Implicit (proto3 singular): emit only a non-default value, as protobuf JSON does.
+        std::string cond;
+        if (field.is_enum_type) {
+            cond = "rp_v.0 != 0";
+        } else if (field.type_name == "bool") {
+            cond = "rp_v";
+        } else if (field.type_name == "float" || field.type_name == "double") {
+            // Only +0.0 is the omittable default; -0.0 (and NaN) are present -- matching the dumper's
+            // is_positive_zero rule and protobuf. `!= 0.0` would wrongly drop -0.0.
+            cond = "rp_v.to_bits() != 0";
+        } else if (field.type_name == "string" || field.type_name == "bytes") {
+            cond = "!rp_v.is_empty()";
         } else {
-            printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n", {{"n", key}});
+            cond = "rp_v != 0";
         }
-        printer.outdent();
-        printer.print("}\n");
-    } else if (mode == arenagen::FieldMode::Raw) {
-        // Raw singular (a message/group kept as its wire payload) comes back as `Option<&[u8]>`.
-        printer.print("if let ::core::option::Option::Some(rp_v) = self.$a$() {\n",
-                      {{"a", accessor}});
+        printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
+        printer.print("if $c$ {\n", {{"c", cond}});
         printer.indent();
-        printer.print("rp_map.serialize_entry($n$, &::rapidproto::serde_support::Bytes(rp_v))?;\n",
-                      {{"n", key}});
+        printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n", {{"n", key}});
         printer.outdent();
         printer.print("}\n");
-    } else if (field.is_message_type) {
-        // A singular message getter returns `Option<&Msg>` for every presence (required => Some).
-        printer.print("if let ::core::option::Option::Some(rp_v) = self.$a$() {\n",
-                      {{"a", accessor}});
-        printer.indent();
-        printer.print("rp_map.serialize_entry($n$, rp_v)?;\n", {{"n", key}});
-        printer.outdent();
-        printer.print("}\n");
-    } else {
-        const std::string val = bytes ? "&::rapidproto::serde_support::Bytes(rp_v)" : "&rp_v";
-        if (field.presence == FieldPresence::Explicit) {
-            printer.print("if let ::core::option::Option::Some(rp_v) = self.$a$() {\n",
-                          {{"a", accessor}});
-            printer.indent();
-            printer.print("rp_map.serialize_entry($n$, $val$)?;\n", {{"n", key}, {"val", val}});
-            printer.outdent();
-            printer.print("}\n");
-        } else if (field.presence == FieldPresence::Required) {
-            printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
-            printer.print("rp_map.serialize_entry($n$, $val$)?;\n", {{"n", key}, {"val", val}});
-        } else {  // Implicit (proto3 singular): emit only a non-default value, as protobuf JSON does.
-            std::string cond;
-            if (field.is_enum_type) {
-                cond = "rp_v.0 != 0";
-            } else if (field.type_name == "bool") {
-                cond = "rp_v";
-            } else if (field.type_name == "float" || field.type_name == "double") {
-                // Only +0.0 is the omittable default; -0.0 (and NaN) are present -- matching the
-                // dumper's is_positive_zero rule and protobuf. `!= 0.0` would wrongly drop -0.0.
-                cond = "rp_v.to_bits() != 0";
-            } else if (field.type_name == "string" || field.type_name == "bytes") {
-                cond = "!rp_v.is_empty()";
-            } else {
-                cond = "rp_v != 0";
-            }
-            printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
-            printer.print("if $c$ {\n", {{"c", cond}});
-            printer.indent();
-            printer.print("rp_map.serialize_entry($n$, $val$)?;\n", {{"n", key}, {"val", val}});
-            printer.outdent();
-            printer.print("}\n");
-        }
     }
     printer.outdent();
     printer.print("}\n");
@@ -2393,16 +2328,9 @@ void emit_oneof_serialize(Printer& printer, const NameTable& table, const Messag
     printer.indent();
     for (std::size_t i = 0; i < oneof.fields.size(); ++i) {
         const FieldNode& member = oneof.fields[i];
-        const std::string key = rust_str_lit(member.name);
-        // A `bytes` member is matched as `&PackedSlice<u8>`, which derefs to the Bytes helper's
-        // `&[u8]`. Everything else (scalar/enum by value, string, message-by-ref) is passed through
-        // the bound reference.
-        const std::string val =
-            is_scalar_bytes(member.is_message_type, member.is_enum_type, member.type_name)
-                ? "&::rapidproto::serde_support::Bytes(rp_v)"
-                : "rp_v";
-        printer.print("$e$::$v$(rp_v) => rp_map.serialize_entry($n$, $val$)?,\n",
-                      {{"e", enum_path}, {"v", variants[i]}, {"n", key}, {"val", val}});
+        // The member is bound by reference, which serializes as the value.
+        printer.print("$e$::$v$(rp_v) => rp_map.serialize_entry($n$, rp_v)?,\n",
+                      {{"e", enum_path}, {"v", variants[i]}, {"n", rust_str_lit(member.name)}});
     }
     printer.outdent();
     printer.print("}\n");
@@ -2411,18 +2339,12 @@ void emit_oneof_serialize(Printer& printer, const NameTable& table, const Messag
 }
 
 void emit_map_serialize(Printer& printer, const MapFieldNode& map, const std::string& accessor) {
-    // A bytes-valued map must serialize its values opaquely (BytesMapView), not via the generic
-    // MapView impl -- which has no `Serialize` for a `PackedSlice<u8>` value.
-    const std::string val = is_scalar_bytes(map.value_is_message, map.value_is_enum, map.value_type)
-                                ? "&::rapidproto::serde_support::BytesMapView(rp_v)"
-                                : "&rp_v";
     printer.print("{\n");
     printer.indent();
     printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
     printer.print("if !rp_v.is_empty() {\n");
     printer.indent();
-    printer.print("rp_map.serialize_entry($n$, $val$)?;\n",
-                  {{"n", rust_str_lit(map.name)}, {"val", val}});
+    printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n", {{"n", rust_str_lit(map.name)}});
     printer.outdent();
     printer.print("}\n");
     printer.outdent();
@@ -2445,7 +2367,7 @@ void emit_message_serialize(Printer& printer, const NameTable& table, const Mess
     printer.print("let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;\n");
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
         if (field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
-            emit_field_serialize(printer, msg.fields[i], accessors.fields[i], modes);
+            emit_field_serialize(printer, msg.fields[i], accessors.fields[i]);
         }
     }
     for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
@@ -2758,8 +2680,8 @@ std::string stream_runtime_path(const NameTable& table) {
 }
 
 // The handler value type for a field, with its borrow written as lifetime `lt`: message/group -> the
-// child reader handle `Child<lt>`; enum -> the newtype (no lifetime); string -> `&<lt> ProtoStr`;
-// bytes -> `&<lt> [u8]`; scalar -> a primitive. `in_macro` is for the macro, which expands at the
+// child reader handle `Child<lt>`; enum -> the newtype (no lifetime); string -> `ProtoStr<lt>`;
+// bytes -> `ProtoBytes<lt>`; scalar -> a primitive. `in_macro` is for the macro, which expands at the
 // caller's call site: a generated type's path starts at `$crate`, the runtime is reached through the
 // `rp_rt` re-export (see generate_stream), since the caller's crate may not depend on it directly, and
 // a primitive is `::core::primitive::*`, since the caller's scope can hold an item of that name.
@@ -2773,14 +2695,11 @@ std::string stream_value_type(const NameTable& table, const FieldNode& field, co
         return dollar + common_type_path(table, field.resolved_type_fqn);
     }
     const std::string& t = field.type_name;
-    if (t == "string") {
-        return "&" + lt + " " + (in_macro ? stream_runtime_path(table) : "::rapidproto") +
-               "::ProtoStr";
+    if (t == "string" || t == "bytes") {
+        return (in_macro ? stream_runtime_path(table) : "::rapidproto") +
+               (t == "string" ? "::ProtoStr<" : "::ProtoBytes<") + lt + ">";
     }
     const std::string prim = in_macro ? "::core::primitive::" : "";
-    if (t == "bytes") {
-        return "&" + lt + " [" + prim + "u8]";
-    }
     return prim + rust_scalar_type(t);  // numeric: no lifetime
 }
 
@@ -2873,29 +2792,6 @@ void emit_packed_varints_loop(Printer& printer, const std::string& name, const s
     printer.print("}\n");
 }
 
-// The zero value for a map key/value scalar, written to match its streaming handler type (the local is
-// type-annotated, so a bare `0` / `0.0` takes the annotated integer/float type). A map entry that omits
-// field 1 or field 2 delivers this default, mirroring protobuf's absent-key/value rule (and C++).
-std::string stream_scalar_default(const FieldNode& field) {
-    if (field.is_enum_type) {
-        return "::core::default::Default::default()";  // the newtype derives Default (variant 0)
-    }
-    const std::string& t = field.type_name;
-    if (t == "string") {
-        return "::rapidproto::ProtoStr::new(&[])";
-    }
-    if (t == "bytes") {
-        return "&[]";
-    }
-    if (t == "bool") {
-        return "false";
-    }
-    if (t == "float" || t == "double") {
-        return "0.0";
-    }
-    return "0";
-}
-
 // Read one map-entry component (field 1 = key, field 2 = value) from `rp_ent` into `local`: a
 // length-delimited key/value (string/bytes) or a scalar/enum, last-wins on a repeat. A message value is
 // NOT read here (it is captured as payload bytes by the caller's own arm).
@@ -2908,7 +2804,7 @@ void emit_stream_map_component(Printer& printer, const NameTable& table, const F
     } else {
         emit_scalar_value_read(printer, field, at, VarintRead::Inline);
     }
-    printer.print("$l$ = $c$;\n", {{"l", local}, {"c", stream_convert_expr(table, field)}});
+    printer.print("$l$ = $c$;\n", {{"l", local}, {"c", scalar_convert_expr(table, field)}});
     printer.outdent();
     printer.print("}\n");
 }
@@ -2939,17 +2835,18 @@ void emit_stream_map_body(Printer& printer, const NameTable& table, const Stream
 
     emit_len_read(printer, loop_read());  // the entry payload -> rp_p
     printer.print("let rp_ent_body: &'a [u8] = rp_p;\n");
-    printer.print(
-        "let mut rp_key: $t$ = $d$;\n",
-        {{"t", stream_value_type(table, key, "'a", false)}, {"d", stream_scalar_default(key)}});
+    // An entry that omits its key or value delivers the zero value, as protobuf specifies.
+    printer.print("let mut rp_key: $t$ = $d$;\n",
+                  {{"t", stream_value_type(table, key, "'a", false)},
+                   {"d", field_default_expr(table, key, nullptr)}});
     if (val.is_message_type) {
         // A message value is handed over as a child reader handle; capture its payload bytes (empty
         // when the entry omits field 2 -> an empty child).
         printer.print("let mut rp_val: &'a [u8] = &[];\n");
     } else {
-        printer.print(
-            "let mut rp_val: $t$ = $d$;\n",
-            {{"t", stream_value_type(table, val, "'a", false)}, {"d", stream_scalar_default(val)}});
+        printer.print("let mut rp_val: $t$ = $d$;\n",
+                      {{"t", stream_value_type(table, val, "'a", false)},
+                       {"d", field_default_expr(table, val, nullptr)}});
     }
     printer.print("let mut rp_ent: &'a [u8] = rp_ent_body;\n");
     printer.print("loop {\n");
@@ -2999,7 +2896,7 @@ void emit_stream_value_body(Printer& printer, const NameTable& table, const Stre
     } else {
         emit_scalar_value_read(printer, field, loop_read(), VarintRead::Inline);
     }
-    emit_stream_dispatch(printer, slot.name, stream_convert_expr(table, field));
+    emit_stream_dispatch(printer, slot.name, scalar_convert_expr(table, field));
 }
 
 // A packed run of a repeated numeric field, its tag consumed: deliver each element. Shared by the
@@ -3202,6 +3099,7 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
         "-> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {\n");
     printer.indent();
     printer.print("let rp_body: &'a [u8] = self.rp_input;\n");
+    emit_input_size_check(printer, "rp_body");
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
     emit_stream_prologue(printer, table, slots);
     printer.print("loop {\n");

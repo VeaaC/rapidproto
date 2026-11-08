@@ -72,17 +72,17 @@ pub mod arena {
 
   pub mod bench {
     pub struct Address<'a> {
-      street: ::rapidproto::PackedStr<'a>,
-      city: ::rapidproto::PackedStr<'a>,
+      street: ::rapidproto::ProtoStr<'a>,
+      city: ::rapidproto::ProtoStr<'a>,
       zip: u32,
     }
 
     impl<'a> Address<'a> {
-      pub fn street(&self) -> &'a ::rapidproto::ProtoStr {
-        self.street.get()
+      pub fn street(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.street
       }
-      pub fn city(&self) -> &'a ::rapidproto::ProtoStr {
-        self.city.get()
+      pub fn city(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.city
       }
       pub fn zip(&self) -> u32 {
         self.zip
@@ -120,16 +120,16 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Address);
 
     pub struct Attribute<'a> {
-      key: ::rapidproto::PackedStr<'a>,
-      value: ::rapidproto::PackedStr<'a>,
+      key: ::rapidproto::ProtoStr<'a>,
+      value: ::rapidproto::ProtoStr<'a>,
     }
 
     impl<'a> Attribute<'a> {
-      pub fn key(&self) -> &'a ::rapidproto::ProtoStr {
-        self.key.get()
+      pub fn key(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.key
       }
-      pub fn value(&self) -> &'a ::rapidproto::ProtoStr {
-        self.value.get()
+      pub fn value(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.value
       }
     }
     impl<'a> ::rapidproto::serde::Serialize for Attribute<'a> {
@@ -159,27 +159,27 @@ pub mod arena {
 
     pub struct Person<'a> {
       id: i64,
-      name: ::rapidproto::PackedStr<'a>,
-      email: ::rapidproto::PackedStr<'a>,
+      name: ::rapidproto::ProtoStr<'a>,
+      email: ::rapidproto::ProtoStr<'a>,
       score: f64,
       created: u64,
       address: ::core::option::Option<&'a crate::bench_records_sparse::arena::bench::Address<'a>>,
-      tags: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
+      tags: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoStr<'a>>,
       history: ::rapidproto::PackedSlice<'a, i32>,
       attributes: ::rapidproto::PackedSlice<'a, crate::bench_records_sparse::arena::bench::Attribute<'a>>,
       rp_presence: u8,
-      counters: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32>,
+      counters: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
     }
 
     impl<'a> Person<'a> {
       pub fn id(&self) -> i64 {
         self.id
       }
-      pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
-        self.name.get()
+      pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.name
       }
-      pub fn email(&self) -> &'a ::rapidproto::ProtoStr {
-        self.email.get()
+      pub fn email(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.email
       }
       pub fn active(&self) -> bool {
         (self.rp_presence & (1 << 0)) != 0
@@ -193,7 +193,7 @@ pub mod arena {
       pub fn address(&self) -> ::core::option::Option<&'a crate::bench_records_sparse::arena::bench::Address<'a>> {
         self.address
       }
-      pub fn tags(&self) -> &'a [::rapidproto::PackedStr<'a>] {
+      pub fn tags(&self) -> &'a [::rapidproto::ProtoStr<'a>] {
         self.tags.as_slice()
       }
       pub fn history(&self) -> &'a [i32] {
@@ -202,7 +202,7 @@ pub mod arena {
       pub fn attributes(&self) -> &'a [crate::bench_records_sparse::arena::bench::Attribute<'a>] {
         self.attributes.as_slice()
       }
-      pub fn counters(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32> {
+      pub fn counters(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32> {
         self.counters
       }
     }
@@ -251,7 +251,7 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.address() {
-            rp_map.serialize_entry("address", rp_v)?;
+            rp_map.serialize_entry("address", &rp_v)?;
           }
         }
         {
@@ -285,14 +285,14 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Person);
 
     pub struct Dataset<'a> {
-      name: ::rapidproto::PackedStr<'a>,
+      name: ::rapidproto::ProtoStr<'a>,
       version: i64,
       people: ::rapidproto::PackedSlice<'a, crate::bench_records_sparse::arena::bench::Person<'a>>,
     }
 
     impl<'a> Dataset<'a> {
-      pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
-        self.name.get()
+      pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.name
       }
       pub fn version(&self) -> i64 {
         self.version
@@ -337,8 +337,8 @@ pub mod arena {
       b: ::rapidproto::PackedSlice<'a, i32>,
       c: ::rapidproto::PackedSlice<'a, i32>,
       d: ::rapidproto::PackedSlice<'a, i32>,
-      s: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
-      t: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
+      s: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoStr<'a>>,
+      t: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoStr<'a>>,
     }
 
     impl<'a> Wide<'a> {
@@ -354,10 +354,10 @@ pub mod arena {
       pub fn d(&self) -> &'a [i32] {
         self.d.as_slice()
       }
-      pub fn s(&self) -> &'a [::rapidproto::PackedStr<'a>] {
+      pub fn s(&self) -> &'a [::rapidproto::ProtoStr<'a>] {
         self.s.as_slice()
       }
-      pub fn t(&self) -> &'a [::rapidproto::PackedStr<'a>] {
+      pub fn t(&self) -> &'a [::rapidproto::ProtoStr<'a>] {
         self.t.as_slice()
       }
     }
@@ -610,12 +610,12 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.position() {
-            rp_map.serialize_entry("position", rp_v)?;
+            rp_map.serialize_entry("position", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.velocity() {
-            rp_map.serialize_entry("velocity", rp_v)?;
+            rp_map.serialize_entry("velocity", &rp_v)?;
           }
         }
         {
@@ -912,8 +912,8 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Address {
-          street: ::rapidproto::PackedStr::new(rp_field_1),
-          city: ::rapidproto::PackedStr::new(rp_field_2),
+          street: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
+          city: ::rapidproto::ProtoStr::new_truncating(rp_field_2),
           zip: rp_field_3,
         }))
       }
@@ -997,8 +997,8 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Attribute {
-          key: ::rapidproto::PackedStr::new(rp_field_1),
-          value: ::rapidproto::PackedStr::new(rp_field_2),
+          key: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
+          value: ::rapidproto::ProtoStr::new_truncating(rp_field_2),
         }))
       }
     }
@@ -1107,7 +1107,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_8.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_8.push(::rapidproto::ProtoStr::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         while rp_rest.first() == ::core::option::Option::Some(&72u8) {
           rp_rest = &rp_rest[1..];
@@ -1144,7 +1144,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
+          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
           let mut rp_val: i32 = 0;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -1170,7 +1170,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::PackedStr::new(rp_p);
+                rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
               }
               16u32 => {
                 let mut rp_v = 0u64;
@@ -1276,7 +1276,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_8.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_8.push(::rapidproto::ProtoStr::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             72u32 => {
               let mut rp_v = 0u64;
@@ -1309,7 +1309,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
+              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -1335,7 +1335,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::PackedStr::new(rp_p);
+                    rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                   }
                   16u32 => {
                     let mut rp_v = 0u64;
@@ -1365,8 +1365,8 @@ pub mod arena {
         }
         ::core::result::Result::Ok(rp_out.write(Person {
           id: rp_field_1,
-          name: ::rapidproto::PackedStr::new(rp_field_2),
-          email: ::rapidproto::PackedStr::new(rp_field_3),
+          name: ::rapidproto::ProtoStr::new_truncating(rp_field_2),
+          email: ::rapidproto::ProtoStr::new_truncating(rp_field_3),
           score: rp_field_5,
           created: rp_field_6,
           address: rp_field_7,
@@ -1475,7 +1475,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Dataset {
-          name: ::rapidproto::PackedStr::new(rp_field_1),
+          name: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
           version: rp_field_2,
           people: ::rapidproto::PackedSlice::new(rp_acc_3.into_slice()),
         }))
@@ -1583,7 +1583,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_5.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_5.push(::rapidproto::ProtoStr::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         while rp_rest.first() == ::core::option::Option::Some(&50u8) {
           rp_rest = &rp_rest[1..];
@@ -1592,7 +1592,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_6.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_6.push(::rapidproto::ProtoStr::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -1681,7 +1681,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_5.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_5.push(::rapidproto::ProtoStr::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             50u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1689,7 +1689,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_6.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_6.push(::rapidproto::ProtoStr::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {

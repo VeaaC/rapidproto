@@ -26,8 +26,6 @@
 //! materializes and resolves singular fields) it does not reject a missing `required` field and counts
 //! a duplicated singular message field more than once. Neither can crash or read out of bounds.
 
-use rapidproto::ProtoStr;
-
 use crate::osm::stream::*;
 use crate::stats::{coord_nano, feature_supported, wrap_add, Stats};
 
@@ -72,7 +70,7 @@ pub fn walk_block_stream(payload: &[u8]) -> Result<Stats, String> {
     let mut lon_offset = 0i64;
     PrimitiveBlock::new(payload)
         .decode(primitive_block_stream! {
-            stringtable => |st| st.decode(string_table_stream! { s => |b| strings.push(b) }),
+            stringtable => |st| st.decode(string_table_stream! { s => |b| strings.push(b.as_slice()) }),
             granularity => |v| granularity = v as i64,
             lat_offset => |v| lat_offset = v,
             lon_offset => |v| lon_offset = v,
@@ -176,9 +174,9 @@ pub fn check_header_stream(payload: &[u8]) -> Result<(), String> {
     let mut unsupported: Option<String> = None;
     HeaderBlock::new(payload)
         .decode(header_block_stream! {
-            required_features => |f: &ProtoStr| {
+            required_features => |f| {
                 if unsupported.is_none() {
-                    let name = String::from_utf8_lossy(f.as_bytes());
+                    let name = f.to_str_lossy();
                     if !feature_supported(&name) {
                         unsupported = Some(name.into_owned());
                     }

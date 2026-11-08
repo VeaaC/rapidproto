@@ -92,14 +92,14 @@ pub mod arena {
 
   pub mod fm {
     pub struct Blob<'a> {
-      payload: ::rapidproto::PackedSlice<'a, u8>,
+      payload: ::rapidproto::ProtoBytes<'a>,
       kind: crate::arena_modes::common::fm::blob::Kind,
       rp_presence: u8,
     }
 
     impl<'a> Blob<'a> {
-      pub fn payload(&self) -> ::core::option::Option<&'a [u8]> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.payload.as_slice())
+      pub fn payload(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {
+        ((self.rp_presence & (1 << 0)) != 0).then_some(self.payload)
       }
       pub fn kind(&self) -> ::core::option::Option<crate::arena_modes::common::fm::blob::Kind> {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.kind)
@@ -114,7 +114,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.payload() {
-            rp_map.serialize_entry("payload", &::rapidproto::serde_support::Bytes(rp_v))?;
+            rp_map.serialize_entry("payload", &rp_v)?;
           }
         }
         {
@@ -143,7 +143,7 @@ pub mod arena {
       req_blob: ::core::option::Option<&'a crate::arena_modes::arena::fm::Blob<'a>>,
       grp: crate::arena_modes::arena::fm::holder::Grp<'a>,
       rp_presence: u8,
-      by_name: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, crate::arena_modes::arena::fm::Blob<'a>>,
+      by_name: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, crate::arena_modes::arena::fm::Blob<'a>>,
     }
 
     impl<'a> Holder<'a> {
@@ -186,7 +186,7 @@ pub mod arena {
       pub fn grp(&self) -> ::core::option::Option<&crate::arena_modes::arena::fm::holder::Grp<'a>> {
         ((self.rp_presence & (1 << 4)) != 0).then_some(&self.grp)
       }
-      pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, crate::arena_modes::arena::fm::Blob<'a>> {
+      pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, crate::arena_modes::arena::fm::Blob<'a>> {
         self.by_name
       }
     }
@@ -209,7 +209,7 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.extra() {
-            rp_map.serialize_entry("extra", rp_v)?;
+            rp_map.serialize_entry("extra", &rp_v)?;
           }
         }
         {
@@ -229,7 +229,7 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.blob() {
-            rp_map.serialize_entry("blob", rp_v)?;
+            rp_map.serialize_entry("blob", &rp_v)?;
           }
         }
         {
@@ -257,12 +257,12 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.req_blob() {
-            rp_map.serialize_entry("req_blob", rp_v)?;
+            rp_map.serialize_entry("req_blob", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.grp() {
-            rp_map.serialize_entry("grp", rp_v)?;
+            rp_map.serialize_entry("grp", &rp_v)?;
           }
         }
         {
@@ -462,7 +462,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Blob {
-          payload: ::rapidproto::PackedSlice::new(rp_field_1),
+          payload: ::rapidproto::ProtoBytes::new_truncating(rp_field_1),
           kind: rp_field_2,
           rp_presence,
         }))
@@ -637,7 +637,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
+          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
           let mut rp_val: ::core::option::Option<crate::arena_modes::arena::fm::Blob<'a>> = ::core::option::Option::None;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -663,7 +663,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::PackedStr::new(rp_p);
+                rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
               }
               18u32 => {
                 if rp_val.is_some() {
@@ -884,7 +884,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
+              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
               let mut rp_val: ::core::option::Option<crate::arena_modes::arena::fm::Blob<'a>> = ::core::option::Option::None;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -910,7 +910,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::PackedStr::new(rp_p);
+                    rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                   }
                   18u32 => {
                     if rp_val.is_some() {
@@ -987,7 +987,7 @@ pub mod stream {
     pub trait BlobVisitor<'a> {
       const WANT_payload: bool = false;
       #[inline(always)]
-      fn on_payload(&mut self, _rp_v: &'a [u8]) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_payload(&mut self, _rp_v: ::rapidproto::ProtoBytes<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_kind: bool = false;
       #[inline(always)]
       fn on_kind(&mut self, _rp_v: crate::arena_modes::common::fm::blob::Kind) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -1013,6 +1013,9 @@ pub mod stream {
 
       pub fn decode<V: BlobVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -1022,7 +1025,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_payload(rp_p)? {
+            match rp_vis.on_payload(::rapidproto::ProtoBytes::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -1075,7 +1078,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_payload(rp_p)? {
+              match rp_vis.on_payload(::rapidproto::ProtoBytes::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -1123,7 +1126,7 @@ pub mod stream {
     macro_rules! __rp_11arena_modes_2fm4Blob {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::arena_modes::stream::fm::blob_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::arena_modes::stream::fm::blob_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] payload => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::blob_stream!(@f [$($a)* WANT_payload on_payload: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
+      (@f [$($a:tt)*] payload => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::blob_stream!(@f [$($a)* WANT_payload on_payload: $crate::arena_modes::rp_rt::ProtoBytes<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] kind => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::blob_stream!(@f [$($a)* WANT_kind on_kind: $crate::arena_modes::common::fm::blob::Kind = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::blob_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_modes::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: payload, kind, unknown")) };
@@ -1177,7 +1180,7 @@ pub mod stream {
       fn on_grp(&mut self, _rp_v: crate::arena_modes::stream::fm::holder::Grp<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_by_name: bool = false;
       #[inline(always)]
-      fn on_by_name(&mut self, _rp_v: (&'a ::rapidproto::ProtoStr, crate::arena_modes::stream::fm::Blob<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_by_name(&mut self, _rp_v: (::rapidproto::ProtoStr<'a>, crate::arena_modes::stream::fm::Blob<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -1200,6 +1203,9 @@ pub mod stream {
 
       pub fn decode<V: HolderVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -1481,7 +1487,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             let rp_ent_body: &'a [u8] = rp_p;
-            let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
+            let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
             let mut rp_val: &'a [u8] = &[];
             let mut rp_ent: &'a [u8] = rp_ent_body;
             loop {
@@ -1507,7 +1513,7 @@ pub mod stream {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                   };
-                  rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                  rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                 }
                 18u32 => {
                   let mut rp_p: &[u8] = &[];
@@ -1798,7 +1804,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
               let mut rp_val: &'a [u8] = &[];
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -1824,7 +1830,7 @@ pub mod stream {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                   }
                   18u32 => {
                     let mut rp_p: &[u8] = &[];
@@ -1892,7 +1898,7 @@ pub mod stream {
       (@f [$($a:tt)*] level => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_level on_level: $crate::arena_modes::common::fm::Level = $c;] $($r)*) };
       (@f [$($a:tt)*] req_blob => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_req_blob on_req_blob: $crate::arena_modes::stream::fm::Blob<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] grp => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_grp on_grp: $crate::arena_modes::stream::fm::holder::Grp<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] by_name => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_by_name on_by_name: (&'rp_a $crate::arena_modes::rp_rt::ProtoStr, $crate::arena_modes::stream::fm::Blob<'rp_a>) = $c;] $($r)*) };
+      (@f [$($a:tt)*] by_name => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_by_name on_by_name: ($crate::arena_modes::rp_rt::ProtoStr<'rp_a>, $crate::arena_modes::stream::fm::Blob<'rp_a>) = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::arena_modes::stream::fm::holder_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::arena_modes::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: keep, debug, extra, old_ids, must, big_num, blob, blobs, samples, spread, level, req_blob, grp, by_name, unknown")) };
       (@f $a:tt) => { $crate::arena_modes::rp_rt::stream_visitor!($crate::arena_modes::stream::fm::HolderVisitor<'rp_a> $a) };
@@ -1930,6 +1936,9 @@ pub mod stream {
 
         pub fn decode<V: GrpVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
+          if rp_body.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&8u8) {
             rp_rest = &rp_rest[1..];

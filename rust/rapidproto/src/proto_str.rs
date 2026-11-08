@@ -1,258 +1,181 @@
-//! A borrowed `string` field, and the 12-byte cell decoded messages store one in.
+//! A protobuf `string` value.
 
-use core::borrow::Borrow;
 use core::cmp::Ordering;
 use core::fmt::{self, Write as _};
 use core::hash::{Hash, Hasher};
-use core::ops::Deref;
 
-use crate::PackedSlice;
+use crate::{PackedSlice, ProtoBytes};
 
-/// A protobuf `string`: its raw UTF-8 bytes, with validation left to the caller. Used as
-/// `&'a ProtoStr`, as `str` is used as `&str`.
+/// A protobuf `string`: its raw bytes, borrowed for `'a`, with UTF-8 validation left to the caller.
 ///
-/// Decoding does not validate (matching the C++ runtime, which trusts the schema), so a `&ProtoStr`
-/// always borrows the input directly and costs nothing to produce. The caller picks the cost it
+/// Decoding does not validate, so a `ProtoStr` costs nothing to produce. The caller picks the cost it
 /// wants: [`as_bytes`](ProtoStr::as_bytes) is free, [`to_str`](ProtoStr::to_str) validates and can
-/// fail, and `to_str_lossy` (with `alloc`) never fails. `Display` writes the text, substituting
-/// U+FFFD for any invalid sequence. Proto `bytes` values do not use this type: a getter returns
-/// `&[u8]`, or a [`PackedSlice<'a, u8>`](PackedSlice) cell inside a repeated field, map or oneof.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// fail, and `to_str_lossy` (with `alloc`) never fails. The methods take the `ProtoStr` by value, and
+/// what they return borrows for the full `'a`.
+///
+/// It compares with `str`, as in `station.name() == "Zurich"`. `Display` writes the text with U+FFFD
+/// for each invalid sequence. `Default` is the empty string.
+#[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct ProtoStr([u8]);
+pub struct ProtoStr<'a>(PackedSlice<'a, u8>);
 
-impl ProtoStr {
-    /// View `bytes` as a string, without copying or validating them. Use it when a `&ProtoStr` does not
-    /// come from a decoded message, such as a lookup key or a test value.
+impl<'a> ProtoStr<'a> {
+    /// View `bytes` as a string, without copying or validating them. Use it for a `ProtoStr` that does
+    /// not come from decoding, such as a lookup key or a test value.
+    ///
+    /// # Panics
+    ///
+    /// If `bytes` is longer than `u32::MAX`, the most a `ProtoStr` holds.
     #[inline]
-    pub fn new(bytes: &[u8]) -> &ProtoStr {
-        // SAFETY: `ProtoStr` is a `repr(transparent)` wrapper of `[u8]`, so both references have
-        // the same layout and length, and the borrow carries over.
-        unsafe { &*(bytes as *const [u8] as *const ProtoStr) }
+    pub fn new(bytes: &'a [u8]) -> Self {
+        assert!(
+            u32::try_from(bytes.len()).is_ok(),
+            "a ProtoStr holds at most u32::MAX bytes"
+        );
+        Self::new_truncating(bytes)
+    }
+
+    // A decode never reads more than `u32::MAX` bytes, since it rejects a longer input, so generated
+    // code skips the check of `new`.
+    #[doc(hidden)]
+    #[inline]
+    pub fn new_truncating(bytes: &'a [u8]) -> Self {
+        Self(PackedSlice::new(bytes))
     }
 
     /// The raw bytes, unchanged. Free.
     #[inline]
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
+    pub fn as_bytes(self) -> &'a [u8] {
+        self.0.as_slice()
     }
 
     /// Length in bytes.
     #[inline]
-    pub fn len(&self) -> usize {
-        self.0.len()
+    pub fn len(self) -> usize {
+        self.as_bytes().len()
     }
 
-    /// Whether the field is empty.
+    /// Whether the string is empty.
     #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+    pub fn is_empty(self) -> bool {
+        self.as_bytes().is_empty()
     }
 
-    /// Validate as UTF-8, borrowing the input on success.
+    /// Validate as UTF-8.
     #[inline]
-    pub fn to_str(&self) -> Result<&str, core::str::Utf8Error> {
-        core::str::from_utf8(&self.0)
+    pub fn to_str(self) -> Result<&'a str, core::str::Utf8Error> {
+        core::str::from_utf8(self.as_bytes())
     }
 
-    /// Validate as UTF-8, substituting U+FFFD for invalid sequences. Borrows the input when it is
-    /// already valid, otherwise allocates the repaired copy.
+    /// Validate as UTF-8, substituting U+FFFD for each invalid sequence. Borrows when the bytes are
+    /// valid, and allocates the repaired copy otherwise.
     #[cfg(feature = "alloc")]
     #[inline]
-    pub fn to_str_lossy(&self) -> alloc::borrow::Cow<'_, str> {
-        // `from_utf8_lossy` already borrows for the valid case and owns the repaired copy
-        // otherwise, in a single scan.
-        alloc::string::String::from_utf8_lossy(&self.0)
+    pub fn to_str_lossy(self) -> alloc::borrow::Cow<'a, str> {
+        alloc::string::String::from_utf8_lossy(self.as_bytes())
     }
 }
 
-impl fmt::Display for ProtoStr {
-    /// Writes the text, substituting U+FFFD for each invalid sequence. Allocation-free.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut rem = &self.0;
-        loop {
-            match core::str::from_utf8(rem) {
-                Ok(s) => return f.write_str(s),
-                Err(e) => {
-                    let valid = e.valid_up_to();
-                    // The prefix up to `valid` is valid UTF-8 by definition of `valid_up_to`.
-                    f.write_str(core::str::from_utf8(&rem[..valid]).unwrap_or(""))?;
-                    f.write_char(char::REPLACEMENT_CHARACTER)?;
-                    match e.error_len() {
-                        Some(n) => rem = &rem[valid + n..],
-                        None => return Ok(()), // invalid bytes at the very end
-                    }
-                }
-            }
-        }
-    }
-}
-
-impl fmt::Debug for ProtoStr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Valid UTF-8 → `str`'s Debug (proper escaping of quotes/newlines/control bytes); otherwise
-        // show the raw bytes so invalid content is unambiguous.
-        match self.to_str() {
-            Ok(s) => fmt::Debug::fmt(s, f),
-            Err(_) => write!(f, "ProtoStr({:?})", &self.0),
-        }
-    }
-}
-
-impl PartialEq<str> for ProtoStr {
-    #[inline]
-    fn eq(&self, other: &str) -> bool {
-        self.0 == *other.as_bytes()
-    }
-}
-
-impl PartialEq<ProtoStr> for str {
-    #[inline]
-    fn eq(&self, other: &ProtoStr) -> bool {
-        *self.as_bytes() == other.0
-    }
-}
-
-impl AsRef<[u8]> for ProtoStr {
-    #[inline]
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl AsRef<ProtoStr> for ProtoStr {
-    #[inline]
-    fn as_ref(&self) -> &ProtoStr {
-        self
-    }
-}
-
-impl Default for &ProtoStr {
+impl Default for ProtoStr<'_> {
     #[inline]
     fn default() -> Self {
-        ProtoStr::new(&[])
+        Self::new_truncating(&[])
     }
 }
 
-/// A `string` as decoded messages store it, in 12 bytes (see [`PackedSlice`]). A repeated `string`
-/// field hands out its elements as `PackedStr`, as do `string` map keys and values and `string`
-/// oneof members.
-///
-/// It derefs to [`ProtoStr`]. Deref borrows the cell, so a string reached through it lives only as
-/// long as that borrow; [`get`](PackedStr::get) returns it for the full `'a`.
-#[derive(Clone, Copy)]
-#[repr(transparent)]
-pub struct PackedStr<'a>(PackedSlice<'a, u8>);
-
-impl<'a> PackedStr<'a> {
-    /// Store raw bytes (no validation). The length truncates to 32 bits, as in [`PackedSlice`].
-    #[doc(hidden)]
-    #[inline]
-    pub fn new(bytes: &'a [u8]) -> Self {
-        Self(PackedSlice::new(bytes))
-    }
-
-    /// The stored string, for the full `'a`.
-    #[inline]
-    pub fn get(self) -> &'a ProtoStr {
-        ProtoStr::new(self.0.as_slice())
+impl fmt::Display for ProtoStr<'_> {
+    /// Writes the text, substituting U+FFFD for each invalid sequence. Allocation-free.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for chunk in self.as_bytes().utf8_chunks() {
+            f.write_str(chunk.valid())?;
+            if !chunk.invalid().is_empty() {
+                f.write_char(char::REPLACEMENT_CHARACTER)?;
+            }
+        }
+        Ok(())
     }
 }
 
-impl Deref for PackedStr<'_> {
-    type Target = ProtoStr;
-    #[inline]
-    fn deref(&self) -> &ProtoStr {
-        self.get()
+impl fmt::Debug for ProtoStr<'_> {
+    /// Valid UTF-8 prints as a `str` does. Otherwise the bytes print as `ProtoStr(b"a\xffb")`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.to_str() {
+            Ok(s) => fmt::Debug::fmt(s, f),
+            Err(_) => write!(
+                f,
+                "ProtoStr({:?})",
+                ProtoBytes::new_truncating(self.as_bytes())
+            ),
+        }
     }
 }
 
-impl AsRef<ProtoStr> for PackedStr<'_> {
-    #[inline]
-    fn as_ref(&self) -> &ProtoStr {
-        self
-    }
-}
-
-impl AsRef<[u8]> for PackedStr<'_> {
+impl AsRef<[u8]> for ProtoStr<'_> {
     #[inline]
     fn as_ref(&self) -> &[u8] {
         self.as_bytes()
     }
 }
 
-impl Borrow<ProtoStr> for PackedStr<'_> {
-    #[inline]
-    fn borrow(&self) -> &ProtoStr {
-        self
-    }
-}
-
-impl fmt::Display for PackedStr<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self.get(), f)
-    }
-}
-
-impl fmt::Debug for PackedStr<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(self.get(), f)
-    }
-}
-
-// Comparison, ordering and hashing are the `ProtoStr`'s, so `Borrow<ProtoStr>` keys look up
-// consistently.
-impl PartialEq for PackedStr<'_> {
+// Comparison, ordering and hashing are the bytes'.
+impl PartialEq for ProtoStr<'_> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.get() == other.get()
+        self.as_bytes() == other.as_bytes()
     }
 }
-impl Eq for PackedStr<'_> {}
+impl Eq for ProtoStr<'_> {}
 
-impl PartialOrd for PackedStr<'_> {
+impl PartialOrd for ProtoStr<'_> {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
-impl Ord for PackedStr<'_> {
+impl Ord for ProtoStr<'_> {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        self.get().cmp(other.get())
+        self.as_bytes().cmp(other.as_bytes())
     }
 }
 
-impl Hash for PackedStr<'_> {
+impl Hash for ProtoStr<'_> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.get().hash(state);
+        self.as_bytes().hash(state);
     }
 }
 
-// A cell compares with the string types it stands for, in either order.
-macro_rules! packed_str_eq {
-    ($($other:ty),*) => {$(
-        impl PartialEq<$other> for PackedStr<'_> {
-            #[inline]
-            fn eq(&self, other: &$other) -> bool {
-                self.as_bytes() == AsRef::<[u8]>::as_ref(other)
-            }
-        }
-        impl PartialEq<PackedStr<'_>> for $other {
-            #[inline]
-            fn eq(&self, other: &PackedStr<'_>) -> bool {
-                other == self
-            }
-        }
-    )*};
+impl PartialEq<str> for ProtoStr<'_> {
+    #[inline]
+    fn eq(&self, other: &str) -> bool {
+        self.as_bytes() == other.as_bytes()
+    }
 }
-packed_str_eq!(ProtoStr, &ProtoStr, str, &str);
+impl PartialEq<&str> for ProtoStr<'_> {
+    #[inline]
+    fn eq(&self, other: &&str) -> bool {
+        self.as_bytes() == other.as_bytes()
+    }
+}
+impl PartialEq<ProtoStr<'_>> for str {
+    #[inline]
+    fn eq(&self, other: &ProtoStr<'_>) -> bool {
+        other == self
+    }
+}
+impl PartialEq<ProtoStr<'_>> for &str {
+    #[inline]
+    fn eq(&self, other: &ProtoStr<'_>) -> bool {
+        other == self
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     extern crate alloc;
+    use alloc::format;
     use alloc::string::ToString;
 
     #[test]
@@ -267,10 +190,14 @@ mod tests {
 
     #[test]
     fn invalid_utf8_is_bytes_but_display_is_lossy() {
-        let s = ProtoStr::new(b"a\xFFb");
+        let s = ProtoStr::new(b"a\xFFb\xE2\x82");
         assert!(s.to_str().is_err());
-        assert_eq!(s.as_bytes(), b"a\xFFb");
-        assert_eq!(s.to_string(), "a\u{FFFD}b"); // U+FFFD for the invalid byte
+        assert_eq!(s.as_bytes(), b"a\xFFb\xE2\x82");
+        // One U+FFFD per invalid sequence, as `String::from_utf8_lossy` writes it.
+        assert_eq!(s.to_string(), "a\u{FFFD}b\u{FFFD}");
+        #[cfg(feature = "alloc")]
+        assert_eq!(s.to_string(), s.to_str_lossy());
+        assert_eq!(format!("{s:?}"), r#"ProtoStr(b"a\xffb\xe2\x82")"#);
     }
 
     #[test]
@@ -278,37 +205,28 @@ mod tests {
         let s = ProtoStr::new(b"");
         assert!(s.is_empty());
         assert_eq!(s.to_string(), "");
+        assert_eq!(ProtoStr::default(), s);
     }
 
     #[test]
-    fn cells_deref_and_compare_as_the_string() {
-        let cells = [PackedStr::new(b"b"), PackedStr::new(b"a\xFFz")];
-        let b = ProtoStr::new(b"b");
-        assert_eq!(cells[0], "b");
-        assert_eq!(&cells[0], "b");
-        assert_eq!("b", cells[0]);
-        assert_eq!(cells[0], b);
-        assert_eq!(b, cells[0]);
-        assert_eq!(*b, cells[0]);
-        assert_ne!(cells[1], b);
-        assert!(<&ProtoStr>::default().is_empty());
-        assert_eq!(cells[1].len(), 3);
-        assert!(cells[1] < cells[0]);
-        assert_eq!(cells[1].to_string(), "a\u{FFFD}z");
-        assert_eq!(alloc::format!("{:?}", cells[0]), "\"b\"");
-        let s: &ProtoStr = &cells[0];
-        assert_eq!(s.as_bytes(), b"b");
+    fn compares_with_str_in_either_order() {
+        let (a, b) = (ProtoStr::new(b"a\xFFz"), ProtoStr::new(b"b"));
+        assert_eq!(b, "b");
+        assert_eq!("b", b);
+        assert_eq!(*"b", b);
+        assert_eq!(b, *"b");
+        assert_ne!(a, b);
+        assert!(a < b);
+        assert_eq!(format!("{b:?}"), "\"b\"");
     }
 
-    // Covariant like `&'a ProtoStr`: `Owned`'s safety contract relies on decoded messages being
-    // covariant.
-    fn _covariant<'a: 'b, 'b>(s: PackedStr<'a>) -> PackedStr<'b> {
+    // Covariant like `&'a str`: `Owned`'s safety contract relies on decoded messages being covariant.
+    fn _covariant<'a: 'b, 'b>(s: ProtoStr<'a>) -> ProtoStr<'b> {
         s
     }
 
-    // `get` keeps the cell's lifetime where a deref would end with the local copy.
-    fn _get_outlives_the_copy<'a>(cells: &[PackedStr<'a>]) -> &'a [u8] {
-        let cell = cells[0];
-        cell.get().as_bytes()
+    // A copy hands out borrows for the full `'a`.
+    fn _outlives_the_copy<'a>(strings: &[ProtoStr<'a>]) -> &'a str {
+        strings[0].to_str().unwrap_or("")
     }
 }

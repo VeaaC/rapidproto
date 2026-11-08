@@ -407,13 +407,13 @@ TEST_CASE("rustgen arena: message struct with scalar/string/bytes/enum accessors
     CHECK(has(out, "pub struct Rec<'a> {"));
     // Rec borrows the input (string/bytes/repeated), so the struct uses `'a` through a field and
     // carries no PhantomData; it now holds real field storage.
-    CHECK(has(out, "name: ::rapidproto::PackedStr<'a>,"));
+    CHECK(has(out, "name: ::rapidproto::ProtoStr<'a>,"));
     CHECK(!has(out, "_marker"));
     CHECK(has(out, "impl<'a> Rec<'a> {"));
 
     CHECK(has(out, "pub fn key(&self) -> i64 {"));  // proto3 singular -> bare
-    CHECK(has(out, "pub fn name(&self) -> &'a ::rapidproto::ProtoStr {"));
-    CHECK(has(out, "pub fn blob(&self) -> &'a [u8] {"));
+    CHECK(has(out, "pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {"));
+    CHECK(has(out, "pub fn blob(&self) -> ::rapidproto::ProtoBytes<'a> {"));
     CHECK(has(out, "pub fn active(&self) -> bool {"));
     CHECK(has(out,
               "pub fn maybe(&self) -> ::core::option::Option<i32> {"));  // `optional` -> explicit
@@ -487,8 +487,8 @@ TEST_CASE("rustgen: a message named like a primitive gains a `_`") {
         message u8 { bytes b = 1; }
         message M { u8 m = 1; })");
     CHECK(has(out, "pub struct u8_<'a> {"));
-    CHECK(has(out, "b: ::rapidproto::PackedSlice<'a, u8>,"));
-    CHECK(has(out, "pub fn b(&self) -> &'a [u8] {"));
+    CHECK(has(out, "b: ::rapidproto::ProtoBytes<'a>,"));
+    CHECK(has(out, "pub fn b(&self) -> ::rapidproto::ProtoBytes<'a> {"));
     CHECK_FALSE(has(out, "pub struct u8<"));
 }
 
@@ -537,8 +537,8 @@ TEST_CASE("rustgen arena: repeated fields become borrowed slices") {
           repeated M children = 5;
         })");
     CHECK(has(out, "pub fn nums(&self) -> &'a [i32] {"));
-    CHECK(has(out, "pub fn names(&self) -> &'a [::rapidproto::PackedStr<'a>] {"));
-    CHECK(has(out, "pub fn blobs(&self) -> &'a [::rapidproto::PackedSlice<'a, u8>] {"));
+    CHECK(has(out, "pub fn names(&self) -> &'a [::rapidproto::ProtoStr<'a>] {"));
+    CHECK(has(out, "pub fn blobs(&self) -> &'a [::rapidproto::ProtoBytes<'a>] {"));
     CHECK(has(out, "pub fn palette(&self) -> &'a [crate::common::p::Color] {"));
     CHECK(has(
         out,
@@ -556,13 +556,13 @@ TEST_CASE("rustgen arena: maps become MapView accessors") {
           oneof pick { int32 a = 4; string b = 5; }
         })");
     CHECK(has(out,
-              "pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, "
+              "pub fn counts(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, "
               "i32> {"));
     CHECK(has(out,
               "pub fn colors(&self) -> ::rapidproto::MapView<'a, i32, "
               "crate::common::p::Color> {"));
     CHECK(has(out,
-              "pub fn nested(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, "
+              "pub fn nested(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, "
               "crate::arena::p::Inner<'a>> {"));  // message-valued map -> inline value
     CHECK(has(
         out,
@@ -570,7 +570,7 @@ TEST_CASE("rustgen arena: maps become MapView accessors") {
     CHECK(has(out, "pub mod m {"));          // M's submodule holds the enum
     CHECK(has(out, "pub enum Pick<'a> {"));  // borrows (string) -> <'a>
     CHECK(has(out, "A(i32),"));
-    CHECK(has(out, "B(::rapidproto::PackedStr<'a>),"));
+    CHECK(has(out, "B(::rapidproto::ProtoStr<'a>),"));
 }
 
 TEST_CASE("rustgen arena: nested messages/enums and message-typed fields") {
@@ -715,8 +715,8 @@ TEST_CASE("rustgen oneof: native enum in the message submodule, variants over al
     CHECK(has(out, "pub mod m {"));
     CHECK(has(out, "pub enum Choice<'a> {"));
     CHECK(has(out, "Num(i32),"));
-    CHECK(has(out, "Text(::rapidproto::PackedStr<'a>),"));
-    CHECK(has(out, "Blob(::rapidproto::PackedSlice<'a, u8>),"));
+    CHECK(has(out, "Text(::rapidproto::ProtoStr<'a>),"));
+    CHECK(has(out, "Blob(::rapidproto::ProtoBytes<'a>),"));
     CHECK(has(out, "Col(crate::common::p::Color),"));       // enum variant -> common newtype
     CHECK(has(out, "Sub(&'a crate::arena::p::Sub<'a>),"));  // message variant -> borrowed arena ref
 }
@@ -869,13 +869,14 @@ TEST_CASE("rustgen modes: drop / raw / unknown-fields on a decodable message") {
     CHECK(!has(out, "gone:"));
     CHECK(has(out, "skip_field(rp_rest, 16u32)"));
     CHECK(has(out, "keep: i32,"));  // the untouched field is unaffected
-    // raw: the payload bytes, not a decoded Sub -- `bytes`-cell storage + getter, no decode_into.
-    CHECK(has(out, "sub: ::core::option::Option<::rapidproto::PackedSlice<'a, u8>>,"));
-    CHECK(has(out, "subs: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedSlice<'a, u8>>,"));
-    CHECK(has(out, "pub fn sub(&self) -> ::core::option::Option<&'a [u8]> {"));
-    CHECK(has(out, "pub fn subs(&self) -> &'a [::rapidproto::PackedSlice<'a, u8>] {"));
-    CHECK(has(out, "rp_field_3 = ::core::option::Option::Some(rp_p);"));      // a slice local
-    CHECK(has(out, "sub: rp_field_3.map(::rapidproto::PackedSlice::new),"));  // packed at build
+    // raw: the payload bytes, not a decoded Sub -- `bytes` storage + getter, no decode_into.
+    CHECK(has(out, "sub: ::core::option::Option<::rapidproto::ProtoBytes<'a>>,"));
+    CHECK(has(out, "subs: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoBytes<'a>>,"));
+    CHECK(has(out, "pub fn sub(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {"));
+    CHECK(has(out, "pub fn subs(&self) -> &'a [::rapidproto::ProtoBytes<'a>] {"));
+    CHECK(has(out, "rp_field_3 = ::core::option::Option::Some(rp_p);"));  // a slice local
+    CHECK(has(
+        out, "sub: rp_field_3.map(::rapidproto::ProtoBytes::new_truncating),"));  // packed at build
     CHECK(!has(out, "Sub::rp_decode_into"));  // a raw field is NOT recursed into
     // unknown-fields: the accessor, its storage bit, and the catch-all that sets it only for a field
     // number NOT declared in the message. The known-number set covers every declared field (kept 1/3/4
@@ -913,7 +914,7 @@ TEST_CASE("rustgen modes: a raw group field stores its scanned body undecoded") 
     const std::string out = gen_arena_modes(schema, spec);
     CHECK(has(
         out,
-        "pub fn g(&self) -> ::core::option::Option<&'a [u8]> {"));  // raw -> stored as borrowed bytes
+        "pub fn g(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {"));  // raw -> stored as borrowed bytes
     CHECK(has(out, "::rapidproto::wire::read_group("));  // body read via the group reader
     CHECK(has(out, "11u32 => {"));                       // dispatched on the SGroup key (field 1)
     CHECK(has(out, "rp_field_1 = ::core::option::Option::Some(rp_p);"));  // stored undecoded
@@ -1271,7 +1272,7 @@ TEST_CASE("rustgen frame: generated paths and macro names start from the module 
     CHECK(has(out, "=> { $crate::a::r#type::stream::p::parent_stream!(@f [[]] "));
     CHECK(has(out, "on_child: $crate::a::r#type::stream::p::Child<'rp_a> = $c;"));
     CHECK(has(out, "on_e: $crate::a::r#type::common::p::E = $c;"));
-    CHECK(has(out, "on_s: &'rp_a $crate::a::r#type::rp_rt::ProtoStr = $c;"));
+    CHECK(has(out, "on_s: $crate::a::r#type::rp_rt::ProtoStr<'rp_a> = $c;"));
     CHECK(has(out,
               "$crate::a::r#type::rp_rt::stream_visitor!("
               "$crate::a::r#type::stream::p::ParentVisitor<'rp_a> $a)"));

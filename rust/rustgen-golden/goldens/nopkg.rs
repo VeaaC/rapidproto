@@ -36,12 +36,12 @@ pub mod arena {
       let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
       {
         if let ::core::option::Option::Some(rp_v) = self.sub() {
-          rp_map.serialize_entry("sub", rp_v)?;
+          rp_map.serialize_entry("sub", &rp_v)?;
         }
       }
       {
         if let ::core::option::Option::Some(rp_v) = self.self_() {
-          rp_map.serialize_entry("self", rp_v)?;
+          rp_map.serialize_entry("self", &rp_v)?;
         }
       }
       rp_map.end()
@@ -287,6 +287,9 @@ pub mod stream {
 
     pub fn decode<V: RootVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
       let rp_body: &'a [u8] = self.rp_input;
+      if rp_body.len() > u32::MAX as usize {
+        return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+      }
       let mut rp_rest: &'a [u8] = rp_body;
       if rp_rest.first() == ::core::option::Option::Some(&10u8) {
         rp_rest = &rp_rest[1..];
@@ -436,6 +439,9 @@ pub mod stream {
 
       pub fn decode<V: SubVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];

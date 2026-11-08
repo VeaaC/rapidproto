@@ -80,7 +80,7 @@ fn check_header(blob_bytes: &[u8], stream: bool) -> Result<(), String> {
     let hb =
         HeaderBlock::decode(payload, &arena).map_err(|e| format!("bad OSMHeader block ({e:?})"))?;
     for f in hb.required_features() {
-        let name = String::from_utf8_lossy(f.as_bytes());
+        let name = f.to_str_lossy();
         if !feature_supported(&name) {
             return Err(format!("file requires unsupported feature '{name}'"));
         }

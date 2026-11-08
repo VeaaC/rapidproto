@@ -82,7 +82,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.flag() {
-            rp_map.serialize_entry("flag", rp_v)?;
+            rp_map.serialize_entry("flag", &rp_v)?;
           }
         }
         {

@@ -17,8 +17,8 @@ from html.parser import HTMLParser
 
 EXTERNAL = re.compile(r"[a-z][a-z0-9+.-]*:(//|[^:])")
 LITERAL_LINK = re.compile(r"\[[\w:!()<>]+\]")
-# `PackedSlice` shows `[T]`'s methods with the standard library's docs: not ours, and nightly changes them.
-STD_SECTION = "deref-methods-%5BT%5D"
+# `ProtoBytes` shows `[u8]`'s methods with the standard library's docs: not ours, and nightly changes them.
+STD_SECTION = "deref-methods-%5Bu8%5D"
 
 
 class Page(HTMLParser):

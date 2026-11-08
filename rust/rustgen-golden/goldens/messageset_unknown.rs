@@ -48,7 +48,7 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.container() {
-            rp_map.serialize_entry("container", rp_v)?;
+            rp_map.serialize_entry("container", &rp_v)?;
           }
         }
         rp_map.end()
@@ -134,13 +134,13 @@ pub mod arena {
     }
 
     pub struct Ext<'a> {
-      s: ::rapidproto::PackedStr<'a>,
+      s: ::rapidproto::ProtoStr<'a>,
       rp_presence: u8,
     }
 
     impl<'a> Ext<'a> {
-      pub fn s(&self) -> ::core::option::Option<&'a ::rapidproto::ProtoStr> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.s.get())
+      pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
+        ((self.rp_presence & (1 << 0)) != 0).then_some(self.s)
       }
     }
     impl<'a> ::rapidproto::serde::Serialize for Ext<'a> {
@@ -320,7 +320,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Ext {
-          s: ::rapidproto::PackedStr::new(rp_field_1),
+          s: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
           rp_presence,
         }))
       }

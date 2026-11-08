@@ -1591,25 +1591,34 @@ fn bytes_is_the_exact_undecoded_span() {
 #[cfg(target_pointer_width = "64")]
 #[cfg_attr(miri, ignore)]
 #[test]
-fn string_over_u32_max_streams_at_full_length_and_the_arena_rejects_it() {
-    // Never valid protobuf (a message is at most 2 GiB), but the streaming decoder has no size
-    // limit: the handler sees the whole length. The arena decoder, whose cells store a 32-bit
-    // length, rejects the input up front. The buffer is zeroed memory, so only the header page is
-    // ever touched.
-    let len = (1u64 << 32) + 5;
-    let mut head = Vec::new();
-    put_tag(&mut head, 3, 2); // name
-    put_varint(&mut head, len);
-    let mut buf = vec![0u8; head.len() + len as usize];
-    buf[..head.len()].copy_from_slice(&head);
+fn both_decoders_take_up_to_u32_max_bytes() {
+    // Never valid protobuf (a message is at most 2 GiB). The string spans the rest of the zeroed
+    // buffer, so only its header page is ever touched.
+    let input = |total: usize| {
+        let mut head = Vec::new();
+        put_tag(&mut head, 3, 2); // name
+        put_varint(&mut head, (total - 6) as u64);
+        assert_eq!(head.len(), 6);
+        let mut buf = vec![0u8; total];
+        buf[..6].copy_from_slice(&head);
+        buf
+    };
+    let arena = rapidproto::Arena::new();
+    let max = u32::MAX as usize;
 
+    let buf = input(max);
     let mut got = 0;
     Msg::new(&buf)
         .decode(msg_stream! { name => |n| got = n.len() })
         .unwrap();
-    assert_eq!(got as u64, len);
+    assert_eq!(got, max - 6);
+    let m = rustgen_golden::proto3::arena::p3::Msg::decode(&buf, &arena).unwrap();
+    assert_eq!(m.name().len(), max - 6);
+    drop(buf);
 
-    let arena = rapidproto::Arena::new();
+    let buf = input(max + 1);
+    let err = Msg::new(&buf).decode(msg_stream! { name => |_| () }).err();
+    assert_eq!(err.map(|e| e.kind()), Some(ErrorKind::InputTooLarge));
     let err = rustgen_golden::proto3::arena::p3::Msg::decode(&buf, &arena).err();
     assert_eq!(err.map(|e| e.kind()), Some(ErrorKind::InputTooLarge));
 }

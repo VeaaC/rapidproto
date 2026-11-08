@@ -227,7 +227,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.b() {
-            rp_map.serialize_entry("b", rp_v)?;
+            rp_map.serialize_entry("b", &rp_v)?;
           }
         }
         {
@@ -260,7 +260,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.a() {
-            rp_map.serialize_entry("a", rp_v)?;
+            rp_map.serialize_entry("a", &rp_v)?;
           }
         }
         rp_map.end()
@@ -295,7 +295,7 @@ pub mod arena {
         kinds: ::rapidproto::PackedSlice<'a, crate::xref::common::xr::nested::def::Kind>,
         inner: ::core::option::Option<&'a crate::xref::arena::xr::nested::def::Inner<'a>>,
         inners: ::rapidproto::PackedSlice<'a, crate::xref::arena::xr::nested::def::Inner<'a>>,
-        by_name: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, crate::xref::arena::xr::nested::Def<'a>>,
+        by_name: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, crate::xref::arena::xr::nested::Def<'a>>,
         ranked: ::rapidproto::MapView<'a, i32, crate::xref::common::xr::nested::def::Kind>,
         pick: ::core::option::Option<crate::xref::arena::xr::nested::user::Pick<'a>>,
       }
@@ -319,7 +319,7 @@ pub mod arena {
         pub fn inners(&self) -> &'a [crate::xref::arena::xr::nested::def::Inner<'a>] {
           self.inners.as_slice()
         }
-        pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, crate::xref::arena::xr::nested::Def<'a>> {
+        pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, crate::xref::arena::xr::nested::Def<'a>> {
           self.by_name
         }
         pub fn ranked(&self) -> ::rapidproto::MapView<'a, i32, crate::xref::common::xr::nested::def::Kind> {
@@ -338,7 +338,7 @@ pub mod arena {
           let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
           {
             if let ::core::option::Option::Some(rp_v) = self.single() {
-              rp_map.serialize_entry("single", rp_v)?;
+              rp_map.serialize_entry("single", &rp_v)?;
             }
           }
           {
@@ -361,7 +361,7 @@ pub mod arena {
           }
           {
             if let ::core::option::Option::Some(rp_v) = self.inner() {
-              rp_map.serialize_entry("inner", rp_v)?;
+              rp_map.serialize_entry("inner", &rp_v)?;
             }
           }
           {
@@ -402,13 +402,13 @@ pub mod arena {
       }
 
       pub struct Def<'a> {
-        s: ::rapidproto::PackedStr<'a>,
+        s: ::rapidproto::ProtoStr<'a>,
         n: i32,
       }
 
       impl<'a> Def<'a> {
-        pub fn s(&self) -> &'a ::rapidproto::ProtoStr {
-          self.s.get()
+        pub fn s(&self) -> ::rapidproto::ProtoStr<'a> {
+          self.s
         }
         pub fn n(&self) -> i32 {
           self.n
@@ -441,12 +441,12 @@ pub mod arena {
 
       pub mod def {
         pub struct Inner<'a> {
-          s: ::rapidproto::PackedStr<'a>,
+          s: ::rapidproto::ProtoStr<'a>,
         }
 
         impl<'a> Inner<'a> {
-          pub fn s(&self) -> &'a ::rapidproto::ProtoStr {
-            self.s.get()
+          pub fn s(&self) -> ::rapidproto::ProtoStr<'a> {
+            self.s
           }
         }
         impl<'a> ::rapidproto::serde::Serialize for Inner<'a> {
@@ -528,7 +528,7 @@ pub mod arena {
               }
             }
             ::core::result::Result::Ok(rp_out.write(Inner {
-              s: ::rapidproto::PackedStr::new(rp_field_1),
+              s: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
             }))
           }
         }
@@ -552,7 +552,7 @@ pub mod arena {
           let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
           {
             if let ::core::option::Option::Some(rp_v) = self.q() {
-              rp_map.serialize_entry("q", rp_v)?;
+              rp_map.serialize_entry("q", &rp_v)?;
             }
           }
           rp_map.end()
@@ -579,7 +579,7 @@ pub mod arena {
           let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
           {
             if let ::core::option::Option::Some(rp_v) = self.p() {
-              rp_map.serialize_entry("p", rp_v)?;
+              rp_map.serialize_entry("p", &rp_v)?;
             }
           }
           rp_map.end()
@@ -642,7 +642,7 @@ pub mod arena {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             let rp_ent_body: &'a [u8] = rp_p;
-            let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
+            let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
             let mut rp_val: ::core::option::Option<crate::xref::arena::xr::nested::Def<'a>> = ::core::option::Option::None;
             let mut rp_ent: &'a [u8] = rp_ent_body;
             loop {
@@ -668,7 +668,7 @@ pub mod arena {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                   };
-                  rp_key = ::rapidproto::PackedStr::new(rp_p);
+                  rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                 }
                 18u32 => {
                   if rp_val.is_some() {
@@ -905,7 +905,7 @@ pub mod arena {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 let rp_ent_body: &'a [u8] = rp_p;
-                let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
+                let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
                 let mut rp_val: ::core::option::Option<crate::xref::arena::xr::nested::Def<'a>> = ::core::option::Option::None;
                 let mut rp_ent: &'a [u8] = rp_ent_body;
                 loop {
@@ -931,7 +931,7 @@ pub mod arena {
                         ::core::result::Result::Ok(r) => r,
                         ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                       };
-                      rp_key = ::rapidproto::PackedStr::new(rp_p);
+                      rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                     }
                     18u32 => {
                       if rp_val.is_some() {
@@ -1131,7 +1131,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Def {
-            s: ::rapidproto::PackedStr::new(rp_field_1),
+            s: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
             n: rp_field_2,
           }))
         }
@@ -1329,7 +1329,7 @@ pub mod arena {
           let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
           {
             if let ::core::option::Option::Some(rp_v) = self.one() {
-              rp_map.serialize_entry("one", rp_v)?;
+              rp_map.serialize_entry("one", &rp_v)?;
             }
           }
           {
@@ -1362,13 +1362,13 @@ pub mod arena {
       }
 
       pub struct Target<'a> {
-        s: ::rapidproto::PackedStr<'a>,
+        s: ::rapidproto::ProtoStr<'a>,
         n: i32,
       }
 
       impl<'a> Target<'a> {
-        pub fn s(&self) -> &'a ::rapidproto::ProtoStr {
-          self.s.get()
+        pub fn s(&self) -> ::rapidproto::ProtoStr<'a> {
+          self.s
         }
         pub fn n(&self) -> i32 {
           self.n
@@ -1717,7 +1717,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Target {
-            s: ::rapidproto::PackedStr::new(rp_field_1),
+            s: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
             n: rp_field_2,
           }))
         }
@@ -1769,7 +1769,7 @@ pub mod arena {
           let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
           {
             if let ::core::option::Option::Some(rp_v) = self.thing() {
-              rp_map.serialize_entry("thing", rp_v)?;
+              rp_map.serialize_entry("thing", &rp_v)?;
             }
           }
           {
@@ -1920,12 +1920,12 @@ pub mod arena {
 
     pub mod cousin_b {
       pub struct Thing<'a> {
-        s: ::rapidproto::PackedStr<'a>,
+        s: ::rapidproto::ProtoStr<'a>,
       }
 
       impl<'a> Thing<'a> {
-        pub fn s(&self) -> &'a ::rapidproto::ProtoStr {
-          self.s.get()
+        pub fn s(&self) -> ::rapidproto::ProtoStr<'a> {
+          self.s
         }
       }
       impl<'a> ::rapidproto::serde::Serialize for Thing<'a> {
@@ -2007,7 +2007,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Thing {
-            s: ::rapidproto::PackedStr::new(rp_field_1),
+            s: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
           }))
         }
       }
@@ -2164,12 +2164,12 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(BoolWrap);
 
     pub struct BytesWrap<'a> {
-      value: ::rapidproto::PackedSlice<'a, u8>,
+      value: ::rapidproto::ProtoBytes<'a>,
     }
 
     impl<'a> BytesWrap<'a> {
-      pub fn value(&self) -> &'a [u8] {
-        self.value.as_slice()
+      pub fn value(&self) -> ::rapidproto::ProtoBytes<'a> {
+        self.value
       }
     }
     impl<'a> ::rapidproto::serde::Serialize for BytesWrap<'a> {
@@ -2182,7 +2182,7 @@ pub mod arena {
         {
           let rp_v = self.value();
           if !rp_v.is_empty() {
-            rp_map.serialize_entry("value", &::rapidproto::serde_support::Bytes(rp_v))?;
+            rp_map.serialize_entry("value", &rp_v)?;
           }
         }
         rp_map.end()
@@ -2920,7 +2920,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(BytesWrap {
-          value: ::rapidproto::PackedSlice::new(rp_field_1),
+          value: ::rapidproto::ProtoBytes::new_truncating(rp_field_1),
         }))
       }
     }
@@ -2967,6 +2967,9 @@ pub mod stream {
 
       pub fn decode<V: AVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -3115,6 +3118,9 @@ pub mod stream {
 
       pub fn decode<V: BVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -3229,6 +3235,9 @@ pub mod stream {
 
       pub fn decode<V: NestedVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -3311,7 +3320,7 @@ pub mod stream {
         fn on_inners(&mut self, _rp_v: crate::xref::stream::xr::nested::def::Inner<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_by_name: bool = false;
         #[inline(always)]
-        fn on_by_name(&mut self, _rp_v: (&'a ::rapidproto::ProtoStr, crate::xref::stream::xr::nested::Def<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_by_name(&mut self, _rp_v: (::rapidproto::ProtoStr<'a>, crate::xref::stream::xr::nested::Def<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_ranked: bool = false;
         #[inline(always)]
         fn on_ranked(&mut self, _rp_v: (i32, crate::xref::common::xr::nested::def::Kind)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3343,6 +3352,9 @@ pub mod stream {
 
         pub fn decode<V: UserVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
+          if rp_body.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -3391,7 +3403,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
               let mut rp_val: &'a [u8] = &[];
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -3417,7 +3429,7 @@ pub mod stream {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                   }
                   18u32 => {
                     let mut rp_p: &[u8] = &[];
@@ -3540,7 +3552,7 @@ pub mod stream {
               };
               let rp_ent_body: &'a [u8] = rp_p;
               let mut rp_key: i32 = 0;
-              let mut rp_val: crate::xref::common::xr::nested::def::Kind = ::core::default::Default::default();
+              let mut rp_val: crate::xref::common::xr::nested::def::Kind = crate::xref::common::xr::nested::def::Kind(0);
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
                 let rp_b = match rp_ent.first() {
@@ -3760,7 +3772,7 @@ pub mod stream {
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
                 let rp_ent_body: &'a [u8] = rp_p;
-                let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
+                let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
                 let mut rp_val: &'a [u8] = &[];
                 let mut rp_ent: &'a [u8] = rp_ent_body;
                 loop {
@@ -3786,7 +3798,7 @@ pub mod stream {
                         ::core::result::Result::Ok(r) => r,
                         ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                       };
-                      rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                      rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                     }
                     18u32 => {
                       let mut rp_p: &[u8] = &[];
@@ -3817,7 +3829,7 @@ pub mod stream {
                 };
                 let rp_ent_body: &'a [u8] = rp_p;
                 let mut rp_key: i32 = 0;
-                let mut rp_val: crate::xref::common::xr::nested::def::Kind = ::core::default::Default::default();
+                let mut rp_val: crate::xref::common::xr::nested::def::Kind = crate::xref::common::xr::nested::def::Kind(0);
                 let mut rp_ent: &'a [u8] = rp_ent_body;
                 loop {
                   let rp_b = match rp_ent.first() {
@@ -3925,7 +3937,7 @@ pub mod stream {
         (@f [$($a:tt)*] kinds => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::user_stream!(@f [$($a)* WANT_kinds on_kinds: $crate::xref::common::xr::nested::def::Kind = $c;] $($r)*) };
         (@f [$($a:tt)*] inner => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::user_stream!(@f [$($a)* WANT_inner on_inner: $crate::xref::stream::xr::nested::def::Inner<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] inners => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::user_stream!(@f [$($a)* WANT_inners on_inners: $crate::xref::stream::xr::nested::def::Inner<'rp_a> = $c;] $($r)*) };
-        (@f [$($a:tt)*] by_name => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::user_stream!(@f [$($a)* WANT_by_name on_by_name: (&'rp_a $crate::xref::rp_rt::ProtoStr, $crate::xref::stream::xr::nested::Def<'rp_a>) = $c;] $($r)*) };
+        (@f [$($a:tt)*] by_name => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::user_stream!(@f [$($a)* WANT_by_name on_by_name: ($crate::xref::rp_rt::ProtoStr<'rp_a>, $crate::xref::stream::xr::nested::Def<'rp_a>) = $c;] $($r)*) };
         (@f [$($a:tt)*] ranked => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::user_stream!(@f [$($a)* WANT_ranked on_ranked: (::core::primitive::i32, $crate::xref::common::xr::nested::def::Kind) = $c;] $($r)*) };
         (@f [$($a:tt)*] chosen => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::user_stream!(@f [$($a)* WANT_chosen on_chosen: $crate::xref::stream::xr::nested::Def<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] tagged => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::user_stream!(@f [$($a)* WANT_tagged on_tagged: $crate::xref::common::xr::nested::def::Kind = $c;] $($r)*) };
@@ -3942,7 +3954,7 @@ pub mod stream {
       pub trait DefVisitor<'a> {
         const WANT_s: bool = false;
         #[inline(always)]
-        fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_n: bool = false;
         #[inline(always)]
         fn on_n(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3968,6 +3980,9 @@ pub mod stream {
 
         pub fn decode<V: DefVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
+          if rp_body.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -3977,7 +3992,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -4030,7 +4045,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+                match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -4078,7 +4093,7 @@ pub mod stream {
       macro_rules! __rp_4xref_2xr6Nested3Def {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::xref::stream::xr::nested::def_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::xref::stream::xr::nested::def_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::def_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::xref::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::def_stream!(@f [$($a)* WANT_s on_s: $crate::xref::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::def_stream!(@f [$($a)* WANT_n on_n: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::def_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::xref::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, n, unknown")) };
@@ -4094,7 +4109,7 @@ pub mod stream {
         pub trait InnerVisitor<'a> {
           const WANT_s: bool = false;
           #[inline(always)]
-          fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+          fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
           const WANT_UNKNOWN: bool = false;
           #[inline(always)]
           fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -4117,6 +4132,9 @@ pub mod stream {
 
           pub fn decode<V: InnerVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
             let rp_body: &'a [u8] = self.rp_input;
+            if rp_body.len() > u32::MAX as usize {
+              return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+            }
             let mut rp_rest: &'a [u8] = rp_body;
             if rp_rest.first() == ::core::option::Option::Some(&10u8) {
               rp_rest = &rp_rest[1..];
@@ -4126,7 +4144,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+                match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -4160,7 +4178,7 @@ pub mod stream {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                   };
-                  match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+                  match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                     ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                     ::rapidproto::stream::Flow::Continue => {}
                   }
@@ -4197,7 +4215,7 @@ pub mod stream {
         macro_rules! __rp_4xref_2xr6Nested3Def5Inner {
           ($($f:ident => $c:expr),* $(,)?) => { $crate::xref::stream::xr::nested::def::inner_stream!(@f [[]] $($f => $c,)*) };
           ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::xref::stream::xr::nested::def::inner_stream!(@f [[$s]] $($f => $c,)*) };
-          (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::def::inner_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::xref::rp_rt::ProtoStr = $c;] $($r)*) };
+          (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::def::inner_stream!(@f [$($a)* WANT_s on_s: $crate::xref::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
           (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::nested::def::inner_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::xref::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
           (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, unknown")) };
           (@f $a:tt) => { $crate::xref::rp_rt::stream_visitor!($crate::xref::stream::xr::nested::def::InnerVisitor<'rp_a> $a) };
@@ -4235,6 +4253,9 @@ pub mod stream {
 
         pub fn decode<V: PVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
+          if rp_body.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -4352,6 +4373,9 @@ pub mod stream {
 
         pub fn decode<V: QVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
+          if rp_body.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -4467,6 +4491,9 @@ pub mod stream {
 
       pub fn decode<V: FwdMsgVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -4563,6 +4590,9 @@ pub mod stream {
 
         pub fn decode<V: RefVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
+          if rp_body.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -4840,7 +4870,7 @@ pub mod stream {
       pub trait TargetVisitor<'a> {
         const WANT_s: bool = false;
         #[inline(always)]
-        fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_n: bool = false;
         #[inline(always)]
         fn on_n(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -4866,6 +4896,9 @@ pub mod stream {
 
         pub fn decode<V: TargetVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
+          if rp_body.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -4875,7 +4908,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -4928,7 +4961,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+                match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -4976,7 +5009,7 @@ pub mod stream {
       macro_rules! __rp_4xref_2xr6FwdMsg6Target {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::xref::stream::xr::fwd_msg::target_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::xref::stream::xr::fwd_msg::target_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::fwd_msg::target_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::xref::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::fwd_msg::target_stream!(@f [$($a)* WANT_s on_s: $crate::xref::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::fwd_msg::target_stream!(@f [$($a)* WANT_n on_n: ::core::primitive::i32 = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::fwd_msg::target_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::xref::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, n, unknown")) };
@@ -5012,6 +5045,9 @@ pub mod stream {
 
       pub fn decode<V: CousinAVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -5105,6 +5141,9 @@ pub mod stream {
 
         pub fn decode<V: UseVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
+          if rp_body.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -5282,6 +5321,9 @@ pub mod stream {
 
       pub fn decode<V: CousinBVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         loop {
           let rp_b = match rp_rest.first() {
@@ -5346,7 +5388,7 @@ pub mod stream {
       pub trait ThingVisitor<'a> {
         const WANT_s: bool = false;
         #[inline(always)]
-        fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -5369,6 +5411,9 @@ pub mod stream {
 
         pub fn decode<V: ThingVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
+          if rp_body.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
           let mut rp_rest: &'a [u8] = rp_body;
           if rp_rest.first() == ::core::option::Option::Some(&10u8) {
             rp_rest = &rp_rest[1..];
@@ -5378,7 +5423,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -5412,7 +5457,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+                match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -5449,7 +5494,7 @@ pub mod stream {
       macro_rules! __rp_4xref_2xr7CousinB5Thing {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::xref::stream::xr::cousin_b::thing_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::xref::stream::xr::cousin_b::thing_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::cousin_b::thing_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::xref::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::cousin_b::thing_stream!(@f [$($a)* WANT_s on_s: $crate::xref::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::cousin_b::thing_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::xref::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, unknown")) };
         (@f $a:tt) => { $crate::xref::rp_rt::stream_visitor!($crate::xref::stream::xr::cousin_b::ThingVisitor<'rp_a> $a) };
@@ -5505,6 +5550,9 @@ pub mod stream {
 
       pub fn decode<V: ReservedNamesVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -5808,6 +5856,9 @@ pub mod stream {
 
       pub fn decode<V: IntWrapVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -5925,6 +5976,9 @@ pub mod stream {
 
       pub fn decode<V: BoolWrapVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -6019,7 +6073,7 @@ pub mod stream {
     pub trait BytesWrapVisitor<'a> {
       const WANT_value: bool = false;
       #[inline(always)]
-      fn on_value(&mut self, _rp_v: &'a [u8]) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_value(&mut self, _rp_v: ::rapidproto::ProtoBytes<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -6042,6 +6096,9 @@ pub mod stream {
 
       pub fn decode<V: BytesWrapVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
+        if rp_body.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];
@@ -6051,7 +6108,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_value(rp_p)? {
+            match rp_vis.on_value(::rapidproto::ProtoBytes::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -6085,7 +6142,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_value(rp_p)? {
+              match rp_vis.on_value(::rapidproto::ProtoBytes::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -6122,7 +6179,7 @@ pub mod stream {
     macro_rules! __rp_4xref_2xr9BytesWrap {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::xref::stream::xr::bytes_wrap_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::xref::stream::xr::bytes_wrap_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::bytes_wrap_stream!(@f [$($a)* WANT_value on_value: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
+      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::bytes_wrap_stream!(@f [$($a)* WANT_value on_value: $crate::xref::rp_rt::ProtoBytes<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::xref::stream::xr::bytes_wrap_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::xref::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: value, unknown")) };
       (@f $a:tt) => { $crate::xref::rp_rt::stream_visitor!($crate::xref::stream::xr::BytesWrapVisitor<'rp_a> $a) };
