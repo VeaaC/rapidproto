@@ -386,7 +386,7 @@ fn maps_with_scalar_keys_and_values() {
 }
 
 #[test]
-fn repeated_strings_and_bytes_are_indexable_cells() {
+fn repeated_strings_and_bytes_are_indexable() {
     let arena = Arena::new();
     let mut buf = Vec::new();
     put_len(&mut buf, 24, b"ab"); // chunks (repeated bytes)
@@ -431,7 +431,7 @@ fn oneof_last_wins_and_unset() {
         Some(Pick::D(x)) => assert_eq!(*x, 2.5),
         _ => panic!("expected D"),
     }
-    // e (23, bytes): held as a `bytes` cell.
+    // e (23, bytes): held as a `ProtoBytes`.
     let mut ebuf = Vec::new();
     put_len(&mut ebuf, 23, b"\x00\xff");
     match Msg::decode(&ebuf, &arena).unwrap().pick() {
@@ -1006,7 +1006,8 @@ fn raw_group_field_stores_its_bare_body_undecoded() {
     assert_eq!(h.must(), 7);
     assert_eq!(h.req_blob().as_deref(), Some(&blob[..])); // raw message: the length-delimited payload
     assert_eq!(h.grp().as_deref(), Some(&body[..])); // raw group: the bare body, framing stripped
-                                                     // The stored bare body is a valid group payload: it re-decodes through the group's own decoder.
+
+    // The stored bare body is a valid group payload: it re-decodes through the group's own decoder.
     let g = ModedGrp::decode(h.grp().unwrap().as_slice(), &arena).unwrap();
     assert_eq!(g.g(), Some(5));
 }
@@ -1258,7 +1259,7 @@ fn decoded_messages_are_send_and_sync() {
 }
 
 // `Owned` relies on decoded messages being covariant in their lifetime. Between them these hold
-// every 12-byte cell: strings and `bytes`, singular and repeated, raw payloads, string-keyed and
+// every 12-byte type: strings and `bytes`, singular and repeated, raw payloads, string-keyed and
 // bytes-valued maps, and a string oneof member.
 fn _decoded_messages_are_covariant<'a: 'b, 'b>(
     m: &'b Msg<'a>,

@@ -13,14 +13,14 @@ use crate::PackedSlice;
 /// It derefs to `[u8]` and compares with byte slices and arrays, as in `blob == b"\x01\x02"`. A slice
 /// reached through deref lives only as long as the borrow of the `ProtoBytes`;
 /// [`as_slice`](ProtoBytes::as_slice) returns it for the full `'a`. `Debug` prints a byte string
-/// literal, such as `b"a\xff"`. `Default` is the empty value.
+/// literal, such as `b"a\xff"`.
 #[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct ProtoBytes<'a>(PackedSlice<'a, u8>);
 
 impl<'a> ProtoBytes<'a> {
     /// Wrap `bytes`, without copying them. Use it for a `ProtoBytes` that does not come from decoding,
-    /// such as a lookup key or a test value.
+    /// such as a test value.
     ///
     /// # Panics
     ///
@@ -167,6 +167,18 @@ impl PartialEq<ProtoBytes<'_>> for &[u8] {
         *self == other.as_slice()
     }
 }
+impl<const N: usize> PartialEq<ProtoBytes<'_>> for [u8; N] {
+    #[inline]
+    fn eq(&self, other: &ProtoBytes<'_>) -> bool {
+        self[..] == *other.as_slice()
+    }
+}
+impl<const N: usize> PartialEq<ProtoBytes<'_>> for &[u8; N] {
+    #[inline]
+    fn eq(&self, other: &ProtoBytes<'_>) -> bool {
+        self[..] == *other.as_slice()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -184,9 +196,28 @@ mod tests {
         assert_eq!(b, b"\x02\x03");
         assert_eq!(b, &[2u8, 3][..]);
         assert_eq!(&[2u8, 3][..], b);
+        assert_eq!([2u8, 3], b);
+        assert_eq!(b"\x02\x03", b);
         assert!(a < b);
         assert_eq!(b.into_iter().sum::<u8>(), 5);
         assert!(ProtoBytes::default().is_empty());
+    }
+
+    #[test]
+    fn a_hash_map_finds_a_key_by_its_slice() {
+        let map = std::collections::HashMap::from([(ProtoBytes::new(b"k"), 1)]);
+        assert_eq!(map.get(&b"k"[..]), Some(&1));
+        assert_eq!(map.get(&b"x"[..]), None);
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    #[cfg_attr(miri, ignore)]
+    #[test]
+    #[should_panic(expected = "a ProtoBytes holds at most u32::MAX bytes")]
+    fn new_rejects_more_than_u32_max_bytes() {
+        // Zeroed memory that is never touched, so it costs no real memory.
+        let bytes = alloc::vec![0u8; u32::MAX as usize + 1];
+        let _ = ProtoBytes::new(&bytes);
     }
 
     #[test]

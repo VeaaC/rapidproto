@@ -57,23 +57,26 @@ impl<'a, T> PackedSlice<'a, T> {
 
 #[cfg(test)]
 mod tests {
-    use core::mem::{align_of, size_of};
-
     use super::*;
-    use crate::{MapView, ProtoBytes, ProtoStr};
 
     // The sizes the packed layout exists for. `Option` of a cell keeps the pointer niche.
     #[cfg(target_pointer_width = "64")]
-    const _: () = assert!(
-        size_of::<PackedSlice<'_, u64>>() == 12
-            && align_of::<PackedSlice<'_, u64>>() == 4
-            && size_of::<Option<PackedSlice<'_, u8>>>() == 12
-            && size_of::<ProtoStr<'_>>() == 12
-            && size_of::<Option<ProtoStr<'_>>>() == 12
-            && size_of::<ProtoBytes<'_>>() == 12
-            && size_of::<Option<ProtoBytes<'_>>>() == 12
-            && size_of::<MapView<'_, u8, u8>>() == 12
-    );
+    const _: () = {
+        use core::mem::{align_of, size_of};
+
+        use crate::{MapView, ProtoBytes, ProtoStr};
+
+        assert!(
+            size_of::<PackedSlice<'_, u64>>() == 12
+                && align_of::<PackedSlice<'_, u64>>() == 4
+                && size_of::<Option<PackedSlice<'_, u8>>>() == 12
+                && size_of::<ProtoStr<'_>>() == 12
+                && size_of::<Option<ProtoStr<'_>>>() == 12
+                && size_of::<ProtoBytes<'_>>() == 12
+                && size_of::<Option<ProtoBytes<'_>>>() == 12
+                && size_of::<MapView<'_, u8, u8>>() == 12
+        )
+    };
 
     // Covariant like `&'a [T]`: `Owned`'s safety contract relies on decoded messages being covariant.
     fn _covariant<'a: 'b, 'b>(s: PackedSlice<'a, &'a u8>) -> PackedSlice<'b, &'b u8> {

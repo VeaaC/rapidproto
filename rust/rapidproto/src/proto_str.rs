@@ -4,17 +4,18 @@ use core::cmp::Ordering;
 use core::fmt::{self, Write as _};
 use core::hash::{Hash, Hasher};
 
-use crate::{PackedSlice, ProtoBytes};
+use crate::PackedSlice;
 
 /// A protobuf `string`: its raw bytes, borrowed for `'a`, with UTF-8 validation left to the caller.
 ///
 /// Decoding does not validate, so a `ProtoStr` costs nothing to produce. The caller picks the cost it
 /// wants: [`as_bytes`](ProtoStr::as_bytes) is free, [`to_str`](ProtoStr::to_str) validates and can
-/// fail, and `to_str_lossy` (with `alloc`) never fails. The methods take the `ProtoStr` by value, and
-/// what they return borrows for the full `'a`.
+/// fail, and `to_str_lossy` (with `alloc`) never fails. What they return borrows for the full `'a`,
+/// also when called through a `&ProtoStr`.
 ///
 /// It compares with `str`, as in `station.name() == "Zurich"`. `Display` writes the text with U+FFFD
-/// for each invalid sequence. `Default` is the empty string.
+/// for each invalid sequence. `Debug` prints valid UTF-8 as a `str` does, and anything else as in
+/// `ProtoStr(b"a\xff")`.
 #[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct ProtoStr<'a>(PackedSlice<'a, u8>);
@@ -84,8 +85,11 @@ impl Default for ProtoStr<'_> {
 }
 
 impl fmt::Display for ProtoStr<'_> {
-    /// Writes the text, substituting U+FFFD for each invalid sequence. Allocation-free.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Valid text pads and truncates as a `str` does.
+        if let Ok(s) = self.to_str() {
+            return f.pad(s);
+        }
         for chunk in self.as_bytes().utf8_chunks() {
             f.write_str(chunk.valid())?;
             if !chunk.invalid().is_empty() {
@@ -97,15 +101,10 @@ impl fmt::Display for ProtoStr<'_> {
 }
 
 impl fmt::Debug for ProtoStr<'_> {
-    /// Valid UTF-8 prints as a `str` does. Otherwise the bytes print as `ProtoStr(b"a\xffb")`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.to_str() {
             Ok(s) => fmt::Debug::fmt(s, f),
-            Err(_) => write!(
-                f,
-                "ProtoStr({:?})",
-                ProtoBytes::new_truncating(self.as_bytes())
-            ),
+            Err(_) => write!(f, "ProtoStr(b\"{}\")", self.as_bytes().escape_ascii()),
         }
     }
 }
@@ -186,6 +185,7 @@ mod tests {
         assert_eq!(s, "hello");
         assert!(!s.is_empty());
         assert_eq!(s.len(), 5);
+        assert_eq!(format!("[{s:>7}|{s:.2}]"), "[  hello|he]");
     }
 
     #[test]
@@ -218,6 +218,16 @@ mod tests {
         assert_ne!(a, b);
         assert!(a < b);
         assert_eq!(format!("{b:?}"), "\"b\"");
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    #[cfg_attr(miri, ignore)]
+    #[test]
+    #[should_panic(expected = "a ProtoStr holds at most u32::MAX bytes")]
+    fn new_rejects_more_than_u32_max_bytes() {
+        // Zeroed memory that is never touched, so it costs no real memory.
+        let bytes = alloc::vec![0u8; u32::MAX as usize + 1];
+        let _ = ProtoStr::new(&bytes);
     }
 
     // Covariant like `&'a str`: `Owned`'s safety contract relies on decoded messages being covariant.

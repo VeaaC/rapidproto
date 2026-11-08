@@ -428,7 +428,7 @@ fn map_delivers_key_value_per_entry() {
 }
 
 #[test]
-fn map_with_bytes_value_delivers_a_slice() {
+fn map_with_bytes_value_delivers_the_bytes() {
     // `blobs` is field 22 (a two-byte tag), map<string, bytes>: one entry "k" -> [0xff, 0x00].
     const BLOBS: &[u8] = &[0xb2, 0x01, 0x07, 0x0a, 0x01, b'k', 0x12, 0x02, 0xff, 0x00];
     let mut blobs = Vec::new();

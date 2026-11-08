@@ -6,7 +6,7 @@
 //! - [`Arena`] — a bump arena that serves three tiers from one API: `std` (default), `no_std` +
 //!   `alloc`, and `no_std` with no allocator (a caller-seeded fixed buffer). Allocation is
 //!   fallible and never panics.
-//! - [`ProtoStr`] — a borrowed `string` value; the caller chooses whether/how to validate UTF-8.
+//! - [`ProtoStr`] — a borrowed `string` value, validated as UTF-8 only when the caller asks.
 //! - [`ProtoBytes`] — a borrowed `bytes` value; it derefs to `[u8]`.
 //! - [`MapView`] — a borrowed view over a `map` field's entries.
 //! - [`DecodeError`] / [`ErrorKind`] — the error returned by generated `decode` entry points.

@@ -4,10 +4,10 @@ use crate::PackedSlice;
 
 /// A borrowed view over a protobuf `map`'s decoded entries.
 ///
-/// Like the C++ runtime, entries are stored as a flat slice and looked up by a linear scan (maps
-/// are usually small, and this keeps decoding zero-copy with no index to build). The entries
-/// borrow the arena/input for `'a`. A `string` key or value is a [`ProtoStr`](crate::ProtoStr) and a
-/// `bytes` value a [`ProtoBytes`](crate::ProtoBytes), so `get("key")` looks up a string key directly.
+/// Entries are stored as a flat slice and looked up by a linear scan. Maps are usually small, and this
+/// keeps decoding zero-copy with no index to build. The entries borrow the input and the arena for
+/// `'a`. A `string` key or value is a [`ProtoStr`](crate::ProtoStr) and a `bytes` value a
+/// [`ProtoBytes`](crate::ProtoBytes). A string key is looked up with a `&str`, as in `get("key")`.
 ///
 /// Lookups follow protobuf's last-one-wins rule for a repeated key on the wire:
 /// [`get`](MapView::get) scans from the end, and [`iter`](MapView::iter) yields entries in wire
