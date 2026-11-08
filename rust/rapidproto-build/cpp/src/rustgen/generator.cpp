@@ -915,6 +915,13 @@ void emit_field_accessor(Printer& printer, const NameTable& table, const FieldNo
     std::string value = "self." + accessor;
     if (field.is_repeated) {
         value += ".as_slice()";
+    } else if (store == RustStore::MaskedValue && field.type_name == "string") {
+        // Rebuilt from its fields, not copied whole. Rust copies the packed 12 bytes as raw memory,
+        // which drops the fact that the pointer is non-null, the `None` niche. Every test of the
+        // returned `Option` would then load and test the pointer.
+        value = "::rapidproto::ProtoStr::new_truncating(" + value + ".as_bytes())";
+    } else if (store == RustStore::MaskedValue && field.type_name == "bytes") {
+        value = "::rapidproto::ProtoBytes::new_truncating(" + value + ".as_slice())";
     }
     switch (store) {
         case RustStore::MaskedBool: {
@@ -2064,7 +2071,8 @@ void emit_threaded_prologue(Printer& printer, const NameTable& table, const Mess
 }
 
 // Reject an `input` over `u32::MAX` bytes, the most a `ProtoStr`, `ProtoBytes` or `PackedSlice` holds.
-// Every value a decode reads is a part of its input, so this one check lets it store them unchecked.
+// It runs once per root, in the arena `decode` and the stream `new`. Every nested message and value is
+// a part of that input, so they need no check of their own and are stored unchecked.
 void emit_input_size_check(Printer& printer, const std::string& input) {
     printer.print("if $i$.len() > u32::MAX as usize {\n", {{"i", input}});
     printer.indent();
@@ -2875,20 +2883,20 @@ void emit_stream_map_body(Printer& printer, const NameTable& table, const Stream
     printer.outdent();
     printer.print("}\n");  // loop
     const std::string value_expr =
-        val.is_message_type ? message_path(table, val.resolved_type_fqn) + "::new(rp_val)"
+        val.is_message_type ? message_path(table, val.resolved_type_fqn) + "::rp_new(rp_val)"
                             : "rp_val";
     emit_stream_dispatch(printer, slot.name, "(rp_key, " + value_expr + ")");
 }
 
 // One occurrence of a non-map field, its tag consumed: read the value and deliver it (a message/group
-// field as the child's reader handle `<Child>::new(payload)`). Shared by the `match` arm and the
+// field as the child's reader handle `<Child>::rp_new(payload)`). Shared by the `match` arm and the
 // threaded probe.
 void emit_stream_value_body(Printer& printer, const NameTable& table, const StreamSlot& slot) {
     const FieldNode& field = *slot.field;
     if (field.is_message_type) {
         const std::string path = message_path(table, field.resolved_type_fqn);
         emit_msg_payload_read(printer, field, loop_read());
-        emit_stream_dispatch(printer, slot.name, path + "::new(rp_p)");
+        emit_stream_dispatch(printer, slot.name, path + "::rp_new(rp_p)");
         return;
     }
     if (scalar_wire_variant(field) == "Len") {
@@ -3067,7 +3075,7 @@ void emit_stream_unknown_arm(Printer& printer, const MessageNode& msg) {
     printer.print("}\n");
 }
 
-// `pub struct Msg<'a> { .. }` reader handle (`Msg::new(bytes).decode(visitor)`) + the decode driver:
+// `pub struct Msg<'a> { .. }` reader handle (`Msg::new(bytes)?.decode(visitor)`) + the decode driver:
 // the field-order probes, then the shared peek-hub field loop, each arm gated on its field's `WANT_`
 // const.
 void emit_stream_decode(Printer& printer, const NameTable& table, const MessageNode& msg,
@@ -3080,8 +3088,25 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
     printer.print("}\n\n");
     printer.print("impl<'a> $M$<'a> {\n");
     printer.indent();
+    // The size check sits here, not in `decode`: a handler decodes a nested message through the same
+    // `decode`, so a check there would run at every level. Inline in `decode`, it also grew every decode
+    // enough that LLVM stopped inlining the wire reads into some of them.
+    printer.print(
+        "/// A handle that reads the message body `rp_input`. Fails with `InputTooLarge` above "
+        "`u32::MAX` bytes.\n");
     printer.print("#[inline(always)]\n");
-    printer.print("pub fn new(rp_input: &'a [u8]) -> $M$<'a> { $M$ { rp_input } }\n\n");
+    printer.print(
+        "pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<$M$<'a>, "
+        "::rapidproto::DecodeError> {\n");
+    printer.indent();
+    emit_input_size_check(printer, "rp_input");
+    printer.print("::core::result::Result::Ok($M$ { rp_input })\n");
+    printer.outdent();
+    printer.print("}\n\n");
+    // The handle a parent hands its handler for a nested message: a part of an input `new` checked.
+    printer.print("#[doc(hidden)]\n");
+    printer.print("#[inline(always)]\n");
+    printer.print("pub fn rp_new(rp_input: &'a [u8]) -> $M$<'a> { $M$ { rp_input } }\n\n");
     // The handle wraps the message BODY (post-length-prefix) -- the same bytes the arena model's
     // `decode(bytes, &arena)` expects -- so exposing them lets a consumer stream the outer message and
     // materialize a chosen sub-message mid-stream (the stream->arena hybrid), composing the two models
@@ -3099,7 +3124,6 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
         "-> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {\n");
     printer.indent();
     printer.print("let rp_body: &'a [u8] = self.rp_input;\n");
-    emit_input_size_check(printer, "rp_body");
     printer.print("let mut rp_rest: &'a [u8] = rp_body;\n");
     emit_stream_prologue(printer, table, slots);
     printer.print("loop {\n");

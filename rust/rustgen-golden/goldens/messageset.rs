@@ -129,7 +129,7 @@ pub mod arena {
 
     impl<'a> Ext<'a> {
       pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.s)
+        ((self.rp_presence & (1 << 0)) != 0).then_some(::rapidproto::ProtoStr::new_truncating(self.s.as_bytes()))
       }
     }
     impl<'a> ::rapidproto::serde::Serialize for Ext<'a> {
@@ -346,8 +346,18 @@ pub mod stream {
     }
 
     impl<'a> Outer<'a> {
+      /// A handle that reads the message body `rp_input`. Fails with `InputTooLarge` above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Outer<'a> { Outer { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Outer<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Outer { rp_input })
+      }
+
+      #[doc(hidden)]
+      #[inline(always)]
+      pub fn rp_new(rp_input: &'a [u8]) -> Outer<'a> { Outer { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -357,9 +367,6 @@ pub mod stream {
 
       pub fn decode<V: OuterVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
-        if rp_body.len() > u32::MAX as usize {
-          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
-        }
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&8u8) {
           rp_rest = &rp_rest[1..];
@@ -388,7 +395,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_container(crate::messageset::stream::ms::outer::Container::new(rp_p))? {
+            match rp_vis.on_container(crate::messageset::stream::ms::outer::Container::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -433,7 +440,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_container(crate::messageset::stream::ms::outer::Container::new(rp_p))? {
+              match rp_vis.on_container(crate::messageset::stream::ms::outer::Container::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -495,8 +502,18 @@ pub mod stream {
       }
 
       impl<'a> Container<'a> {
+        /// A handle that reads the message body `rp_input`. Fails with `InputTooLarge` above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> Container<'a> { Container { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Container<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(Container { rp_input })
+        }
+
+        #[doc(hidden)]
+        #[inline(always)]
+        pub fn rp_new(rp_input: &'a [u8]) -> Container<'a> { Container { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -506,9 +523,6 @@ pub mod stream {
 
         pub fn decode<V: ContainerVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
-          if rp_body.len() > u32::MAX as usize {
-            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
-          }
           let mut rp_rest: &'a [u8] = rp_body;
           loop {
             let rp_b = match rp_rest.first() {
@@ -585,8 +599,18 @@ pub mod stream {
     }
 
     impl<'a> Ext<'a> {
+      /// A handle that reads the message body `rp_input`. Fails with `InputTooLarge` above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Ext<'a> { Ext { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Ext<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Ext { rp_input })
+      }
+
+      #[doc(hidden)]
+      #[inline(always)]
+      pub fn rp_new(rp_input: &'a [u8]) -> Ext<'a> { Ext { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -596,9 +620,6 @@ pub mod stream {
 
       pub fn decode<V: ExtVisitor<'a>>(self, mut rp_vis: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
-        if rp_body.len() > u32::MAX as usize {
-          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
-        }
         let mut rp_rest: &'a [u8] = rp_body;
         if rp_rest.first() == ::core::option::Option::Some(&10u8) {
           rp_rest = &rp_rest[1..];

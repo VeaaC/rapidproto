@@ -105,7 +105,7 @@ pub mod arena {
 
     impl<'a> Blob<'a> {
       pub fn payload(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.payload)
+        ((self.rp_presence & (1 << 0)) != 0).then_some(::rapidproto::ProtoBytes::new_truncating(self.payload.as_slice()))
       }
       pub fn kind(&self) -> ::core::option::Option<crate::arena_modes_lean::common::fm::blob::Kind> {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.kind)

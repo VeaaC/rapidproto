@@ -275,7 +275,7 @@ fn stream_block_sum<'a>(payload: &'a [u8], strings: &mut Vec<&'a [u8]>) -> u64 {
     use generated::stream::OSMPBF::*;
     strings.clear();
     let (mut gran, mut lat_off, mut lon_off, mut date_gran) = (100i64, 0i64, 0i64, 1000i64);
-    PrimitiveBlock::new(payload)
+    PrimitiveBlock::new(payload).unwrap()
         .decode(primitive_block_stream! {
             stringtable => |t| t.decode(string_table_stream! { s => |s| strings.push(s.as_slice()) }),
             granularity => |v| gran = i64::from(v),
@@ -304,6 +304,7 @@ fn stream_block_sum<'a>(payload: &'a [u8], strings: &mut Vec<&'a [u8]>) -> u64 {
         rel_mem: 0,
     };
     PrimitiveBlock::new(payload)
+        .unwrap()
         .decode(primitive_block_stream!(&mut w; {
             primitivegroup => |w, group| {
                 (w.dn_id, w.dn_lat, w.dn_lon) = (0, 0, 0);

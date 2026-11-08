@@ -52,7 +52,7 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
                            const std::string& module_path = "crate");
 
 // Emit the `stream` module body for `files`, under `pub mod stream` mirroring `arena`'s module
-// structure: per message a reader handle `<Msg><'a>` (`Msg::new(bytes).decode(visitor)`), a
+// structure: per message a reader handle `<Msg><'a>` (`Msg::new(bytes)?.decode(visitor)`), a
 // `<Msg>Visitor<'a>` trait (one `const WANT_<field>: bool = false` + a defaulted
 // `on_<field>(&mut self, V) -> Result<Flow, DecodeError>` method per field, plus an `unknown` handler),
 // a `<Msg>::decode` driver whose per-field arm gates on `V::WANT_<field>` (an unselected field

@@ -523,7 +523,7 @@ TEST_CASE("rustgen stream: a child handle path in the decode driver is absolute"
     // The driver's type parameter `V` would take over a relative path starting at a message `V`.
     const std::string out = gen_stream(R"(syntax = "proto3"; package p;
         message V { V child = 1; })");
-    CHECK(has(out, "rp_vis.on_child(crate::stream::p::V::new(rp_p))"));
+    CHECK(has(out, "rp_vis.on_child(crate::stream::p::V::rp_new(rp_p))"));
 }
 
 TEST_CASE("rustgen arena: repeated fields become borrowed slices") {

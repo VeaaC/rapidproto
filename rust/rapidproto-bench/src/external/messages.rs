@@ -122,6 +122,7 @@ fn gm1_stream(b: &[u8]) -> u64 {
     use gm1::stream::benchmarks::proto2::*;
     let mut s = 0u64;
     GoogleMessage1::new(b)
+        .unwrap()
         .decode(google_message1_stream!(&mut s; {
             field1 => |s, v| add(s, len(v)),
             field9 => |s, v| add(s, len(v)),
@@ -279,6 +280,7 @@ fn gm2_stream(b: &[u8]) -> u64 {
     use gm2::stream::benchmarks::proto2::*;
     let mut s = 0u64;
     GoogleMessage2::new(b)
+        .unwrap()
         .decode(google_message2_stream!(&mut s; {
             field1 => |s, v| add(s, len(v)),
             field3 => |s, v| add(s, i64w(v)),

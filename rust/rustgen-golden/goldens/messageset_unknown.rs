@@ -140,7 +140,7 @@ pub mod arena {
 
     impl<'a> Ext<'a> {
       pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.s)
+        ((self.rp_presence & (1 << 0)) != 0).then_some(::rapidproto::ProtoStr::new_truncating(self.s.as_bytes()))
       }
     }
     impl<'a> ::rapidproto::serde::Serialize for Ext<'a> {

@@ -64,18 +64,20 @@ fn main() {
     }
     let mut parts = ShapeParts::default();
     Shape::new(SHAPE_WIRE)
-        .decode(shape_stream!(&mut parts; {
-            name => |p, n| p.name = n.to_str().unwrap().to_owned(),
-            origin => |p, pt| {
-                let sub_arena = Arena::new();
-                let point = ArenaPoint::decode(pt.bytes(), &sub_arena)?;
-                p.x = point.x();
-                p.y = point.y();
-                Ok::<_, DecodeError>(())
-            },
-            kind => |p, k| p.kind = k.0, // the open-enum newtype; `.0` is the raw i32
-            sides => |p, v| p.sides_sum += v,
-        }))
+        .and_then(|stream| {
+            stream.decode(shape_stream!(&mut parts; {
+                name => |p, n| p.name = n.to_str().unwrap().to_owned(),
+                origin => |p, pt| {
+                    let sub_arena = Arena::new();
+                    let point = ArenaPoint::decode(pt.bytes(), &sub_arena)?;
+                    p.x = point.x();
+                    p.y = point.y();
+                    Ok::<_, DecodeError>(())
+                },
+                kind => |p, k| p.kind = k.0, // the open-enum newtype; `.0` is the raw i32
+                sides => |p, v| p.sides_sum += v,
+            }))
+        })
         .expect("stream demo.Shape");
 
     // The two models agree field-for-field.

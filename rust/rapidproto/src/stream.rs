@@ -2,7 +2,7 @@
 //! visits fields as they appear on the wire and never materializes the message, so a consumer pays
 //! only for the fields it selects; unselected fields are skipped on the wire with no dispatch.
 //!
-//! The generator emits, per message `Msg`: a reader handle `Msg<'a>` (`Msg::new(bytes).decode(visitor)`),
+//! The generator emits, per message `Msg`: a reader handle `Msg<'a>` (`Msg::new(bytes)?.decode(visitor)`),
 //! a `MsgVisitor<'a>` trait (one `const WANT_<field>: bool = false` plus a defaulted
 //! `on_<field>(&mut self, V) -> Result<Flow, DecodeError>` method per field), and a per-message
 //! `msg_stream! { field => closure, .. }` macro that builds a visitor whose closures capture local
