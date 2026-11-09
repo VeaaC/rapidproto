@@ -41,10 +41,18 @@ pub mod arena {
         ((self.rp_presence & (1 << 2)) != 0).then_some(self.fx)
       }
       pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 3)) != 0).then_some(::rapidproto::ProtoStr::new_truncating(self.s.as_bytes()))
+        let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoStr::new_truncating(self.s.as_bytes()));
+        if !((self.rp_presence & (1 << 3)) != 0) {
+          rp_v = ::core::option::Option::None;
+        }
+        rp_v
       }
       pub fn by(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {
-        ((self.rp_presence & (1 << 4)) != 0).then_some(::rapidproto::ProtoBytes::new_truncating(self.by.as_slice()))
+        let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoBytes::new_truncating(self.by.as_slice()));
+        if !((self.rp_presence & (1 << 4)) != 0) {
+          rp_v = ::core::option::Option::None;
+        }
+        rp_v
       }
       pub fn nested(&self) -> ::core::option::Option<&'a crate::wire_all::arena::wire::AllWire<'a>> {
         self.nested

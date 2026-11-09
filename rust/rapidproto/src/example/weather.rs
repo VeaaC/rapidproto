@@ -89,7 +89,11 @@ pub mod arena {
         self.temperatures.as_slice()
       }
       pub fn note(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 1)) != 0).then_some(::rapidproto::ProtoStr::new_truncating(self.note.as_bytes()))
+        let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoStr::new_truncating(self.note.as_bytes()));
+        if !((self.rp_presence & (1 << 1)) != 0) {
+          rp_v = ::core::option::Option::None;
+        }
+        rp_v
       }
       pub fn labels(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, ::rapidproto::ProtoStr<'a>> {
         self.labels

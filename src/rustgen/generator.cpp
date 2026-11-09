@@ -906,8 +906,9 @@ void emit_field_accessor(Printer& printer, const NameTable& table, const FieldNo
     // bool (value bit only) or a Required inlined message has `presence_bit == -1`, so computing the
     // test would emit `1 << -1`. Leave it empty there -- the branches that lack a presence bit never
     // read `pbit`.
-    // A present-iff-bit getter is `(<bit test>).then_some(<value>)`: the value is a field read or a
-    // bit test, so evaluating it eagerly costs nothing.
+    // A present-iff-bit getter is `(<bit test>).then_some(<value>)`, or the `Some`-then-`None` form
+    // below for a string or bytes: the value is a field read or a bit test, so evaluating it eagerly
+    // costs nothing.
     const std::string pbit =
         (masked && presence_bit >= 0) ? mask_test("self.rp_presence", presence_bit, mask_bits) : "";
     // The stored value as the getter returns it: a `PackedSlice` hands back its plain slice, for the
@@ -934,7 +935,19 @@ void emit_field_accessor(Printer& printer, const NameTable& table, const FieldNo
             break;
         }
         case RustStore::MaskedValue:
-            printer.print("($p$).then_some($v$)\n", {{"p", pbit}, {"v", value}});
+            if (field.type_name == "string" || field.type_name == "bytes") {
+                // `Some`, then overwritten with `None`, so the length is written on both paths. The
+                // packed `Option` lives in a stack slot, and in a caller's loop that slot is reused on
+                // every pass. `then_some` writes the length only on `Some`, so on `None` the slot keeps
+                // the previous pass's length, and LLVM keeps the length load behind a branch with a
+                // second test of the bit.
+                printer.print("let mut rp_v = ::core::option::Option::Some($v$);\n",
+                              {{"v", value}});
+                printer.print("if !($p$) {\n  rp_v = ::core::option::Option::None;\n}\nrp_v\n",
+                              {{"p", pbit}});
+            } else {
+                printer.print("($p$).then_some($v$)\n", {{"p", pbit}, {"v", value}});
+            }
             break;
         case RustStore::InlineMsg:
             if (presence_bit >= 0) {

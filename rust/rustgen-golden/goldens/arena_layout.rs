@@ -281,7 +281,11 @@ pub mod arena {
         self.name
       }
       pub fn oname(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 3)) != 0).then_some(::rapidproto::ProtoStr::new_truncating(self.oname.as_bytes()))
+        let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoStr::new_truncating(self.oname.as_bytes()));
+        if !((self.rp_presence & (1 << 3)) != 0) {
+          rp_v = ::core::option::Option::None;
+        }
+        rp_v
       }
       pub fn color(&self) -> crate::arena_layout::common::al::Color {
         self.color

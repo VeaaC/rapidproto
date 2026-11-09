@@ -114,10 +114,18 @@ pub mod arena {
         ((self.rp_presence & (1 << 9)) != 0).then_some((self.rp_presence & (1 << 10)) != 0)
       }
       pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-        ((self.rp_presence & (1 << 11)) != 0).then_some(::rapidproto::ProtoStr::new_truncating(self.s.as_bytes()))
+        let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoStr::new_truncating(self.s.as_bytes()));
+        if !((self.rp_presence & (1 << 11)) != 0) {
+          rp_v = ::core::option::Option::None;
+        }
+        rp_v
       }
       pub fn by(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {
-        ((self.rp_presence & (1 << 12)) != 0).then_some(::rapidproto::ProtoBytes::new_truncating(self.by.as_slice()))
+        let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoBytes::new_truncating(self.by.as_slice()));
+        if !((self.rp_presence & (1 << 12)) != 0) {
+          rp_v = ::core::option::Option::None;
+        }
+        rp_v
       }
       pub fn fl(&self) -> ::core::option::Option<f32> {
         ((self.rp_presence & (1 << 13)) != 0).then_some(self.fl)
@@ -553,7 +561,11 @@ pub mod arena {
           ((self.rp_presence & (1 << 0)) != 0).then_some(self.x)
         }
         pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
-          ((self.rp_presence & (1 << 1)) != 0).then_some(::rapidproto::ProtoStr::new_truncating(self.s.as_bytes()))
+          let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoStr::new_truncating(self.s.as_bytes()));
+          if !((self.rp_presence & (1 << 1)) != 0) {
+            rp_v = ::core::option::Option::None;
+          }
+          rp_v
         }
       }
       impl<'a> ::rapidproto::serde::Serialize for G<'a> {
