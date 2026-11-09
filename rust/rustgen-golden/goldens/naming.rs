@@ -864,7 +864,7 @@ pub mod arena {
       }
       pub fn other(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
         let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoStr::new_truncating(self.other.as_bytes()));
-        if !((self.rp_presence & (1 << 1)) != 0) {
+        if (self.rp_presence & (1 << 1)) == 0 {
           rp_v = ::core::option::Option::None;
         }
         rp_v

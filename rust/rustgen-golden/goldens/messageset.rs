@@ -130,7 +130,7 @@ pub mod arena {
     impl<'a> Ext<'a> {
       pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
         let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoStr::new_truncating(self.s.as_bytes()));
-        if !((self.rp_presence & (1 << 0)) != 0) {
+        if (self.rp_presence & (1 << 0)) == 0 {
           rp_v = ::core::option::Option::None;
         }
         rp_v

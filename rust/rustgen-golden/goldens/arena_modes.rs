@@ -100,7 +100,7 @@ pub mod arena {
     impl<'a> Blob<'a> {
       pub fn payload(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {
         let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoBytes::new_truncating(self.payload.as_slice()));
-        if !((self.rp_presence & (1 << 0)) != 0) {
+        if (self.rp_presence & (1 << 0)) == 0 {
           rp_v = ::core::option::Option::None;
         }
         rp_v

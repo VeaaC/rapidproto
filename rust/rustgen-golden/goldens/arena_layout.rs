@@ -282,7 +282,7 @@ pub mod arena {
       }
       pub fn oname(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
         let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoStr::new_truncating(self.oname.as_bytes()));
-        if !((self.rp_presence & (1 << 3)) != 0) {
+        if (self.rp_presence & (1 << 3)) == 0 {
           rp_v = ::core::option::Option::None;
         }
         rp_v

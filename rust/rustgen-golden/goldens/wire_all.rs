@@ -42,14 +42,14 @@ pub mod arena {
       }
       pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
         let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoStr::new_truncating(self.s.as_bytes()));
-        if !((self.rp_presence & (1 << 3)) != 0) {
+        if (self.rp_presence & (1 << 3)) == 0 {
           rp_v = ::core::option::Option::None;
         }
         rp_v
       }
       pub fn by(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {
         let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoBytes::new_truncating(self.by.as_slice()));
-        if !((self.rp_presence & (1 << 4)) != 0) {
+        if (self.rp_presence & (1 << 4)) == 0 {
           rp_v = ::core::option::Option::None;
         }
         rp_v

@@ -681,10 +681,11 @@ int mask_bit_pos(int bit, int total) {
     return total > kMaskWordBits ? bit % kMaskWordBits : bit;
 }
 
-// `(<base>[word] & (1 << pos)) != 0` -- a bit-set test over the mask word.
-std::string mask_test(const std::string& base, int bit, int total) {
+// `(<base>[word] & (1 << pos)) != 0` -- a bit-set test over the mask word, or `== 0` with
+// `set = false`.
+std::string mask_test(const std::string& base, int bit, int total, bool set = true) {
     return "(" + mask_word_at(base, bit, total) + " & (1 << " +
-           std::to_string(mask_bit_pos(bit, total)) + ")) != 0";
+           std::to_string(mask_bit_pos(bit, total)) + (set ? ")) != 0" : ")) == 0");
 }
 
 // Whether a singular field's decode local holds the plain `&'a [u8]` it read: a `string` or `bytes`
@@ -916,13 +917,6 @@ void emit_field_accessor(Printer& printer, const NameTable& table, const FieldNo
     std::string value = "self." + accessor;
     if (field.is_repeated) {
         value += ".as_slice()";
-    } else if (store == RustStore::MaskedValue && field.type_name == "string") {
-        // Rebuilt from its fields, not copied whole. Rust copies the packed 12 bytes as raw memory,
-        // and the copy loses LLVM's knowledge that the pointer is non-null. `None` is the null
-        // pointer, so every test of the returned `Option` would then load and test it.
-        value = "::rapidproto::ProtoStr::new_truncating(" + value + ".as_bytes())";
-    } else if (store == RustStore::MaskedValue && field.type_name == "bytes") {
-        value = "::rapidproto::ProtoBytes::new_truncating(" + value + ".as_slice())";
     }
     switch (store) {
         case RustStore::MaskedBool: {
@@ -935,16 +929,24 @@ void emit_field_accessor(Printer& printer, const NameTable& table, const FieldNo
             break;
         }
         case RustStore::MaskedValue:
-            if (field.type_name == "string" || field.type_name == "bytes") {
-                // `Some`, then overwritten with `None`, so the length is written on both paths. The
-                // packed `Option` lives in a stack slot, and in a caller's loop that slot is reused on
-                // every pass. `then_some` writes the length only on `Some`, so on `None` the slot keeps
-                // the previous pass's length, and LLVM keeps the length load behind a branch with a
-                // second test of the bit.
-                printer.print("let mut rp_v = ::core::option::Option::Some($v$);\n",
-                              {{"v", value}});
-                printer.print("if !($p$) {\n  rp_v = ::core::option::Option::None;\n}\nrp_v\n",
-                              {{"p", pbit}});
+            if (is_string_or_bytes(field)) {
+                // Rebuilt from its fields, not copied whole. Rust copies the packed 12 bytes as raw
+                // memory, and the copy loses LLVM's knowledge that the pointer is non-null. `None` is
+                // the null pointer, so every test of the returned `Option` would then load and test it.
+                const std::string cell =
+                    field.type_name == "string"
+                        ? "::rapidproto::ProtoStr::new_truncating(" + value + ".as_bytes())"
+                        : "::rapidproto::ProtoBytes::new_truncating(" + value + ".as_slice())";
+                // `Some`, then overwritten with `None`, so the length is written on both paths. An
+                // `Option` of a packed cell is an aggregate, not a scalar pair, so it lives in a stack
+                // slot, and in a caller's loop that slot is reused on every pass. `then_some` writes
+                // the length only on `Some`, so on `None` the slot keeps the previous pass's length,
+                // and LLVM keeps the length load behind a branch with a second test of the bit.
+                printer.print(
+                    "let mut rp_v = ::core::option::Option::Some($v$);\n"
+                    "if $c$ {\n  rp_v = ::core::option::Option::None;\n}\nrp_v\n",
+                    {{"v", cell},
+                     {"c", mask_test("self.rp_presence", presence_bit, mask_bits, false)}});
             } else {
                 printer.print("($p$).then_some($v$)\n", {{"p", pbit}, {"v", value}});
             }
