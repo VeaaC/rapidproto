@@ -378,6 +378,7 @@ fn internal(error: impl std::fmt::Display) -> GenError {
 /// Generate decoders from a `build.rs`: run the generator over a schema's import closure, write the
 /// result into `OUT_DIR`, and register the inputs so cargo re-runs when a `.proto` changes. The
 /// [crate docs](crate) show an example.
+#[derive(Debug)]
 pub struct Config {
     module_path: String,
     includes: Vec<PathBuf>,

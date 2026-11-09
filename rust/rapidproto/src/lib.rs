@@ -16,17 +16,24 @@
 //!
 //! This is an early stage: the generated code that uses these types is still being built out.
 //!
-//! Decoded messages can implement `serde::Serialize`. Ask for it with `rapidproto-build`'s
+//! Decoded messages implement `Debug`, which prints the fields that are set under their proto names,
+//! such as `Station { name: "Zurich", unit: Celsius, temperatures: [12.5, 13.0] }`. A field with
+//! presence appears when it is set, even at its default value. That covers `optional` fields, message
+//! fields and groups, and editions fields with explicit presence. A field without presence, such as a
+//! proto3 scalar with no `optional`, appears when its value is not the default. `required` fields
+//! always appear. `repeated` and `map` fields appear when they are not empty, and a `oneof` appears as
+//! its set member. A field a decode profile drops does not appear, and a `raw` field shows its bytes.
+//!
+//! An enum prints its `classify()` variant, such as `Celsius`, or `Unknown(7)` for a number the schema
+//! does not name. `bytes` print as a byte string, such as `b"\xff"`, and a `string` with invalid UTF-8
+//! as `ProtoStr(b"\xff")`. A stream handle prints only its length.
+//!
+//! Decoded messages can also implement `serde::Serialize`. Ask for it with `rapidproto-build`'s
 //! `Config::serde`, and enable this crate's `serde` feature, which is off by default. RapidProto only
 //! decodes, so there is no `Deserialize`.
 //!
-//! A message serializes as a map from proto field name to value. A field with presence appears when it
-//! is set, even at its default value. That covers `optional` fields, message fields and groups, and
-//! editions fields with explicit presence. A field without presence, such as a proto3 scalar with no
-//! `optional`, appears when its value is not the default. `required` fields always appear. `repeated`
-//! and `map` fields appear when they are not empty, and a `oneof` appears as its set member. An enum
-//! serializes as its `i32`. A field a decode profile drops does not appear, and a `raw` field serializes
-//! as bytes.
+//! A message serializes as a map from proto field name to value, with the fields `Debug` prints. An
+//! enum serializes as its `i32`, and a `raw` field as bytes.
 //!
 //! `bytes` goes through `serialize_bytes`, so the format decides how it looks. `serde_json` writes an
 //! array of numbers. A `string` with invalid UTF-8 serializes as bytes too. A `map` key repeated on the

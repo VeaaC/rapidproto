@@ -33,6 +33,24 @@ pub mod arena {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.y)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Small<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Small");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.x() {
+            rp_s.field("x", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.y() {
+            rp_s.field("y", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Small<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -71,6 +89,24 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.tag)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for ReqInline<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("ReqInline");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.s() {
+            rp_s.field("s", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.tag() {
+            rp_s.field("tag", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for ReqInline<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -361,6 +397,274 @@ pub mod arena {
         self.f65
       }
     }
+
+    impl<'a> ::core::fmt::Debug for ManyRequired<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("ManyRequired");
+        {
+          let rp_v = self.f1();
+          rp_s.field("f1", &rp_v);
+        }
+        {
+          let rp_v = self.f2();
+          rp_s.field("f2", &rp_v);
+        }
+        {
+          let rp_v = self.f3();
+          rp_s.field("f3", &rp_v);
+        }
+        {
+          let rp_v = self.f4();
+          rp_s.field("f4", &rp_v);
+        }
+        {
+          let rp_v = self.f5();
+          rp_s.field("f5", &rp_v);
+        }
+        {
+          let rp_v = self.f6();
+          rp_s.field("f6", &rp_v);
+        }
+        {
+          let rp_v = self.f7();
+          rp_s.field("f7", &rp_v);
+        }
+        {
+          let rp_v = self.f8();
+          rp_s.field("f8", &rp_v);
+        }
+        {
+          let rp_v = self.f9();
+          rp_s.field("f9", &rp_v);
+        }
+        {
+          let rp_v = self.f10();
+          rp_s.field("f10", &rp_v);
+        }
+        {
+          let rp_v = self.f11();
+          rp_s.field("f11", &rp_v);
+        }
+        {
+          let rp_v = self.f12();
+          rp_s.field("f12", &rp_v);
+        }
+        {
+          let rp_v = self.f13();
+          rp_s.field("f13", &rp_v);
+        }
+        {
+          let rp_v = self.f14();
+          rp_s.field("f14", &rp_v);
+        }
+        {
+          let rp_v = self.f15();
+          rp_s.field("f15", &rp_v);
+        }
+        {
+          let rp_v = self.f16();
+          rp_s.field("f16", &rp_v);
+        }
+        {
+          let rp_v = self.f17();
+          rp_s.field("f17", &rp_v);
+        }
+        {
+          let rp_v = self.f18();
+          rp_s.field("f18", &rp_v);
+        }
+        {
+          let rp_v = self.f19();
+          rp_s.field("f19", &rp_v);
+        }
+        {
+          let rp_v = self.f20();
+          rp_s.field("f20", &rp_v);
+        }
+        {
+          let rp_v = self.f21();
+          rp_s.field("f21", &rp_v);
+        }
+        {
+          let rp_v = self.f22();
+          rp_s.field("f22", &rp_v);
+        }
+        {
+          let rp_v = self.f23();
+          rp_s.field("f23", &rp_v);
+        }
+        {
+          let rp_v = self.f24();
+          rp_s.field("f24", &rp_v);
+        }
+        {
+          let rp_v = self.f25();
+          rp_s.field("f25", &rp_v);
+        }
+        {
+          let rp_v = self.f26();
+          rp_s.field("f26", &rp_v);
+        }
+        {
+          let rp_v = self.f27();
+          rp_s.field("f27", &rp_v);
+        }
+        {
+          let rp_v = self.f28();
+          rp_s.field("f28", &rp_v);
+        }
+        {
+          let rp_v = self.f29();
+          rp_s.field("f29", &rp_v);
+        }
+        {
+          let rp_v = self.f30();
+          rp_s.field("f30", &rp_v);
+        }
+        {
+          let rp_v = self.f31();
+          rp_s.field("f31", &rp_v);
+        }
+        {
+          let rp_v = self.f32();
+          rp_s.field("f32", &rp_v);
+        }
+        {
+          let rp_v = self.f33();
+          rp_s.field("f33", &rp_v);
+        }
+        {
+          let rp_v = self.f34();
+          rp_s.field("f34", &rp_v);
+        }
+        {
+          let rp_v = self.f35();
+          rp_s.field("f35", &rp_v);
+        }
+        {
+          let rp_v = self.f36();
+          rp_s.field("f36", &rp_v);
+        }
+        {
+          let rp_v = self.f37();
+          rp_s.field("f37", &rp_v);
+        }
+        {
+          let rp_v = self.f38();
+          rp_s.field("f38", &rp_v);
+        }
+        {
+          let rp_v = self.f39();
+          rp_s.field("f39", &rp_v);
+        }
+        {
+          let rp_v = self.f40();
+          rp_s.field("f40", &rp_v);
+        }
+        {
+          let rp_v = self.f41();
+          rp_s.field("f41", &rp_v);
+        }
+        {
+          let rp_v = self.f42();
+          rp_s.field("f42", &rp_v);
+        }
+        {
+          let rp_v = self.f43();
+          rp_s.field("f43", &rp_v);
+        }
+        {
+          let rp_v = self.f44();
+          rp_s.field("f44", &rp_v);
+        }
+        {
+          let rp_v = self.f45();
+          rp_s.field("f45", &rp_v);
+        }
+        {
+          let rp_v = self.f46();
+          rp_s.field("f46", &rp_v);
+        }
+        {
+          let rp_v = self.f47();
+          rp_s.field("f47", &rp_v);
+        }
+        {
+          let rp_v = self.f48();
+          rp_s.field("f48", &rp_v);
+        }
+        {
+          let rp_v = self.f49();
+          rp_s.field("f49", &rp_v);
+        }
+        {
+          let rp_v = self.f50();
+          rp_s.field("f50", &rp_v);
+        }
+        {
+          let rp_v = self.f51();
+          rp_s.field("f51", &rp_v);
+        }
+        {
+          let rp_v = self.f52();
+          rp_s.field("f52", &rp_v);
+        }
+        {
+          let rp_v = self.f53();
+          rp_s.field("f53", &rp_v);
+        }
+        {
+          let rp_v = self.f54();
+          rp_s.field("f54", &rp_v);
+        }
+        {
+          let rp_v = self.f55();
+          rp_s.field("f55", &rp_v);
+        }
+        {
+          let rp_v = self.f56();
+          rp_s.field("f56", &rp_v);
+        }
+        {
+          let rp_v = self.f57();
+          rp_s.field("f57", &rp_v);
+        }
+        {
+          let rp_v = self.f58();
+          rp_s.field("f58", &rp_v);
+        }
+        {
+          let rp_v = self.f59();
+          rp_s.field("f59", &rp_v);
+        }
+        {
+          let rp_v = self.f60();
+          rp_s.field("f60", &rp_v);
+        }
+        {
+          let rp_v = self.f61();
+          rp_s.field("f61", &rp_v);
+        }
+        {
+          let rp_v = self.f62();
+          rp_s.field("f62", &rp_v);
+        }
+        {
+          let rp_v = self.f63();
+          rp_s.field("f63", &rp_v);
+        }
+        {
+          let rp_v = self.f64();
+          rp_s.field("f64", &rp_v);
+        }
+        {
+          let rp_v = self.f65();
+          rp_s.field("f65", &rp_v);
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for ManyRequired<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -2527,6 +2831,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for Small<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Small").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> Small<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -2686,6 +2996,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct ReqInline<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for ReqInline<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("ReqInline").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> ReqInline<'a> {
@@ -3036,6 +3352,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct ManyRequired<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for ManyRequired<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("ManyRequired").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> ManyRequired<'a> {

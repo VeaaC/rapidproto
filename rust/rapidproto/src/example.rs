@@ -41,7 +41,7 @@
 //! ```
 //! # mod example { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/example/weather.rs")); }
 //! # fn main() -> Result<(), rapidproto::DecodeError> {
-//! # let bytes = b"\x0a\x12\x0a\x06Zurich\x22\x08\x00\x00\x48\x41\x00\x00\x50\x41";
+//! # let bytes = b"\x0a\x14\x0a\x06Zurich\x18\x01\x22\x08\x00\x00\x48\x41\x00\x00\x50\x41";
 //! use example::arena::weather::Report;
 //! use rapidproto::Arena;
 //!
@@ -50,6 +50,10 @@
 //! let station = &report.stations()[0];
 //! assert_eq!(station.name(), "Zurich");
 //! assert_eq!(station.temperatures(), [12.5, 13.0]);
+//! assert_eq!(
+//!     format!("{station:?}"),
+//!     r#"Station { name: "Zurich", unit: Celsius, temperatures: [12.5, 13.0] }"#
+//! );
 //! # Ok(())
 //! # }
 //! ```

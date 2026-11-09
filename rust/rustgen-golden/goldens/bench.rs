@@ -10,9 +10,15 @@ mod rp_check {
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod bench {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct Kind(pub i32);
+
+    impl ::core::fmt::Debug for Kind {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+      }
+    }
 
     impl ::rapidproto::serde::Serialize for Kind {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -70,6 +76,32 @@ pub mod arena {
         self.zip
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Address<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Address");
+        {
+          let rp_v = self.street();
+          if !rp_v.is_empty() {
+            rp_s.field("street", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.city();
+          if !rp_v.is_empty() {
+            rp_s.field("city", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.zip();
+          if rp_v != 0 {
+            rp_s.field("zip", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Address<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -114,6 +146,26 @@ pub mod arena {
         self.value
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Attribute<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Attribute");
+        {
+          let rp_v = self.key();
+          if !rp_v.is_empty() {
+            rp_s.field("key", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.value();
+          if !rp_v.is_empty() {
+            rp_s.field("value", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Attribute<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -188,6 +240,79 @@ pub mod arena {
         self.counters
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Person<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Person");
+        {
+          let rp_v = self.id();
+          if rp_v != 0 {
+            rp_s.field("id", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.name();
+          if !rp_v.is_empty() {
+            rp_s.field("name", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.email();
+          if !rp_v.is_empty() {
+            rp_s.field("email", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.active();
+          if rp_v {
+            rp_s.field("active", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.score();
+          if rp_v.to_bits() != 0 {
+            rp_s.field("score", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.created();
+          if rp_v != 0 {
+            rp_s.field("created", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.address() {
+            rp_s.field("address", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.tags();
+          if !rp_v.is_empty() {
+            rp_s.field("tags", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.history();
+          if !rp_v.is_empty() {
+            rp_s.field("history", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.attributes();
+          if !rp_v.is_empty() {
+            rp_s.field("attributes", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.counters();
+          if !rp_v.is_empty() {
+            rp_s.field("counters", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Person<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -283,6 +408,32 @@ pub mod arena {
         self.people.as_slice()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Dataset<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Dataset");
+        {
+          let rp_v = self.name();
+          if !rp_v.is_empty() {
+            rp_s.field("name", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.version();
+          if rp_v != 0 {
+            rp_s.field("version", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.people();
+          if !rp_v.is_empty() {
+            rp_s.field("people", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Dataset<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -343,6 +494,50 @@ pub mod arena {
         self.t.as_slice()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Wide<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Wide");
+        {
+          let rp_v = self.a();
+          if !rp_v.is_empty() {
+            rp_s.field("a", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.b();
+          if !rp_v.is_empty() {
+            rp_s.field("b", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.c();
+          if !rp_v.is_empty() {
+            rp_s.field("c", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.d();
+          if !rp_v.is_empty() {
+            rp_s.field("d", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.s();
+          if !rp_v.is_empty() {
+            rp_s.field("s", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.t();
+          if !rp_v.is_empty() {
+            rp_s.field("t", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Wide<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -401,6 +596,20 @@ pub mod arena {
         self.items.as_slice()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for WideSet<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("WideSet");
+        {
+          let rp_v = self.items();
+          if !rp_v.is_empty() {
+            rp_s.field("items", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for WideSet<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -441,6 +650,38 @@ pub mod arena {
         self.kinds.as_slice()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Big<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Big");
+        {
+          let rp_v = self.numbers();
+          if !rp_v.is_empty() {
+            rp_s.field("numbers", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.reals();
+          if !rp_v.is_empty() {
+            rp_s.field("reals", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.zz();
+          if !rp_v.is_empty() {
+            rp_s.field("zz", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.kinds();
+          if !rp_v.is_empty() {
+            rp_s.field("kinds", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Big<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -487,6 +728,20 @@ pub mod arena {
         self.items.as_slice()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for BigSet<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("BigSet");
+        {
+          let rp_v = self.items();
+          if !rp_v.is_empty() {
+            rp_s.field("items", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for BigSet<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -525,6 +780,32 @@ pub mod arena {
         self.z
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Vec3<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Vec3");
+        {
+          let rp_v = self.x();
+          if rp_v.to_bits() != 0 {
+            rp_s.field("x", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.y();
+          if rp_v.to_bits() != 0 {
+            rp_s.field("y", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.z();
+          if rp_v.to_bits() != 0 {
+            rp_s.field("z", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Vec3<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -577,6 +858,36 @@ pub mod arena {
         self.color
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Particle<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Particle");
+        {
+          let rp_v = self.id();
+          if rp_v != 0 {
+            rp_s.field("id", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.position() {
+            rp_s.field("position", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.velocity() {
+            rp_s.field("velocity", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.color();
+          if rp_v != 0 {
+            rp_s.field("color", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Particle<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -621,6 +932,20 @@ pub mod arena {
         self.items.as_slice()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for ParticleSet<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("ParticleSet");
+        {
+          let rp_v = self.items();
+          if !rp_v.is_empty() {
+            rp_s.field("items", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for ParticleSet<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -671,6 +996,50 @@ pub mod arena {
         self.f
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Sample<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Sample");
+        {
+          let rp_v = self.a();
+          if rp_v != 0 {
+            rp_s.field("a", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.b();
+          if rp_v != 0 {
+            rp_s.field("b", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.c();
+          if rp_v != 0 {
+            rp_s.field("c", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.d();
+          if rp_v != 0 {
+            rp_s.field("d", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.e();
+          if rp_v {
+            rp_s.field("e", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f();
+          if rp_v != 0 {
+            rp_s.field("f", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Sample<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -805,6 +1174,132 @@ pub mod arena {
         self.f20
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Record<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Record");
+        {
+          let rp_v = self.f1();
+          if rp_v != 0 {
+            rp_s.field("f1", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f2();
+          if rp_v != 0 {
+            rp_s.field("f2", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f3();
+          if rp_v != 0 {
+            rp_s.field("f3", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f4();
+          if rp_v != 0 {
+            rp_s.field("f4", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f5();
+          if rp_v != 0 {
+            rp_s.field("f5", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f6();
+          if rp_v != 0 {
+            rp_s.field("f6", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f7();
+          if rp_v {
+            rp_s.field("f7", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f8();
+          if rp_v != 0 {
+            rp_s.field("f8", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f9();
+          if rp_v != 0 {
+            rp_s.field("f9", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f10();
+          if rp_v != 0 {
+            rp_s.field("f10", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f11();
+          if rp_v != 0 {
+            rp_s.field("f11", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f12();
+          if rp_v != 0 {
+            rp_s.field("f12", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f13();
+          if rp_v != 0 {
+            rp_s.field("f13", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f14();
+          if rp_v != 0 {
+            rp_s.field("f14", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f15();
+          if rp_v != 0 {
+            rp_s.field("f15", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.s1() {
+            rp_s.field("s1", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.s2() {
+            rp_s.field("s2", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f18();
+          if rp_v != 0 {
+            rp_s.field("f18", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f19();
+          if rp_v != 0 {
+            rp_s.field("f19", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.f20();
+          if rp_v != 0 {
+            rp_s.field("f20", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Record<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -945,6 +1440,20 @@ pub mod arena {
         self.records.as_slice()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for RecordSet<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("RecordSet");
+        {
+          let rp_v = self.records();
+          if !rp_v.is_empty() {
+            rp_s.field("records", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for RecordSet<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -3218,6 +3727,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for Address<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Address").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> Address<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -3410,6 +3925,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for Attribute<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Attribute").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> Attribute<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -3596,6 +4117,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Person<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Person<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Person").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Person<'a> {
@@ -4177,6 +4704,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for Dataset<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Dataset").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> Dataset<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -4379,6 +4912,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Wide<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Wide<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Wide").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Wide<'a> {
@@ -4847,6 +5386,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for WideSet<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("WideSet").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> WideSet<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -4981,6 +5526,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Big<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Big<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Big").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Big<'a> {
@@ -5385,6 +5936,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for BigSet<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("BigSet").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> BigSet<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -5516,6 +6073,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Vec3<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Vec3<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Vec3").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Vec3<'a> {
@@ -5714,6 +6277,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Particle<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Particle<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Particle").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Particle<'a> {
@@ -5936,6 +6505,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for ParticleSet<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("ParticleSet").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> ParticleSet<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -6076,6 +6651,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Sample<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Sample<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Sample").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Sample<'a> {
@@ -6415,6 +6996,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Record<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Record<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Record").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Record<'a> {
@@ -7131,6 +7718,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct RecordSet<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for RecordSet<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("RecordSet").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> RecordSet<'a> {

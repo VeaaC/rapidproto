@@ -18,6 +18,7 @@
 //! strict-provenance model.
 
 use core::cell::Cell;
+use core::fmt;
 use core::marker::PhantomData;
 use core::ptr::NonNull;
 
@@ -450,6 +451,16 @@ impl Default for Arena<'static> {
     }
 }
 
+/// Prints [`bytes_used`](Arena::bytes_used) and [`bytes_reserved`](Arena::bytes_reserved).
+impl fmt::Debug for Arena<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Arena")
+            .field("bytes_used", &self.bytes_used())
+            .field("bytes_reserved", &self.bytes_reserved())
+            .finish()
+    }
+}
+
 #[cfg(feature = "alloc")]
 impl Drop for Arena<'_> {
     fn drop(&mut self) {
@@ -494,6 +505,18 @@ mod tests {
             let p = a.alloc_bytes(align, align).unwrap();
             assert_aligned(p, align);
         }
+    }
+
+    #[test]
+    fn debug_prints_usage() {
+        let mut buf = [0u8; 256];
+        let a = Arena::with_buffer(&mut buf);
+        a.alloc_bytes(8, 8).unwrap();
+        let expected = format!(
+            "Arena {{ bytes_used: 8, bytes_reserved: {} }}",
+            a.bytes_reserved()
+        );
+        assert_eq!(format!("{a:?}"), expected);
     }
 
     // The embedded-tier guarantee: a seed-only arena refuses with a clean error (no panic, no UB)

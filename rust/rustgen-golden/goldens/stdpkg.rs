@@ -34,6 +34,32 @@ pub mod arena {
         self.many.as_slice()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Types<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Types");
+        {
+          let rp_v = self.n();
+          if rp_v != 0 {
+            rp_s.field("n", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.s();
+          if !rp_v.is_empty() {
+            rp_s.field("s", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.many();
+          if !rp_v.is_empty() {
+            rp_s.field("many", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Types<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -216,6 +242,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Types<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Types<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Types").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Types<'a> {

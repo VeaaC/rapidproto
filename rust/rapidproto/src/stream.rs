@@ -72,6 +72,8 @@
 //! # let _ = Collect(Vec::new());
 //! ```
 
+use core::fmt;
+
 use crate::error::DecodeError;
 pub use crate::wire::WireType;
 
@@ -249,6 +251,17 @@ pub struct UnknownField<'a> {
     bytes: &'a [u8],
 }
 
+/// Prints the field number, the wire type and the value bytes as a byte string.
+impl fmt::Debug for UnknownField<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("UnknownField")
+            .field("field_number", &self.field_number())
+            .field("wire_type", &self.wire_type())
+            .field("bytes", &format_args!("b\"{}\"", self.bytes.escape_ascii()))
+            .finish()
+    }
+}
+
 impl<'a> UnknownField<'a> {
     /// Construct from a raw tag key (`field << 3 | wire`) and the field's value bytes. Called by
     /// generated decoders; not part of the stable surface.
@@ -275,5 +288,19 @@ impl<'a> UnknownField<'a> {
     #[inline(always)]
     pub fn bytes(&self) -> &'a [u8] {
         self.bytes
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unknown_field_debug() {
+        let field = UnknownField::new(5 << 3 | 2, b"\x02hi");
+        assert_eq!(
+            format!("{field:?}"),
+            r#"UnknownField { field_number: 5, wire_type: Some(Len), bytes: b"\x02hi" }"#
+        );
     }
 }

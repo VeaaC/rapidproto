@@ -12,9 +12,15 @@ pub mod common {
   pub mod com {
     pub mod example {
       pub mod deep {
-        #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+        #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
         #[repr(transparent)]
         pub struct Mode(pub i32);
+
+        impl ::core::fmt::Debug for Mode {
+          fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+          }
+        }
 
         impl ::rapidproto::serde::Serialize for Mode {
           fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -81,6 +87,30 @@ pub mod arena {
             self.mode
           }
         }
+
+        impl<'a> ::core::fmt::Debug for Outer<'a> {
+          fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            let mut rp_s = rp_f.debug_struct("Outer");
+            {
+              if let ::core::option::Option::Some(rp_v) = self.inner() {
+                rp_s.field("inner", &rp_v);
+              }
+            }
+            {
+              if let ::core::option::Option::Some(rp_v) = self.self_() {
+                rp_s.field("self", &rp_v);
+              }
+            }
+            {
+              let rp_v = self.mode();
+              if rp_v.0 != 0 {
+                rp_s.field("mode", &rp_v);
+              }
+            }
+            rp_s.finish()
+          }
+        }
+
         impl<'a> ::rapidproto::serde::Serialize for Outer<'a> {
           fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
           where
@@ -122,6 +152,20 @@ pub mod arena {
               self.x
             }
           }
+
+          impl<'a> ::core::fmt::Debug for Inner<'a> {
+            fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+              let mut rp_s = rp_f.debug_struct("Inner");
+              {
+                let rp_v = self.x();
+                if rp_v != 0 {
+                  rp_s.field("x", &rp_v);
+                }
+              }
+              rp_s.finish()
+            }
+          }
+
           impl<'a> ::rapidproto::serde::Serialize for Inner<'a> {
             fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
             where
@@ -340,6 +384,19 @@ pub mod arena {
         self.target
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Ref<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Ref");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.target() {
+            rp_s.field("target", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Ref<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -464,6 +521,12 @@ pub mod stream {
         #[derive(Clone, Copy)]
         pub struct Outer<'a> {
           rp_input: &'a [u8],
+        }
+
+        impl ::core::fmt::Debug for Outer<'_> {
+          fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            rp_f.debug_struct("Outer").field("len", &self.rp_input.len()).finish()
+          }
         }
 
         impl<'a> Outer<'a> {
@@ -656,6 +719,12 @@ pub mod stream {
             rp_input: &'a [u8],
           }
 
+          impl ::core::fmt::Debug for Inner<'_> {
+            fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+              rp_f.debug_struct("Inner").field("len", &self.rp_input.len()).finish()
+            }
+          }
+
           impl<'a> Inner<'a> {
             /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
             /// above `u32::MAX` bytes.
@@ -786,6 +855,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Ref<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Ref<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Ref").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Ref<'a> {

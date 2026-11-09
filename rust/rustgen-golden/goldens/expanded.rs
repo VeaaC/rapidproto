@@ -11,9 +11,15 @@ mod rp_check {
 pub mod common {
   pub mod xp {
     pub mod expanded {
-      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+      #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
       #[repr(transparent)]
       pub struct Kind(pub i32);
+
+      impl ::core::fmt::Debug for Kind {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+        }
+      }
 
       impl ::rapidproto::serde::Serialize for Kind {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -83,6 +89,44 @@ pub mod arena {
         self.usf.as_slice()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Expanded<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Expanded");
+        {
+          let rp_v = self.uzz();
+          if !rp_v.is_empty() {
+            rp_s.field("uzz", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.ub();
+          if !rp_v.is_empty() {
+            rp_s.field("ub", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.uk();
+          if !rp_v.is_empty() {
+            rp_s.field("uk", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.ufx();
+          if !rp_v.is_empty() {
+            rp_s.field("ufx", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.usf();
+          if !rp_v.is_empty() {
+            rp_s.field("usf", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Expanded<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -437,6 +481,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Expanded<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Expanded<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Expanded").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Expanded<'a> {

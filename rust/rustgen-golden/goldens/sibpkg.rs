@@ -40,6 +40,20 @@ pub mod arena {
               self.y
             }
           }
+
+          impl<'a> ::core::fmt::Debug for Entry<'a> {
+            fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+              let mut rp_s = rp_f.debug_struct("Entry");
+              {
+                let rp_v = self.y();
+                if rp_v != 0 {
+                  rp_s.field("y", &rp_v);
+                }
+              }
+              rp_s.finish()
+            }
+          }
+
           impl<'a> ::rapidproto::serde::Serialize for Entry<'a> {
             fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
             where
@@ -159,6 +173,12 @@ pub mod stream {
           #[derive(Clone, Copy)]
           pub struct Entry<'a> {
             rp_input: &'a [u8],
+          }
+
+          impl ::core::fmt::Debug for Entry<'_> {
+            fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+              rp_f.debug_struct("Entry").field("len", &self.rp_input.len()).finish()
+            }
           }
 
           impl<'a> Entry<'a> {

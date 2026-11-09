@@ -10,9 +10,15 @@ mod rp_check {
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod dep {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct DepEnum(pub i32);
+
+    impl ::core::fmt::Debug for DepEnum {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+      }
+    }
 
     impl ::rapidproto::serde::Serialize for DepEnum {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -69,6 +75,24 @@ pub mod arena {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.de)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Dep<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Dep");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.v() {
+            rp_s.field("v", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.de() {
+            rp_s.field("de", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Dep<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -211,6 +235,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Dep<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Dep<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Dep").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Dep<'a> {

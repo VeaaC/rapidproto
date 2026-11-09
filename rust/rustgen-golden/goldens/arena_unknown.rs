@@ -28,6 +28,20 @@ pub mod arena {
         (self.rp_presence & (1 << 0)) != 0
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Flag<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Flag");
+        {
+          let rp_v = self.value();
+          if rp_v {
+            rp_s.field("value", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Flag<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -62,6 +76,25 @@ pub mod arena {
         self.n
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Holder<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Holder");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.flag() {
+            rp_s.field("flag", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.n();
+          if rp_v != 0 {
+            rp_s.field("n", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Holder<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -281,6 +314,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for Flag<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Flag").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> Flag<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -409,6 +448,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Holder<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Holder<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Holder").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Holder<'a> {

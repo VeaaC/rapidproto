@@ -29,6 +29,19 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.v)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for SecondB<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("SecondB");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.v() {
+            rp_s.field("v", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for SecondB<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -58,6 +71,19 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(&self.b)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for FirstA<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("FirstA");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.b() {
+            rp_s.field("b", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for FirstA<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -248,6 +274,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for SecondB<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("SecondB").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> SecondB<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -373,6 +405,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct FirstA<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for FirstA<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("FirstA").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> FirstA<'a> {

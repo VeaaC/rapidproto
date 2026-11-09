@@ -34,6 +34,24 @@ pub mod arena {
         ((self.rp_presence & (1 << 1)) != 0).then_some(&self.container)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Outer<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Outer");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.ordinary() {
+            rp_s.field("ordinary", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.container() {
+            rp_s.field("container", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Outer<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -69,6 +87,14 @@ pub mod arena {
           self.rp_unknown
         }
       }
+
+      impl<'a> ::core::fmt::Debug for Container<'a> {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut rp_s = rp_f.debug_struct("Container");
+          rp_s.finish()
+        }
+      }
+
       impl<'a> ::rapidproto::serde::Serialize for Container<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -147,6 +173,19 @@ pub mod arena {
         rp_v
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Ext<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Ext");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.s() {
+            rp_s.field("s", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Ext<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where

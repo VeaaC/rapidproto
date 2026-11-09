@@ -1,5 +1,7 @@
 //! A borrowed view over a `map` field.
 
+use core::fmt;
+
 use crate::PackedSlice;
 
 /// A borrowed view over a protobuf `map`'s decoded entries.
@@ -25,6 +27,13 @@ impl<K, V> Clone for MapView<'_, K, V> {
     }
 }
 impl<K, V> Copy for MapView<'_, K, V> {}
+
+/// Prints the entries in wire order, so a key repeated on the wire appears more than once.
+impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for MapView<'_, K, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
+    }
+}
 
 impl<'a, K, V> MapView<'a, K, V> {
     /// Wrap a slice of decoded entries. The count truncates to 32 bits, as in [`PackedSlice`].
@@ -96,6 +105,13 @@ mod tests {
         let entries = [(1i32, "first"), (1, "second")];
         let m = MapView::new(&entries);
         assert_eq!(m.get(&1), Some(&"second"));
+    }
+
+    #[test]
+    fn debug_prints_entries_in_wire_order() {
+        let entries = [(1i32, "a"), (2, "b"), (1, "c")];
+        let m = MapView::new(&entries);
+        assert_eq!(alloc::format!("{m:?}"), r#"{1: "a", 2: "b", 1: "c"}"#);
     }
 
     #[test]
