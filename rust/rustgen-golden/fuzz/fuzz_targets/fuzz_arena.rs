@@ -84,7 +84,7 @@ fuzz_target!(|data: &[u8]| {
     {
         let arena = Arena::new();
         if let Ok(h) = ModedHolder::decode(data, &arena) {
-            black_box(h.req_blob().map_or(0, <[u8]>::len));
+            black_box(h.req_blob().map_or(0, |b| b.len()));
             black_box(h.blobs().len());
             if let Some(grp) = h.grp() {
                 black_box(grp.len());
@@ -92,7 +92,7 @@ fuzz_target!(|data: &[u8]| {
             if let Some(payload) = h.blob() {
                 if !payload.is_empty() {
                     let scratch = Arena::new();
-                    if let Ok(blob) = Blob::decode(payload, &scratch) {
+                    if let Ok(blob) = Blob::decode(&payload, &scratch) {
                         black_box(blob.payload().is_some());
                     }
                 }
