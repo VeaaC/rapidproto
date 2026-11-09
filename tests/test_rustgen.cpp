@@ -307,7 +307,8 @@ TEST_CASE("rustgen common: strippable enum strips the prefix and builds the clas
     CHECK(has(out, "2 => ColorClass::Green,"));
     CHECK(has(out, "rp_other => ColorClass::Unknown(rp_other),"));
 
-    CHECK(has(out, "#[non_exhaustive]"));
+    // Closed: `Unknown(i32)` already covers every number the schema does not name.
+    CHECK_FALSE(has(out, "#[non_exhaustive]"));
     CHECK(has(out, "pub enum ColorClass {"));
     CHECK(has(out, "Unknown(i32),"));
     // COLOR_UNKNOWN strips to UNKNOWN; its PascalCase variant `Unknown` collides with the reserved
@@ -534,7 +535,7 @@ TEST_CASE("rustgen stream: a child handle path in the decode driver is absolute"
     // The driver's type parameter `V` would take over a relative path starting at a message `V`.
     const std::string out = gen_stream(R"(syntax = "proto3"; package p;
         message V { V child = 1; })");
-    CHECK(has(out, "rp_vis.on_child(crate::stream::p::V::rp_new(rp_p))"));
+    CHECK(has(out, "visitor.on_child(crate::stream::p::V::rp_new(rp_p))"));
 }
 
 TEST_CASE("rustgen arena: repeated fields become borrowed slices") {
@@ -812,9 +813,11 @@ TEST_CASE("rustgen decode: a required small fixed-size message inlines with no p
         message Holder { required Small s = 1; })");
     // The never-emit-`1 << -1` invariant, stated directly.
     CHECK_FALSE(has(out, "1 << -1"));
-    // Inlined by value (bare `T`, not a pointer), with a derived zero for the absent/default local.
+    // Inlined by value (bare `T`, not a pointer), with a hidden zero for the absent/default local.
     CHECK(has(out, "s: crate::arena::p::Small<'a>,"));
-    CHECK(has(out, "#[derive(Default)]"));
+    CHECK(has(out, "pub(in crate::arena) fn rp_default() -> Self {"));
+    CHECK(has(out, "<crate::arena::p::Small<'a>>::rp_default()"));
+    CHECK_FALSE(has(out, "Default)]"));
     // Required inlined message: always present on a successful decode -> getter returns `Some(&..)`
     // unconditionally (no bit test), matching how a required scalar reads its bare value.
     CHECK(has(out, "pub fn s(&self) -> ::core::option::Option<&crate::arena::p::Small<'a>> {"));
@@ -961,7 +964,7 @@ TEST_CASE("rustgen imports: a message submodule yields to a colliding sibling su
                       message Sub { message Inner { int32 a = 1; } enum E { E_X = 0; } })",
                                        R"(syntax = "proto3"; package p.sub;
                       message X { int32 b = 1; })"});
-    CHECK(count(out, "pub mod sub {") == 2);   // the sub-package p.sub: arena + (empty) common
+    CHECK(count(out, "pub mod sub {") == 1);   // the sub-package p.sub: arena (no enums, no common)
     CHECK(count(out, "pub mod sub_ {") == 2);  // Sub's bumped submodule: arena (Inner) + common (E)
     CHECK(has(out, "pub struct Sub<'a> {"));
     CHECK(has(out, "pub struct X<'a> {"));
@@ -974,8 +977,21 @@ TEST_CASE("rustgen imports: sibling packages whose Rust names collide are dedupe
                                            message X { int32 a = 1; })",
                                        R"(syntax = "proto3"; package p.self_;
                                            message Y { int32 b = 1; })"});
-    CHECK(count(out, "pub mod self_ {") == 2);   // p.self -> self_  (common + arena)
-    CHECK(count(out, "pub mod self__ {") == 2);  // p.self_ -> self__ (bumped)
+    CHECK(count(out, "pub mod self_ {") == 1);   // p.self -> self_  (arena; no enums, no common)
+    CHECK(count(out, "pub mod self__ {") == 1);  // p.self_ -> self__ (bumped)
+}
+
+TEST_CASE("rustgen: a package with nothing for a tree gets no module there") {
+    // `p.e` has only an enum and `p.m` only a message, so `common` has no `m` and `arena` has no `e`.
+    // A schema with no enum has no `common` at all.
+    const std::string out =
+        gen_multi({R"(syntax = "proto3"; package p.e; enum E { A = 0; })",
+                   R"(syntax = "proto3"; package p.m; message M { int32 a = 1; })"});
+    CHECK(count(out, "pub mod e {") == 1);
+    CHECK(count(out, "pub mod m {") == 1);
+    CHECK(count(out, "pub mod p {") == 2);
+    CHECK_FALSE(has(gen_arena(R"(syntax = "proto3"; package p; message M { int32 a = 1; })"),
+                    "pub mod common"));
 }
 
 // Compile smoke-test over the whole corpus: every corpus schema's import closure is emitted via the
@@ -1103,7 +1119,7 @@ TEST_CASE("rustgen goldens match the corpus (compile smoke-test)", "[rustgen-gol
             "//! }\n"
             "//! fn main() {}\n"
             "//! ```\n"
-            "#![cfg_attr(not(feature = \"std\"), no_std)]\n"
+            "#![cfg_attr(not(test), no_std)]\n"
             "// A crate that denies `unused` must be able to include generated code. The `extern "
             "crate`\n"
             "// below is this crate's own, not generated.\n"
@@ -1277,8 +1293,8 @@ TEST_CASE("rustgen frame: generated paths and macro names start from the module 
     CHECK(has(out, "const _: () = crate::a::r#type::rp_check::C;"));
     CHECK(has(out, "pub(in crate::a::r#type::arena) fn rp_decode_into<'id>("));
     CHECK(has(out, "child: crate::a::r#type::arena::p::Child<'a>,"));
-    CHECK(has(out, "fn on_child(&mut self, _rp_v: crate::a::r#type::stream::p::Child<'a>)"));
-    CHECK(has(out, "fn on_e(&mut self, _rp_v: crate::a::r#type::common::p::E)"));
+    CHECK(has(out, "fn on_child(&mut self, value: crate::a::r#type::stream::p::Child<'a>)"));
+    CHECK(has(out, "fn on_e(&mut self, value: crate::a::r#type::common::p::E)"));
     CHECK(has(out, "macro_rules! __rp_1a4type_1p6Parent {"));
     CHECK(has(out, "=> { $crate::a::r#type::stream::p::parent_stream!(@f [[]] "));
     CHECK(has(out, "on_child: $crate::a::r#type::stream::p::Child<'rp_a> = $c;"));

@@ -64,7 +64,11 @@ fn main() {
     Shape::new(SHAPE_WIRE)
         .and_then(|stream| {
             stream.decode(shape_stream!(&mut parts; {
-                name => |p, n| p.name = n.to_str().unwrap().to_owned(),
+                // `?` turns invalid UTF-8 into a `DecodeError`, which ends the decode.
+                name => |p, n| {
+                    p.name = n.to_str()?.to_owned();
+                    Ok::<_, DecodeError>(())
+                },
                 origin => |p, pt| {
                     let sub_arena = Arena::new();
                     let point = ArenaPoint::decode(pt.bytes(), &sub_arena)?;

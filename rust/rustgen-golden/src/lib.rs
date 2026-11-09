@@ -33,7 +33,7 @@
 //! }
 //! fn main() {}
 //! ```
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(test), no_std)]
 // A crate that denies `unused` must be able to include generated code. The `extern crate`
 // below is this crate's own, not generated.
 #![deny(unused)]

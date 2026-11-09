@@ -53,9 +53,10 @@
 #![warn(missing_docs)]
 
 use std::collections::btree_map::Entry;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::path::{Component, Path, PathBuf};
+use std::sync::{Mutex, PoisonError};
 
 /// Why this build uses the wasm generator although the `native` feature is on: the reason the
 /// native one did not build. `None` when it built, or was not asked for.
@@ -85,7 +86,7 @@ pub struct Request {
     /// empty for the default (decode every field).
     pub modes: String,
     /// Reserve space to track unknown fields on every message (see [`Config::unknown_present`]).
-    pub unknown_all: bool,
+    pub unknown_present: bool,
     /// Emit the random-access `arena` decoder model (default on; see [`Config::arena`]).
     pub arena: bool,
     /// Emit the `stream` visitor model (default off; see [`Config::stream`]).
@@ -103,7 +104,7 @@ impl Default for Request {
             entries: Vec::new(),
             sources: Vec::new(),
             modes: String::new(),
-            unknown_all: false,
+            unknown_present: false,
             arena: true,
             stream: false,
             serde: false,
@@ -116,7 +117,8 @@ impl Default for Request {
 #[derive(Debug)]
 pub struct GenError {
     /// The generator's status: 2 for a malformed request, 3 for a schema that does not resolve, 4 for
-    /// a bad decode profile; negative for an I/O or internal failure.
+    /// a bad decode profile; negative for an I/O or internal failure. The tests and the CLI read it.
+    #[doc(hidden)]
     pub code: i32,
     /// A human-readable description of the failure.
     pub message: String,
@@ -136,7 +138,7 @@ impl std::error::Error for GenError {}
 
 /// Encodes a [`Request`] into the byte frame the generator takes, through either backend: a `RPWF5`
 /// magic, then little-endian-u32-counted entry names, u32-counted `{name, body}` sources, the
-/// `.modes` text, a one-byte unknown-all flag, two one-byte model flags (arena, stream), a one-byte
+/// `.modes` text, a one-byte unknown-present flag, two one-byte model flags (arena, stream), a one-byte
 /// serde flag, and the module path. Bodies are length-prefixed, so a proto's newlines/quotes need no
 /// escaping. The generator validates the options; the decode side is `rapidproto/rustgen/frame.hpp`
 /// in the repository.
@@ -173,7 +175,7 @@ mod frame {
             put_bytes(&mut buf, source.body.as_bytes())?;
         }
         put_bytes(&mut buf, request.modes.as_bytes())?;
-        buf.push(u8::from(request.unknown_all));
+        buf.push(u8::from(request.unknown_present));
         buf.push(u8::from(request.arena));
         buf.push(u8::from(request.stream));
         buf.push(u8::from(request.serde));
@@ -383,7 +385,7 @@ pub struct Config {
     module_path: String,
     includes: Vec<PathBuf>,
     modes: String,
-    unknown_all: bool,
+    unknown_present: bool,
     arena: bool,
     stream: bool,
     serde: bool,
@@ -407,7 +409,7 @@ impl Config {
             module_path: module_path.into(),
             includes: Vec::new(),
             modes: String::new(),
-            unknown_all: false,
+            unknown_present: false,
             arena: true,
             stream: false,
             serde: false,
@@ -430,7 +432,7 @@ impl Config {
 
     /// Reserve space to track unknown fields on every message.
     pub fn unknown_present(mut self, yes: bool) -> Self {
-        self.unknown_all = yes;
+        self.unknown_present = yes;
         self
     }
 
@@ -524,7 +526,7 @@ impl Config {
                 .map(|(name, body)| SourceFile { name, body })
                 .collect(),
             modes: self.modes.clone(),
-            unknown_all: self.unknown_all,
+            unknown_present: self.unknown_present,
             arena: self.arena,
             stream: self.stream,
             serde: self.serde,
@@ -535,7 +537,8 @@ impl Config {
 
     /// Generate decoders for `entries` (one import closure) into `OUT_DIR` and return the path to the
     /// generated file to `include!`. The file is named after the first entry: `proto/message.proto`
-    /// gives `message.rs`. Registers the entries and every `.proto` on the include path with cargo, so
+    /// gives `message.rs`, so a second call whose first entry has the same file name fails. Registers
+    /// the entries and every `.proto` on the include path with cargo, so
     /// editing a schema re-runs the build. Call this from a `build.rs` (it reads the `OUT_DIR` cargo
     /// sets).
     pub fn compile(&self, entries: &[impl AsRef<Path>]) -> Result<PathBuf, GenError> {
@@ -564,6 +567,22 @@ impl Config {
             .and_then(|e| e.as_ref().file_stem())
             .map_or_else(|| "schema".to_owned(), |s| s.to_string_lossy().into_owned());
         let out_path = PathBuf::from(out_dir).join(format!("{stem}.rs"));
+        // A build script runs once per process, so this remembers the files of this build only.
+        static WRITTEN: Mutex<BTreeSet<PathBuf>> = Mutex::new(BTreeSet::new());
+        let first = WRITTEN
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(out_path.clone());
+        if !first {
+            return Err(GenError {
+                code: -1,
+                message: format!(
+                    "compile(): an earlier call in this build script also wrote {stem}.rs. Each \
+                     call names its file after its first entry, so rename one of the entries, or \
+                     use generate() and write the file yourself"
+                ),
+            });
+        }
         std::fs::write(&out_path, code).map_err(|e| GenError {
             code: -1,
             message: format!("compile(): cannot write {}: {e}", out_path.display()),

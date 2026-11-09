@@ -11,9 +11,8 @@ from committed generated code.
 
 - **Zero-copy, arena-based.** Repeated scalar columns come back as `&[i64]`, strings as
   `ProtoStr` and bytes as `ProtoBytes`.
-- **`no_std`-ready.** `default = ["std"]`; `alloc` alone is the no_std + allocator tier; neither
-  feature is the no_std-no-alloc embedded tier (a caller-seeded arena). No third-party deps in the
-  default build.
+- **`no_std`.** The default `alloc` feature lets the arena grow on the heap. Without it, the arena
+  uses only a buffer you provide. No third-party deps in the default build.
 - **Optional `serde`.** Off by default. With this feature and `rapidproto-build`'s `Config::serde`,
   decoded messages implement `Serialize`.
 

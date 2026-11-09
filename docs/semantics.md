@@ -72,6 +72,10 @@ and affect how you write correct consumer code. This page is the single home for
   marked `option message_set_wire_format = true` (a proto1-era container holding only extensions)
   is accepted with a warning and decodes as unknown fields - its schema no longer fails generation,
   but its contents are not readable.
+- **A known field with the wrong wire type is skipped, but it is not an unknown field.** For example,
+  an `int32` field sent as length-delimited bytes is skipped. It does not set
+  [`has_unknown_fields()`](profiles.md#unknown-fields) and does not reach a streaming decoder's
+  unknown-field handler. Protobuf's own parsers treat such a field as unknown.
 - **Thread-safety.** A streaming `decode()` is `const` and holds no mutable state, so decoders over one
   buffer run concurrently as long as the buffer isn't mutated. An arena `decode()` mutates its `Arena`,
   so give each thread its own arena; the resulting read-only tree can then be shared.

@@ -50,6 +50,9 @@ pub unsafe trait ArenaDecode {
 /// A decoded message that owns everything it borrows: the input bytes and the [`Arena`] holding the
 /// tree. Construct it with a generated `T::decode_owned`; read the message with [`get`](Owned::get).
 /// `'static`-capable — it carries no borrowed lifetime.
+///
+/// It is `Send` when the message is, and `Sync` when the message is. Every generated message is both,
+/// so an `Owned` can move to another thread or be shared through an `Arc`.
 pub struct Owned<D: ArenaDecode> {
     // The decoded root, with its borrow erased to `'static`. It points INTO `arena`'s chunks and
     // `input`'s bytes, both owned below and never moved/mutated/freed until this `Owned` drops, so
@@ -72,6 +75,16 @@ pub struct Owned<D: ArenaDecode> {
     // trick the arena uses for its chunks. Freed once in `Drop`.
     input: NonNull<[u8]>,
 }
+
+// SAFETY: an `Owned` is its input bytes, its arena and the message in them, all owned and reached
+// only through `get`. Moving it to another thread moves all three, as a `Box` of them would, so it is
+// `Send` when the message is. The bytes are plain data and the arena is `Send`.
+unsafe impl<D: ArenaDecode> Send for Owned<D> where D::Message<'static>: Send {}
+
+// SAFETY: a shared `Owned` reaches only the message (`get` and `Debug`), never the arena, so sharing
+// it shares only the message, and it is `Sync` when the message is. The arena is not `Sync`, but
+// nothing can allocate through a shared `Owned`.
+unsafe impl<D: ArenaDecode> Sync for Owned<D> where D::Message<'static>: Sync {}
 
 impl<D: ArenaDecode> Drop for Owned<D> {
     fn drop(&mut self) {
@@ -191,6 +204,56 @@ mod tests {
             alloc::format!("{owned:?}"),
             "Mock { bytes: [104, 105], len: 2 }"
         );
+    }
+
+    #[test]
+    fn moves_to_another_thread() {
+        let owned: Owned<MockDecoder> = decode_owned(&b"moved"[..]).unwrap();
+        let len = std::thread::spawn(move || *owned.get().len).join().unwrap();
+        assert_eq!(len, 5);
+    }
+
+    #[test]
+    fn threads_share_it_through_an_arc() {
+        let owned: Owned<MockDecoder> = decode_owned(&b"shared"[..]).unwrap();
+        let shared = std::sync::Arc::new(owned);
+        let threads: alloc::vec::Vec<_> = (0..4)
+            .map(|_| {
+                let shared = std::sync::Arc::clone(&shared);
+                std::thread::spawn(move || {
+                    assert_eq!(shared.get().bytes, b"shared");
+                    *shared.get().len
+                })
+            })
+            .collect();
+        for thread in threads {
+            assert_eq!(thread.join().unwrap(), 6);
+        }
+    }
+
+    #[test]
+    fn drops_on_the_receiving_thread() {
+        let (send, receive) = std::sync::mpsc::channel::<Owned<MockDecoder>>();
+        let receiver = std::thread::spawn(move || {
+            let owned = receive.recv().unwrap();
+            assert_eq!(owned.get().bytes, b"sent");
+        });
+        send.send(decode_owned(&b"sent"[..]).unwrap()).unwrap();
+        receiver.join().unwrap();
+    }
+
+    // A task that holds an arena and a message decoded into it across an `.await` is `Send`, so a
+    // multi-threaded executor can run it. Checked at compile time, nothing runs.
+    #[test]
+    fn a_task_holding_an_arena_and_its_message_is_send() {
+        fn assert_send<T: Send>(_: T) {}
+        async fn later() {}
+        assert_send(async {
+            let arena = Arena::new();
+            let message = MockDecoder::decode_borrowed(b"task", &arena).unwrap();
+            later().await;
+            assert_eq!(*message.len, 4);
+        });
     }
 
     #[test]

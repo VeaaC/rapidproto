@@ -1,13 +1,12 @@
-//! A chunked bump arena with one allocation API across three tiers.
+//! A chunked bump arena with one allocation API with and without `alloc`.
 //!
 //! The same [`Arena`] type serves:
-//!   - **`no_std`, no allocator** (embedded): the caller provides the first chunk via
+//!   - **no allocator** (embedded): the caller provides the first chunk via
 //!     [`Arena::with_buffer`]; there is no growth, so exhausting the chunk returns
 //!     `Err(ArenaExhausted)`.
-//!   - **`no_std` + `alloc`**: the same, plus geometric heap growth once a chunk fills (chunk
+//!   - **`alloc`**: the same, plus geometric heap growth once a chunk fills (chunk
 //!     sizes double up to a cap). [`Arena::reset`] rewinds for reuse and **keeps** the chunks, so
 //!     the next decode allocates nothing until it exceeds what is already held.
-//!   - **`std`**: identical to `no_std` + `alloc`.
 //!
 //! [`Arena::alloc_bytes`] is identical in every tier and **never panics** — a failed host
 //! allocation, or hitting [`set_capacity_limit`](Arena::set_capacity_limit), becomes `Err`, not an
@@ -41,7 +40,7 @@ const DEFAULT_CHUNK: usize = 4096;
 const MAX_CHUNK: usize = 96 * 1024;
 
 /// Returned when the arena cannot satisfy an allocation: in the no-allocator tier when the seed
-/// chunk is full, or in an `alloc` tier when the capacity limit is hit or the host allocator
+/// chunk is full, or with `alloc` when the capacity limit is hit or the host allocator
 /// itself fails. Never a panic.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ArenaExhausted;
@@ -83,6 +82,9 @@ impl Grow {
 
 /// A chunked bump arena. `'buf` ties it to a caller-seeded first chunk (if any); it defaults to
 /// `'static` so the heap-only constructor carries no borrow.
+///
+/// An arena can move to another thread, together with the messages decoded into it, but threads
+/// cannot share one: it is `Send` but not `Sync`.
 pub struct Arena<'buf> {
     // Hot bump state (plain `Cell`s so the fast path never borrows the chunk list).
     cur: Cell<NonNull<u8>>,
@@ -99,6 +101,13 @@ pub struct Arena<'buf> {
     seed: Cell<Option<(NonNull<u8>, NonNull<u8>)>>,
     _marker: PhantomData<&'buf mut [u8]>,
 }
+
+// SAFETY: the raw pointers make `Arena` `!Send` by default, but they point only into memory the arena
+// owns (its heap chunks) or holds a `&'buf mut` borrow of (the seed buffer), which moves with it.
+// Moving the arena while something borrows it does not compile, and it keeps no thread-local state, so
+// a move to another thread is like any other move. It stays `!Sync`: the bump pointer is a plain
+// `Cell`, so two threads allocating through `&Arena` at once would race.
+unsafe impl Send for Arena<'_> {}
 
 /// The padding from `addr` up to the next multiple of `align`, which must be a power of two.
 #[inline(always)]
@@ -123,9 +132,9 @@ fn aligned_region(base: *mut u8, len: usize) -> Option<(NonNull<u8>, NonNull<u8>
 
 impl<'buf> Arena<'buf> {
     /// Seed the arena with a caller-provided first chunk. Available in **every** tier — this is the
-    /// only constructor the no-allocator tier has, and it needs no allocator. A buffer of at most
-    /// `MAX_ALIGN` bytes is ignored (too small to carry a useful aligned region, matching C++), so
-    /// the arena starts empty and grows on first use.
+    /// only constructor the no-allocator tier has, and it needs no allocator. A buffer of 16 bytes or
+    /// less is ignored, so the arena starts empty. With `alloc` it then grows on first use. Without
+    /// `alloc`, every allocation fails.
     pub fn with_buffer(buf: &'buf mut [u8]) -> Self {
         let region = if buf.len() > MAX_ALIGN {
             aligned_region(buf.as_mut_ptr(), buf.len())
@@ -286,7 +295,7 @@ impl<'buf> Arena<'buf> {
         let _ = max_reserved_bytes;
     }
 
-    /// Rewind to the first chunk for reuse. In an `alloc` tier the chunks are **kept** (no free, no
+    /// Rewind to the first chunk for reuse. With `alloc` the chunks are **kept** (no free, no
     /// malloc on the next decode); in the no-allocator tier it rewinds to the seed.
     pub fn reset(&mut self) {
         self.used.set(0);
@@ -869,5 +878,38 @@ mod tests {
             Err(ArenaExhausted)
         });
         assert!(e.is_err());
+    }
+
+    // A heap arena that grew, moved to another thread, then reset and reused there and dropped there.
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn a_grown_arena_moves_to_another_thread() {
+        let mut a = Arena::new();
+        for i in 0..1000u64 {
+            alloc(&a, i).unwrap();
+        }
+        let held = a.bytes_reserved();
+        std::thread::spawn(move || {
+            a.reset();
+            let v = alloc(&a, 7u64).unwrap();
+            assert_eq!(*v, 7);
+            assert_eq!(a.bytes_reserved(), held);
+        })
+        .join()
+        .unwrap();
+    }
+
+    #[test]
+    fn a_seeded_arena_moves_to_another_thread() {
+        let mut buf = [0u8; 256];
+        let a = Arena::with_buffer(&mut buf);
+        alloc(&a, 1u64).unwrap();
+        std::thread::scope(|s| {
+            s.spawn(move || {
+                let v = alloc(&a, 2u64).unwrap();
+                assert_eq!(*v, 2);
+                assert_eq!(a.bytes_used(), 16);
+            });
+        });
     }
 }

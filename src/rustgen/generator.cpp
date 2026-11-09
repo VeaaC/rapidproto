@@ -271,7 +271,6 @@ constexpr std::string_view kDebugFmt =
 //                                                rp_other => ColorClass::Unknown(rp_other) } }
 //   }
 //   #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-//   #[non_exhaustive]
 //   pub enum ColorClass { Red, .., Unknown(i32) }
 //
 // Storage is the raw `i32` (open enum, full range); the classify enum is the ergonomic match
@@ -285,8 +284,7 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node, b
     printer.set("T", names.type_name);
     printer.set("K", names.class_name);
 
-    // `Default` yields the all-zero enum value (`$T$(0)`), so a fixed-size message holding an enum
-    // field can itself `derive(Default)` -- the zero used for an absent inlined sub-message.
+    // `Default` yields the all-zero enum value (`$T$(0)`), protobuf's default for an enum field.
     printer.print("#[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]\n");
     // `repr(transparent)`: a zero-cost wrapper, layout-identical to its `i32`. (It does NOT let a
     // wire enum array be aliased -- enum values are varint-encoded, so variable-width and decoded
@@ -359,7 +357,6 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node, b
     printer.print("}\n\n");
 
     printer.print("#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]\n");
-    printer.print("#[non_exhaustive]\n");
     printer.print("pub enum $K$ {\n");
     printer.indent();
     for (const std::string& variant : variants) {
@@ -479,8 +476,7 @@ bool oneof_borrows(const OneofNode& oneof) {
 }
 
 // Emit `pub enum <Name>['a] { Variant(T), .. }` for one oneof, in the owning message's arena submodule.
-// The enum is closed (not
-// `#[non_exhaustive]`): a oneof has a fixed variant set, and an off-list wire field is just an unknown
+// The enum is closed: a oneof has a fixed variant set, and an off-list wire field is just an unknown
 // field, not a new case. The `<'a>` is present only when a variant borrows -- an enum cannot carry an
 // unused lifetime without a bogus phantom variant, unlike a struct's PhantomData field. No `Copy`
 // derive: the oneof getter hands back a borrow (`Option<&Payload>`), matching C++ (a reference into the
@@ -506,7 +502,7 @@ void emit_oneof_enum(Printer& printer, const NameTable& table, const OneofNode& 
 // with a trailing `_` on collision. Without this, a field named `decode`, or two members escaping to
 // one identifier (`self` -> `self_` beside a field `self_`, or a field and a oneof with the same name),
 // would emit duplicate items -- non-compiling Rust for a protoc-valid schema. Mirrors the enum dedup.
-// Every other name in the type's method and field namespaces (`rp_decode_into`, the `rp_presence` /
+// Every other name in the type's method and field namespaces (`rp_decode_into`, `rp_default`, the `rp_presence` /
 // `rp_unknown` storage) is `rp_`-prefixed, and the decode body's locals are too, so the reservation
 // alone keeps an accessor off them.
 struct AccessorNames {
@@ -689,6 +685,13 @@ std::string mask_word_type(int bits) {
     return "[u64; " + std::to_string((bits + kMaskWordBits - 1) / kMaskWordBits) + "]";
 }
 
+// The all-clear value of a `mask_word_type(bits)`: `0`, or `[0; N]` for an array.
+std::string mask_zero(int bits) {
+    return bits > kMaskWordBits
+               ? "[0; " + std::to_string((bits + kMaskWordBits - 1) / kMaskWordBits) + "]"
+               : std::string("0");
+}
+
 // The lvalue holding `bit` for a mask of `total` bits: the word itself, or `word[bit/64]` when the mask
 // is a `[u64; N]` array (> 64 bits).
 std::string mask_word_at(const std::string& base, int bit, int total) {
@@ -774,7 +777,7 @@ std::string field_getter_type(const NameTable& table, const FieldNode& field,
 
 // The default initializer for a NON-repeated field's or a map entry key/value's decode local (a
 // string/bytes or raw field's local is a plain slice instead, see `emit_decode_locals`): `None` for a
-// pointer message; `Default::default()` for an inlined-by-value message; else the proto3 zero value
+// pointer message; its `rp_default()` for an inlined-by-value message; else the proto3 zero value
 // (shared by Bare and masked-with-a-presence-bit fields -- the presence bit, not the value, records
 // absence). A proto2 `[default = ...]` is not materialized (matching the C++ decoder). A bool has no
 // local (it lives in the mask). Repeated fields use a `DecodeVec`, not this.
@@ -784,7 +787,7 @@ std::string field_default_expr(const NameTable& table, const FieldNode& field,
         case RustStore::PointerMsg:
             return "::core::option::Option::None";
         case RustStore::InlineMsg:
-            return "::core::default::Default::default()";
+            return "<" + field_value_type(table, field) + ">::rp_default()";
         case RustStore::MaskedBool:  // no local emitted; defensive
         case RustStore::Bare:
         case RustStore::MaskedValue:
@@ -1716,15 +1719,9 @@ void emit_decode_locals(Printer& printer, const NameTable& table, const MessageN
                         const FieldModes& modes, const arenagen::MessageLayout* layout) {
     const int mask_bits = layout != nullptr ? rust_mask_bits(*layout) : 0;
     if (mask_bits > 0) {
-        // The presence/bool mask, built up as fields decode and stored in the construct. A `[u64; N]`
-        // zero is `[0; N]`; a single word is `0`.
-        printer.print(
-            "let mut rp_presence: $t$ = $z$;\n",
-            {{"t", mask_word_type(mask_bits)},
-             {"z",
-              mask_bits > kMaskWordBits
-                  ? "[0; " + std::to_string((mask_bits + kMaskWordBits - 1) / kMaskWordBits) + "]"
-                  : std::string("0")}});
+        // The presence/bool mask, built up as fields decode and stored in the construct.
+        printer.print("let mut rp_presence: $t$ = $z$;\n",
+                      {{"t", mask_word_type(mask_bits)}, {"z", mask_zero(mask_bits)}});
     }
     for (const FieldNode& field : msg.fields) {
         if (field_mode(modes, field) == arenagen::FieldMode::Drop) {
@@ -2203,11 +2200,6 @@ void emit_decode(Printer& printer, const NameTable& table, const MessageNode& ms
 void emit_message_struct(Printer& printer, const NameTable& table, const MessageNode& msg,
                          const FieldModes& modes, const AccessorNames& accessors,
                          const arenagen::MessageLayout* layout) {
-    // A fixed-size message can `derive(Default)` (all fields are scalars/enum newtypes/nested fixed
-    // messages/the mask word, all `Default`), giving the zero value an absent inlined sub-message uses.
-    if (layout != nullptr && layout->fixed_size) {
-        printer.print("#[derive(Default)]\n");
-    }
     printer.print("pub struct $M$<'a> {\n");
     printer.indent();
     for (std::size_t i = 0; i < msg.fields.size(); ++i) {
@@ -2503,6 +2495,40 @@ void emit_message(Printer& printer, const NameTable& table, const MessageNode& m
     emit_message_owned(printer);
 }
 
+// Emit `rp_default`, the value a parent's decode starts from for a fixed-size message it stores inline:
+// every field at its zero value. A `Default` impl would do the same, but users could reach it.
+void emit_message_default(Printer& printer, const NameTable& table, const MessageNode& msg,
+                          const FieldModes& modes, const AccessorNames& accessors,
+                          const arenagen::MessageLayout& layout) {
+    printer.print("\n#[inline(always)]\n");
+    printer.print("pub(in $root$::arena) fn rp_default() -> Self {\n", {{"root", table.root}});
+    printer.indent();
+    printer.print("$M$ {\n");
+    printer.indent();
+    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
+        const FieldNode& field = msg.fields[i];
+        const arenagen::MemberPlan* member = member_for(&layout, field);
+        if (field_mode(modes, field) != arenagen::FieldMode::Drop &&
+            rust_store(member, field) != RustStore::MaskedBool) {
+            printer.print("$a$: $d$,\n", {{"a", accessors.fields[i]},
+                                          {"d", field_default_expr(table, field, member)}});
+        }
+    }
+    if (rust_mask_bits(layout) > 0) {
+        printer.print("rp_presence: $z$,\n", {{"z", mask_zero(rust_mask_bits(layout))}});
+    }
+    if (modes.wants_unknown(&msg)) {
+        printer.print("rp_unknown: false,\n");
+    }
+    if (!message_uses_lifetime(msg, modes)) {
+        printer.print("_marker: ::core::marker::PhantomData,\n");
+    }
+    printer.outdent();
+    printer.print("}\n");
+    printer.outdent();
+    printer.print("}\n");
+}
+
 // Emit the `decode` + `rp_decode_into` impl for one message, in its OWN module but
 // after that module's structs/getters and submodules, so a reader skims the getters first and the
 // wire-loop bodies sit at the bottom of each module. It must stay in the message's module:
@@ -2514,7 +2540,11 @@ void emit_message_decode(Printer& printer, const NameTable& table, const Message
     printer.print("impl<'a> $M$<'a> {\n");
     printer.indent();
     const AccessorNames accessors = message_accessor_names(msg);
-    emit_decode(printer, table, msg, accessors, modes, layouts.find(msg.fqn));
+    const arenagen::MessageLayout* layout = layouts.find(msg.fqn);
+    emit_decode(printer, table, msg, accessors, modes, layout);
+    if (layout != nullptr && layout->fixed_size) {
+        emit_message_default(printer, table, msg, modes, accessors, *layout);
+    }
     printer.outdent();
     printer.print("}\n");
 }
@@ -2602,8 +2632,30 @@ std::vector<const EnumNode*> node_enums(const PkgTrie& node) {
     return enums;
 }
 
+// Whether a package or one below it declares an enum, at the top level or in a message: what the
+// `common` tree emits. A package without one gets no module there.
+bool subtree_has_enums(const PkgTrie& node) {
+    const bool here = std::any_of(node.files.begin(), node.files.end(), [](const FileNode* file) {
+        return !file->enums.empty() ||
+               std::any_of(file->messages.begin(), file->messages.end(),
+                           [](const MessageNode& msg) { return codegen::holds_enum(msg); });
+    });
+    return here || std::any_of(node.children.begin(), node.children.end(),
+                               [](const auto& child) { return subtree_has_enums(child.second); });
+}
+
+// Whether a package or one below it declares a message: what the `arena` and `stream` trees emit. A
+// package without one gets no module there.
+bool subtree_has_messages(const PkgTrie& node) {
+    const bool here = std::any_of(node.files.begin(), node.files.end(),
+                                  [](const FileNode* file) { return !file->messages.empty(); });
+    return here || std::any_of(node.children.begin(), node.children.end(), [](const auto& child) {
+               return subtree_has_messages(child.second);
+           });
+}
+
 // Emit the `common` subtree for one package node: this package's enums (its files', plus the per-
-// message nested-enum mirror), then a `pub mod <component>` per sub-package.
+// message nested-enum mirror), then a `pub mod <component>` per sub-package that has any.
 void emit_common_node(Printer& printer, const NameTable& table, const PkgTrie& node, bool serde) {
     const std::vector<const EnumNode*> enums = node_enums(node);
     for (std::size_t i = 0; i < enums.size(); ++i) {
@@ -2614,6 +2666,9 @@ void emit_common_node(Printer& printer, const NameTable& table, const PkgTrie& n
     }
     emit_common_message_enums(printer, table, node_messages(node), serde);
     for (const auto& [component, child] : node.children) {
+        if (!subtree_has_enums(child)) {
+            continue;
+        }
         printer.print("pub mod $m$ {\n", {{"m", child.emitted}});
         printer.indent();
         emit_common_node(printer, table, child, serde);
@@ -2623,11 +2678,14 @@ void emit_common_node(Printer& printer, const NameTable& table, const PkgTrie& n
 }
 
 // Emit the `arena` subtree for one package node: this package's message structs, then a
-// `pub mod <component>` per sub-package.
+// `pub mod <component>` per sub-package that has any.
 void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& node,
                      const FieldModes& modes, const LayoutSet& layouts, bool serde) {
     emit_arena_messages(printer, table, node_messages(node), modes, layouts, serde);
     for (const auto& [component, child] : node.children) {
+        if (!subtree_has_messages(child)) {
+            continue;
+        }
         printer.print("\npub mod $m$ {\n", {{"m", child.emitted}});
         printer.indent();
         emit_arena_node(printer, table, child, modes, layouts, serde);
@@ -2827,7 +2885,7 @@ void emit_stream_visitor_trait(Printer& printer, const NameTable& table,
         printer.print("const WANT_$n$: bool = false;\n", {{"n", slot.name}});
         printer.print("#[inline(always)]\n");
         printer.print(
-            "fn on_$n$(&mut self, _rp_v: $t$) -> "
+            "fn on_$n$(&mut self, value: $t$) -> "
             "::core::result::Result<::rapidproto::stream::Flow, "
             "::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::"
             "Continue) }\n",
@@ -2838,18 +2896,18 @@ void emit_stream_visitor_trait(Printer& printer, const NameTable& table,
     printer.print("const WANT_UNKNOWN: bool = false;\n");
     printer.print("#[inline(always)]\n");
     printer.print(
-        "fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> "
+        "fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> "
         "::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> "
         "{ ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }\n");
     printer.outdent();
     printer.print("}\n");
 }
 
-// `match rp_vis.on_<name>(<value>)? { Flow::Stop => return Ok(Flow::Stop), Flow::Continue => {} }` --
+// `match visitor.on_<name>(<value>)? { Flow::Stop => return Ok(Flow::Stop), Flow::Continue => {} }` --
 // deliver one occurrence to the handler, propagating an `Err` out of `decode` and honoring an early
 // stop.
 void emit_stream_dispatch(Printer& printer, const std::string& name, const std::string& value) {
-    printer.print("match rp_vis.on_$n$($v$)? {\n", {{"n", name}, {"v", value}});
+    printer.print("match visitor.on_$n$($v$)? {\n", {{"n", name}, {"v", value}});
     printer.indent();
     printer.print(
         "::rapidproto::stream::Flow::Stop => "
@@ -3189,11 +3247,11 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
         "/// above `u32::MAX` bytes.\n");
     printer.print("#[inline(always)]\n");
     printer.print(
-        "pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<$M$<'a>, "
+        "pub fn new(input: &'a [u8]) -> ::core::result::Result<$M$<'a>, "
         "::rapidproto::DecodeError> {\n");
     printer.indent();
-    emit_input_size_check(printer, "rp_input");
-    printer.print("::core::result::Result::Ok($M$ { rp_input })\n");
+    emit_input_size_check(printer, "input");
+    printer.print("::core::result::Result::Ok($M$ { rp_input: input })\n");
     printer.outdent();
     printer.print("}\n\n");
     // The handle a parent hands its handler for a nested message, a part of an input `new` checked.
@@ -3215,7 +3273,7 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
     printer.print("#[inline(always)]\n");
     printer.print("pub fn bytes(&self) -> &'a [u8] { self.rp_input }\n\n");
     printer.print(
-        "pub fn decode<V: $Vis$<'a>>(self, mut rp_vis: V) "
+        "pub fn decode<V: $Vis$<'a>>(self, mut visitor: V) "
         "-> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {\n");
     printer.indent();
     printer.print("let rp_body: &'a [u8] = self.rp_input;\n");
@@ -3357,10 +3415,13 @@ void emit_stream_messages(Printer& printer, const NameTable& table,
 }
 
 // Emit the `stream` subtree for one package node: this package's message decoders, then a
-// `pub mod <component>` per sub-package (mirroring `emit_arena_node`).
+// `pub mod <component>` per sub-package that has any (mirroring `emit_arena_node`).
 void emit_stream_node(Printer& printer, const NameTable& table, const PkgTrie& node) {
     emit_stream_messages(printer, table, node_messages(node));
     for (const auto& [component, child] : node.children) {
+        if (!subtree_has_messages(child)) {
+            continue;
+        }
         printer.print("\npub mod $m$ {\n", {{"m", child.emitted}});
         printer.indent();
         emit_stream_node(printer, table, child);
@@ -3376,9 +3437,10 @@ void emit_stream_node(Printer& printer, const NameTable& table, const PkgTrie& n
 // error (E0453) even if the lint would not fire. A crate that denies an unnamed lint, such as
 // `missing_docs` on a public include, can add its own allow around the include.
 constexpr const char* kModuleLints =
-    "#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, "
-    "unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, "
-    "clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]\n";
+    "#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, "
+    "nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, "
+    "clippy::pedantic, clippy::nursery, clippy::restriction, clippy::allow_attributes, "
+    "clippy::allow_attributes_without_reason)]\n";
 
 // A module that fails to compile unless the file is included at `module_path`: it reaches its own
 // private constant through that path. Nothing else checks the path of a file whose types never refer
@@ -3406,6 +3468,9 @@ std::string generate_common(const std::vector<const FileNode*>& files, bool serd
         assign_emitted_names(trie);
         return trie;
     }();
+    if (!subtree_has_enums(root)) {
+        return {};
+    }
     const NameTable table = build_name_table(root);
     Printer printer;
     printer.print(kModuleLints);
@@ -3438,6 +3503,9 @@ std::vector<std::pair<std::string, std::string>> arena_type_paths(
 std::string generate_arena(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
                            const FieldModes& modes, bool serde, const std::string& module_path) {
     PkgTrie root = build_pkg_trie(files);
+    if (!subtree_has_messages(root)) {
+        return {};
+    }
     assign_emitted_names(root);
     NameTable table = build_name_table(root);
     table.root = module_path;
@@ -3455,6 +3523,9 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 std::string generate_stream(const std::vector<const FileNode*>& files,
                             const std::string& module_path) {
     PkgTrie root = build_pkg_trie(files);
+    if (!subtree_has_messages(root)) {
+        return {};
+    }
     assign_emitted_names(root);
     NameTable table = build_name_table(root);
     table.root = module_path;
@@ -3479,7 +3550,7 @@ std::string generate_file(const std::vector<const FileNode*>& files, const Layou
     // lines) for traceability. Rust needs no ODR-style identity guard: a generated file is included
     // once as a self-contained module tree, so two differently-profiled generations cannot silently
     // merge (including both into one scope is a duplicate-module compile error).
-    std::string banner = "// @generated by rapidprotoc --rust -- do not edit.\n";
+    std::string banner = "// @generated by rapidproto-build -- do not edit.\n";
     if (modes.active()) {
         banner += "// field-modes profile " + modes.profile_id + ":\n";
         for (const std::string& line : modes.normalized) {
@@ -3488,14 +3559,19 @@ std::string generate_file(const std::vector<const FileNode*>& files, const Layou
     }
     // `common` (shared enum/newtype defs) is emitted whenever any decoder model is, since both the
     // arena and stream trees reference it. At least one model is always selected (the caller enforces
-    // it); default is arena only.
-    std::string out = banner + "\n" + module_path_check(options.module_path) + "\n" +
-                      generate_common(files, options.serde);
+    // it); default is arena only. A tree with nothing in it is left out.
+    std::string out = banner + "\n" + module_path_check(options.module_path);
+    const auto append = [&out](const std::string& tree) {
+        if (!tree.empty()) {
+            out += "\n" + tree;
+        }
+    };
+    append(generate_common(files, options.serde));
     if (options.arena) {
-        out += "\n" + generate_arena(files, layouts, modes, options.serde, options.module_path);
+        append(generate_arena(files, layouts, modes, options.serde, options.module_path));
     }
     if (options.stream) {
-        out += "\n" + generate_stream(files, options.module_path);
+        append(generate_stream(files, options.module_path));
     }
     return out;
 }

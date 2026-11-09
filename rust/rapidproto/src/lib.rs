@@ -3,9 +3,8 @@
 //! Generated decoders borrow from the input bytes and from an [`Arena`], both tied to one
 //! lifetime, and never copy. This crate provides the pieces they build on:
 //!
-//! - [`Arena`] — a bump arena that serves three tiers from one API: `std` (default), `no_std` +
-//!   `alloc`, and `no_std` with no allocator (a caller-seeded fixed buffer). Allocation is
-//!   fallible and never panics.
+//! - [`Arena`] — a bump arena. With the `alloc` feature (default) it grows on the heap; without it,
+//!   it uses only a buffer you provide. Allocation is fallible and never panics.
 //! - [`ProtoStr`] — a borrowed `string` value, validated as UTF-8 only when the caller asks.
 //! - [`ProtoBytes`] — a borrowed `bytes` value; it derefs to `[u8]`.
 //! - [`MapView`] — a borrowed view over a `map` field's entries.
@@ -42,10 +41,10 @@
 //!
 //! With `serde_json`, a non-finite `float` or `double` becomes `null`, and a `map` fails if a `string`
 //! key has invalid UTF-8.
-//!
-//! `no_std` outside of tests whenever the `std` feature is off; the test harness keeps `std` so
-//! the no-allocator path can still be unit-tested with `--no-default-features`.
-#![cfg_attr(not(any(feature = "std", test)), no_std)]
+
+// The test harness needs `std`, which also lets the no-allocator path be unit-tested with
+// `--no-default-features`.
+#![cfg_attr(not(test), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 // `ProtoBytes` shows `[u8]`'s methods, and a few would carry a standard library label.
 #![cfg_attr(docsrs, doc(auto_cfg(hide(no_global_oom_handling))))]
@@ -57,6 +56,9 @@
 extern crate alloc;
 
 mod arena;
+// Rustdoc checks these as `compile_fail` doctests.
+#[cfg(all(doctest, feature = "alloc"))]
+mod compile_fail;
 mod decode_slot;
 mod decode_vec;
 mod error;
@@ -89,7 +91,7 @@ pub use serde;
 
 pub use arena::Arena;
 pub use error::{DecodeError, ErrorKind};
-pub use map::MapView;
+pub use map::{MapIter, MapView};
 #[cfg(feature = "alloc")]
 pub use owned::{ArenaDecode, Owned};
 pub use proto_bytes::ProtoBytes;
@@ -145,10 +147,10 @@ macro_rules! impl_decode_owned {
         unsafe impl $crate::ArenaDecode for $msg<'static> {
             type Message<'a> = $msg<'a>;
             fn decode_borrowed<'a>(
-                rp_input: &'a [u8],
-                rp_arena: &'a $crate::Arena<'a>,
+                input: &'a [u8],
+                arena: &'a $crate::Arena<'a>,
             ) -> ::core::result::Result<&'a $msg<'a>, $crate::DecodeError> {
-                $msg::decode(rp_input, rp_arena)
+                $msg::decode(input, arena)
             }
         }
 
@@ -156,9 +158,9 @@ macro_rules! impl_decode_owned {
             /// Decode `input` into a self-contained handle that owns the bytes and the arena; read
             /// the message with `Owned::get`. No external lifetime to manage.
             pub fn decode_owned(
-                rp_input: impl ::core::convert::Into<$crate::Box<[u8]>>,
+                input: impl ::core::convert::Into<$crate::Box<[u8]>>,
             ) -> ::core::result::Result<$crate::Owned<$msg<'static>>, $crate::DecodeError> {
-                $crate::decode_owned::<$msg<'static>>(rp_input)
+                $crate::decode_owned::<$msg<'static>>(input)
             }
         }
     };

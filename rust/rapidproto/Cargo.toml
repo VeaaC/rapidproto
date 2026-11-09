@@ -10,11 +10,9 @@ keywords = ["protobuf", "protocol-buffers", "decode", "zero-copy", "no-std"]
 categories = ["encoding", "parser-implementations", "no-std"]
 
 [features]
-default = ["std"]
-# `std` implies `alloc`; `alloc` alone is the no_std + allocator tier; neither is the
-# no_std-no-alloc embedded tier (a caller-seeded arena). No 3rd-party runtime deps in the default
-# build.
-std = ["alloc"]
+default = ["alloc"]
+# The crate is always no_std. `alloc` lets the arena grow on the heap; without it the arena uses only
+# a caller's buffer. No 3rd-party runtime deps in the default build.
 alloc = []
 # Optional, off by default. Code generated with `Config::serde` (rapidproto-build) needs it, and
 # reaches serde through the `::rapidproto::serde` re-export, so a consumer does not depend on serde
@@ -36,9 +34,7 @@ criterion = { version = "0.3", default-features = false }
 features = ["serde"]
 targets = ["x86_64-unknown-linux-gnu"]
 
-# The wire bench is std-only (criterion needs std), so the no_std CI tiers skip it via
-# required-features. Run it with `cargo bench -p rapidproto`.
+# Run it with `cargo bench -p rapidproto`.
 [[bench]]
 name = "wire"
 harness = false
-required-features = ["std"]
