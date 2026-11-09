@@ -29,7 +29,7 @@ pub enum ErrorKind {
     /// number (see [`DecodeError::field_number`]).
     MissingRequired,
     /// A singular (non-repeated) message field appeared more than once. RapidProto rejects this rather
-    /// than merging the occurrences (matching the C++ decoder); singular scalar fields keep the last.
+    /// than merging the occurrences; singular scalar fields keep the last.
     RepeatedSingularMessage,
     /// The input is larger than the decoder supports (`> u32::MAX` bytes).
     InputTooLarge,
@@ -43,10 +43,10 @@ pub enum ErrorKind {
 /// A decode failure: a matchable [`ErrorKind`], a byte offset, and the field number it concerns when
 /// one applies.
 ///
-/// The offset counts from the start of the message that failed. Inside a sub-message or group, that is
-/// the start of its body, not of the whole input, so the offset alone does not locate the error in
-/// the input. A value that is cut short reports where the value starts. An
-/// [`ArenaExhausted`](ErrorKind::ArenaExhausted) error always has offset 0.
+/// The offset counts from the start of the message that failed. Inside a sub-message, that is the start
+/// of its body, not of the whole input, so the offset alone does not locate the error in the input. A
+/// value that is cut short reports where the value starts, and a malformed group where the group
+/// starts. A decoder reports an [`ArenaExhausted`](ErrorKind::ArenaExhausted) error at offset 0.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct DecodeError {
     kind: ErrorKind,
@@ -123,8 +123,8 @@ impl core::fmt::Display for DecodeError {
 impl core::error::Error for DecodeError {}
 
 impl From<ArenaExhausted> for DecodeError {
-    /// The arena does not know the wire offset, so this yields offset 0; the decode layer that
-    /// knows its position should prefer [`DecodeError::new`] with the real offset.
+    /// An [`ArenaExhausted`](ErrorKind::ArenaExhausted) error at offset 0, since the arena does not
+    /// know a position in the input.
     #[inline]
     fn from(_: ArenaExhausted) -> Self {
         DecodeError::new(ErrorKind::ArenaExhausted, 0)

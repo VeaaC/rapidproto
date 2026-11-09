@@ -6,14 +6,14 @@
 //   raw .fm.Blob
 //   raw .fm.Holder.grp
 
-#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 #[doc(hidden)]
 mod rp_check {
   const C: () = ();
   const _: () = crate::arena_modes_lean::rp_check::C; // This path must be where this file is included.
 }
 
-#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
   pub mod fm {
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -103,7 +103,7 @@ pub mod common {
   }
 }
 
-#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod arena {
 
   pub mod fm {

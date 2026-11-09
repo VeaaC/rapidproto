@@ -502,9 +502,9 @@ void emit_oneof_enum(Printer& printer, const NameTable& table, const OneofNode& 
 // with a trailing `_` on collision. Without this, a field named `decode`, or two members escaping to
 // one identifier (`self` -> `self_` beside a field `self_`, or a field and a oneof with the same name),
 // would emit duplicate items -- non-compiling Rust for a protoc-valid schema. Mirrors the enum dedup.
-// Every other name in the type's method and field namespaces (`rp_decode_into`, `rp_default`, the `rp_presence` /
-// `rp_unknown` storage) is `rp_`-prefixed, and the decode body's locals are too, so the reservation
-// alone keeps an accessor off them.
+// Every other name in the type's method and field namespaces (`rp_decode_into`, `rp_default`, the
+// `rp_presence` / `rp_unknown` storage) is `rp_`-prefixed, and the decode body's locals are too, so the
+// reservation alone keeps an accessor off them.
 struct AccessorNames {
     std::vector<std::string> fields;
     std::vector<std::string> maps;
@@ -3432,15 +3432,16 @@ void emit_stream_node(Printer& printer, const NameTable& table, const PkgTrie& n
 
 // Goes on every top-level generated item, so that including a generated file adds no diagnostics to
 // the consumer's crate. `warnings` covers every lint the crate has at warning level. The other names
-// cover a crate that raises a lint to `deny`: the lints a private include trips, and the two that this
-// attribute itself trips. Nothing else is named, because naming a lint the crate forbids is a hard
-// error (E0453) even if the lint would not fire. A crate that denies an unnamed lint, such as
-// `missing_docs` on a public include, can add its own allow around the include.
+// cover a crate that raises a lint to `deny`: the lints a private include trips, including clippy's
+// restriction lints, two of which (`allow_attributes`, `allow_attributes_without_reason`) this
+// attribute itself trips. Naming a lint the crate forbids is a hard error (E0453) even if the lint
+// would not fire, so a crate that forbids one of these, such as `unused_variables` or any restriction
+// lint, cannot include generated code. Nothing else is named for that reason. A crate that denies an
+// unnamed lint, such as `missing_docs` on a public include, can add its own allow around the include.
 constexpr const char* kModuleLints =
     "#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, "
     "nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, "
-    "clippy::pedantic, clippy::nursery, clippy::restriction, clippy::allow_attributes, "
-    "clippy::allow_attributes_without_reason)]\n";
+    "clippy::pedantic, clippy::nursery, clippy::restriction)]\n";
 
 // A module that fails to compile unless the file is included at `module_path`: it reaches its own
 // private constant through that path. Nothing else checks the path of a file whose types never refer

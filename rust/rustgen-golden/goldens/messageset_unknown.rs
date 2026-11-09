@@ -2,14 +2,14 @@
 // field-modes profile ae8b57af063566af:
 //   unknown .ms.Outer.Container
 
-#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 #[doc(hidden)]
 mod rp_check {
   const C: () = ();
   const _: () = crate::messageset_unknown::rp_check::C; // This path must be where this file is included.
 }
 
-#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+#[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod arena {
 
   pub mod ms {

@@ -176,6 +176,5 @@ macro_rules! impl_decode_owned {
 }
 
 /// How deep a generated `decode` lets sub-messages and groups nest. Deeper nesting fails with
-/// [`ErrorKind::DepthLimitExceeded`], so untrusted input cannot exhaust the stack. Matches the C++
-/// decoder's `kMaxDecodeDepth`.
+/// [`ErrorKind::DepthLimitExceeded`], so untrusted input cannot exhaust the stack.
 pub const MAX_DECODE_DEPTH: u32 = 100;

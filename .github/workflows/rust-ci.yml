@@ -26,9 +26,9 @@ defaults:
     working-directory: rust
 
 jobs:
-  # The default features cover the whole workspace, including rapidproto-build (both generator backends and its
-  # golden dogfooding gate, run through each), consumer-example (whose build.rs runs the generator end
-  # to end), osm-pbf-example (the OSM showcase + its golden fixture test) and rapidproto-diff (the
+  # `--all-features` covers the whole workspace, including rapidproto-build (both generator backends
+  # and its golden dogfooding gate, run through each), consumer-example (whose build.rs runs the
+  # generator end to end), osm-pbf-example (the OSM showcase + its golden fixture test) and rapidproto-diff (the
   # differential Serializer). rapidproto-bench is linted and tested SEPARATELY at its DEFAULT
   # features, NOT via the blanket `--all-features` runs: its off-by-default `google-upb` arm pulls
   # Google's upb `protobuf` crate, which needs an exact-version protoc + a C toolchain this runner
@@ -52,6 +52,8 @@ jobs:
         run: cargo clippy --workspace --exclude rapidproto-bench --all-targets --all-features -- -D warnings
       - name: Clippy (rapidproto-bench, default features)
         run: cargo clippy -p rapidproto-bench --all-targets -- -D warnings
+      - name: Clippy (rapidproto, default features, so without serde)
+        run: cargo clippy -p rapidproto --all-targets -- -D warnings
       - name: Clippy (no-alloc)
         run: cargo clippy -p rapidproto --all-targets --no-default-features -- -D warnings
       # The no-alloc tier gets its own run because a link to an alloc-gated item breaks only there.
@@ -100,6 +102,8 @@ jobs:
       # command, rustgen-golden's dependency turns on `rapidproto/serde`.
       - name: Run the consumer example (build.rs -> generator -> decode)
         run: cargo run -p consumer-example
+      - name: Test (rapidproto, default features, so without serde)
+        run: cargo test -p rapidproto
       - name: Test (no-alloc)
         # The test harness keeps std (crate is no_std only outside tests), while the `alloc`
         # feature is off — so this exercises the arena's no-allocator / exhaustion path.

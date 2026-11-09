@@ -34,7 +34,7 @@ fn two_entries_with_one_file_name_fail_instead_of_overwriting() {
         .compile(&[root.join("b/x.proto")])
         .unwrap_err();
     assert!(
-        error.message.contains("also wrote x.rs"),
+        error.message.contains("also writes x.rs"),
         "{}",
         error.message
     );

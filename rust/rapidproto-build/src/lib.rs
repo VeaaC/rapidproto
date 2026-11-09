@@ -537,10 +537,9 @@ impl Config {
 
     /// Generate decoders for `entries` (one import closure) into `OUT_DIR` and return the path to the
     /// generated file to `include!`. The file is named after the first entry: `proto/message.proto`
-    /// gives `message.rs`, so a second call whose first entry has the same file name fails. Registers
-    /// the entries and every `.proto` on the include path with cargo, so
-    /// editing a schema re-runs the build. Call this from a `build.rs` (it reads the `OUT_DIR` cargo
-    /// sets).
+    /// gives `message.rs`, so a second call whose first entry has the same name without its extension
+    /// fails. Registers the entries and every `.proto` on the include path with cargo, so editing a
+    /// schema re-runs the build. Call this from a `build.rs` (it reads the `OUT_DIR` cargo sets).
     pub fn compile(&self, entries: &[impl AsRef<Path>]) -> Result<PathBuf, GenError> {
         // Warned from here, the consumer's own build script, because cargo hides the warnings of a
         // dependency's build script.
@@ -554,8 +553,6 @@ impl Config {
                 );
             });
         }
-        let code = self.generate(entries)?;
-
         let out_dir = env::var_os("OUT_DIR").ok_or_else(|| GenError {
             code: -1,
             message: "compile(): OUT_DIR is unset -- call it from a cargo build script".to_owned(),
@@ -568,6 +565,7 @@ impl Config {
             .map_or_else(|| "schema".to_owned(), |s| s.to_string_lossy().into_owned());
         let out_path = PathBuf::from(out_dir).join(format!("{stem}.rs"));
         // A build script runs once per process, so this remembers the files of this build only.
+        // Checked before generating, so a clash fails fast.
         static WRITTEN: Mutex<BTreeSet<PathBuf>> = Mutex::new(BTreeSet::new());
         let first = WRITTEN
             .lock()
@@ -577,12 +575,13 @@ impl Config {
             return Err(GenError {
                 code: -1,
                 message: format!(
-                    "compile(): an earlier call in this build script also wrote {stem}.rs. Each \
-                     call names its file after its first entry, so rename one of the entries, or \
-                     use generate() and write the file yourself"
+                    "compile(): an earlier call in this build script also writes {stem}.rs, \
+                     since each call names its file after its first entry. Use generate() and \
+                     write the files under names of your own"
                 ),
             });
         }
+        let code = self.generate(entries)?;
         std::fs::write(&out_path, code).map_err(|e| GenError {
             code: -1,
             message: format!("compile(): cannot write {}: {e}", out_path.display()),

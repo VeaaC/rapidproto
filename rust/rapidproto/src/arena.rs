@@ -83,8 +83,9 @@ impl Grow {
 /// A chunked bump arena. `'buf` ties it to a caller-seeded first chunk (if any); it defaults to
 /// `'static` so the heap-only constructor carries no borrow.
 ///
-/// An arena can move to another thread, together with the messages decoded into it, but threads
-/// cannot share one: it is `Send` but not `Sync`.
+/// An arena can move to another thread when nothing borrows it, and an async task that holds an arena
+/// and messages decoded into it can run on a multi-threaded executor. Threads cannot share an arena:
+/// it is `Send` but not `Sync`.
 pub struct Arena<'buf> {
     // Hot bump state (plain `Cell`s so the fast path never borrows the chunk list).
     cur: Cell<NonNull<u8>>,
@@ -134,7 +135,7 @@ impl<'buf> Arena<'buf> {
     /// Seed the arena with a caller-provided first chunk. Available in **every** tier — this is the
     /// only constructor the no-allocator tier has, and it needs no allocator. A buffer of 16 bytes or
     /// less is ignored, so the arena starts empty. With `alloc` it then grows on first use. Without
-    /// `alloc`, every allocation fails.
+    /// `alloc`, it then has no room for anything.
     pub fn with_buffer(buf: &'buf mut [u8]) -> Self {
         let region = if buf.len() > MAX_ALIGN {
             aligned_region(buf.as_mut_ptr(), buf.len())
