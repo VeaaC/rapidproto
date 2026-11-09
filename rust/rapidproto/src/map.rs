@@ -4,10 +4,10 @@ use crate::PackedSlice;
 
 /// A borrowed view over a protobuf `map`'s decoded entries.
 ///
-/// Like the C++ runtime, entries are stored as a flat slice and looked up by a linear scan (maps
-/// are usually small, and this keeps decoding zero-copy with no index to build). The entries
-/// borrow the arena/input for `'a`. A `string` key or value is a [`PackedStr`](crate::PackedStr)
-/// and a `bytes` value a `PackedSlice<'a, u8>`, so `get("key")` looks up a string key directly.
+/// Entries are stored as a flat slice and looked up by a linear scan. Maps are usually small, and this
+/// keeps decoding zero-copy with no index to build. The entries borrow the input and the arena for
+/// `'a`. A `string` key or value is a [`ProtoStr`](crate::ProtoStr) and a `bytes` value a
+/// [`ProtoBytes`](crate::ProtoBytes). A string key is looked up with a `&str`, as in `get("key")`.
 ///
 /// Lookups follow protobuf's last-one-wins rule for a repeated key on the wire:
 /// [`get`](MapView::get) scans from the end, and [`iter`](MapView::iter) yields entries in wire
@@ -39,13 +39,13 @@ impl<'a, K, V> MapView<'a, K, V> {
     /// Number of entries as decoded (duplicated keys counted).
     #[inline]
     pub fn len(&self) -> usize {
-        self.entries.len()
+        self.entries.as_slice().len()
     }
 
     /// Whether the map has no entries.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
+        self.entries.as_slice().is_empty()
     }
 
     /// The raw entry slice, in wire order.

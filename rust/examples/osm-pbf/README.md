@@ -35,8 +35,9 @@ The point of the example is the shape of an efficient decode:
   [`proto/`](proto). `.stream(true)` asks for both models, so the one
   generated file exposes `arena::OSMPBF` and `stream::OSMPBF` (pulled in by [`src/osm.rs`](src/osm.rs)).
 - **Arena: decode once, read borrowed views.** One `decode()` bump-allocates the message and hands back
-  a view that borrows it: no per-field allocation, repeated columns as `&[i64]`, strings as `&[u8]`.
-- **Streaming: materialize nothing, visit fields.** `Msg::new(bytes).decode(visitor)` fires one callback
+  a view that borrows it: no per-field allocation, repeated columns as `&[i64]`, the string table as
+  `&[ProtoBytes]`.
+- **Streaming: materialize nothing, visit fields.** `Msg::new(bytes)?.decode(visitor)` fires one callback
   per field as it is decoded. The walk shows both macro forms: the plain `*_stream! { field => |v| .. }`
   for pass 1 (each field sets a disjoint local), and the shared-state form
   `*_stream!(&mut agg; { field => |agg, v| .. })` for pass 2, where the decoder lends one `&mut agg`

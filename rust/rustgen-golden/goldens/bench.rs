@@ -54,17 +54,17 @@ pub mod arena {
 
   pub mod bench {
     pub struct Address<'a> {
-      street: ::rapidproto::PackedStr<'a>,
-      city: ::rapidproto::PackedStr<'a>,
+      street: ::rapidproto::ProtoStr<'a>,
+      city: ::rapidproto::ProtoStr<'a>,
       zip: u32,
     }
 
     impl<'a> Address<'a> {
-      pub fn street(&self) -> &'a ::rapidproto::ProtoStr {
-        self.street.get()
+      pub fn street(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.street
       }
-      pub fn city(&self) -> &'a ::rapidproto::ProtoStr {
-        self.city.get()
+      pub fn city(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.city
       }
       pub fn zip(&self) -> u32 {
         self.zip
@@ -102,16 +102,16 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Address);
 
     pub struct Attribute<'a> {
-      key: ::rapidproto::PackedStr<'a>,
-      value: ::rapidproto::PackedStr<'a>,
+      key: ::rapidproto::ProtoStr<'a>,
+      value: ::rapidproto::ProtoStr<'a>,
     }
 
     impl<'a> Attribute<'a> {
-      pub fn key(&self) -> &'a ::rapidproto::ProtoStr {
-        self.key.get()
+      pub fn key(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.key
       }
-      pub fn value(&self) -> &'a ::rapidproto::ProtoStr {
-        self.value.get()
+      pub fn value(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.value
       }
     }
     impl<'a> ::rapidproto::serde::Serialize for Attribute<'a> {
@@ -141,27 +141,27 @@ pub mod arena {
 
     pub struct Person<'a> {
       id: i64,
-      name: ::rapidproto::PackedStr<'a>,
-      email: ::rapidproto::PackedStr<'a>,
+      name: ::rapidproto::ProtoStr<'a>,
+      email: ::rapidproto::ProtoStr<'a>,
       score: f64,
       created: u64,
       address: ::core::option::Option<&'a crate::bench::arena::bench::Address<'a>>,
-      tags: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
+      tags: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoStr<'a>>,
       history: ::rapidproto::PackedSlice<'a, i32>,
       attributes: ::rapidproto::PackedSlice<'a, crate::bench::arena::bench::Attribute<'a>>,
       rp_presence: u8,
-      counters: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32>,
+      counters: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32>,
     }
 
     impl<'a> Person<'a> {
       pub fn id(&self) -> i64 {
         self.id
       }
-      pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
-        self.name.get()
+      pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.name
       }
-      pub fn email(&self) -> &'a ::rapidproto::ProtoStr {
-        self.email.get()
+      pub fn email(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.email
       }
       pub fn active(&self) -> bool {
         (self.rp_presence & (1 << 0)) != 0
@@ -175,7 +175,7 @@ pub mod arena {
       pub fn address(&self) -> ::core::option::Option<&'a crate::bench::arena::bench::Address<'a>> {
         self.address
       }
-      pub fn tags(&self) -> &'a [::rapidproto::PackedStr<'a>] {
+      pub fn tags(&self) -> &'a [::rapidproto::ProtoStr<'a>] {
         self.tags.as_slice()
       }
       pub fn history(&self) -> &'a [i32] {
@@ -184,7 +184,7 @@ pub mod arena {
       pub fn attributes(&self) -> &'a [crate::bench::arena::bench::Attribute<'a>] {
         self.attributes.as_slice()
       }
-      pub fn counters(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, i32> {
+      pub fn counters(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, i32> {
         self.counters
       }
     }
@@ -233,7 +233,7 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.address() {
-            rp_map.serialize_entry("address", rp_v)?;
+            rp_map.serialize_entry("address", &rp_v)?;
           }
         }
         {
@@ -267,14 +267,14 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Person);
 
     pub struct Dataset<'a> {
-      name: ::rapidproto::PackedStr<'a>,
+      name: ::rapidproto::ProtoStr<'a>,
       version: i64,
       people: ::rapidproto::PackedSlice<'a, crate::bench::arena::bench::Person<'a>>,
     }
 
     impl<'a> Dataset<'a> {
-      pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
-        self.name.get()
+      pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.name
       }
       pub fn version(&self) -> i64 {
         self.version
@@ -319,8 +319,8 @@ pub mod arena {
       b: ::rapidproto::PackedSlice<'a, i32>,
       c: ::rapidproto::PackedSlice<'a, i32>,
       d: ::rapidproto::PackedSlice<'a, i32>,
-      s: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
-      t: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedStr<'a>>,
+      s: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoStr<'a>>,
+      t: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoStr<'a>>,
     }
 
     impl<'a> Wide<'a> {
@@ -336,10 +336,10 @@ pub mod arena {
       pub fn d(&self) -> &'a [i32] {
         self.d.as_slice()
       }
-      pub fn s(&self) -> &'a [::rapidproto::PackedStr<'a>] {
+      pub fn s(&self) -> &'a [::rapidproto::ProtoStr<'a>] {
         self.s.as_slice()
       }
-      pub fn t(&self) -> &'a [::rapidproto::PackedStr<'a>] {
+      pub fn t(&self) -> &'a [::rapidproto::ProtoStr<'a>] {
         self.t.as_slice()
       }
     }
@@ -592,12 +592,12 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.position() {
-            rp_map.serialize_entry("position", rp_v)?;
+            rp_map.serialize_entry("position", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.velocity() {
-            rp_map.serialize_entry("velocity", rp_v)?;
+            rp_map.serialize_entry("velocity", &rp_v)?;
           }
         }
         {
@@ -904,12 +904,12 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.s1() {
-            rp_map.serialize_entry("s1", rp_v)?;
+            rp_map.serialize_entry("s1", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.s2() {
-            rp_map.serialize_entry("s2", rp_v)?;
+            rp_map.serialize_entry("s2", &rp_v)?;
           }
         }
         {
@@ -1060,8 +1060,8 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Address {
-          street: ::rapidproto::PackedStr::new(rp_field_1),
-          city: ::rapidproto::PackedStr::new(rp_field_2),
+          street: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
+          city: ::rapidproto::ProtoStr::new_truncating(rp_field_2),
           zip: rp_field_3,
         }))
       }
@@ -1145,8 +1145,8 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Attribute {
-          key: ::rapidproto::PackedStr::new(rp_field_1),
-          value: ::rapidproto::PackedStr::new(rp_field_2),
+          key: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
+          value: ::rapidproto::ProtoStr::new_truncating(rp_field_2),
         }))
       }
     }
@@ -1255,7 +1255,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_8.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_8.push(::rapidproto::ProtoStr::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         while rp_rest.first() == ::core::option::Option::Some(&72u8) {
           rp_rest = &rp_rest[1..];
@@ -1292,7 +1292,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
+          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
           let mut rp_val: i32 = 0;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -1318,7 +1318,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::PackedStr::new(rp_p);
+                rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
               }
               16u32 => {
                 let mut rp_v = 0u64;
@@ -1424,7 +1424,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_8.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_8.push(::rapidproto::ProtoStr::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             72u32 => {
               let mut rp_v = 0u64;
@@ -1457,7 +1457,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
+              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -1483,7 +1483,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::PackedStr::new(rp_p);
+                    rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                   }
                   16u32 => {
                     let mut rp_v = 0u64;
@@ -1513,8 +1513,8 @@ pub mod arena {
         }
         ::core::result::Result::Ok(rp_out.write(Person {
           id: rp_field_1,
-          name: ::rapidproto::PackedStr::new(rp_field_2),
-          email: ::rapidproto::PackedStr::new(rp_field_3),
+          name: ::rapidproto::ProtoStr::new_truncating(rp_field_2),
+          email: ::rapidproto::ProtoStr::new_truncating(rp_field_3),
           score: rp_field_5,
           created: rp_field_6,
           address: rp_field_7,
@@ -1623,7 +1623,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Dataset {
-          name: ::rapidproto::PackedStr::new(rp_field_1),
+          name: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
           version: rp_field_2,
           people: ::rapidproto::PackedSlice::new(rp_acc_3.into_slice()),
         }))
@@ -1731,7 +1731,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_5.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_5.push(::rapidproto::ProtoStr::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         while rp_rest.first() == ::core::option::Option::Some(&50u8) {
           rp_rest = &rp_rest[1..];
@@ -1740,7 +1740,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_acc_6.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+          rp_acc_6.push(::rapidproto::ProtoStr::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -1829,7 +1829,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_5.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_5.push(::rapidproto::ProtoStr::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             50u32 => {
               let mut rp_p: &[u8] = &[];
@@ -1837,7 +1837,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_6.push(::rapidproto::PackedStr::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_6.push(::rapidproto::ProtoStr::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -3201,10 +3201,10 @@ pub mod stream {
     pub trait AddressVisitor<'a> {
       const WANT_street: bool = false;
       #[inline(always)]
-      fn on_street(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_street(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_city: bool = false;
       #[inline(always)]
-      fn on_city(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_city(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_zip: bool = false;
       #[inline(always)]
       fn on_zip(&mut self, _rp_v: u32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3219,8 +3219,18 @@ pub mod stream {
     }
 
     impl<'a> Address<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Address<'a> { Address { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Address<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Address { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Address<'a> { Address { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -3239,7 +3249,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_street(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_street(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -3258,7 +3268,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_city(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_city(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -3311,7 +3321,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_street(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_street(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3322,7 +3332,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_city(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_city(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3370,8 +3380,8 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench7Address {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::bench::stream::bench::address_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::bench::stream::bench::address_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] street => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_street on_street: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] city => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_city on_city: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] street => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_street on_street: $crate::bench::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] city => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_city on_city: $crate::bench::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] zip => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_zip on_zip: ::core::primitive::u32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::address_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: street, city, zip, unknown")) };
@@ -3386,10 +3396,10 @@ pub mod stream {
     pub trait AttributeVisitor<'a> {
       const WANT_key: bool = false;
       #[inline(always)]
-      fn on_key(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_key(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_value: bool = false;
       #[inline(always)]
-      fn on_value(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_value(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3401,8 +3411,18 @@ pub mod stream {
     }
 
     impl<'a> Attribute<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Attribute<'a> { Attribute { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Attribute<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Attribute { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Attribute<'a> { Attribute { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -3421,7 +3441,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_key(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_key(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -3440,7 +3460,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_value(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_value(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -3474,7 +3494,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_key(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_key(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3485,7 +3505,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_value(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_value(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3522,8 +3542,8 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench9Attribute {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::bench::stream::bench::attribute_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::bench::stream::bench::attribute_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] key => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::attribute_stream!(@f [$($a)* WANT_key on_key: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::attribute_stream!(@f [$($a)* WANT_value on_value: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] key => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::attribute_stream!(@f [$($a)* WANT_key on_key: $crate::bench::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::attribute_stream!(@f [$($a)* WANT_value on_value: $crate::bench::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::attribute_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: key, value, unknown")) };
       (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::AttributeVisitor<'rp_a> $a) };
@@ -3540,10 +3560,10 @@ pub mod stream {
       fn on_id(&mut self, _rp_v: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_name: bool = false;
       #[inline(always)]
-      fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_name(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_email: bool = false;
       #[inline(always)]
-      fn on_email(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_email(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_active: bool = false;
       #[inline(always)]
       fn on_active(&mut self, _rp_v: bool) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3558,7 +3578,7 @@ pub mod stream {
       fn on_address(&mut self, _rp_v: crate::bench::stream::bench::Address<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_tags: bool = false;
       #[inline(always)]
-      fn on_tags(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_tags(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_history: bool = false;
       #[inline(always)]
       fn on_history(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3567,7 +3587,7 @@ pub mod stream {
       fn on_attributes(&mut self, _rp_v: crate::bench::stream::bench::Attribute<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_counters: bool = false;
       #[inline(always)]
-      fn on_counters(&mut self, _rp_v: (&'a ::rapidproto::ProtoStr, i32)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_counters(&mut self, _rp_v: (::rapidproto::ProtoStr<'a>, i32)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -3579,8 +3599,18 @@ pub mod stream {
     }
 
     impl<'a> Person<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Person<'a> { Person { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Person<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Person { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Person<'a> { Person { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -3618,7 +3648,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_name(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_name(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -3637,7 +3667,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_email(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_email(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -3713,7 +3743,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_address(crate::bench::stream::bench::Address::new(rp_p))? {
+            match rp_vis.on_address(crate::bench::stream::bench::Address::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -3732,7 +3762,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_tags(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_tags(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -3797,7 +3827,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_attributes(crate::bench::stream::bench::Attribute::new(rp_p))? {
+            match rp_vis.on_attributes(crate::bench::stream::bench::Attribute::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -3817,7 +3847,7 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             let rp_ent_body: &'a [u8] = rp_p;
-            let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
+            let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
             let mut rp_val: i32 = 0;
             let mut rp_ent: &'a [u8] = rp_ent_body;
             loop {
@@ -3843,7 +3873,7 @@ pub mod stream {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                   };
-                  rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                  rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                 }
                 16u32 => {
                   let mut rp_v = 0u64;
@@ -3906,7 +3936,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_name(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_name(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3917,7 +3947,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_email(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_email(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3961,7 +3991,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_address(crate::bench::stream::bench::Address::new(rp_p))? {
+              match rp_vis.on_address(crate::bench::stream::bench::Address::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -3972,7 +4002,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_tags(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_tags(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -4013,7 +4043,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_attributes(crate::bench::stream::bench::Attribute::new(rp_p))? {
+              match rp_vis.on_attributes(crate::bench::stream::bench::Attribute::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -4025,7 +4055,7 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
               let mut rp_val: i32 = 0;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -4051,7 +4081,7 @@ pub mod stream {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                   }
                   16u32 => {
                     let mut rp_v = 0u64;
@@ -4107,16 +4137,16 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::bench::stream::bench::person_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::bench::stream::bench::person_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] id => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_id on_id: ::core::primitive::i64 = $c;] $($r)*) };
-      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] email => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_email on_email: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_name on_name: $crate::bench::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] email => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_email on_email: $crate::bench::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] active => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_active on_active: ::core::primitive::bool = $c;] $($r)*) };
       (@f [$($a:tt)*] score => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_score on_score: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] created => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_created on_created: ::core::primitive::u64 = $c;] $($r)*) };
       (@f [$($a:tt)*] address => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_address on_address: $crate::bench::stream::bench::Address<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] tags => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_tags on_tags: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] tags => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_tags on_tags: $crate::bench::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] history => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_history on_history: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] attributes => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_attributes on_attributes: $crate::bench::stream::bench::Attribute<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] counters => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_counters on_counters: (&'rp_a $crate::bench::rp_rt::ProtoStr, ::core::primitive::i32) = $c;] $($r)*) };
+      (@f [$($a:tt)*] counters => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_counters on_counters: ($crate::bench::rp_rt::ProtoStr<'rp_a>, ::core::primitive::i32) = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::person_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: id, name, email, active, score, created, address, tags, history, attributes, counters, unknown")) };
       (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::PersonVisitor<'rp_a> $a) };
@@ -4130,7 +4160,7 @@ pub mod stream {
     pub trait DatasetVisitor<'a> {
       const WANT_name: bool = false;
       #[inline(always)]
-      fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_name(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_version: bool = false;
       #[inline(always)]
       fn on_version(&mut self, _rp_v: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -4148,8 +4178,18 @@ pub mod stream {
     }
 
     impl<'a> Dataset<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Dataset<'a> { Dataset { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Dataset<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Dataset { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Dataset<'a> { Dataset { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -4168,7 +4208,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_name(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_name(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -4206,7 +4246,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_people(crate::bench::stream::bench::Person::new(rp_p))? {
+            match rp_vis.on_people(crate::bench::stream::bench::Person::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -4240,7 +4280,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_name(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_name(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -4262,7 +4302,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_people(crate::bench::stream::bench::Person::new(rp_p))? {
+              match rp_vis.on_people(crate::bench::stream::bench::Person::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -4299,7 +4339,7 @@ pub mod stream {
     macro_rules! __rp_5bench_5bench7Dataset {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::bench::stream::bench::dataset_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::bench::stream::bench::dataset_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::dataset_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::dataset_stream!(@f [$($a)* WANT_name on_name: $crate::bench::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] version => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::dataset_stream!(@f [$($a)* WANT_version on_version: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] people => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::dataset_stream!(@f [$($a)* WANT_people on_people: $crate::bench::stream::bench::Person<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::dataset_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
@@ -4327,10 +4367,10 @@ pub mod stream {
       fn on_d(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_s: bool = false;
       #[inline(always)]
-      fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_t: bool = false;
       #[inline(always)]
-      fn on_t(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_t(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -4342,8 +4382,18 @@ pub mod stream {
     }
 
     impl<'a> Wide<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Wide<'a> { Wide { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Wide<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Wide { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Wide<'a> { Wide { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -4546,7 +4596,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -4565,7 +4615,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_t(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_t(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -4719,7 +4769,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -4730,7 +4780,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_t(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_t(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -4771,8 +4821,8 @@ pub mod stream {
       (@f [$($a:tt)*] b => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_b on_b: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] c => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_c on_c: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] d => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_d on_d: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] t => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_t on_t: &'rp_a $crate::bench::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_s on_s: $crate::bench::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] t => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_t on_t: $crate::bench::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::bench::stream::bench::wide_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::bench::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: a, b, c, d, s, t, unknown")) };
       (@f $a:tt) => { $crate::bench::rp_rt::stream_visitor!($crate::bench::stream::bench::WideVisitor<'rp_a> $a) };
@@ -4798,8 +4848,18 @@ pub mod stream {
     }
 
     impl<'a> WideSet<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> WideSet<'a> { WideSet { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<WideSet<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(WideSet { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> WideSet<'a> { WideSet { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -4818,7 +4878,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_items(crate::bench::stream::bench::Wide::new(rp_p))? {
+            match rp_vis.on_items(crate::bench::stream::bench::Wide::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -4852,7 +4912,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_items(crate::bench::stream::bench::Wide::new(rp_p))? {
+              match rp_vis.on_items(crate::bench::stream::bench::Wide::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -4924,8 +4984,18 @@ pub mod stream {
     }
 
     impl<'a> Big<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Big<'a> { Big { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Big<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Big { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Big<'a> { Big { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -5316,8 +5386,18 @@ pub mod stream {
     }
 
     impl<'a> BigSet<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> BigSet<'a> { BigSet { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<BigSet<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(BigSet { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> BigSet<'a> { BigSet { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -5336,7 +5416,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_items(crate::bench::stream::bench::Big::new(rp_p))? {
+            match rp_vis.on_items(crate::bench::stream::bench::Big::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -5370,7 +5450,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_items(crate::bench::stream::bench::Big::new(rp_p))? {
+              match rp_vis.on_items(crate::bench::stream::bench::Big::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -5439,8 +5519,18 @@ pub mod stream {
     }
 
     impl<'a> Vec3<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Vec3<'a> { Vec3 { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Vec3<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Vec3 { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Vec3<'a> { Vec3 { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -5627,8 +5717,18 @@ pub mod stream {
     }
 
     impl<'a> Particle<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Particle<'a> { Particle { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Particle<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Particle { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Particle<'a> { Particle { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -5666,7 +5766,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_position(crate::bench::stream::bench::Vec3::new(rp_p))? {
+            match rp_vis.on_position(crate::bench::stream::bench::Vec3::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -5685,7 +5785,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_velocity(crate::bench::stream::bench::Vec3::new(rp_p))? {
+            match rp_vis.on_velocity(crate::bench::stream::bench::Vec3::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -5749,7 +5849,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_position(crate::bench::stream::bench::Vec3::new(rp_p))? {
+              match rp_vis.on_position(crate::bench::stream::bench::Vec3::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -5760,7 +5860,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_velocity(crate::bench::stream::bench::Vec3::new(rp_p))? {
+              match rp_vis.on_velocity(crate::bench::stream::bench::Vec3::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -5837,8 +5937,18 @@ pub mod stream {
     }
 
     impl<'a> ParticleSet<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> ParticleSet<'a> { ParticleSet { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<ParticleSet<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(ParticleSet { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> ParticleSet<'a> { ParticleSet { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -5857,7 +5967,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_items(crate::bench::stream::bench::Particle::new(rp_p))? {
+            match rp_vis.on_items(crate::bench::stream::bench::Particle::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -5891,7 +6001,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_items(crate::bench::stream::bench::Particle::new(rp_p))? {
+              match rp_vis.on_items(crate::bench::stream::bench::Particle::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -5969,8 +6079,18 @@ pub mod stream {
     }
 
     impl<'a> Sample<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Sample<'a> { Sample { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Sample<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Sample { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Sample<'a> { Sample { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -6298,8 +6418,18 @@ pub mod stream {
     }
 
     impl<'a> Record<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Record<'a> { Record { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Record<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Record { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Record<'a> { Record { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -6603,7 +6733,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_s1(crate::bench::stream::bench::Sample::new(rp_p))? {
+            match rp_vis.on_s1(crate::bench::stream::bench::Sample::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -6622,7 +6752,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_s2(crate::bench::stream::bench::Sample::new(rp_p))? {
+            match rp_vis.on_s2(crate::bench::stream::bench::Sample::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -6878,7 +7008,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_s1(crate::bench::stream::bench::Sample::new(rp_p))? {
+              match rp_vis.on_s1(crate::bench::stream::bench::Sample::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -6889,7 +7019,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_s2(crate::bench::stream::bench::Sample::new(rp_p))? {
+              match rp_vis.on_s2(crate::bench::stream::bench::Sample::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -7004,8 +7134,18 @@ pub mod stream {
     }
 
     impl<'a> RecordSet<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> RecordSet<'a> { RecordSet { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<RecordSet<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(RecordSet { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> RecordSet<'a> { RecordSet { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -7024,7 +7164,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_records(crate::bench::stream::bench::Record::new(rp_p))? {
+            match rp_vis.on_records(crate::bench::stream::bench::Record::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -7058,7 +7198,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_records(crate::bench::stream::bench::Record::new(rp_p))? {
+              match rp_vis.on_records(crate::bench::stream::bench::Record::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }

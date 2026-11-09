@@ -65,19 +65,19 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Location);
 
     pub struct Station<'a> {
-      name: ::rapidproto::PackedStr<'a>,
+      name: ::rapidproto::ProtoStr<'a>,
       location: crate::example::arena::weather::Location<'a>,
       unit: crate::example::common::weather::Unit,
       temperatures: ::rapidproto::PackedSlice<'a, f32>,
-      note: ::rapidproto::PackedStr<'a>,
+      note: ::rapidproto::ProtoStr<'a>,
       rp_presence: u8,
-      labels: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, ::rapidproto::PackedStr<'a>>,
+      labels: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, ::rapidproto::ProtoStr<'a>>,
       status: ::core::option::Option<crate::example::arena::weather::station::Status<'a>>,
     }
 
     impl<'a> Station<'a> {
-      pub fn name(&self) -> &'a ::rapidproto::ProtoStr {
-        self.name.get()
+      pub fn name(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.name
       }
       pub fn location(&self) -> ::core::option::Option<&crate::example::arena::weather::Location<'a>> {
         ((self.rp_presence & (1 << 0)) != 0).then_some(&self.location)
@@ -88,10 +88,14 @@ pub mod arena {
       pub fn temperatures(&self) -> &'a [f32] {
         self.temperatures.as_slice()
       }
-      pub fn note(&self) -> ::core::option::Option<&'a ::rapidproto::ProtoStr> {
-        ((self.rp_presence & (1 << 1)) != 0).then_some(self.note.get())
+      pub fn note(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
+        let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoStr::new_truncating(self.note.as_bytes()));
+        if (self.rp_presence & (1 << 1)) == 0 {
+          rp_v = ::core::option::Option::None;
+        }
+        rp_v
       }
-      pub fn labels(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, ::rapidproto::PackedStr<'a>> {
+      pub fn labels(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, ::rapidproto::ProtoStr<'a>> {
         self.labels
       }
       pub fn status(&self) -> ::core::option::Option<&crate::example::arena::weather::station::Status<'a>> {
@@ -102,7 +106,7 @@ pub mod arena {
 
     pub mod station {
       pub enum Status<'a> {
-        Error(::rapidproto::PackedStr<'a>),
+        Error(::rapidproto::ProtoStr<'a>),
         UptimeSeconds(u64),
       }
     }
@@ -296,8 +300,8 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
-          let mut rp_val: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
+          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
+          let mut rp_val: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
             let rp_b = match rp_ent.first() {
@@ -322,7 +326,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::PackedStr::new(rp_p);
+                rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
               }
               18u32 => {
                 let mut rp_p: &[u8] = &[];
@@ -330,7 +334,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_val = ::rapidproto::PackedStr::new(rp_p);
+                rp_val = ::rapidproto::ProtoStr::new_truncating(rp_p);
               }
               _ => {
                 rp_ent = match ::rapidproto::wire::skip_field(rp_ent, rp_tagkey) {
@@ -349,7 +353,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(crate::example::arena::weather::station::Status::Error(::rapidproto::PackedStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::example::arena::weather::station::Status::Error(::rapidproto::ProtoStr::new_truncating(rp_p)));
         }
         if rp_rest.first() == ::core::option::Option::Some(&56u8) {
           rp_rest = &rp_rest[1..];
@@ -459,8 +463,8 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
-              let mut rp_val: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
+              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
+              let mut rp_val: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
                 let rp_b = match rp_ent.first() {
@@ -485,7 +489,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::PackedStr::new(rp_p);
+                    rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                   }
                   18u32 => {
                     let mut rp_p: &[u8] = &[];
@@ -493,7 +497,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_val = ::rapidproto::PackedStr::new(rp_p);
+                    rp_val = ::rapidproto::ProtoStr::new_truncating(rp_p);
                   }
                   _ => {
                     rp_ent = match ::rapidproto::wire::skip_field(rp_ent, rp_tagkey) {
@@ -511,7 +515,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(crate::example::arena::weather::station::Status::Error(::rapidproto::PackedStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::example::arena::weather::station::Status::Error(::rapidproto::ProtoStr::new_truncating(rp_p)));
             }
             56u32 => {
               let mut rp_v = 0u64;
@@ -530,11 +534,11 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Station {
-          name: ::rapidproto::PackedStr::new(rp_field_1),
+          name: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
           location: rp_field_2,
           unit: rp_field_3,
           temperatures: ::rapidproto::PackedSlice::new(rp_acc_4.into_slice()),
-          note: ::rapidproto::PackedStr::new(rp_field_8),
+          note: ::rapidproto::ProtoStr::new_truncating(rp_field_8),
           rp_presence,
           labels: ::rapidproto::MapView::new(rp_map_5.into_slice()),
           status: rp_oneof_0,
@@ -638,8 +642,18 @@ pub mod stream {
     }
 
     impl<'a> Location<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Location<'a> { Location { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Location<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Location { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::example::stream) fn rp_new(rp_input: &'a [u8]) -> Location<'a> { Location { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -774,7 +788,7 @@ pub mod stream {
     pub trait StationVisitor<'a> {
       const WANT_name: bool = false;
       #[inline(always)]
-      fn on_name(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_name(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_location: bool = false;
       #[inline(always)]
       fn on_location(&mut self, _rp_v: crate::example::stream::weather::Location<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -786,13 +800,13 @@ pub mod stream {
       fn on_temperatures(&mut self, _rp_v: f32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_note: bool = false;
       #[inline(always)]
-      fn on_note(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_note(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_labels: bool = false;
       #[inline(always)]
-      fn on_labels(&mut self, _rp_v: (&'a ::rapidproto::ProtoStr, &'a ::rapidproto::ProtoStr)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_labels(&mut self, _rp_v: (::rapidproto::ProtoStr<'a>, ::rapidproto::ProtoStr<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_error: bool = false;
       #[inline(always)]
-      fn on_error(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_error(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_uptime_seconds: bool = false;
       #[inline(always)]
       fn on_uptime_seconds(&mut self, _rp_v: u64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -807,8 +821,18 @@ pub mod stream {
     }
 
     impl<'a> Station<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Station<'a> { Station { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Station<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Station { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::example::stream) fn rp_new(rp_input: &'a [u8]) -> Station<'a> { Station { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -827,7 +851,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_name(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_name(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -846,7 +870,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_location(crate::example::stream::weather::Location::new(rp_p))? {
+            match rp_vis.on_location(crate::example::stream::weather::Location::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -930,8 +954,8 @@ pub mod stream {
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
             let rp_ent_body: &'a [u8] = rp_p;
-            let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
-            let mut rp_val: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
+            let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
+            let mut rp_val: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
             let mut rp_ent: &'a [u8] = rp_ent_body;
             loop {
               let rp_b = match rp_ent.first() {
@@ -956,7 +980,7 @@ pub mod stream {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                   };
-                  rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                  rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                 }
                 18u32 => {
                   let mut rp_p: &[u8] = &[];
@@ -964,7 +988,7 @@ pub mod stream {
                     ::core::result::Result::Ok(r) => r,
                     ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                   };
-                  rp_val = ::rapidproto::ProtoStr::new(rp_p);
+                  rp_val = ::rapidproto::ProtoStr::new_truncating(rp_p);
                 }
                 _ => {
                   rp_ent = match ::rapidproto::wire::skip_field(rp_ent, rp_tagkey) {
@@ -993,7 +1017,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_error(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_error(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -1031,7 +1055,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_note(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_note(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -1065,7 +1089,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_name(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_name(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -1076,7 +1100,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_location(crate::example::stream::weather::Location::new(rp_p))? {
+              match rp_vis.on_location(crate::example::stream::weather::Location::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -1127,7 +1151,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_note(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_note(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -1139,8 +1163,8 @@ pub mod stream {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
-              let mut rp_val: &'a ::rapidproto::ProtoStr = ::rapidproto::ProtoStr::new(&[]);
+              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
+              let mut rp_val: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
                 let rp_b = match rp_ent.first() {
@@ -1165,7 +1189,7 @@ pub mod stream {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                   }
                   18u32 => {
                     let mut rp_p: &[u8] = &[];
@@ -1173,7 +1197,7 @@ pub mod stream {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_val = ::rapidproto::ProtoStr::new(rp_p);
+                    rp_val = ::rapidproto::ProtoStr::new_truncating(rp_p);
                   }
                   _ => {
                     rp_ent = match ::rapidproto::wire::skip_field(rp_ent, rp_tagkey) {
@@ -1194,7 +1218,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_error(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_error(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -1242,13 +1266,13 @@ pub mod stream {
     macro_rules! __rp_7example_7weather7Station {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::example::stream::weather::station_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::example::stream::weather::station_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_name on_name: &'rp_a $crate::example::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] name => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_name on_name: $crate::example::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] location => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_location on_location: $crate::example::stream::weather::Location<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unit => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_unit on_unit: $crate::example::common::weather::Unit = $c;] $($r)*) };
       (@f [$($a:tt)*] temperatures => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_temperatures on_temperatures: ::core::primitive::f32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] note => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_note on_note: &'rp_a $crate::example::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] labels => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_labels on_labels: (&'rp_a $crate::example::rp_rt::ProtoStr, &'rp_a $crate::example::rp_rt::ProtoStr) = $c;] $($r)*) };
-      (@f [$($a:tt)*] error => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_error on_error: &'rp_a $crate::example::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] note => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_note on_note: $crate::example::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] labels => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_labels on_labels: ($crate::example::rp_rt::ProtoStr<'rp_a>, $crate::example::rp_rt::ProtoStr<'rp_a>) = $c;] $($r)*) };
+      (@f [$($a:tt)*] error => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_error on_error: $crate::example::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] uptime_seconds => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_uptime_seconds on_uptime_seconds: ::core::primitive::u64 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::example::stream::weather::station_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::example::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: name, location, unit, temperatures, note, labels, error, uptime_seconds, unknown")) };
@@ -1275,8 +1299,18 @@ pub mod stream {
     }
 
     impl<'a> Report<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Report<'a> { Report { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Report<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Report { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::example::stream) fn rp_new(rp_input: &'a [u8]) -> Report<'a> { Report { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -1295,7 +1329,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_stations(crate::example::stream::weather::Station::new(rp_p))? {
+            match rp_vis.on_stations(crate::example::stream::weather::Station::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -1329,7 +1363,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_stations(crate::example::stream::weather::Station::new(rp_p))? {
+              match rp_vis.on_stations(crate::example::stream::weather::Station::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }

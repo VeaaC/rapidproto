@@ -26,8 +26,6 @@
 //! materializes and resolves singular fields) it does not reject a missing `required` field and counts
 //! a duplicated singular message field more than once. Neither can crash or read out of bounds.
 
-use rapidproto::ProtoStr;
-
 use crate::osm::stream::*;
 use crate::stats::{coord_nano, feature_supported, wrap_add, Stats};
 
@@ -63,6 +61,7 @@ struct Dense<'a, 's> {
 /// Decode one OSMData `PrimitiveBlock` payload into a per-block [`Stats`] via the streaming model.
 pub fn walk_block_stream(payload: &[u8]) -> Result<Stats, String> {
     let bad_block = |e| format!("bad PrimitiveBlock ({e:?})");
+    let block = PrimitiveBlock::new(payload).map_err(bad_block)?;
 
     // Pass 1: the stringtable (tag keys index it) and the coordinate scaling. Each field sets a
     // disjoint local, so the plain macro fits; absent fields keep their proto2 schema defaults.
@@ -70,9 +69,9 @@ pub fn walk_block_stream(payload: &[u8]) -> Result<Stats, String> {
     let mut granularity = 100i64;
     let mut lat_offset = 0i64;
     let mut lon_offset = 0i64;
-    PrimitiveBlock::new(payload)
+    block
         .decode(primitive_block_stream! {
-            stringtable => |st| st.decode(string_table_stream! { s => |b| strings.push(b) }),
+            stringtable => |st| st.decode(string_table_stream! { s => |b| strings.push(b.as_slice()) }),
             granularity => |v| granularity = v as i64,
             lat_offset => |v| lat_offset = v,
             lon_offset => |v| lon_offset = v,
@@ -89,7 +88,7 @@ pub fn walk_block_stream(payload: &[u8]) -> Result<Stats, String> {
         lat_off: lat_offset,
         lon_off: lon_offset,
     };
-    PrimitiveBlock::new(payload)
+    block
         .decode(primitive_block_stream!(&mut agg; {
             primitivegroup => |agg, g| g.decode(primitive_group_stream!(&mut *agg; {
                 // Plain Node: a single id/lat/lon (not delta-coded) and packed tag-key ids.
@@ -173,19 +172,21 @@ pub fn walk_block_stream(payload: &[u8]) -> Result<Stats, String> {
 /// implement -- the streaming counterpart of the arena header check. One disjoint local, so the plain
 /// macro fits.
 pub fn check_header_stream(payload: &[u8]) -> Result<(), String> {
+    let bad_header = |e| format!("bad OSMHeader block ({e:?})");
     let mut unsupported: Option<String> = None;
     HeaderBlock::new(payload)
+        .map_err(bad_header)?
         .decode(header_block_stream! {
-            required_features => |f: &ProtoStr| {
+            required_features => |f| {
                 if unsupported.is_none() {
-                    let name = String::from_utf8_lossy(f.as_bytes());
+                    let name = f.to_str_lossy();
                     if !feature_supported(&name) {
                         unsupported = Some(name.into_owned());
                     }
                 }
             },
         })
-        .map_err(|e| format!("bad OSMHeader block ({e:?})"))?;
+        .map_err(bad_header)?;
     match unsupported {
         Some(name) => Err(format!("file requires unsupported feature '{name}'")),
         None => Ok(()),

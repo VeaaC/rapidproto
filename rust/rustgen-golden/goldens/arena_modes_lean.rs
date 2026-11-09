@@ -98,14 +98,18 @@ pub mod arena {
 
   pub mod fm {
     pub struct Blob<'a> {
-      payload: ::rapidproto::PackedSlice<'a, u8>,
+      payload: ::rapidproto::ProtoBytes<'a>,
       kind: crate::arena_modes_lean::common::fm::blob::Kind,
       rp_presence: u8,
     }
 
     impl<'a> Blob<'a> {
-      pub fn payload(&self) -> ::core::option::Option<&'a [u8]> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.payload.as_slice())
+      pub fn payload(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {
+        let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoBytes::new_truncating(self.payload.as_slice()));
+        if (self.rp_presence & (1 << 0)) == 0 {
+          rp_v = ::core::option::Option::None;
+        }
+        rp_v
       }
       pub fn kind(&self) -> ::core::option::Option<crate::arena_modes_lean::common::fm::blob::Kind> {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.kind)
@@ -120,7 +124,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.payload() {
-            rp_map.serialize_entry("payload", &::rapidproto::serde_support::Bytes(rp_v))?;
+            rp_map.serialize_entry("payload", &rp_v)?;
           }
         }
         {
@@ -138,15 +142,15 @@ pub mod arena {
       keep: i32,
       must: i32,
       big_num: i32,
-      blob: ::core::option::Option<::rapidproto::PackedSlice<'a, u8>>,
-      blobs: ::rapidproto::PackedSlice<'a, ::rapidproto::PackedSlice<'a, u8>>,
+      blob: ::core::option::Option<::rapidproto::ProtoBytes<'a>>,
+      blobs: ::rapidproto::PackedSlice<'a, ::rapidproto::ProtoBytes<'a>>,
       samples: ::rapidproto::PackedSlice<'a, i32>,
       spread: ::rapidproto::PackedSlice<'a, i32>,
       level: crate::arena_modes_lean::common::fm::Level,
-      req_blob: ::core::option::Option<::rapidproto::PackedSlice<'a, u8>>,
-      grp: ::core::option::Option<::rapidproto::PackedSlice<'a, u8>>,
+      req_blob: ::core::option::Option<::rapidproto::ProtoBytes<'a>>,
+      grp: ::core::option::Option<::rapidproto::ProtoBytes<'a>>,
       rp_presence: u8,
-      by_name: ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, crate::arena_modes_lean::arena::fm::Blob<'a>>,
+      by_name: ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, crate::arena_modes_lean::arena::fm::Blob<'a>>,
     }
 
     impl<'a> Holder<'a> {
@@ -159,10 +163,10 @@ pub mod arena {
       pub fn big_num(&self) -> ::core::option::Option<i32> {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.big_num)
       }
-      pub fn blob(&self) -> ::core::option::Option<&'a [u8]> {
-        self.blob.map(::rapidproto::PackedSlice::as_slice)
+      pub fn blob(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {
+        self.blob
       }
-      pub fn blobs(&self) -> &'a [::rapidproto::PackedSlice<'a, u8>] {
+      pub fn blobs(&self) -> &'a [::rapidproto::ProtoBytes<'a>] {
         self.blobs.as_slice()
       }
       pub fn samples(&self) -> &'a [i32] {
@@ -174,13 +178,13 @@ pub mod arena {
       pub fn level(&self) -> ::core::option::Option<crate::arena_modes_lean::common::fm::Level> {
         ((self.rp_presence & (1 << 2)) != 0).then_some(self.level)
       }
-      pub fn req_blob(&self) -> ::core::option::Option<&'a [u8]> {
-        self.req_blob.map(::rapidproto::PackedSlice::as_slice)
+      pub fn req_blob(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {
+        self.req_blob
       }
-      pub fn grp(&self) -> ::core::option::Option<&'a [u8]> {
-        self.grp.map(::rapidproto::PackedSlice::as_slice)
+      pub fn grp(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {
+        self.grp
       }
-      pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::PackedStr<'a>, crate::arena_modes_lean::arena::fm::Blob<'a>> {
+      pub fn by_name(&self) -> ::rapidproto::MapView<'a, ::rapidproto::ProtoStr<'a>, crate::arena_modes_lean::arena::fm::Blob<'a>> {
         self.by_name
       }
     }
@@ -207,13 +211,13 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.blob() {
-            rp_map.serialize_entry("blob", &::rapidproto::serde_support::Bytes(rp_v))?;
+            rp_map.serialize_entry("blob", &rp_v)?;
           }
         }
         {
           let rp_v = self.blobs();
           if !rp_v.is_empty() {
-            rp_map.serialize_entry("blobs", &::rapidproto::serde_support::BytesSeq(rp_v))?;
+            rp_map.serialize_entry("blobs", &rp_v)?;
           }
         }
         {
@@ -235,12 +239,12 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.req_blob() {
-            rp_map.serialize_entry("req_blob", &::rapidproto::serde_support::Bytes(rp_v))?;
+            rp_map.serialize_entry("req_blob", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.grp() {
-            rp_map.serialize_entry("grp", &::rapidproto::serde_support::Bytes(rp_v))?;
+            rp_map.serialize_entry("grp", &rp_v)?;
           }
         }
         {
@@ -440,7 +444,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Blob {
-          payload: ::rapidproto::PackedSlice::new(rp_field_1),
+          payload: ::rapidproto::ProtoBytes::new_truncating(rp_field_1),
           kind: rp_field_2,
           rp_presence,
         }))
@@ -579,7 +583,7 @@ pub mod arena {
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
           let rp_ent_body: &'a [u8] = rp_p;
-          let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
+          let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
           let mut rp_val: ::core::option::Option<crate::arena_modes_lean::arena::fm::Blob<'a>> = ::core::option::Option::None;
           let mut rp_ent: &'a [u8] = rp_ent_body;
           loop {
@@ -605,7 +609,7 @@ pub mod arena {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                 };
-                rp_key = ::rapidproto::PackedStr::new(rp_p);
+                rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
               }
               18u32 => {
                 if rp_val.is_some() {
@@ -703,7 +707,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_acc_8.push(::rapidproto::PackedSlice::new(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
+              rp_acc_8.push(::rapidproto::ProtoBytes::new_truncating(rp_p)).map_err(|_| ::rapidproto::DecodeError::new(::rapidproto::ErrorKind::ArenaExhausted, 0))?;
             }
             72u32 => {
               let mut rp_v = 0u64;
@@ -776,7 +780,7 @@ pub mod arena {
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
               let rp_ent_body: &'a [u8] = rp_p;
-              let mut rp_key: ::rapidproto::PackedStr<'a> = ::rapidproto::PackedStr::new(&[]);
+              let mut rp_key: ::rapidproto::ProtoStr<'a> = ::core::default::Default::default();
               let mut rp_val: ::core::option::Option<crate::arena_modes_lean::arena::fm::Blob<'a>> = ::core::option::Option::None;
               let mut rp_ent: &'a [u8] = rp_ent_body;
               loop {
@@ -802,7 +806,7 @@ pub mod arena {
                       ::core::result::Result::Ok(r) => r,
                       ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_ent_body.len() - rp_ent.len())),
                     };
-                    rp_key = ::rapidproto::PackedStr::new(rp_p);
+                    rp_key = ::rapidproto::ProtoStr::new_truncating(rp_p);
                   }
                   18u32 => {
                     if rp_val.is_some() {
@@ -847,13 +851,13 @@ pub mod arena {
           keep: rp_field_1,
           must: rp_field_5,
           big_num: rp_field_6,
-          blob: rp_field_7.map(::rapidproto::PackedSlice::new),
+          blob: rp_field_7.map(::rapidproto::ProtoBytes::new_truncating),
           blobs: ::rapidproto::PackedSlice::new(rp_acc_8.into_slice()),
           samples: ::rapidproto::PackedSlice::new(rp_acc_9.into_slice()),
           spread: ::rapidproto::PackedSlice::new(rp_acc_10.into_slice()),
           level: rp_field_12,
-          req_blob: rp_field_13.map(::rapidproto::PackedSlice::new),
-          grp: rp_field_14.map(::rapidproto::PackedSlice::new),
+          req_blob: rp_field_13.map(::rapidproto::ProtoBytes::new_truncating),
+          grp: rp_field_14.map(::rapidproto::ProtoBytes::new_truncating),
           rp_presence,
           by_name: ::rapidproto::MapView::new(rp_map_11.into_slice()),
         }))

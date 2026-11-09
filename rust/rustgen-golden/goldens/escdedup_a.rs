@@ -107,7 +107,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.r#ref() {
-            rp_map.serialize_entry("ref", rp_v)?;
+            rp_map.serialize_entry("ref", &rp_v)?;
           }
         }
         {
@@ -310,8 +310,18 @@ pub mod stream {
     }
 
     impl<'a> decode_<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> decode_<'a> { decode_ { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<decode_<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(decode_ { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::escdedup_a::stream) fn rp_new(rp_input: &'a [u8]) -> decode_<'a> { decode_ { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -430,8 +440,18 @@ pub mod stream {
     }
 
     impl<'a> Holder<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Holder<'a> { Holder { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Holder<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Holder { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::escdedup_a::stream) fn rp_new(rp_input: &'a [u8]) -> Holder<'a> { Holder { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -450,7 +470,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_ref_(crate::escdedup_a::stream::escdedup::decode_::new(rp_p))? {
+            match rp_vis.on_ref_(crate::escdedup_a::stream::escdedup::decode_::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -503,7 +523,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_ref_(crate::escdedup_a::stream::escdedup::decode_::new(rp_p))? {
+              match rp_vis.on_ref_(crate::escdedup_a::stream::escdedup::decode_::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }

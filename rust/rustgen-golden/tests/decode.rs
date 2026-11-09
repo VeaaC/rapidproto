@@ -386,7 +386,7 @@ fn maps_with_scalar_keys_and_values() {
 }
 
 #[test]
-fn repeated_strings_and_bytes_are_indexable_cells() {
+fn repeated_strings_and_bytes_are_indexable() {
     let arena = Arena::new();
     let mut buf = Vec::new();
     put_len(&mut buf, 24, b"ab"); // chunks (repeated bytes)
@@ -400,9 +400,9 @@ fn repeated_strings_and_bytes_are_indexable_cells() {
     put_len(&mut lbuf, 20, b"yz");
     let l = Layout::decode(&lbuf, &arena).unwrap();
     assert_eq!(l.labels(), ["x", "yz"]);
-    let first: &ProtoStr = &l.labels()[0];
+    let first: ProtoStr = l.labels()[0];
     assert_eq!(first.to_str(), Ok("x"));
-    assert_eq!(l.labels()[1].get().len(), 2);
+    assert_eq!(l.labels()[1].len(), 2);
 }
 
 #[test]
@@ -431,7 +431,7 @@ fn oneof_last_wins_and_unset() {
         Some(Pick::D(x)) => assert_eq!(*x, 2.5),
         _ => panic!("expected D"),
     }
-    // e (23, bytes): held as a `bytes` cell.
+    // e (23, bytes): held as a `ProtoBytes`.
     let mut ebuf = Vec::new();
     put_len(&mut ebuf, 23, b"\x00\xff");
     match Msg::decode(&ebuf, &arena).unwrap().pick() {
@@ -667,7 +667,7 @@ fn proto2_every_scalar_type_set_on_the_wire() {
     assert_eq!(m.sf64(), Some(-3));
     assert_eq!(m.b(), Some(false));
     assert_eq!(m.s().map(|s| s.as_bytes()), Some(&b"xy"[..]));
-    assert_eq!(m.by(), Some(&b"\xDE\xAD"[..]));
+    assert_eq!(m.by().as_deref(), Some(&b"\xDE\xAD"[..]));
     assert_eq!(m.fl(), Some(1.5));
     assert_eq!(m.db(), Some(2.25));
     assert_eq!(m.color(), Some(Color::RED));
@@ -720,7 +720,7 @@ fn field_modes_drop_raw_unknown() {
 
     let m = ModedMsg::decode(&buf, &arena).unwrap();
     assert_eq!(m.implicit_i(), 300);
-    assert_eq!(m.self_(), Some(&inner[..])); // raw: the exact payload bytes, not a decoded Msg
+    assert_eq!(m.self_().as_deref(), Some(&inner[..])); // raw: the exact payload bytes, not a decoded Msg
     assert!(m.has_unknown_fields());
 
     // A dropped field present on the wire is a KNOWN field, so it must not trip the unknown bit; and
@@ -1004,10 +1004,11 @@ fn raw_group_field_stores_its_bare_body_undecoded() {
     let arena = Arena::new();
     let h = ModedHolder::decode(&buf, &arena).unwrap();
     assert_eq!(h.must(), 7);
-    assert_eq!(h.req_blob(), Some(&blob[..])); // raw message: the length-delimited payload
-    assert_eq!(h.grp(), Some(&body[..])); // raw group: the bare body, framing stripped
-                                          // The stored bare body is a valid group payload: it re-decodes through the group's own decoder.
-    let g = ModedGrp::decode(h.grp().unwrap(), &arena).unwrap();
+    assert_eq!(h.req_blob().as_deref(), Some(&blob[..])); // raw message: the length-delimited payload
+    assert_eq!(h.grp().as_deref(), Some(&body[..])); // raw group: the bare body, framing stripped
+
+    // The stored bare body is a valid group payload: it re-decodes through the group's own decoder.
+    let g = ModedGrp::decode(h.grp().unwrap().as_slice(), &arena).unwrap();
     assert_eq!(g.g(), Some(5));
 }
 
@@ -1046,7 +1047,7 @@ fn every_scalar_kind_from_the_protoc_fixture() {
     assert_eq!((m.sf32(), m.sf64()), (Some(-2), Some(-3)));
     assert_eq!(m.b(), Some(true));
     assert_eq!(m.s().map(|s| s.as_bytes()), Some(&b"hi"[..]));
-    assert_eq!(m.by(), Some(&b"\x00\x01\xff"[..]));
+    assert_eq!(m.by().as_deref(), Some(&b"\x00\x01\xff"[..]));
     assert_eq!((m.fl(), m.db()), (Some(1.5), Some(-2.25)));
     assert_eq!(m.color(), Some(Color::RED));
     assert_eq!(m.packed_nums(), [1, 2, 300]);
@@ -1095,7 +1096,7 @@ fn the_protoc_all_wire_fixture_decodes_every_wire_type() {
     assert_eq!(m.db(), Some(db));
     assert_eq!(m.fx(), Some(305_419_896));
     assert_eq!(m.s().map(|s| s.as_bytes()), Some(&b"wire"[..]));
-    assert_eq!(m.by(), Some(&[0xde, 0xad, 0xbe, 0xef][..]));
+    assert_eq!(m.by().as_deref(), Some(&[0xde, 0xad, 0xbe, 0xef][..]));
     assert_eq!(m.nested().and_then(|n| n.zz()), Some(7));
     assert_eq!(m.packed(), [10, 20, 30]);
     assert_eq!(m.g().and_then(|g| g.a()), Some(99)); // the group
@@ -1206,7 +1207,7 @@ fn raw_message_present_empty_is_distinct_from_absent() {
     put_len(&mut present, 7, &[]); // blob present, empty payload
     let arena2 = Arena::new();
     let b = ModedHolder::decode(&present, &arena2).unwrap().blob();
-    assert_eq!(b, Some(&[][..])); // present-and-empty (not None)
+    assert_eq!(b.as_deref(), Some(&[][..])); // present-and-empty (not None)
 }
 
 #[test]
@@ -1245,8 +1246,8 @@ fn dropped_field_record_is_still_wire_validated() {
     ));
 }
 
-// Decoded messages stay `Send + Sync`: their strings, maps and repeated fields are `PackedSlice`s,
-// which get those traits from manual impls rather than automatically.
+// Decoded messages stay `Send + Sync`: their strings, bytes, maps and repeated fields hold
+// `PackedSlice`s, which get those traits from manual impls rather than automatically.
 #[test]
 fn decoded_messages_are_send_and_sync() {
     fn send_sync<T: Send + Sync>() {}
@@ -1258,7 +1259,7 @@ fn decoded_messages_are_send_and_sync() {
 }
 
 // `Owned` relies on decoded messages being covariant in their lifetime. Between them these hold
-// every 12-byte cell: strings and `bytes`, singular and repeated, raw payloads, string-keyed and
+// every 12-byte type: strings and `bytes`, singular and repeated, raw payloads, string-keyed and
 // bytes-valued maps, and a string oneof member.
 fn _decoded_messages_are_covariant<'a: 'b, 'b>(
     m: &'b Msg<'a>,
@@ -1294,7 +1295,7 @@ fn dropped_fields_in_field_order_are_skipped() {
     let arena = Arena::new();
     let h = ModedHolder::decode(&buf, &arena).unwrap();
     assert_eq!((h.keep(), h.must(), h.big_num()), (Some(11), 55, Some(66)));
-    assert_eq!(h.req_blob(), Some(&rb[..]));
+    assert_eq!(h.req_blob().as_deref(), Some(&rb[..]));
 
     // A truncated debug after keep (its probe) fails like one after an undeclared field of the same
     // size (the dispatch loop): same kind, same offset.

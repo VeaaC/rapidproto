@@ -21,8 +21,8 @@ pub mod arena {
       zz: i64,
       db: f64,
       fx: u32,
-      s: ::rapidproto::PackedStr<'a>,
-      by: ::rapidproto::PackedSlice<'a, u8>,
+      s: ::rapidproto::ProtoStr<'a>,
+      by: ::rapidproto::ProtoBytes<'a>,
       nested: ::core::option::Option<&'a crate::wire_all::arena::wire::AllWire<'a>>,
       packed: ::rapidproto::PackedSlice<'a, i32>,
       g: crate::wire_all::arena::wire::all_wire::G<'a>,
@@ -40,11 +40,19 @@ pub mod arena {
       pub fn fx(&self) -> ::core::option::Option<u32> {
         ((self.rp_presence & (1 << 2)) != 0).then_some(self.fx)
       }
-      pub fn s(&self) -> ::core::option::Option<&'a ::rapidproto::ProtoStr> {
-        ((self.rp_presence & (1 << 3)) != 0).then_some(self.s.get())
+      pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
+        let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoStr::new_truncating(self.s.as_bytes()));
+        if (self.rp_presence & (1 << 3)) == 0 {
+          rp_v = ::core::option::Option::None;
+        }
+        rp_v
       }
-      pub fn by(&self) -> ::core::option::Option<&'a [u8]> {
-        ((self.rp_presence & (1 << 4)) != 0).then_some(self.by.as_slice())
+      pub fn by(&self) -> ::core::option::Option<::rapidproto::ProtoBytes<'a>> {
+        let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoBytes::new_truncating(self.by.as_slice()));
+        if (self.rp_presence & (1 << 4)) == 0 {
+          rp_v = ::core::option::Option::None;
+        }
+        rp_v
       }
       pub fn nested(&self) -> ::core::option::Option<&'a crate::wire_all::arena::wire::AllWire<'a>> {
         self.nested
@@ -88,12 +96,12 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.by() {
-            rp_map.serialize_entry("by", &::rapidproto::serde_support::Bytes(rp_v))?;
+            rp_map.serialize_entry("by", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.nested() {
-            rp_map.serialize_entry("nested", rp_v)?;
+            rp_map.serialize_entry("nested", &rp_v)?;
           }
         }
         {
@@ -104,7 +112,7 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.g() {
-            rp_map.serialize_entry("g", rp_v)?;
+            rp_map.serialize_entry("g", &rp_v)?;
           }
         }
         if let ::core::option::Option::Some(rp_o) = self.pick() {
@@ -122,7 +130,7 @@ pub mod arena {
     pub mod all_wire {
       pub enum Pick<'a> {
         Oi(i32),
-        Os(::rapidproto::PackedStr<'a>),
+        Os(::rapidproto::ProtoStr<'a>),
       }
 
       #[derive(Default)]
@@ -348,7 +356,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(crate::wire_all::arena::wire::all_wire::Pick::Os(::rapidproto::PackedStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::wire_all::arena::wire::all_wire::Pick::Os(::rapidproto::ProtoStr::new_truncating(rp_p)));
         }
         loop {
           let rp_b = match rp_rest.first() {
@@ -465,7 +473,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(crate::wire_all::arena::wire::all_wire::Pick::Os(::rapidproto::PackedStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::wire_all::arena::wire::all_wire::Pick::Os(::rapidproto::ProtoStr::new_truncating(rp_p)));
             }
             _ => {
               rp_rest = match ::rapidproto::wire::skip_field(rp_rest, rp_tagkey) {
@@ -479,8 +487,8 @@ pub mod arena {
           zz: rp_field_1,
           db: rp_field_2,
           fx: rp_field_3,
-          s: ::rapidproto::PackedStr::new(rp_field_4),
-          by: ::rapidproto::PackedSlice::new(rp_field_5),
+          s: ::rapidproto::ProtoStr::new_truncating(rp_field_4),
+          by: ::rapidproto::ProtoBytes::new_truncating(rp_field_5),
           nested: rp_field_6,
           packed: ::rapidproto::PackedSlice::new(rp_acc_7.into_slice()),
           g: rp_field_8,
@@ -515,10 +523,10 @@ pub mod stream {
       fn on_fx(&mut self, _rp_v: u32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_s: bool = false;
       #[inline(always)]
-      fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_by: bool = false;
       #[inline(always)]
-      fn on_by(&mut self, _rp_v: &'a [u8]) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_by(&mut self, _rp_v: ::rapidproto::ProtoBytes<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_nested: bool = false;
       #[inline(always)]
       fn on_nested(&mut self, _rp_v: crate::wire_all::stream::wire::AllWire<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -533,7 +541,7 @@ pub mod stream {
       fn on_oi(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_os: bool = false;
       #[inline(always)]
-      fn on_os(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_os(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -545,8 +553,18 @@ pub mod stream {
     }
 
     impl<'a> AllWire<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> AllWire<'a> { AllWire { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<AllWire<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(AllWire { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::wire_all::stream) fn rp_new(rp_input: &'a [u8]) -> AllWire<'a> { AllWire { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -622,7 +640,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -641,7 +659,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_by(rp_p)? {
+            match rp_vis.on_by(::rapidproto::ProtoBytes::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -660,7 +678,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_nested(crate::wire_all::stream::wire::AllWire::new(rp_p))? {
+            match rp_vis.on_nested(crate::wire_all::stream::wire::AllWire::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -744,7 +762,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_os(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_os(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -811,7 +829,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -822,7 +840,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_by(rp_p)? {
+              match rp_vis.on_by(::rapidproto::ProtoBytes::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -833,7 +851,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_nested(crate::wire_all::stream::wire::AllWire::new(rp_p))? {
+              match rp_vis.on_nested(crate::wire_all::stream::wire::AllWire::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -874,7 +892,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_g(crate::wire_all::stream::wire::all_wire::G::new(rp_p))? {
+              match rp_vis.on_g(crate::wire_all::stream::wire::all_wire::G::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -896,7 +914,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_os(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_os(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -936,13 +954,13 @@ pub mod stream {
       (@f [$($a:tt)*] zz => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_zz on_zz: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] db => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_db on_db: ::core::primitive::f64 = $c;] $($r)*) };
       (@f [$($a:tt)*] fx => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_fx on_fx: ::core::primitive::u32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::wire_all::rp_rt::ProtoStr = $c;] $($r)*) };
-      (@f [$($a:tt)*] by => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_by on_by: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_s on_s: $crate::wire_all::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
+      (@f [$($a:tt)*] by => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_by on_by: $crate::wire_all::rp_rt::ProtoBytes<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] nested => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_nested on_nested: $crate::wire_all::stream::wire::AllWire<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] packed => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_packed on_packed: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] g => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_g on_g: $crate::wire_all::stream::wire::all_wire::G<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] oi => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_oi on_oi: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] os => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_os on_os: &'rp_a $crate::wire_all::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] os => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_os on_os: $crate::wire_all::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::wire_all::stream::wire::all_wire_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::wire_all::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: zz, db, fx, s, by, nested, packed, g, oi, os, unknown")) };
       (@f $a:tt) => { $crate::wire_all::rp_rt::stream_visitor!($crate::wire_all::stream::wire::AllWireVisitor<'rp_a> $a) };
@@ -969,8 +987,18 @@ pub mod stream {
       }
 
       impl<'a> G<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> G<'a> { G { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<G<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(G { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::wire_all::stream) fn rp_new(rp_input: &'a [u8]) -> G<'a> { G { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead

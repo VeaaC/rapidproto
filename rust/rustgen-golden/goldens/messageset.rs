@@ -46,7 +46,7 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.container() {
-            rp_map.serialize_entry("container", rp_v)?;
+            rp_map.serialize_entry("container", &rp_v)?;
           }
         }
         rp_map.end()
@@ -123,13 +123,17 @@ pub mod arena {
     }
 
     pub struct Ext<'a> {
-      s: ::rapidproto::PackedStr<'a>,
+      s: ::rapidproto::ProtoStr<'a>,
       rp_presence: u8,
     }
 
     impl<'a> Ext<'a> {
-      pub fn s(&self) -> ::core::option::Option<&'a ::rapidproto::ProtoStr> {
-        ((self.rp_presence & (1 << 0)) != 0).then_some(self.s.get())
+      pub fn s(&self) -> ::core::option::Option<::rapidproto::ProtoStr<'a>> {
+        let mut rp_v = ::core::option::Option::Some(::rapidproto::ProtoStr::new_truncating(self.s.as_bytes()));
+        if (self.rp_presence & (1 << 0)) == 0 {
+          rp_v = ::core::option::Option::None;
+        }
+        rp_v
       }
     }
     impl<'a> ::rapidproto::serde::Serialize for Ext<'a> {
@@ -309,7 +313,7 @@ pub mod arena {
           }
         }
         ::core::result::Result::Ok(rp_out.write(Ext {
-          s: ::rapidproto::PackedStr::new(rp_field_1),
+          s: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
           rp_presence,
         }))
       }
@@ -346,8 +350,18 @@ pub mod stream {
     }
 
     impl<'a> Outer<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Outer<'a> { Outer { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Outer<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Outer { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::messageset::stream) fn rp_new(rp_input: &'a [u8]) -> Outer<'a> { Outer { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -385,7 +399,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_container(crate::messageset::stream::ms::outer::Container::new(rp_p))? {
+            match rp_vis.on_container(crate::messageset::stream::ms::outer::Container::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -430,7 +444,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_container(crate::messageset::stream::ms::outer::Container::new(rp_p))? {
+              match rp_vis.on_container(crate::messageset::stream::ms::outer::Container::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -492,8 +506,18 @@ pub mod stream {
       }
 
       impl<'a> Container<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> Container<'a> { Container { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Container<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(Container { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::messageset::stream) fn rp_new(rp_input: &'a [u8]) -> Container<'a> { Container { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -567,7 +591,7 @@ pub mod stream {
     pub trait ExtVisitor<'a> {
       const WANT_s: bool = false;
       #[inline(always)]
-      fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_UNKNOWN: bool = false;
       #[inline(always)]
       fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -579,8 +603,18 @@ pub mod stream {
     }
 
     impl<'a> Ext<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Ext<'a> { Ext { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Ext<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Ext { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::messageset::stream) fn rp_new(rp_input: &'a [u8]) -> Ext<'a> { Ext { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -599,7 +633,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -633,7 +667,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -670,7 +704,7 @@ pub mod stream {
     macro_rules! __rp_10messageset_2ms3Ext {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::messageset::stream::ms::ext_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::messageset::stream::ms::ext_stream!(@f [[$s]] $($f => $c,)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::ext_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::messageset::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::ext_stream!(@f [$($a)* WANT_s on_s: $crate::messageset::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::messageset::stream::ms::ext_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::messageset::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: s, unknown")) };
       (@f $a:tt) => { $crate::messageset::rp_rt::stream_visitor!($crate::messageset::stream::ms::ExtVisitor<'rp_a> $a) };

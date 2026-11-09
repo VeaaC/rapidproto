@@ -63,7 +63,7 @@
 //! use example::stream::weather::{report_stream, station_stream, Report};
 //!
 //! let mut names = Vec::new();
-//! Report::new(bytes).decode(report_stream! {
+//! Report::new(bytes)?.decode(report_stream! {
 //!     stations => |station| station.decode(station_stream! {
 //!         name => |name| names.push(name),
 //!     }),
@@ -85,7 +85,7 @@
 //! use rapidproto::stream::Flow;
 //!
 //! let mut temperatures = Vec::new();
-//! let flow = Report::new(bytes).decode(report_stream! {
+//! let flow = Report::new(bytes)?.decode(report_stream! {
 //!     stations => |station| station.decode(station_stream! {
 //!         temperatures => |t| { temperatures.push(t); Flow::Stop },
 //!     }),
@@ -108,7 +108,7 @@
 //! use rapidproto::stream::Flow;
 //!
 //! let mut temperatures = Vec::new();
-//! let flow = Report::new(bytes).decode(report_stream! {
+//! let flow = Report::new(bytes)?.decode(report_stream! {
 //!     stations => |station| {
 //!         station.decode(station_stream! {
 //!             temperatures => |t| { temperatures.push(t); Flow::Stop },

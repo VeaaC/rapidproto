@@ -52,17 +52,17 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
                            const std::string& module_path = "crate");
 
 // Emit the `stream` module body for `files`, under `pub mod stream` mirroring `arena`'s module
-// structure: per message a reader handle `<Msg><'a>` (`Msg::new(bytes).decode(visitor)`), a
+// structure: per message a reader handle `<Msg><'a>` (`Msg::new(bytes)?.decode(visitor)`), a
 // `<Msg>Visitor<'a>` trait (one `const WANT_<field>: bool = false` + a defaulted
 // `on_<field>(&mut self, V) -> Result<Flow, DecodeError>` method per field, plus an `unknown` handler),
 // a `<Msg>::decode` driver whose per-field arm gates on `V::WANT_<field>` (an unselected field
 // const-folds to a wire-skip), and a per-message `<msg>_stream! { field => closure, .. }` macro. A
-// handler receives a scalar as its Rust primitive, a string as `&ProtoStr`, bytes as `&[u8]`, an ENUM as
-// its generated `common`-tree newtype, a message/group as the child's reader handle (recurse with
-// `child.decode(..)`), and a MAP field as a `(key, value)` pair per entry (the value a child handle when
-// it is a message); `Flow::Stop` and an `Err` propagate out of `decode`. Field modes (drop/raw/unknown)
-// are arena-storage options that do not apply to a streaming visitor (which materializes nothing), so
-// streaming ignores them.
+// handler receives a scalar as its Rust primitive, a string as `ProtoStr`, bytes as `ProtoBytes`, an
+// ENUM as its generated `common`-tree newtype, a message/group as the child's reader handle (recurse
+// with `child.decode(..)`), and a MAP field as a `(key, value)` pair per entry (the value a child
+// handle when it is a message); `Flow::Stop` and an `Err` propagate out of `decode`. Field modes
+// (drop/raw/unknown) are arena-storage options that do not apply to a streaming visitor (which
+// materializes nothing), so streaming ignores them.
 //
 // Each macro expands at the consumer's call site and names everything by a path from `$crate` through
 // `module_path`, with the runtime behind a `#[doc(hidden)] rp_rt` re-export beside the `stream` tree,

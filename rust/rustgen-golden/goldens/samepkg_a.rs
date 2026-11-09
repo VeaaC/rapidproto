@@ -67,7 +67,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.b() {
-            rp_map.serialize_entry("b", rp_v)?;
+            rp_map.serialize_entry("b", &rp_v)?;
           }
         }
         rp_map.end()
@@ -249,8 +249,18 @@ pub mod stream {
     }
 
     impl<'a> SecondB<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> SecondB<'a> { SecondB { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<SecondB<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(SecondB { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::samepkg_a::stream) fn rp_new(rp_input: &'a [u8]) -> SecondB<'a> { SecondB { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -366,8 +376,18 @@ pub mod stream {
     }
 
     impl<'a> FirstA<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> FirstA<'a> { FirstA { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<FirstA<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(FirstA { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::samepkg_a::stream) fn rp_new(rp_input: &'a [u8]) -> FirstA<'a> { FirstA { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -386,7 +406,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_b(crate::samepkg_a::stream::samepkg::SecondB::new(rp_p))? {
+            match rp_vis.on_b(crate::samepkg_a::stream::samepkg::SecondB::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -420,7 +440,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_b(crate::samepkg_a::stream::samepkg::SecondB::new(rp_p))? {
+              match rp_vis.on_b(crate::samepkg_a::stream::samepkg::SecondB::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }

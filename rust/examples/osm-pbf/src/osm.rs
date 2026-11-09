@@ -11,6 +11,6 @@ pub(crate) mod generated {
 
 /// The arena model: `decode()` into an `Arena` and read borrowed views.
 pub use generated::arena::OSMPBF as arena;
-/// The streaming model: `Msg::new(bytes).decode(visitor)`, one callback per field, nothing
+/// The streaming model: `Msg::new(bytes)?.decode(visitor)`, one callback per field, nothing
 /// materialized. The `*_stream!` macros and `*Visitor` traits live here too.
 pub use generated::stream::OSMPBF as stream;

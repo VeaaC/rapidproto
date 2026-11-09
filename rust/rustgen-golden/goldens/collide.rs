@@ -158,12 +158,12 @@ pub mod arena {
 
     pub mod search_response {
       pub struct Result<'a> {
-        url: ::rapidproto::PackedStr<'a>,
+        url: ::rapidproto::ProtoStr<'a>,
       }
 
       impl<'a> Result<'a> {
-        pub fn url(&self) -> &'a ::rapidproto::ProtoStr {
-          self.url.get()
+        pub fn url(&self) -> ::rapidproto::ProtoStr<'a> {
+          self.url
         }
       }
       impl<'a> ::rapidproto::serde::Serialize for Result<'a> {
@@ -245,7 +245,7 @@ pub mod arena {
             }
           }
           ::core::result::Result::Ok(rp_out.write(Result {
-            url: ::rapidproto::PackedStr::new(rp_field_1),
+            url: ::rapidproto::ProtoStr::new_truncating(rp_field_1),
           }))
         }
       }
@@ -331,7 +331,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.fixed() {
-            rp_map.serialize_entry("fixed", rp_v)?;
+            rp_map.serialize_entry("fixed", &rp_v)?;
           }
         }
         rp_map.end()
@@ -381,7 +381,7 @@ pub mod arena {
     pub mod response {
       pub enum Result<'a> {
         Error(&'a crate::collide::arena::collide::response::Error<'a>),
-        Value(::rapidproto::PackedStr<'a>),
+        Value(::rapidproto::ProtoStr<'a>),
       }
 
       pub enum Option {
@@ -658,7 +658,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.nested() {
-            rp_map.serialize_entry("nested", rp_v)?;
+            rp_map.serialize_entry("nested", &rp_v)?;
           }
         }
         rp_map.end()
@@ -785,7 +785,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.nested() {
-            rp_map.serialize_entry("nested", rp_v)?;
+            rp_map.serialize_entry("nested", &rp_v)?;
           }
         }
         rp_map.end()
@@ -912,7 +912,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.nested() {
-            rp_map.serialize_entry("nested", rp_v)?;
+            rp_map.serialize_entry("nested", &rp_v)?;
           }
         }
         rp_map.end()
@@ -1026,7 +1026,7 @@ pub mod arena {
       e: ::core::option::Option<&'a crate::collide::arena::collide::usize_<'a>>,
       f: crate::collide::common::collide::i32_,
       g: i32,
-      h: ::rapidproto::PackedSlice<'a, u8>,
+      h: ::rapidproto::ProtoBytes<'a>,
       i: f32,
       j: ::rapidproto::PackedSlice<'a, u32>,
       k: ::rapidproto::PackedSlice<'a, u32>,
@@ -1055,8 +1055,8 @@ pub mod arena {
       pub fn g(&self) -> i32 {
         self.g
       }
-      pub fn h(&self) -> &'a [u8] {
-        self.h.as_slice()
+      pub fn h(&self) -> ::rapidproto::ProtoBytes<'a> {
+        self.h
       }
       pub fn i(&self) -> ::core::option::Option<f32> {
         ((self.rp_presence & (1 << 4)) != 0).then_some(self.i)
@@ -1077,12 +1077,12 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.a() {
-            rp_map.serialize_entry("a", rp_v)?;
+            rp_map.serialize_entry("a", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.b() {
-            rp_map.serialize_entry("b", rp_v)?;
+            rp_map.serialize_entry("b", &rp_v)?;
           }
         }
         {
@@ -1093,12 +1093,12 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.d() {
-            rp_map.serialize_entry("d", rp_v)?;
+            rp_map.serialize_entry("d", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.e() {
-            rp_map.serialize_entry("e", rp_v)?;
+            rp_map.serialize_entry("e", &rp_v)?;
           }
         }
         {
@@ -1116,7 +1116,7 @@ pub mod arena {
         {
           let rp_v = self.h();
           if !rp_v.is_empty() {
-            rp_map.serialize_entry("h", &::rapidproto::serde_support::Bytes(rp_v))?;
+            rp_map.serialize_entry("h", &rp_v)?;
           }
         }
         {
@@ -1196,12 +1196,12 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.node() {
-            rp_map.serialize_entry("node", rp_v)?;
+            rp_map.serialize_entry("node", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.node_visitor() {
-            rp_map.serialize_entry("node_visitor", rp_v)?;
+            rp_map.serialize_entry("node_visitor", &rp_v)?;
           }
         }
         rp_map.end()
@@ -1426,7 +1426,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.child() {
-            rp_map.serialize_entry("child", rp_v)?;
+            rp_map.serialize_entry("child", &rp_v)?;
           }
         }
         {
@@ -1461,7 +1461,7 @@ pub mod arena {
         let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
         {
           if let ::core::option::Option::Some(rp_v) = self.x() {
-            rp_map.serialize_entry("x", rp_v)?;
+            rp_map.serialize_entry("x", &rp_v)?;
           }
         }
         rp_map.end()
@@ -1790,62 +1790,62 @@ pub mod arena {
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.search() {
-            rp_map.serialize_entry("search", rp_v)?;
+            rp_map.serialize_entry("search", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.uses_fixed() {
-            rp_map.serialize_entry("uses_fixed", rp_v)?;
+            rp_map.serialize_entry("uses_fixed", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.default() {
-            rp_map.serialize_entry("default", rp_v)?;
+            rp_map.serialize_entry("default", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.response() {
-            rp_map.serialize_entry("response", rp_v)?;
+            rp_map.serialize_entry("response", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.prims() {
-            rp_map.serialize_entry("prims", rp_v)?;
+            rp_map.serialize_entry("prims", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.v() {
-            rp_map.serialize_entry("v", rp_v)?;
+            rp_map.serialize_entry("v", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.r#type() {
-            rp_map.serialize_entry("type", rp_v)?;
+            rp_map.serialize_entry("type", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.under() {
-            rp_map.serialize_entry("under", rp_v)?;
+            rp_map.serialize_entry("under", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.node() {
-            rp_map.serialize_entry("node", rp_v)?;
+            rp_map.serialize_entry("node", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.tree() {
-            rp_map.serialize_entry("tree", rp_v)?;
+            rp_map.serialize_entry("tree", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.opt() {
-            rp_map.serialize_entry("opt", rp_v)?;
+            rp_map.serialize_entry("opt", &rp_v)?;
           }
         }
         {
           if let ::core::option::Option::Some(rp_v) = self.sub() {
-            rp_map.serialize_entry("sub", rp_v)?;
+            rp_map.serialize_entry("sub", &rp_v)?;
           }
         }
         rp_map.end()
@@ -2164,7 +2164,7 @@ pub mod arena {
             ::core::result::Result::Ok(r) => r,
             ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
           };
-          rp_oneof_0 = ::core::option::Option::Some(crate::collide::arena::collide::response::Result::Value(::rapidproto::PackedStr::new(rp_p)));
+          rp_oneof_0 = ::core::option::Option::Some(crate::collide::arena::collide::response::Result::Value(::rapidproto::ProtoStr::new_truncating(rp_p)));
         }
         if rp_rest.first() == ::core::option::Option::Some(&24u8) {
           rp_rest = &rp_rest[1..];
@@ -2219,7 +2219,7 @@ pub mod arena {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              rp_oneof_0 = ::core::option::Option::Some(crate::collide::arena::collide::response::Result::Value(::rapidproto::PackedStr::new(rp_p)));
+              rp_oneof_0 = ::core::option::Option::Some(crate::collide::arena::collide::response::Result::Value(::rapidproto::ProtoStr::new_truncating(rp_p)));
             }
             24u32 => {
               let mut rp_v = 0u64;
@@ -3175,7 +3175,7 @@ pub mod arena {
           e: rp_field_5,
           f: rp_field_6,
           g: rp_field_7,
-          h: ::rapidproto::PackedSlice::new(rp_field_8),
+          h: ::rapidproto::ProtoBytes::new_truncating(rp_field_8),
           i: rp_field_9,
           j: ::rapidproto::PackedSlice::new(rp_acc_10.into_slice()),
           k: ::rapidproto::PackedSlice::new(rp_acc_11.into_slice()),
@@ -4354,7 +4354,7 @@ pub mod arena {
           let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
           {
             if let ::core::option::Option::Some(rp_v) = self.nested() {
-              rp_map.serialize_entry("nested", rp_v)?;
+              rp_map.serialize_entry("nested", &rp_v)?;
             }
           }
           rp_map.end()
@@ -4481,7 +4481,7 @@ pub mod arena {
           let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
           {
             if let ::core::option::Option::Some(rp_v) = self.nested() {
-              rp_map.serialize_entry("nested", rp_v)?;
+              rp_map.serialize_entry("nested", &rp_v)?;
             }
           }
           rp_map.end()
@@ -4608,7 +4608,7 @@ pub mod arena {
           let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;
           {
             if let ::core::option::Option::Some(rp_v) = self.nested() {
-              rp_map.serialize_entry("nested", rp_v)?;
+              rp_map.serialize_entry("nested", &rp_v)?;
             }
           }
           rp_map.end()
@@ -5039,8 +5039,18 @@ pub mod stream {
     }
 
     impl<'a> SearchResponse<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> SearchResponse<'a> { SearchResponse { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<SearchResponse<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(SearchResponse { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> SearchResponse<'a> { SearchResponse { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -5059,7 +5069,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_results(crate::collide::stream::collide::search_response::Result::new(rp_p))? {
+            match rp_vis.on_results(crate::collide::stream::collide::search_response::Result::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -5093,7 +5103,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_results(crate::collide::stream::collide::search_response::Result::new(rp_p))? {
+              match rp_vis.on_results(crate::collide::stream::collide::search_response::Result::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -5145,7 +5155,7 @@ pub mod stream {
       pub trait ResultVisitor<'a> {
         const WANT_url: bool = false;
         #[inline(always)]
-        fn on_url(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        fn on_url(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
         const WANT_UNKNOWN: bool = false;
         #[inline(always)]
         fn on_unknown(&mut self, _rp_v: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -5157,8 +5167,18 @@ pub mod stream {
       }
 
       impl<'a> Result<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> Result<'a> { Result { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Result<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(Result { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Result<'a> { Result { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -5177,7 +5197,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_url(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_url(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -5211,7 +5231,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_url(::rapidproto::ProtoStr::new(rp_p))? {
+                match rp_vis.on_url(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -5248,7 +5268,7 @@ pub mod stream {
       macro_rules! __rp_7collide_7collide14SearchResponse6Result {
         ($($f:ident => $c:expr),* $(,)?) => { $crate::collide::stream::collide::search_response::result_stream!(@f [[]] $($f => $c,)*) };
         ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::collide::stream::collide::search_response::result_stream!(@f [[$s]] $($f => $c,)*) };
-        (@f [$($a:tt)*] url => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::search_response::result_stream!(@f [$($a)* WANT_url on_url: &'rp_a $crate::collide::rp_rt::ProtoStr = $c;] $($r)*) };
+        (@f [$($a:tt)*] url => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::search_response::result_stream!(@f [$($a)* WANT_url on_url: $crate::collide::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
         (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::search_response::result_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
         (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: url, unknown")) };
         (@f $a:tt) => { $crate::collide::rp_rt::stream_visitor!($crate::collide::stream::collide::search_response::ResultVisitor<'rp_a> $a) };
@@ -5275,8 +5295,18 @@ pub mod stream {
     }
 
     impl<'a> Default<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Default<'a> { Default { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Default<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Default { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Default<'a> { Default { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -5392,8 +5422,18 @@ pub mod stream {
     }
 
     impl<'a> Fixed<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Fixed<'a> { Fixed { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Fixed<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Fixed { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Fixed<'a> { Fixed { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -5509,8 +5549,18 @@ pub mod stream {
     }
 
     impl<'a> UsesFixed<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> UsesFixed<'a> { UsesFixed { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<UsesFixed<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(UsesFixed { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> UsesFixed<'a> { UsesFixed { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -5529,7 +5579,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_fixed(crate::collide::stream::collide::Fixed::new(rp_p))? {
+            match rp_vis.on_fixed(crate::collide::stream::collide::Fixed::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -5563,7 +5613,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_fixed(crate::collide::stream::collide::Fixed::new(rp_p))? {
+              match rp_vis.on_fixed(crate::collide::stream::collide::Fixed::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -5617,7 +5667,7 @@ pub mod stream {
       fn on_error(&mut self, _rp_v: crate::collide::stream::collide::response::Error<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_value: bool = false;
       #[inline(always)]
-      fn on_value(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_value(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_on: bool = false;
       #[inline(always)]
       fn on_on(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -5635,8 +5685,18 @@ pub mod stream {
     }
 
     impl<'a> Response<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Response<'a> { Response { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Response<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Response { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Response<'a> { Response { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -5655,7 +5715,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_error(crate::collide::stream::collide::response::Error::new(rp_p))? {
+            match rp_vis.on_error(crate::collide::stream::collide::response::Error::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -5674,7 +5734,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_value(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_value(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -5746,7 +5806,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_error(crate::collide::stream::collide::response::Error::new(rp_p))? {
+              match rp_vis.on_error(crate::collide::stream::collide::response::Error::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -5757,7 +5817,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_value(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_value(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -5817,7 +5877,7 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::collide::stream::collide::response_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::collide::stream::collide::response_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] error => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::response_stream!(@f [$($a)* WANT_error on_error: $crate::collide::stream::collide::response::Error<'rp_a> = $c;] $($r)*) };
-      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::response_stream!(@f [$($a)* WANT_value on_value: &'rp_a $crate::collide::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] value => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::response_stream!(@f [$($a)* WANT_value on_value: $crate::collide::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] on => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::response_stream!(@f [$($a)* WANT_on on_on: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] off => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::response_stream!(@f [$($a)* WANT_off on_off: ::core::primitive::i32 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::response_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::collide::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
@@ -5846,8 +5906,18 @@ pub mod stream {
       }
 
       impl<'a> Error<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> Error<'a> { Error { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Error<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(Error { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Error<'a> { Error { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -5964,8 +6034,18 @@ pub mod stream {
     }
 
     impl<'a> u8_<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> u8_<'a> { u8_ { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<u8_<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(u8_ { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> u8_<'a> { u8_ { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -6081,8 +6161,18 @@ pub mod stream {
     }
 
     impl<'a> u32_<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> u32_<'a> { u32_ { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<u32_<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(u32_ { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> u32_<'a> { u32_ { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -6198,8 +6288,18 @@ pub mod stream {
     }
 
     impl<'a> bool_<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> bool_<'a> { bool_ { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<bool_<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(bool_ { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> bool_<'a> { bool_ { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -6315,8 +6415,18 @@ pub mod stream {
     }
 
     impl<'a> f64_<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> f64_<'a> { f64_ { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<f64_<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(f64_ { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> f64_<'a> { f64_ { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -6432,8 +6542,18 @@ pub mod stream {
     }
 
     impl<'a> usize_<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> usize_<'a> { usize_ { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<usize_<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(usize_ { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> usize_<'a> { usize_ { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -6595,8 +6715,18 @@ pub mod stream {
     }
 
     impl<'a> U8<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> U8<'a> { U8 { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<U8<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(U8 { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> U8<'a> { U8 { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -6615,7 +6745,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_nested(crate::collide::stream::collide::u8::In::new(rp_p))? {
+            match rp_vis.on_nested(crate::collide::stream::collide::u8::In::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -6649,7 +6779,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_nested(crate::collide::stream::collide::u8::In::new(rp_p))? {
+              match rp_vis.on_nested(crate::collide::stream::collide::u8::In::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -6713,8 +6843,18 @@ pub mod stream {
       }
 
       impl<'a> In<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> In<'a> { In { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<In<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(In { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> In<'a> { In { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -6831,8 +6971,18 @@ pub mod stream {
     }
 
     impl<'a> U32<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> U32<'a> { U32 { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<U32<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(U32 { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> U32<'a> { U32 { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -6851,7 +7001,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_nested(crate::collide::stream::collide::u32::In::new(rp_p))? {
+            match rp_vis.on_nested(crate::collide::stream::collide::u32::In::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -6885,7 +7035,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_nested(crate::collide::stream::collide::u32::In::new(rp_p))? {
+              match rp_vis.on_nested(crate::collide::stream::collide::u32::In::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -6949,8 +7099,18 @@ pub mod stream {
       }
 
       impl<'a> In<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> In<'a> { In { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<In<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(In { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> In<'a> { In { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -7067,8 +7227,18 @@ pub mod stream {
     }
 
     impl<'a> Bool<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Bool<'a> { Bool { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Bool<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Bool { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Bool<'a> { Bool { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -7087,7 +7257,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_nested(crate::collide::stream::collide::bool::In::new(rp_p))? {
+            match rp_vis.on_nested(crate::collide::stream::collide::bool::In::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -7121,7 +7291,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_nested(crate::collide::stream::collide::bool::In::new(rp_p))? {
+              match rp_vis.on_nested(crate::collide::stream::collide::bool::In::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -7185,8 +7355,18 @@ pub mod stream {
       }
 
       impl<'a> In<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> In<'a> { In { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<In<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(In { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> In<'a> { In { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -7312,7 +7492,7 @@ pub mod stream {
       fn on_g(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_h: bool = false;
       #[inline(always)]
-      fn on_h(&mut self, _rp_v: &'a [u8]) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_h(&mut self, _rp_v: ::rapidproto::ProtoBytes<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_i: bool = false;
       #[inline(always)]
       fn on_i(&mut self, _rp_v: f32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -7333,8 +7513,18 @@ pub mod stream {
     }
 
     impl<'a> Prims<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Prims<'a> { Prims { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Prims<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Prims { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Prims<'a> { Prims { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -7353,7 +7543,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_a(crate::collide::stream::collide::u8_::new(rp_p))? {
+            match rp_vis.on_a(crate::collide::stream::collide::u8_::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -7372,7 +7562,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_b(crate::collide::stream::collide::u32_::new(rp_p))? {
+            match rp_vis.on_b(crate::collide::stream::collide::u32_::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -7410,7 +7600,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_d(crate::collide::stream::collide::f64_::new(rp_p))? {
+            match rp_vis.on_d(crate::collide::stream::collide::f64_::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -7429,7 +7619,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_e(crate::collide::stream::collide::usize_::new(rp_p))? {
+            match rp_vis.on_e(crate::collide::stream::collide::usize_::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -7486,7 +7676,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_h(rp_p)? {
+            match rp_vis.on_h(::rapidproto::ProtoBytes::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -7630,7 +7820,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_a(crate::collide::stream::collide::u8_::new(rp_p))? {
+              match rp_vis.on_a(crate::collide::stream::collide::u8_::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -7641,7 +7831,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_b(crate::collide::stream::collide::u32_::new(rp_p))? {
+              match rp_vis.on_b(crate::collide::stream::collide::u32_::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -7663,7 +7853,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_d(crate::collide::stream::collide::f64_::new(rp_p))? {
+              match rp_vis.on_d(crate::collide::stream::collide::f64_::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -7674,7 +7864,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_e(crate::collide::stream::collide::usize_::new(rp_p))? {
+              match rp_vis.on_e(crate::collide::stream::collide::usize_::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -7707,7 +7897,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_h(rp_p)? {
+              match rp_vis.on_h(::rapidproto::ProtoBytes::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -7821,7 +8011,7 @@ pub mod stream {
       (@f [$($a:tt)*] e => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::prims_stream!(@f [$($a)* WANT_e on_e: $crate::collide::stream::collide::usize_<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] f => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::prims_stream!(@f [$($a)* WANT_f on_f: $crate::collide::common::collide::i32_ = $c;] $($r)*) };
       (@f [$($a:tt)*] g => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::prims_stream!(@f [$($a)* WANT_g on_g: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] h => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::prims_stream!(@f [$($a)* WANT_h on_h: &'rp_a [::core::primitive::u8] = $c;] $($r)*) };
+      (@f [$($a:tt)*] h => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::prims_stream!(@f [$($a)* WANT_h on_h: $crate::collide::rp_rt::ProtoBytes<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] i => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::prims_stream!(@f [$($a)* WANT_i on_i: ::core::primitive::f32 = $c;] $($r)*) };
       (@f [$($a:tt)*] j => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::prims_stream!(@f [$($a)* WANT_j on_j: ::core::primitive::u32 = $c;] $($r)*) };
       (@f [$($a:tt)*] k => $c:expr, $($r:tt)*) => { $crate::collide::stream::collide::prims_stream!(@f [$($a)* WANT_k on_k: ::core::primitive::u32 = $c;] $($r)*) };
@@ -7850,8 +8040,18 @@ pub mod stream {
     }
 
     impl<'a> Node<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Node<'a> { Node { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Node<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Node { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Node<'a> { Node { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -7970,8 +8170,18 @@ pub mod stream {
     }
 
     impl<'a> Tree<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Tree<'a> { Tree { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Tree<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Tree { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Tree<'a> { Tree { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -7990,7 +8200,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_node(crate::collide::stream::collide::tree::Node::new(rp_p))? {
+            match rp_vis.on_node(crate::collide::stream::collide::tree::Node::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -8009,7 +8219,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_node_visitor(crate::collide::stream::collide::tree::NodeVisitor::new(rp_p))? {
+            match rp_vis.on_node_visitor(crate::collide::stream::collide::tree::NodeVisitor::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -8043,7 +8253,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_node(crate::collide::stream::collide::tree::Node::new(rp_p))? {
+              match rp_vis.on_node(crate::collide::stream::collide::tree::Node::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -8054,7 +8264,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_node_visitor(crate::collide::stream::collide::tree::NodeVisitor::new(rp_p))? {
+              match rp_vis.on_node_visitor(crate::collide::stream::collide::tree::NodeVisitor::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -8119,8 +8329,18 @@ pub mod stream {
       }
 
       impl<'a> Node<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> Node<'a> { Node { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Node<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(Node { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Node<'a> { Node { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -8236,8 +8456,18 @@ pub mod stream {
       }
 
       impl<'a> NodeVisitor<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> NodeVisitor<'a> { NodeVisitor { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<NodeVisitor<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(NodeVisitor { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> NodeVisitor<'a> { NodeVisitor { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -8357,8 +8587,18 @@ pub mod stream {
     }
 
     impl<'a> V<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> V<'a> { V { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<V<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(V { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> V<'a> { V { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -8377,7 +8617,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_child(crate::collide::stream::collide::V::new(rp_p))? {
+            match rp_vis.on_child(crate::collide::stream::collide::V::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -8430,7 +8670,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_child(crate::collide::stream::collide::V::new(rp_p))? {
+              match rp_vis.on_child(crate::collide::stream::collide::V::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -8505,8 +8745,18 @@ pub mod stream {
     }
 
     impl<'a> Type<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Type<'a> { Type { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Type<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Type { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Type<'a> { Type { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -8525,7 +8775,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_x(crate::collide::stream::collide::r#type::X::new(rp_p))? {
+            match rp_vis.on_x(crate::collide::stream::collide::r#type::X::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -8559,7 +8809,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_x(crate::collide::stream::collide::r#type::X::new(rp_p))? {
+              match rp_vis.on_x(crate::collide::stream::collide::r#type::X::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -8623,8 +8873,18 @@ pub mod stream {
       }
 
       impl<'a> X<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> X<'a> { X { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<X<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(X { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> X<'a> { X { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -8741,8 +9001,18 @@ pub mod stream {
     }
 
     impl<'a> type_<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> type_<'a> { type_ { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<type_<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(type_ { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> type_<'a> { type_ { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -8858,8 +9128,18 @@ pub mod stream {
     }
 
     impl<'a> type__<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> type__<'a> { type__ { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<type__<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(type__ { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> type__<'a> { type__ { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -9038,8 +9318,18 @@ pub mod stream {
     }
 
     impl<'a> Holder<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Holder<'a> { Holder { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Holder<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Holder { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Holder<'a> { Holder { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -9248,7 +9538,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_search(crate::collide::stream::collide::SearchResponse::new(rp_p))? {
+            match rp_vis.on_search(crate::collide::stream::collide::SearchResponse::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -9267,7 +9557,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_uses_fixed(crate::collide::stream::collide::UsesFixed::new(rp_p))? {
+            match rp_vis.on_uses_fixed(crate::collide::stream::collide::UsesFixed::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -9286,7 +9576,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_default(crate::collide::stream::collide::Default::new(rp_p))? {
+            match rp_vis.on_default(crate::collide::stream::collide::Default::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -9305,7 +9595,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_response(crate::collide::stream::collide::Response::new(rp_p))? {
+            match rp_vis.on_response(crate::collide::stream::collide::Response::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -9324,7 +9614,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_prims(crate::collide::stream::collide::Prims::new(rp_p))? {
+            match rp_vis.on_prims(crate::collide::stream::collide::Prims::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -9343,7 +9633,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_v(crate::collide::stream::collide::V::new(rp_p))? {
+            match rp_vis.on_v(crate::collide::stream::collide::V::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -9362,7 +9652,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_type_(crate::collide::stream::collide::Type::new(rp_p))? {
+            match rp_vis.on_type_(crate::collide::stream::collide::Type::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -9381,7 +9671,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_under(crate::collide::stream::collide::type__::new(rp_p))? {
+            match rp_vis.on_under(crate::collide::stream::collide::type__::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -9400,7 +9690,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_node(crate::collide::stream::collide::Node::new(rp_p))? {
+            match rp_vis.on_node(crate::collide::stream::collide::Node::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -9419,7 +9709,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_tree(crate::collide::stream::collide::Tree::new(rp_p))? {
+            match rp_vis.on_tree(crate::collide::stream::collide::Tree::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -9438,7 +9728,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_opt(crate::collide::stream::collide::Option::Opt::new(rp_p))? {
+            match rp_vis.on_opt(crate::collide::stream::collide::Option::Opt::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -9457,7 +9747,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_sub(crate::collide::stream::collide::NodeVisitor::X::new(rp_p))? {
+            match rp_vis.on_sub(crate::collide::stream::collide::NodeVisitor::X::rp_new(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -9601,7 +9891,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_search(crate::collide::stream::collide::SearchResponse::new(rp_p))? {
+              match rp_vis.on_search(crate::collide::stream::collide::SearchResponse::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -9612,7 +9902,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_uses_fixed(crate::collide::stream::collide::UsesFixed::new(rp_p))? {
+              match rp_vis.on_uses_fixed(crate::collide::stream::collide::UsesFixed::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -9623,7 +9913,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_default(crate::collide::stream::collide::Default::new(rp_p))? {
+              match rp_vis.on_default(crate::collide::stream::collide::Default::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -9634,7 +9924,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_response(crate::collide::stream::collide::Response::new(rp_p))? {
+              match rp_vis.on_response(crate::collide::stream::collide::Response::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -9645,7 +9935,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_prims(crate::collide::stream::collide::Prims::new(rp_p))? {
+              match rp_vis.on_prims(crate::collide::stream::collide::Prims::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -9656,7 +9946,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_v(crate::collide::stream::collide::V::new(rp_p))? {
+              match rp_vis.on_v(crate::collide::stream::collide::V::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -9667,7 +9957,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_type_(crate::collide::stream::collide::Type::new(rp_p))? {
+              match rp_vis.on_type_(crate::collide::stream::collide::Type::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -9678,7 +9968,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_under(crate::collide::stream::collide::type__::new(rp_p))? {
+              match rp_vis.on_under(crate::collide::stream::collide::type__::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -9689,7 +9979,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_node(crate::collide::stream::collide::Node::new(rp_p))? {
+              match rp_vis.on_node(crate::collide::stream::collide::Node::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -9700,7 +9990,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_tree(crate::collide::stream::collide::Tree::new(rp_p))? {
+              match rp_vis.on_tree(crate::collide::stream::collide::Tree::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -9711,7 +10001,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_opt(crate::collide::stream::collide::Option::Opt::new(rp_p))? {
+              match rp_vis.on_opt(crate::collide::stream::collide::Option::Opt::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -9722,7 +10012,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_sub(crate::collide::stream::collide::NodeVisitor::X::new(rp_p))? {
+              match rp_vis.on_sub(crate::collide::stream::collide::NodeVisitor::X::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -9807,8 +10097,18 @@ pub mod stream {
       }
 
       impl<'a> X<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> X<'a> { X { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<X<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(X { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> X<'a> { X { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -9926,8 +10226,18 @@ pub mod stream {
       }
 
       impl<'a> Opt<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> Opt<'a> { Opt { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Opt<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(Opt { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Opt<'a> { Opt { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -10043,8 +10353,18 @@ pub mod stream {
       }
 
       impl<'a> U8<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> U8<'a> { U8 { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<U8<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(U8 { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> U8<'a> { U8 { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -10063,7 +10383,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_nested(crate::collide::stream::collide::Option::u8::In::new(rp_p))? {
+              match rp_vis.on_nested(crate::collide::stream::collide::Option::u8::In::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -10097,7 +10417,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_nested(crate::collide::stream::collide::Option::u8::In::new(rp_p))? {
+                match rp_vis.on_nested(crate::collide::stream::collide::Option::u8::In::rp_new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -10161,8 +10481,18 @@ pub mod stream {
         }
 
         impl<'a> In<'a> {
+          /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+          /// above `u32::MAX` bytes.
           #[inline(always)]
-          pub fn new(rp_input: &'a [u8]) -> In<'a> { In { rp_input } }
+          pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<In<'a>, ::rapidproto::DecodeError> {
+            if rp_input.len() > u32::MAX as usize {
+              return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+            }
+            ::core::result::Result::Ok(In { rp_input })
+          }
+
+          #[inline(always)]
+          pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> In<'a> { In { rp_input } }
 
           /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
           /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -10279,8 +10609,18 @@ pub mod stream {
       }
 
       impl<'a> U32<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> U32<'a> { U32 { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<U32<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(U32 { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> U32<'a> { U32 { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -10299,7 +10639,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_nested(crate::collide::stream::collide::Option::u32::In::new(rp_p))? {
+              match rp_vis.on_nested(crate::collide::stream::collide::Option::u32::In::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -10333,7 +10673,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_nested(crate::collide::stream::collide::Option::u32::In::new(rp_p))? {
+                match rp_vis.on_nested(crate::collide::stream::collide::Option::u32::In::rp_new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -10397,8 +10737,18 @@ pub mod stream {
         }
 
         impl<'a> In<'a> {
+          /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+          /// above `u32::MAX` bytes.
           #[inline(always)]
-          pub fn new(rp_input: &'a [u8]) -> In<'a> { In { rp_input } }
+          pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<In<'a>, ::rapidproto::DecodeError> {
+            if rp_input.len() > u32::MAX as usize {
+              return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+            }
+            ::core::result::Result::Ok(In { rp_input })
+          }
+
+          #[inline(always)]
+          pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> In<'a> { In { rp_input } }
 
           /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
           /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -10515,8 +10865,18 @@ pub mod stream {
       }
 
       impl<'a> Bool<'a> {
+        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+        /// above `u32::MAX` bytes.
         #[inline(always)]
-        pub fn new(rp_input: &'a [u8]) -> Bool<'a> { Bool { rp_input } }
+        pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Bool<'a>, ::rapidproto::DecodeError> {
+          if rp_input.len() > u32::MAX as usize {
+            return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+          }
+          ::core::result::Result::Ok(Bool { rp_input })
+        }
+
+        #[inline(always)]
+        pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> Bool<'a> { Bool { rp_input } }
 
         /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
         /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -10535,7 +10895,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_nested(crate::collide::stream::collide::Option::bool::In::new(rp_p))? {
+              match rp_vis.on_nested(crate::collide::stream::collide::Option::bool::In::rp_new(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -10569,7 +10929,7 @@ pub mod stream {
                   ::core::result::Result::Ok(r) => r,
                   ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
                 };
-                match rp_vis.on_nested(crate::collide::stream::collide::Option::bool::In::new(rp_p))? {
+                match rp_vis.on_nested(crate::collide::stream::collide::Option::bool::In::rp_new(rp_p))? {
                   ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                   ::rapidproto::stream::Flow::Continue => {}
                 }
@@ -10633,8 +10993,18 @@ pub mod stream {
         }
 
         impl<'a> In<'a> {
+          /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+          /// above `u32::MAX` bytes.
           #[inline(always)]
-          pub fn new(rp_input: &'a [u8]) -> In<'a> { In { rp_input } }
+          pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<In<'a>, ::rapidproto::DecodeError> {
+            if rp_input.len() > u32::MAX as usize {
+              return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+            }
+            ::core::result::Result::Ok(In { rp_input })
+          }
+
+          #[inline(always)]
+          pub(in crate::collide::stream) fn rp_new(rp_input: &'a [u8]) -> In<'a> { In { rp_input } }
 
           /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
           /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead

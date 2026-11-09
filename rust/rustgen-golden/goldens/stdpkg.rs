@@ -19,7 +19,7 @@ pub mod arena {
   pub mod std {
     pub struct Types<'a> {
       n: i32,
-      s: ::rapidproto::PackedStr<'a>,
+      s: ::rapidproto::ProtoStr<'a>,
       many: ::rapidproto::PackedSlice<'a, i64>,
     }
 
@@ -27,8 +27,8 @@ pub mod arena {
       pub fn n(&self) -> i32 {
         self.n
       }
-      pub fn s(&self) -> &'a ::rapidproto::ProtoStr {
-        self.s.get()
+      pub fn s(&self) -> ::rapidproto::ProtoStr<'a> {
+        self.s
       }
       pub fn many(&self) -> &'a [i64] {
         self.many.as_slice()
@@ -179,7 +179,7 @@ pub mod arena {
         }
         ::core::result::Result::Ok(rp_out.write(Types {
           n: rp_field_1,
-          s: ::rapidproto::PackedStr::new(rp_field_2),
+          s: ::rapidproto::ProtoStr::new_truncating(rp_field_2),
           many: ::rapidproto::PackedSlice::new(rp_acc_3.into_slice()),
         }))
       }
@@ -204,7 +204,7 @@ pub mod stream {
       fn on_n(&mut self, _rp_v: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_s: bool = false;
       #[inline(always)]
-      fn on_s(&mut self, _rp_v: &'a ::rapidproto::ProtoStr) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      fn on_s(&mut self, _rp_v: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       const WANT_many: bool = false;
       #[inline(always)]
       fn on_many(&mut self, _rp_v: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
@@ -219,8 +219,18 @@ pub mod stream {
     }
 
     impl<'a> Types<'a> {
+      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
+      /// above `u32::MAX` bytes.
       #[inline(always)]
-      pub fn new(rp_input: &'a [u8]) -> Types<'a> { Types { rp_input } }
+      pub fn new(rp_input: &'a [u8]) -> ::core::result::Result<Types<'a>, ::rapidproto::DecodeError> {
+        if rp_input.len() > u32::MAX as usize {
+          return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
+        }
+        ::core::result::Result::Ok(Types { rp_input })
+      }
+
+      #[inline(always)]
+      pub(in crate::stdpkg::stream) fn rp_new(rp_input: &'a [u8]) -> Types<'a> { Types { rp_input } }
 
       /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
       /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
@@ -258,7 +268,7 @@ pub mod stream {
               ::core::result::Result::Ok(r) => r,
               ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
             };
-            match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+            match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
               ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
               ::rapidproto::stream::Flow::Continue => {}
             }
@@ -349,7 +359,7 @@ pub mod stream {
                 ::core::result::Result::Ok(r) => r,
                 ::core::result::Result::Err(k) => return ::core::result::Result::Err(::rapidproto::DecodeError::new(k, rp_body.len() - rp_rest.len())),
               };
-              match rp_vis.on_s(::rapidproto::ProtoStr::new(rp_p))? {
+              match rp_vis.on_s(::rapidproto::ProtoStr::new_truncating(rp_p))? {
                 ::rapidproto::stream::Flow::Stop => return ::core::result::Result::Ok(::rapidproto::stream::Flow::Stop),
                 ::rapidproto::stream::Flow::Continue => {}
               }
@@ -417,7 +427,7 @@ pub mod stream {
       ($($f:ident => $c:expr),* $(,)?) => { $crate::stdpkg::stream::std::types_stream!(@f [[]] $($f => $c,)*) };
       ($s:expr; {$($f:ident => $c:expr),* $(,)?}) => { $crate::stdpkg::stream::std::types_stream!(@f [[$s]] $($f => $c,)*) };
       (@f [$($a:tt)*] n => $c:expr, $($r:tt)*) => { $crate::stdpkg::stream::std::types_stream!(@f [$($a)* WANT_n on_n: ::core::primitive::i32 = $c;] $($r)*) };
-      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::stdpkg::stream::std::types_stream!(@f [$($a)* WANT_s on_s: &'rp_a $crate::stdpkg::rp_rt::ProtoStr = $c;] $($r)*) };
+      (@f [$($a:tt)*] s => $c:expr, $($r:tt)*) => { $crate::stdpkg::stream::std::types_stream!(@f [$($a)* WANT_s on_s: $crate::stdpkg::rp_rt::ProtoStr<'rp_a> = $c;] $($r)*) };
       (@f [$($a:tt)*] many => $c:expr, $($r:tt)*) => { $crate::stdpkg::stream::std::types_stream!(@f [$($a)* WANT_many on_many: ::core::primitive::i64 = $c;] $($r)*) };
       (@f [$($a:tt)*] unknown => $c:expr, $($r:tt)*) => { $crate::stdpkg::stream::std::types_stream!(@f [$($a)* WANT_UNKNOWN on_unknown: $crate::stdpkg::rp_rt::stream::UnknownField<'rp_a> = $c;] $($r)*) };
       (@f $a:tt $bad:ident => $c:expr, $($r:tt)*) => { ::core::compile_error!(::core::concat!("unknown field `", ::core::stringify!($bad), "` for this message; selectable fields: n, s, many, unknown")) };

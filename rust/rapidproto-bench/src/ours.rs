@@ -65,6 +65,7 @@ fn stream_dataset(b: &[u8]) -> u64 {
     let add = |s: &mut u64, v: u64| *s = s.wrapping_add(v);
     let mut acc = Acc::default();
     Dataset::new(b)
+        .unwrap()
         .decode(dataset_stream!(&mut acc; {
             name => |a, v| a.name_len = v.len() as u64,
             version => |a, v| a.version = v as u64,

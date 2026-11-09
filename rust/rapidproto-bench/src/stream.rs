@@ -85,7 +85,7 @@ fn arms(generated: fn(&[u8]) -> u64, wire: fn(&[u8]) -> u64) -> Vec<Arm> {
 fn gen_i32(b: &[u8]) -> u64 {
     use rustgen_golden::proto2::stream::p2::*;
     let mut s = 0u64;
-    let _ = Scalars::new(b).decode(scalars_stream! {
+    let _ = Scalars::new(b).unwrap().decode(scalars_stream! {
         i32 => |v| s = s.wrapping_add(u64::from(v as u32)),
     });
     s
@@ -94,14 +94,16 @@ fn gen_i32(b: &[u8]) -> u64 {
 fn gen_s64(b: &[u8]) -> u64 {
     use rustgen_golden::proto2::stream::p2::*;
     let mut s = 0u64;
-    let _ = Scalars::new(b).decode(scalars_stream! { s64 => |v| s = s.wrapping_add(v as u64) });
+    let _ = Scalars::new(b)
+        .unwrap()
+        .decode(scalars_stream! { s64 => |v| s = s.wrapping_add(v as u64) });
     s
 }
 
 fn gen_fl(b: &[u8]) -> u64 {
     use rustgen_golden::proto2::stream::p2::*;
     let mut s = 0u64;
-    let _ = Scalars::new(b).decode(scalars_stream! {
+    let _ = Scalars::new(b).unwrap().decode(scalars_stream! {
         fl => |v| s = s.wrapping_add(u64::from(v.to_bits())),
     });
     s
@@ -110,21 +112,25 @@ fn gen_fl(b: &[u8]) -> u64 {
 fn gen_db(b: &[u8]) -> u64 {
     use rustgen_golden::proto2::stream::p2::*;
     let mut s = 0u64;
-    let _ = Scalars::new(b).decode(scalars_stream! { db => |v| s = s.wrapping_add(v.to_bits()) });
+    let _ = Scalars::new(b)
+        .unwrap()
+        .decode(scalars_stream! { db => |v| s = s.wrapping_add(v.to_bits()) });
     s
 }
 
 fn gen_s(b: &[u8]) -> u64 {
     use rustgen_golden::proto2::stream::p2::*;
     let mut s = 0u64;
-    let _ = Scalars::new(b).decode(scalars_stream! { s => |v| s = s.wrapping_add(v.len() as u64) });
+    let _ = Scalars::new(b)
+        .unwrap()
+        .decode(scalars_stream! { s => |v| s = s.wrapping_add(v.len() as u64) });
     s
 }
 
 fn gen_packed(b: &[u8]) -> u64 {
     use rustgen_golden::proto2::stream::p2::*;
     let mut s = 0u64;
-    let _ = Scalars::new(b).decode(scalars_stream! {
+    let _ = Scalars::new(b).unwrap().decode(scalars_stream! {
         packed_nums => |v| s = s.wrapping_add(u64::from(v as u32)),
     });
     s
@@ -133,7 +139,7 @@ fn gen_packed(b: &[u8]) -> u64 {
 fn gen_expanded(b: &[u8]) -> u64 {
     use rustgen_golden::proto2::stream::p2::*;
     let mut s = 0u64;
-    let _ = Scalars::new(b).decode(scalars_stream! {
+    let _ = Scalars::new(b).unwrap().decode(scalars_stream! {
         expanded_nums => |v| s = s.wrapping_add(u64::from(v as u32)),
     });
     s
@@ -142,14 +148,16 @@ fn gen_expanded(b: &[u8]) -> u64 {
 fn gen_rv(b: &[u8]) -> u64 {
     use rustgen_golden::bench::stream::bench::*;
     let mut s = 0u64;
-    let _ = Big::new(b).decode(big_stream! { numbers => |v| s = s.wrapping_add(v as u64) });
+    let _ = Big::new(b)
+        .unwrap()
+        .decode(big_stream! { numbers => |v| s = s.wrapping_add(v as u64) });
     s
 }
 
 fn gen_mixed(b: &[u8]) -> u64 {
     use rustgen_golden::proto2::stream::p2::*;
     let mut s = 0u64;
-    let _ = Scalars::new(b).decode(scalars_stream!(&mut s; {
+    let _ = Scalars::new(b).unwrap().decode(scalars_stream!(&mut s; {
         i32 => |s, v| *s = s.wrapping_add(u64::from(v as u32)),
         s64 => |s, v| *s = s.wrapping_add(v as u64),
         db => |s, v| *s = s.wrapping_add(v.to_bits()),
@@ -162,13 +170,15 @@ fn gen_nested(b: &[u8]) -> u64 {
     use rustgen_golden::proto2::stream::p2::container::*;
     use rustgen_golden::proto2::stream::p2::*;
     let mut s = 0u64;
-    let _ = Container::new(b).decode(container_stream!(&mut s; {
-        items => |s, sub| {
-            let _ = sub.decode(nested_stream!(&mut *s; {
-                x => |s, v| *s = s.wrapping_add(u64::from(v as u32)),
-            }));
-        },
-    }));
+    let _ = Container::new(b)
+        .unwrap()
+        .decode(container_stream!(&mut s; {
+            items => |s, sub| {
+                let _ = sub.decode(nested_stream!(&mut *s; {
+                    x => |s, v| *s = s.wrapping_add(u64::from(v as u32)),
+                }));
+            },
+        }));
     s
 }
 
@@ -176,13 +186,15 @@ fn gen_groups(b: &[u8]) -> u64 {
     use rustgen_golden::proto2::stream::p2::with_group::*;
     use rustgen_golden::proto2::stream::p2::*;
     let mut s = 0u64;
-    let _ = WithGroup::new(b).decode(with_group_stream!(&mut s; {
-        mygroup => |s, sub| {
-            let _ = sub.decode(my_group_stream!(&mut *s; {
-                a => |s, v| *s = s.wrapping_add(u64::from(v as u32)),
-            }));
-        },
-    }));
+    let _ = WithGroup::new(b)
+        .unwrap()
+        .decode(with_group_stream!(&mut s; {
+            mygroup => |s, sub| {
+                let _ = sub.decode(my_group_stream!(&mut *s; {
+                    a => |s, v| *s = s.wrapping_add(u64::from(v as u32)),
+                }));
+            },
+        }));
     s
 }
 
@@ -191,32 +203,34 @@ fn gen_groups(b: &[u8]) -> u64 {
 fn gen_records_dense(b: &[u8]) -> u64 {
     use rustgen_golden::bench::stream::bench::*;
     let mut s = 0u64;
-    let _ = RecordSet::new(b).decode(record_set_stream!(&mut s; {
-        records => |s, r| {
-            let _ = r.decode(record_stream!(&mut *s; {
-                f1 => |s, v| *s = s.wrapping_add(v as u64),
-                f2 => |s, v| *s = s.wrapping_add(v as u64),
-                f3 => |s, v| *s = s.wrapping_add(v as u64),
-                f4 => |s, v| *s = s.wrapping_add(v as u64),
-                f5 => |s, v| *s = s.wrapping_add(u64::from(v)),
-                f6 => |s, v| *s = s.wrapping_add(v as u64),
-                f7 => |s, v| *s = s.wrapping_add(u64::from(v)),
-                f8 => |s, v| *s = s.wrapping_add(v),
-                f9 => |s, v| *s = s.wrapping_add(v as u64),
-                f10 => |s, v| *s = s.wrapping_add(v as u64),
-                f11 => |s, v| *s = s.wrapping_add(v as u64),
-                f12 => |s, v| *s = s.wrapping_add(v as u64),
-                f13 => |s, v| *s = s.wrapping_add(v as u64),
-                f14 => |s, v| *s = s.wrapping_add(v as u64),
-                f15 => |s, v| *s = s.wrapping_add(v as u64),
-                s1 => |s, sub| sample_dense(s, sub),
-                s2 => |s, sub| sample_dense(s, sub),
-                f18 => |s, v| *s = s.wrapping_add(v as u64),
-                f19 => |s, v| *s = s.wrapping_add(v as u64),
-                f20 => |s, v| *s = s.wrapping_add(v as u64),
-            }));
-        },
-    }));
+    let _ = RecordSet::new(b)
+        .unwrap()
+        .decode(record_set_stream!(&mut s; {
+            records => |s, r| {
+                let _ = r.decode(record_stream!(&mut *s; {
+                    f1 => |s, v| *s = s.wrapping_add(v as u64),
+                    f2 => |s, v| *s = s.wrapping_add(v as u64),
+                    f3 => |s, v| *s = s.wrapping_add(v as u64),
+                    f4 => |s, v| *s = s.wrapping_add(v as u64),
+                    f5 => |s, v| *s = s.wrapping_add(u64::from(v)),
+                    f6 => |s, v| *s = s.wrapping_add(v as u64),
+                    f7 => |s, v| *s = s.wrapping_add(u64::from(v)),
+                    f8 => |s, v| *s = s.wrapping_add(v),
+                    f9 => |s, v| *s = s.wrapping_add(v as u64),
+                    f10 => |s, v| *s = s.wrapping_add(v as u64),
+                    f11 => |s, v| *s = s.wrapping_add(v as u64),
+                    f12 => |s, v| *s = s.wrapping_add(v as u64),
+                    f13 => |s, v| *s = s.wrapping_add(v as u64),
+                    f14 => |s, v| *s = s.wrapping_add(v as u64),
+                    f15 => |s, v| *s = s.wrapping_add(v as u64),
+                    s1 => |s, sub| sample_dense(s, sub),
+                    s2 => |s, sub| sample_dense(s, sub),
+                    f18 => |s, v| *s = s.wrapping_add(v as u64),
+                    f19 => |s, v| *s = s.wrapping_add(v as u64),
+                    f20 => |s, v| *s = s.wrapping_add(v as u64),
+                }));
+            },
+        }));
     s
 }
 
@@ -237,15 +251,17 @@ fn sample_dense(s: &mut u64, sub: rustgen_golden::bench::stream::bench::Sample<'
 fn gen_records_sparse(b: &[u8]) -> u64 {
     use rustgen_golden::bench::stream::bench::*;
     let mut s = 0u64;
-    let _ = RecordSet::new(b).decode(record_set_stream!(&mut s; {
-        records => |s, r| {
-            let _ = r.decode(record_stream!(&mut *s; {
-                f1 => |s, v| *s = s.wrapping_add(v as u64),
-                f10 => |s, v| *s = s.wrapping_add(v as u64),
-                f20 => |s, v| *s = s.wrapping_add(v as u64),
-            }));
-        },
-    }));
+    let _ = RecordSet::new(b)
+        .unwrap()
+        .decode(record_set_stream!(&mut s; {
+            records => |s, r| {
+                let _ = r.decode(record_stream!(&mut *s; {
+                    f1 => |s, v| *s = s.wrapping_add(v as u64),
+                    f10 => |s, v| *s = s.wrapping_add(v as u64),
+                    f20 => |s, v| *s = s.wrapping_add(v as u64),
+                }));
+            },
+        }));
     s
 }
 
