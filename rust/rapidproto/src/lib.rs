@@ -24,9 +24,9 @@
 //! always appear. `repeated` and `map` fields appear when they are not empty, and a `oneof` appears as
 //! its set member. A field a decode profile drops does not appear, and a `raw` field shows its bytes.
 //!
-//! An enum prints its value's name, or `Unknown(7)` for a number the schema does not name. `bytes`
-//! print as a byte string, such as `b"\xff"`, and a `string` with invalid UTF-8 as
-//! `ProtoStr(b"\xff")`. A stream handle prints only its length.
+//! An enum prints its `classify()` variant, such as `Celsius`, or `Unknown(7)` for a number the schema
+//! does not name. `bytes` print as a byte string, such as `b"\xff"`, and a `string` with invalid UTF-8
+//! as `ProtoStr(b"\xff")`. A stream handle prints only its length.
 //!
 //! Decoded messages can also implement `serde::Serialize`. Ask for it with `rapidproto-build`'s
 //! `Config::serde`, and enable this crate's `serde` feature, which is off by default. RapidProto only

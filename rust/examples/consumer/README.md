@@ -5,7 +5,7 @@ A minimal crate that decodes protobuf with RapidProto. [`build.rs`](build.rs) tu
 emits **both** models), and [`src/main.rs`](src/main.rs) decodes the same message with each:
 
 - **arena** — materialize the message, then read borrowed accessors (a string, a nested message, an
-  enum, a repeated field), and handle invalid input;
+  enum, a repeated field), print it with `Debug`, and handle invalid input;
 - **streaming** — visit each field with a callback, nothing materialized, parsing into a struct via the
   macro's shared-state form; the nested `origin` is handled by the **mid-decode hybrid** — the stream
   hands it over as a reader handle, and `bytes()` feeds the arena decoder to materialize just it.

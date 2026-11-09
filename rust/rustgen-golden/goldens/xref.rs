@@ -336,7 +336,6 @@ pub mod arena {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
-
     impl<'a> ::core::fmt::Debug for Nested<'a> {
       fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         let mut rp_s = rp_f.debug_struct("Nested");
@@ -1480,7 +1479,6 @@ pub mod arena {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
-
     impl<'a> ::core::fmt::Debug for FwdMsg<'a> {
       fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         let mut rp_s = rp_f.debug_struct("FwdMsg");
@@ -1985,7 +1983,6 @@ pub mod arena {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
 
-
     impl<'a> ::core::fmt::Debug for CousinA<'a> {
       fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         let mut rp_s = rp_f.debug_struct("CousinA");
@@ -2193,7 +2190,6 @@ pub mod arena {
     pub struct CousinB<'a> {
       _marker: ::core::marker::PhantomData<&'a ()>,
     }
-
 
     impl<'a> ::core::fmt::Debug for CousinB<'a> {
       fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {

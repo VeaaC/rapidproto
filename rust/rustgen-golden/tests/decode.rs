@@ -410,7 +410,7 @@ fn oneof_last_wins_and_unset() {
     let m = Msg::decode(&buf, &arena).unwrap();
     match m.pick() {
         Some(Pick::B(s)) => assert_eq!(s.as_bytes(), b"txt"),
-        other => panic!("expected B, got {}", other.is_some()),
+        other => panic!("expected B, got {other:?}"),
     }
     // c (15, bool) and d (16, double) variants.
     let mut cbuf = Vec::new();
@@ -424,14 +424,14 @@ fn oneof_last_wins_and_unset() {
     dbuf.extend_from_slice(&2.5f64.to_bits().to_le_bytes());
     match Msg::decode(&dbuf, &arena).unwrap().pick() {
         Some(Pick::D(x)) => assert_eq!(*x, 2.5),
-        _ => panic!("expected D"),
+        other => panic!("expected D, got {other:?}"),
     }
     // e (23, bytes): held as a `ProtoBytes`.
     let mut ebuf = Vec::new();
     put_len(&mut ebuf, 23, b"\x00\xff");
     match Msg::decode(&ebuf, &arena).unwrap().pick() {
         Some(Pick::E(e)) => assert_eq!(e, b"\x00\xff"),
-        _ => panic!("expected E"),
+        other => panic!("expected E, got {other:?}"),
     }
     // unset.
     assert!(Msg::decode(&[], &arena).unwrap().pick().is_none());
@@ -465,7 +465,7 @@ fn message_valued_map_oneof_and_repeated_message() {
     assert_eq!(c.by_id().get(&7), Some(&Color::RED));
     match c.choice() {
         Some(Choice::Cn(n)) => assert_eq!(n.x(), Some(42)),
-        _ => panic!("expected Cn"),
+        other => panic!("expected Cn, got {other:?}"),
     }
     assert_eq!(c.items().len(), 2);
     assert_eq!(c.items()[0].x(), Some(1));
@@ -593,7 +593,7 @@ fn oneof_repeated_message_member_is_rejected() {
     let c = Container::decode(&buf2, &arena).unwrap();
     match c.choice() {
         Some(Choice::Cn(n)) => assert_eq!(n.x(), None), // the fresh empty cn
-        other => panic!("expected a fresh empty Cn, got present={}", other.is_some()),
+        other => panic!("expected a fresh empty Cn, got {other:?}"),
     }
 
     // A scalar oneof member repeating is plain last-wins (never rejected).
@@ -886,7 +886,7 @@ fn oneof_group_member_decodes() {
             assert_eq!(g.x(), Some(5));
             assert_eq!(g.s().unwrap().to_str().unwrap(), "hi");
         }
-        _ => panic!("expected the G oneof member"),
+        other => panic!("expected the G oneof member, got {other:?}"),
     }
 }
 
@@ -915,7 +915,7 @@ fn oneof_group_straddle_decodes_either_member() {
     assert_eq!(m.mid(), Some(4));
     match m.pick() {
         Some(StraddlePick::Head(h)) => assert_eq!(h.x(), Some(7)),
-        _ => panic!("expected the Head group member"),
+        other => panic!("expected the Head group member, got {other:?}"),
     }
     // Int member: tail(5) = 9 (reached past the plain field 4 probe).
     let mut i = Vec::new();
@@ -1329,7 +1329,7 @@ fn cross_file_imported_submessages_decode_through_the_forwarder() {
     assert_eq!(m.dm().get(&7).unwrap().v(), Some(30));
     match m.choice() {
         Some(MainChoice::Od(d)) => assert_eq!(d.v(), Some(40)),
-        _ => panic!("expected the od (Dep) oneof member"),
+        other => panic!("expected the od (Dep) oneof member, got {other:?}"),
     }
 }
 

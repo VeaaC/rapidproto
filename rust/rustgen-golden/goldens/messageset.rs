@@ -79,7 +79,6 @@ pub mod arena {
         _marker: ::core::marker::PhantomData<&'a ()>,
       }
 
-
       impl<'a> ::core::fmt::Debug for Container<'a> {
         fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
           let mut rp_s = rp_f.debug_struct("Container");

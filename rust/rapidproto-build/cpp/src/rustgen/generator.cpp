@@ -254,6 +254,10 @@ NameTable build_name_table(const PkgTrie& root) {
     return table;
 }
 
+// The signature line every generated `Debug` impl opens its `fmt` with.
+constexpr std::string_view kDebugFmt =
+    "fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {\n";
+
 // Emit the newtype + classify enum for one proto enum.
 //
 //   #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -293,8 +297,7 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node, b
     // `Debug` prints the value's name, or `Unknown(7)` for a number the schema does not name.
     printer.print("impl ::core::fmt::Debug for $T$ {\n");
     printer.indent();
-    printer.print(
-        "fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {\n");
+    printer.print(kDebugFmt);
     printer.indent();
     printer.print("::core::fmt::Debug::fmt(&self.classify(), rp_f)\n");
     printer.outdent();
@@ -2290,7 +2293,7 @@ void emit_message_accessors(Printer& printer, const NameTable& table, const Mess
         printer.print("}\n");
     }
     printer.outdent();
-    printer.print("}\n");
+    printer.print("}\n\n");
 }
 
 // --- Debug and serde Serialize --------------------------------------------------------------------
@@ -2323,6 +2326,12 @@ constexpr FieldWalk kSerializeWalk = {
 // A Rust string literal for a proto field name (names are `[A-Za-z0-9_]`, so no escaping needed).
 std::string rust_str_lit(std::string_view name) {
     return "\"" + std::string(name) + "\"";
+}
+
+// The name a message's `Debug` impl prints, as a string literal: the identifier, as `derive(Debug)`
+// prints it, so `r#type` prints as `type`.
+std::string debug_name(const NameTable& table, const MessageNode& msg) {
+    return rust_str_lit(ident_identity(table.messages.at(msg.fqn).type_name));
 }
 
 void emit_field_walk(Printer& printer, const FieldNode& field, const std::string& accessor,
@@ -2426,17 +2435,14 @@ void emit_message_walk(Printer& printer, const NameTable& table, const MessageNo
     }
 }
 
-// `Name { field: value, .. }` under the type's own name, as `derive(Debug)` would print it: a raw
-// identifier `r#type` prints as `type`.
+// `Name { field: value, .. }`, like `derive(Debug)`, with only the walk's fields.
 void emit_message_debug(Printer& printer, const NameTable& table, const MessageNode& msg,
                         const FieldModes& modes, const AccessorNames& accessors) {
     printer.print("impl<'a> ::core::fmt::Debug for $M$<'a> {\n");
     printer.indent();
-    printer.print(
-        "fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {\n");
+    printer.print(kDebugFmt);
     printer.indent();
-    printer.print("let mut rp_s = rp_f.debug_struct($n$);\n",
-                  {{"n", rust_str_lit(ident_identity(table.messages.at(msg.fqn).type_name))}});
+    printer.print("let mut rp_s = rp_f.debug_struct($n$);\n", {{"n", debug_name(table, msg)}});
     emit_message_walk(printer, table, msg, modes, accessors, kDebugWalk);
     printer.print("rp_s.finish()\n");
     printer.outdent();
@@ -2489,7 +2495,6 @@ void emit_message(Printer& printer, const NameTable& table, const MessageNode& m
     // between.
     emit_message_accessors(printer, table, msg, modes, accessors, layout);
     // The `Debug` and `serde::Serialize` impls read those same getters.
-    printer.print("\n");
     emit_message_debug(printer, table, msg, modes, accessors);
     if (serde) {
         emit_message_serialize(printer, table, msg, modes, accessors);
@@ -3165,11 +3170,10 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
     // A handle has not decoded anything, so `Debug` prints only how many bytes it holds.
     printer.print("impl ::core::fmt::Debug for $M$<'_> {\n");
     printer.indent();
-    printer.print(
-        "fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {\n");
+    printer.print(kDebugFmt);
     printer.indent();
     printer.print("rp_f.debug_struct($n$).field(\"len\", &self.rp_input.len()).finish()\n",
-                  {{"n", rust_str_lit(ident_identity(table.messages.at(msg.fqn).type_name))}});
+                  {{"n", debug_name(table, msg)}});
     printer.outdent();
     printer.print("}\n");
     printer.outdent();

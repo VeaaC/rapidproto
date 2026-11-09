@@ -95,7 +95,7 @@ impl<D: ArenaDecode> Owned<D> {
     }
 }
 
-/// Prints the message, as [`get`](Owned::get) would.
+/// Prints the message that [`get`](Owned::get) returns.
 impl<D: ArenaDecode> fmt::Debug for Owned<D>
 where
     for<'a> D::Message<'a>: fmt::Debug,

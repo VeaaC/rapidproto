@@ -28,6 +28,7 @@ fn main() {
 
     assert_eq!(shape.name().as_bytes(), b"hi");
     let origin = shape.origin().expect("origin is set"); // a nested message, from types.proto
+    assert_eq!((origin.x(), origin.y()), (3, 4));
     assert_eq!(shape.kind(), Kind::CIRCLE);
     let sides_sum: i32 = shape.sides().iter().sum(); // a repeated field is a slice
     assert_eq!(sides_sum, 12);
@@ -39,16 +40,13 @@ fn main() {
         KindClass::Square => "square",
         _ => "other",
     };
+    assert_eq!(kind, "circle");
 
     // Invalid input returns an error rather than panicking.
     assert!(ArenaShape::decode(&SHAPE_WIRE[..5], &arena).is_err());
 
-    println!(
-        "decoded demo.Shape {{ name={:?}, origin=({}, {}), kind={kind}, sides sum={sides_sum} }}",
-        shape.name(),
-        origin.x(),
-        origin.y(),
-    );
+    // `Debug` prints the fields that are set.
+    println!("decoded {shape:?}");
 
     // --- The streaming model: visit each field as it is decoded, materializing nothing. The macro's
     // shared-state form lends one `&mut parts` accumulator to every handler, so the whole message
