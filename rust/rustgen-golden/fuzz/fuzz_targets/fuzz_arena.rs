@@ -36,14 +36,14 @@ fuzz_target!(|data: &[u8]| {
     {
         let arena = Arena::new();
         if let Ok(m) = Msg::decode(data, &arena) {
-            black_box(m.name().as_bytes().len());
+            black_box(m.name().len());
             let mut sum = 0i64;
             for v in m.nums().iter().copied() {
                 sum = sum.wrapping_add(i64::from(v));
             }
             black_box(sum);
             if let Some(inner) = m.self_() {
-                black_box(inner.name().as_bytes().len());
+                black_box(inner.name().len());
             }
         }
     }

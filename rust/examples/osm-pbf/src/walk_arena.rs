@@ -1,6 +1,6 @@
 //! The ARENA walk: read one already-decoded `PrimitiveBlock` into a [`Stats`]. This is where the
 //! example consumes the arena views; nothing decodes here, each accessor just reads the arena --
-//! repeated scalar columns as `&[i64]` and stringtable entries as borrowed `&[u8]` (no copies).
+//! repeated scalar columns as `&[i64]` and stringtable entries as `&[ProtoBytes]` (no copies).
 //! Returns a per-block `Stats`, so blocks fold on one thread or reduce across many. [`walk_stream`] is
 //! the streaming counterpart (same statistics, a visitor instead of materialized views).
 //!

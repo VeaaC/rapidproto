@@ -847,8 +847,8 @@ fn schema_names_shaped_like_generated_references_do_not_collide_with_them() {
     // `Type` beside `type` -- and fields after decode-body names (`Some`, `rp_out`, `decode_into`).
     // Most of the check is the golden compiling; this drives the macros from a scope that globs the
     // package and its `collide.Option` sub-package. Both hold submodules named `u8`, `u32` and `bool`,
-    // so those bare names are ambiguous here, and the rows delivering `&[u8]`, `u32` and `bool` values
-    // (`prims.h`, `prims.j`, `prims.c`) must not name them so.
+    // so those bare names are ambiguous here, and the rows delivering `u32` and `bool` values
+    // (`prims.j`, `prims.c`) must not name them so.
     use rustgen_golden::collide::stream::collide::Option::*; // the sub-package
     use rustgen_golden::collide::stream::collide::*;
     let buf = collide_holder();
