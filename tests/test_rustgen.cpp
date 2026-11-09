@@ -506,6 +506,17 @@ TEST_CASE("rustgen: dedup compares identifiers, not spellings (`r#type` is `type
     CHECK_FALSE(has(out, "r#type_"));
 }
 
+TEST_CASE("rustgen: Debug prints a raw identifier's type as the identifier") {
+    // `derive(Debug)` prints `r#type` as `type`, and the generated impls do the same.
+    const std::string schema = R"(syntax = "proto3"; package p; message type { int32 v = 1; })";
+    const std::string arena = gen_arena(schema);
+    CHECK(has(arena, "impl<'a> ::core::fmt::Debug for r#type<'a> {"));
+    CHECK(has(arena, "let mut rp_s = rp_f.debug_struct(\"type\");"));
+    const std::string stream = gen_stream(schema);
+    CHECK(has(stream, "impl ::core::fmt::Debug for r#type<'_> {"));
+    CHECK(has(stream, "rp_f.debug_struct(\"type\").field(\"len\", &self.rp_input.len()).finish()"));
+}
+
 TEST_CASE("rustgen stream: a visitor trait yields to a sibling item of its name") {
     // `Node`'s trait meets a message `NodeVisitor`: the trait is bumped, never the struct, which
     // arena-only users see too. Every use of the trait takes the bumped name.

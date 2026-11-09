@@ -327,10 +327,8 @@ fn singular_message_and_recursion_cap() {
         .spawn(|| {
             let arena = Arena::new();
             assert!(Msg::decode(&nest(100), &arena).is_ok());
-            match Msg::decode(&nest(101), &arena) {
-                Ok(_) => panic!("expected a depth error"),
-                Err(e) => assert_eq!(e.kind(), ErrorKind::DepthLimitExceeded),
-            }
+            let err = Msg::decode(&nest(101), &arena).unwrap_err();
+            assert_eq!(err.kind(), ErrorKind::DepthLimitExceeded);
         })
         .expect("spawn deep-decode thread")
         .join()
@@ -345,10 +343,7 @@ fn repeated_singular_message_is_rejected() {
     put_len(&mut buf, 5, &inner); // self
     put_len(&mut buf, 5, &inner); // self AGAIN -> error (matches C++, not protobuf merge)
     let arena = Arena::new();
-    let err = match Msg::decode(&buf, &arena) {
-        Ok(_) => panic!("expected a decode error"),
-        Err(e) => e,
-    };
+    let err = Msg::decode(&buf, &arena).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::RepeatedSingularMessage);
     assert_eq!(err.field_number(), Some(5));
 }
@@ -486,10 +481,7 @@ fn message_valued_map_oneof_and_repeated_message() {
         e
     };
     put_len(&mut dup, 1, &dup_entry);
-    let err = match Container::decode(&dup, &arena) {
-        Ok(_) => panic!("expected a decode error"),
-        Err(e) => e,
-    };
+    let err = Container::decode(&dup, &arena).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::RepeatedSingularMessage);
     assert_eq!(err.field_number(), Some(1));
 }
@@ -513,10 +505,7 @@ fn required_all_present_ok_and_missing_rejected() {
             put_var(&mut hole, f, u64::from(f));
         }
     }
-    let err = match ManyRequired::decode(&hole, &arena) {
-        Ok(_) => panic!("expected MissingRequired"),
-        Err(e) => e,
-    };
+    let err = ManyRequired::decode(&hole, &arena).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::MissingRequired);
     assert_eq!(err.field_number(), Some(33));
 }
@@ -542,10 +531,7 @@ fn truncated_value_errors_at_a_body_relative_offset() {
     // field 2 (explicit_i) tag (1 byte) then a lone continuation byte: the varint is truncated.
     let buf = [0x10u8, 0x80];
     let arena = Arena::new();
-    let err = match Msg::decode(&buf, &arena) {
-        Ok(_) => panic!("expected a decode error"),
-        Err(e) => e,
-    };
+    let err = Msg::decode(&buf, &arena).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::Truncated);
     assert_eq!(
         err.offset(),
@@ -558,9 +544,7 @@ fn truncated_value_errors_at_a_body_relative_offset() {
 fn a_truncated_value_errors_at_its_start_relative_to_its_message() {
     let error = |input: &[u8]| {
         let arena = Arena::new();
-        let err = AllWire::decode(input, &arena)
-            .err()
-            .expect("a decode error");
+        let err = AllWire::decode(input, &arena).unwrap_err();
         (err.kind(), err.offset())
     };
     // A one-byte tag, then a value cut short: a fixed32, a double, a string.
@@ -597,10 +581,7 @@ fn oneof_repeated_message_member_is_rejected() {
     let mut buf = Vec::new();
     put_len(&mut buf, 4, &nested(7)); // choice.cn = Nested{x=7}
     put_len(&mut buf, 4, &[]); // cn again while cn is held
-    let err = match Container::decode(&buf, &arena) {
-        Ok(_) => panic!("expected RepeatedSingularMessage"),
-        Err(e) => e,
-    };
+    let err = Container::decode(&buf, &arena).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::RepeatedSingularMessage);
     assert_eq!(err.field_number(), Some(4));
 
@@ -697,10 +678,7 @@ fn proto2_absent_fields_are_none_defaults_not_materialized() {
     assert_eq!(m.sf64(), None);
 
     // A missing required field is still an error.
-    let err = match Scalars::decode(&[], &arena) {
-        Ok(_) => panic!("expected MissingRequired"),
-        Err(e) => e,
-    };
+    let err = Scalars::decode(&[], &arena).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::MissingRequired);
     assert_eq!(err.field_number(), Some(1));
 }
@@ -749,19 +727,13 @@ fn malformed_tag_is_an_error() {
     // A malformed ONE-byte tag (field number 0: 0x00) is InvalidTag. The decode loop's peek hub takes
     // a one-byte tag without validating it and only rejects it when the catch-all's `skip_field` sees
     // the bad field/wire, so the diagnostic offset is one byte past the tag (1), not the tag start.
-    let err = match Msg::decode(&[0x00u8], &arena) {
-        Ok(_) => panic!("expected a decode error"),
-        Err(e) => e,
-    };
+    let err = Msg::decode(&[0x00u8], &arena).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::InvalidTag);
     assert_eq!(err.offset(), 1);
     // A malformed MULTI-byte tag still goes through `read_tag`, which validates before advancing, so it
     // is reported at the tag start (0). Field 2047 with reserved wire type 7: (2047 << 3 | 7) = 0x3fff
     // -> 2-byte varint 0xff 0x7f.
-    let err = match Msg::decode(&[0xffu8, 0x7f], &arena) {
-        Ok(_) => panic!("expected a decode error"),
-        Err(e) => e,
-    };
+    let err = Msg::decode(&[0xffu8, 0x7f], &arena).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::InvalidTag);
     assert_eq!(err.offset(), 0);
 }
@@ -842,10 +814,7 @@ fn required_inlined_message_present_ok_and_missing_rejected() {
     assert_eq!(m.tag(), Some(9));
 
     // Missing the required message -> MissingRequired on field 1.
-    let err = match ReqInline::decode(&[], &arena) {
-        Ok(_) => panic!("expected MissingRequired"),
-        Err(e) => e,
-    };
+    let err = ReqInline::decode(&[], &arena).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::MissingRequired);
 }
 
@@ -1304,10 +1273,8 @@ fn dropped_fields_in_field_order_are_skipped() {
         put_var(&mut bad, first, 11);
         put_tag(&mut bad, 2, 0); // debug's tag...
         bad.push(0x80); // ...and a truncated varint
-        match ModedHolder::decode(&bad, &arena) {
-            Ok(_) => panic!("expected a decode error"),
-            Err(e) => (e.kind(), e.offset()),
-        }
+        let err = ModedHolder::decode(&bad, &arena).unwrap_err();
+        (err.kind(), err.offset())
     };
     assert_eq!(truncated_after(1), (ErrorKind::Truncated, 3)); // at debug's value
     assert_eq!(truncated_after(1), truncated_after(15));

@@ -10,9 +10,15 @@ mod rp_check {
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod ed23 {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct E(pub i32);
+
+    impl ::core::fmt::Debug for E {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+      }
+    }
 
     impl ::rapidproto::serde::Serialize for E {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -47,9 +53,15 @@ pub mod common {
       Unknown(i32),
     }
     pub mod m {
-      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+      #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
       #[repr(transparent)]
       pub struct Inner(pub i32);
+
+      impl ::core::fmt::Debug for Inner {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+        }
+      }
 
       impl ::rapidproto::serde::Serialize for Inner {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -118,6 +130,47 @@ pub mod arena {
         self.delim
       }
     }
+
+    impl<'a> ::core::fmt::Debug for M<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("M");
+        {
+          let rp_v = self.implicit_scalar();
+          if rp_v != 0 {
+            rp_s.field("implicit_scalar", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.explicit_scalar() {
+            rp_s.field("explicit_scalar", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.child() {
+            rp_s.field("child", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.packed_nums();
+          if !rp_v.is_empty() {
+            rp_s.field("packed_nums", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.expanded_nums();
+          if !rp_v.is_empty() {
+            rp_s.field("expanded_nums", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.delim() {
+            rp_s.field("delim", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for M<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -402,6 +455,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct M<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for M<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("M").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> M<'a> {

@@ -10,9 +10,15 @@ mod rp_check {
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod escdedup {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct decode(pub i32);
+
+    impl ::core::fmt::Debug for decode {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+      }
+    }
 
     impl ::rapidproto::serde::Serialize for decode {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -64,6 +70,20 @@ pub mod arena {
         self.x
       }
     }
+
+    impl<'a> ::core::fmt::Debug for decode_<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("decode_");
+        {
+          let rp_v = self.x();
+          if rp_v != 0 {
+            rp_s.field("x", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for decode_<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -98,6 +118,25 @@ pub mod arena {
         self.kind
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Holder<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Holder");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.r#ref() {
+            rp_s.field("ref", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.kind();
+          if rp_v.0 != 0 {
+            rp_s.field("kind", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Holder<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -309,6 +348,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for decode_<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("decode_").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> decode_<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -437,6 +482,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Holder<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Holder<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Holder").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Holder<'a> {

@@ -11,9 +11,15 @@ mod rp_check {
 pub mod common {
   pub mod pa {
     pub mod linux {
-      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+      #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
       #[repr(transparent)]
       pub struct E(pub i32);
+
+      impl ::core::fmt::Debug for E {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+        }
+      }
 
       impl ::rapidproto::serde::Serialize for E {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -65,6 +71,20 @@ pub mod arena {
           self.f
         }
       }
+
+      impl<'a> ::core::fmt::Debug for Sub<'a> {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut rp_s = rp_f.debug_struct("Sub");
+          {
+            let rp_v = self.f();
+            if rp_v.0 != 0 {
+              rp_s.field("f", &rp_v);
+            }
+          }
+          rp_s.finish()
+        }
+      }
+
       impl<'a> ::rapidproto::serde::Serialize for Sub<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -178,6 +198,12 @@ pub mod stream {
       #[derive(Clone, Copy)]
       pub struct Sub<'a> {
         rp_input: &'a [u8],
+      }
+
+      impl ::core::fmt::Debug for Sub<'_> {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          rp_f.debug_struct("Sub").field("len", &self.rp_input.len()).finish()
+        }
       }
 
       impl<'a> Sub<'a> {

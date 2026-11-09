@@ -67,6 +67,65 @@ pub mod arena {
         self.pick.as_ref()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for AllWire<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("AllWire");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.zz() {
+            rp_s.field("zz", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.db() {
+            rp_s.field("db", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.fx() {
+            rp_s.field("fx", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.s() {
+            rp_s.field("s", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.by() {
+            rp_s.field("by", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.nested() {
+            rp_s.field("nested", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.packed();
+          if !rp_v.is_empty() {
+            rp_s.field("packed", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.g() {
+            rp_s.field("g", &rp_v);
+          }
+        }
+        if let ::core::option::Option::Some(rp_o) = self.pick() {
+          match rp_o {
+            crate::wire_all::arena::wire::all_wire::Pick::Oi(rp_v) => {
+              rp_s.field("oi", rp_v);
+            }
+            crate::wire_all::arena::wire::all_wire::Pick::Os(rp_v) => {
+              rp_s.field("os", rp_v);
+            }
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for AllWire<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -128,6 +187,7 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(AllWire);
 
     pub mod all_wire {
+      #[derive(Debug)]
       pub enum Pick<'a> {
         Oi(i32),
         Os(::rapidproto::ProtoStr<'a>),
@@ -145,6 +205,19 @@ pub mod arena {
           ((self.rp_presence & (1 << 0)) != 0).then_some(self.a)
         }
       }
+
+      impl<'a> ::core::fmt::Debug for G<'a> {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut rp_s = rp_f.debug_struct("G");
+          {
+            if let ::core::option::Option::Some(rp_v) = self.a() {
+              rp_s.field("a", &rp_v);
+            }
+          }
+          rp_s.finish()
+        }
+      }
+
       impl<'a> ::rapidproto::serde::Serialize for G<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -550,6 +623,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct AllWire<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for AllWire<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("AllWire").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> AllWire<'a> {
@@ -984,6 +1063,12 @@ pub mod stream {
       #[derive(Clone, Copy)]
       pub struct G<'a> {
         rp_input: &'a [u8],
+      }
+
+      impl ::core::fmt::Debug for G<'_> {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          rp_f.debug_struct("G").field("len", &self.rp_input.len()).finish()
+        }
       }
 
       impl<'a> G<'a> {

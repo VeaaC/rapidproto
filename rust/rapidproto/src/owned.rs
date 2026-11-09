@@ -9,6 +9,7 @@
 //! arena — which safe Rust cannot express, so the `unsafe` is concentrated HERE (no `yoke`/`self_cell`
 //! dependency) and audited once. Generated code only provides a safe [`ArenaDecode`] impl.
 
+use core::fmt;
 use core::ptr::NonNull;
 
 use alloc::boxed::Box;
@@ -94,6 +95,16 @@ impl<D: ArenaDecode> Owned<D> {
     }
 }
 
+/// Prints the message, as [`get`](Owned::get) would.
+impl<D: ArenaDecode> fmt::Debug for Owned<D>
+where
+    for<'a> D::Message<'a>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self.get(), f)
+    }
+}
+
 /// Decode `input` into an [`Owned`] handle that owns the bytes and the arena.
 ///
 /// `input` is taken by value (a `Vec<u8>`, `Box<[u8]>`, or a `&[u8]` it will copy). Prefer the
@@ -139,6 +150,7 @@ mod tests {
 
     // A mock message borrowing from BOTH the input (`bytes`) and the arena (`len`), so the test
     // exercises Owned's ownership of each (not a real generated decoder).
+    #[derive(Debug)]
     struct Mock<'a> {
         bytes: &'a [u8],
         len: &'a u32,
@@ -170,6 +182,15 @@ mod tests {
         let owned = v.pop().unwrap();
         assert_eq!(owned.get().bytes, b"hello world"); // borrows the owned input
         assert_eq!(*owned.get().len, 11); // borrows the owned arena
+    }
+
+    #[test]
+    fn debug_prints_the_message() {
+        let owned: Owned<MockDecoder> = decode_owned(&b"hi"[..]).unwrap();
+        assert_eq!(
+            alloc::format!("{owned:?}"),
+            "Mock { bytes: [104, 105], len: 2 }"
+        );
     }
 
     #[test]

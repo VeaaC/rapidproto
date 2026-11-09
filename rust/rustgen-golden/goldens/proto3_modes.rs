@@ -16,9 +16,15 @@ mod rp_check {
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod p3 {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct State(pub i32);
+
+    impl ::core::fmt::Debug for State {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+      }
+    }
 
     impl ::rapidproto::serde::Serialize for State {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -137,6 +143,127 @@ pub mod arena {
         self.rp_unknown
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Msg<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Msg");
+        {
+          let rp_v = self.implicit_i();
+          if rp_v != 0 {
+            rp_s.field("implicit_i", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.explicit_i() {
+            rp_s.field("explicit_i", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.state();
+          if rp_v.0 != 0 {
+            rp_s.field("state", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.self_() {
+            rp_s.field("self", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.nums();
+          if !rp_v.is_empty() {
+            rp_s.field("nums", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.unpacked();
+          if !rp_v.is_empty() {
+            rp_s.field("unpacked", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.states();
+          if !rp_v.is_empty() {
+            rp_s.field("states", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.reals();
+          if !rp_v.is_empty() {
+            rp_s.field("reals", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.codes();
+          if !rp_v.is_empty() {
+            rp_s.field("codes", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.bools();
+          if !rp_v.is_empty() {
+            rp_s.field("bools", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.ratio();
+          if rp_v.to_bits() != 0 {
+            rp_s.field("ratio", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.scale();
+          if rp_v.to_bits() != 0 {
+            rp_s.field("scale", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.chunks();
+          if !rp_v.is_empty() {
+            rp_s.field("chunks", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.counts();
+          if !rp_v.is_empty() {
+            rp_s.field("counts", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.toggles();
+          if !rp_v.is_empty() {
+            rp_s.field("toggles", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.ratios();
+          if !rp_v.is_empty() {
+            rp_s.field("ratios", &rp_v);
+          }
+        }
+        if let ::core::option::Option::Some(rp_o) = self.pick() {
+          match rp_o {
+            crate::proto3_modes::arena::p3::msg::Pick::A(rp_v) => {
+              rp_s.field("a", rp_v);
+            }
+            crate::proto3_modes::arena::p3::msg::Pick::B(rp_v) => {
+              rp_s.field("b", rp_v);
+            }
+            crate::proto3_modes::arena::p3::msg::Pick::C(rp_v) => {
+              rp_s.field("c", rp_v);
+            }
+            crate::proto3_modes::arena::p3::msg::Pick::D(rp_v) => {
+              rp_s.field("d", rp_v);
+            }
+            crate::proto3_modes::arena::p3::msg::Pick::E(rp_v) => {
+              rp_s.field("e", rp_v);
+            }
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Msg<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -254,6 +381,7 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Msg);
 
     pub mod msg {
+      #[derive(Debug)]
       pub enum Pick<'a> {
         A(i32),
         B(::rapidproto::ProtoStr<'a>),

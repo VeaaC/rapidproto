@@ -41,6 +41,34 @@ pub mod arena {
         ((self.rp_presence & (1 << 3)) != 0).then_some(self.special3)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for M<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("M");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.f() {
+            rp_s.field("f", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.special() {
+            rp_s.field("special", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.special2() {
+            rp_s.field("special2", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.special3() {
+            rp_s.field("special3", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for M<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -241,6 +269,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct M<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for M<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("M").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> M<'a> {

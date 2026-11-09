@@ -10,9 +10,15 @@ mod rp_check {
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod dep {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct DepEnum(pub i32);
+
+    impl ::core::fmt::Debug for DepEnum {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+      }
+    }
 
     impl ::rapidproto::serde::Serialize for DepEnum {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -75,6 +81,24 @@ pub mod arena {
         ((self.rp_presence & (1 << 1)) != 0).then_some(self.de)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Dep<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Dep");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.v() {
+            rp_s.field("v", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.de() {
+            rp_s.field("de", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Dep<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -203,6 +227,19 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.z)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Fwd<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Fwd");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.z() {
+            rp_s.field("z", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Fwd<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -327,6 +364,56 @@ pub mod arena {
         self.choice.as_ref()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Main<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Main");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.d() {
+            rp_s.field("d", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.p() {
+            rp_s.field("p", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.f() {
+            rp_s.field("f", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.e() {
+            rp_s.field("e", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.ds();
+          if !rp_v.is_empty() {
+            rp_s.field("ds", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.dm();
+          if !rp_v.is_empty() {
+            rp_s.field("dm", &rp_v);
+          }
+        }
+        if let ::core::option::Option::Some(rp_o) = self.choice() {
+          match rp_o {
+            crate::main::arena::main::main::Choice::Od(rp_v) => {
+              rp_s.field("od", rp_v);
+            }
+            crate::main::arena::main::main::Choice::Oi(rp_v) => {
+              rp_s.field("oi", rp_v);
+            }
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Main<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -379,6 +466,7 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Main);
 
     pub mod main {
+      #[derive(Debug)]
       pub enum Choice<'a> {
         Od(&'a crate::main::arena::dep::Dep<'a>),
         Oi(i32),
@@ -735,6 +823,19 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.w)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Pub<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Pub");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.w() {
+            rp_s.field("w", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Pub<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -851,6 +952,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Dep<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Dep<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Dep").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Dep<'a> {
@@ -1013,6 +1120,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for Fwd<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Fwd").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> Fwd<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -1161,6 +1274,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Main<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Main<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Main").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Main<'a> {
@@ -1597,6 +1716,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Pub<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Pub<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Pub").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Pub<'a> {

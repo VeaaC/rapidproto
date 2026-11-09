@@ -31,6 +31,19 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.v)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for WDep<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("WDep");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.v() {
+            rp_s.field("v", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for WDep<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -132,6 +145,19 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(&self.d)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for WMain<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("WMain");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.d() {
+            rp_s.field("d", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for WMain<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -250,6 +276,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct WDep<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for WDep<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("WDep").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> WDep<'a> {
@@ -379,6 +411,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct WMain<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for WMain<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("WMain").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> WMain<'a> {

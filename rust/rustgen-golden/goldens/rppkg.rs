@@ -10,9 +10,15 @@ mod rp_check {
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod rapidproto {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct WireType(pub i32);
+
+    impl ::core::fmt::Debug for WireType {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+      }
+    }
 
     impl ::rapidproto::serde::Serialize for WireType {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -44,9 +50,15 @@ pub mod common {
       Unknown(i32),
     }
 
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct DecodeStatus(pub i32);
+
+    impl ::core::fmt::Debug for DecodeStatus {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+      }
+    }
 
     impl ::rapidproto::serde::Serialize for DecodeStatus {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -95,6 +107,20 @@ pub mod arena {
         self.x
       }
     }
+
+    impl<'a> ::core::fmt::Debug for wire<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("wire");
+        {
+          let rp_v = self.x();
+          if rp_v != 0 {
+            rp_s.field("x", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for wire<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -125,6 +151,20 @@ pub mod arena {
         self.y
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Arena<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Arena");
+        {
+          let rp_v = self.y();
+          if rp_v != 0 {
+            rp_s.field("y", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Arena<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -153,6 +193,20 @@ pub mod arena {
         self.s
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Tag<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Tag");
+        {
+          let rp_v = self.s();
+          if !rp_v.is_empty() {
+            rp_s.field("s", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Tag<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -181,6 +235,20 @@ pub mod arena {
         self.b
       }
     }
+
+    impl<'a> ::core::fmt::Debug for ByteView<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("ByteView");
+        {
+          let rp_v = self.b();
+          if !rp_v.is_empty() {
+            rp_s.field("b", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for ByteView<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -489,6 +557,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for wire<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("wire").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> wire<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -614,6 +688,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Arena<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Arena<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Arena").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Arena<'a> {
@@ -743,6 +823,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for Tag<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Tag").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> Tag<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -868,6 +954,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct ByteView<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for ByteView<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("ByteView").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> ByteView<'a> {

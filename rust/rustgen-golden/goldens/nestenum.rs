@@ -11,9 +11,15 @@ mod rp_check {
 pub mod common {
   pub mod ne {
     pub mod outer {
-      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+      #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
       #[repr(transparent)]
       pub struct Kind(pub i32);
+
+      impl ::core::fmt::Debug for Kind {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+        }
+      }
 
       impl ::rapidproto::serde::Serialize for Kind {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -48,9 +54,15 @@ pub mod common {
         Unknown(i32),
       }
       pub mod inner {
-        #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+        #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
         #[repr(transparent)]
         pub struct Deep(pub i32);
+
+        impl ::core::fmt::Debug for Deep {
+          fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+          }
+        }
 
         impl ::rapidproto::serde::Serialize for Deep {
           fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -105,6 +117,25 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(&self.i)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Outer<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Outer");
+        {
+          let rp_v = self.k();
+          if rp_v.0 != 0 {
+            rp_s.field("k", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.i() {
+            rp_s.field("i", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Outer<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -141,6 +172,20 @@ pub mod arena {
           self.d
         }
       }
+
+      impl<'a> ::core::fmt::Debug for Inner<'a> {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut rp_s = rp_f.debug_struct("Inner");
+          {
+            let rp_v = self.d();
+            if rp_v.0 != 0 {
+              rp_s.field("d", &rp_v);
+            }
+          }
+          rp_s.finish()
+        }
+      }
+
       impl<'a> ::rapidproto::serde::Serialize for Inner<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -351,6 +396,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for Outer<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Outer").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> Outer<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -508,6 +559,12 @@ pub mod stream {
       #[derive(Clone, Copy)]
       pub struct Inner<'a> {
         rp_input: &'a [u8],
+      }
+
+      impl ::core::fmt::Debug for Inner<'_> {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          rp_f.debug_struct("Inner").field("len", &self.rp_input.len()).finish()
+        }
       }
 
       impl<'a> Inner<'a> {

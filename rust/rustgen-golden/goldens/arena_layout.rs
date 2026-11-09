@@ -10,9 +10,15 @@ mod rp_check {
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod al {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct Color(pub i32);
+
+    impl ::core::fmt::Debug for Color {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+      }
+    }
 
     impl ::rapidproto::serde::Serialize for Color {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -71,6 +77,26 @@ pub mod arena {
         self.y
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Point<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Point");
+        {
+          let rp_v = self.x();
+          if rp_v != 0 {
+            rp_s.field("x", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.y();
+          if rp_v != 0 {
+            rp_s.field("y", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Point<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -115,6 +141,32 @@ pub mod arena {
         self.c
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Big<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Big");
+        {
+          let rp_v = self.a();
+          if rp_v != 0 {
+            rp_s.field("a", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.b();
+          if rp_v != 0 {
+            rp_s.field("b", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.c();
+          if rp_v != 0 {
+            rp_s.field("c", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Big<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -155,6 +207,20 @@ pub mod arena {
         self.s
       }
     }
+
+    impl<'a> ::core::fmt::Debug for HasString<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("HasString");
+        {
+          let rp_v = self.s();
+          if !rp_v.is_empty() {
+            rp_s.field("s", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for HasString<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -185,6 +251,20 @@ pub mod arena {
         (self.rp_presence & (1 << 0)) != 0
       }
     }
+
+    impl<'a> ::core::fmt::Debug for BoolWrap<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("BoolWrap");
+        {
+          let rp_v = self.value();
+          if rp_v {
+            rp_s.field("value", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for BoolWrap<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -217,6 +297,25 @@ pub mod arena {
         self.v
       }
     }
+
+    impl<'a> ::core::fmt::Debug for SelfRef<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("SelfRef");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.next() {
+            rp_s.field("next", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.v();
+          if rp_v != 0 {
+            rp_s.field("v", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for SelfRef<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -321,6 +420,123 @@ pub mod arena {
         self.choice.as_ref()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Layout<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Layout");
+        {
+          let rp_v = self.b1();
+          if rp_v {
+            rp_s.field("b1", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.big();
+          if rp_v != 0 {
+            rp_s.field("big", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.b2();
+          if rp_v {
+            rp_s.field("b2", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.small();
+          if rp_v != 0 {
+            rp_s.field("small", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.opt() {
+            rp_s.field("opt", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.name();
+          if !rp_v.is_empty() {
+            rp_s.field("name", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.oname() {
+            rp_s.field("oname", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.color();
+          if rp_v.0 != 0 {
+            rp_s.field("color", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.pt() {
+            rp_s.field("pt", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.bg() {
+            rp_s.field("bg", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.hs() {
+            rp_s.field("hs", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.flag() {
+            rp_s.field("flag", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.nums();
+          if !rp_v.is_empty() {
+            rp_s.field("nums", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.points();
+          if !rp_v.is_empty() {
+            rp_s.field("points", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.labels();
+          if !rp_v.is_empty() {
+            rp_s.field("labels", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.counts();
+          if !rp_v.is_empty() {
+            rp_s.field("counts", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.grid();
+          if !rp_v.is_empty() {
+            rp_s.field("grid", &rp_v);
+          }
+        }
+        if let ::core::option::Option::Some(rp_o) = self.choice() {
+          match rp_o {
+            crate::arena_layout::arena::al::layout::Choice::Ci(rp_v) => {
+              rp_s.field("ci", rp_v);
+            }
+            crate::arena_layout::arena::al::layout::Choice::Cs(rp_v) => {
+              rp_s.field("cs", rp_v);
+            }
+            crate::arena_layout::arena::al::layout::Choice::Cp(rp_v) => {
+              rp_s.field("cp", rp_v);
+            }
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Layout<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -438,6 +654,7 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Layout);
 
     pub mod layout {
+      #[derive(Debug)]
       pub enum Choice<'a> {
         Ci(i32),
         Cs(::rapidproto::ProtoStr<'a>),
@@ -1580,6 +1797,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for Point<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Point").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> Point<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -1742,6 +1965,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Big<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Big<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Big").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Big<'a> {
@@ -1933,6 +2162,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for HasString<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("HasString").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> HasString<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -2058,6 +2293,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct BoolWrap<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for BoolWrap<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("BoolWrap").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> BoolWrap<'a> {
@@ -2188,6 +2429,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct SelfRef<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for SelfRef<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("SelfRef").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> SelfRef<'a> {
@@ -2403,6 +2650,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Layout<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Layout<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Layout").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Layout<'a> {

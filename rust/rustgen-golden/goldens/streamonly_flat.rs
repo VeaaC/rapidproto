@@ -50,6 +50,12 @@ pub mod stream {
             rp_input: &'a [u8],
           }
 
+          impl ::core::fmt::Debug for Entry<'_> {
+            fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+              rp_f.debug_struct("Entry").field("len", &self.rp_input.len()).finish()
+            }
+          }
+
           impl<'a> Entry<'a> {
             /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
             /// above `u32::MAX` bytes.

@@ -11,9 +11,15 @@ mod rp_check {
 pub mod common {
   pub mod ne {
     pub mod outer {
-      #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+      #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
       #[repr(transparent)]
       pub struct Kind(pub i32);
+
+      impl ::core::fmt::Debug for Kind {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+        }
+      }
 
       impl ::rapidproto::serde::Serialize for Kind {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -48,9 +54,15 @@ pub mod common {
         Unknown(i32),
       }
       pub mod inner {
-        #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+        #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
         #[repr(transparent)]
         pub struct Deep(pub i32);
+
+        impl ::core::fmt::Debug for Deep {
+          fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+          }
+        }
 
         impl ::rapidproto::serde::Serialize for Deep {
           fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
@@ -112,6 +124,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Outer<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Outer<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Outer").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Outer<'a> {
@@ -271,6 +289,12 @@ pub mod stream {
       #[derive(Clone, Copy)]
       pub struct Inner<'a> {
         rp_input: &'a [u8],
+      }
+
+      impl ::core::fmt::Debug for Inner<'_> {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          rp_f.debug_struct("Inner").field("len", &self.rp_input.len()).finish()
+        }
       }
 
       impl<'a> Inner<'a> {

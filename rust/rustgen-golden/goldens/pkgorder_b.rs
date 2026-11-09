@@ -32,6 +32,20 @@ pub mod arena {
         self.v
       }
     }
+
+    impl<'a> ::core::fmt::Debug for linux_<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("linux_");
+        {
+          let rp_v = self.v();
+          if rp_v != 0 {
+            rp_s.field("v", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for linux_<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -62,6 +76,20 @@ pub mod arena {
         self.v
       }
     }
+
+    impl<'a> ::core::fmt::Debug for linux__<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("linux__");
+        {
+          let rp_v = self.v();
+          if rp_v != 0 {
+            rp_s.field("v", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for linux__<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -225,6 +253,20 @@ pub mod arena {
           self.v
         }
       }
+
+      impl<'a> ::core::fmt::Debug for Sub<'a> {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut rp_s = rp_f.debug_struct("Sub");
+          {
+            let rp_v = self.v();
+            if rp_v != 0 {
+              rp_s.field("v", &rp_v);
+            }
+          }
+          rp_s.finish()
+        }
+      }
+
       impl<'a> ::rapidproto::serde::Serialize for Sub<'a> {
         fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
         where
@@ -339,6 +381,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct linux_<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for linux_<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("linux_").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> linux_<'a> {
@@ -468,6 +516,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for linux__<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("linux__").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> linux__<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -594,6 +648,12 @@ pub mod stream {
       #[derive(Clone, Copy)]
       pub struct Sub<'a> {
         rp_input: &'a [u8],
+      }
+
+      impl ::core::fmt::Debug for Sub<'_> {
+        fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          rp_f.debug_struct("Sub").field("len", &self.rp_input.len()).finish()
+        }
       }
 
       impl<'a> Sub<'a> {

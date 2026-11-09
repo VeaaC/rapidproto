@@ -256,9 +256,10 @@ NameTable build_name_table(const PkgTrie& root) {
 
 // Emit the newtype + classify enum for one proto enum.
 //
-//   #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+//   #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
 //   #[repr(transparent)]
 //   pub struct Color(pub i32);
+//   impl Debug for Color { /* prints self.classify() */ }
 //   impl Color {
 //       pub const RED: Color = Color(1);
 //       ...
@@ -282,12 +283,24 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node, b
 
     // `Default` yields the all-zero enum value (`$T$(0)`), so a fixed-size message holding an enum
     // field can itself `derive(Default)` -- the zero used for an absent inlined sub-message.
-    printer.print("#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]\n");
+    printer.print("#[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]\n");
     // `repr(transparent)`: a zero-cost wrapper, layout-identical to its `i32`. (It does NOT let a
     // wire enum array be aliased -- enum values are varint-encoded, so variable-width and decoded
     // one at a time; the guarantee only matters for reinterpreting an in-memory `i32` buffer.)
     printer.print("#[repr(transparent)]\n");
     printer.print("pub struct $T$(pub i32);\n\n");
+
+    // `Debug` prints the value's name, or `Unknown(7)` for a number the schema does not name.
+    printer.print("impl ::core::fmt::Debug for $T$ {\n");
+    printer.indent();
+    printer.print(
+        "fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {\n");
+    printer.indent();
+    printer.print("::core::fmt::Debug::fmt(&self.classify(), rp_f)\n");
+    printer.outdent();
+    printer.print("}\n");
+    printer.outdent();
+    printer.print("}\n\n");
 
     if (serde) {
         // An open enum serializes as its raw `i32`, preserving any value the schema does not name --
@@ -472,6 +485,7 @@ bool oneof_borrows(const OneofNode& oneof) {
 // commitment, and `Copy` is for cheap integer-like values, not a sum type.
 void emit_oneof_enum(Printer& printer, const NameTable& table, const OneofNode& oneof) {
     const std::vector<std::string> variants = oneof_variant_names(oneof);
+    printer.print("#[derive(Debug)]\n");
     printer.print("pub enum $n$$lt$ {\n",
                   {{"n", table.oneofs.at(&oneof)}, {"lt", oneof_borrows(oneof) ? "<'a>" : ""}});
     printer.indent();
@@ -2279,20 +2293,40 @@ void emit_message_accessors(Printer& printer, const NameTable& table, const Mess
     printer.print("}\n");
 }
 
-// --- serde Serialize (the `serde` option) -----------------------------------------------------------
-// A message serializes as a map keyed by PROTO field names, carrying exactly the fields the debug
-// dumper prints (so the two agree): explicit => when set; proto3 implicit => when non-default;
-// required => always; repeated/map => when non-empty; a oneof => its active member as a direct entry.
-// Values route through serde -- `bytes` via the Bytes helper (one opaque value, not a seq of u8),
-// an open enum as its i32, strings/sub-messages/maps through their own impls. Reads the SAME public
-// getters as the accessors, so a wrong decoded value shows up here too.
+// --- Debug and serde Serialize --------------------------------------------------------------------
+// Both walk a message's fields the same way and carry exactly the fields the debug dumper prints, keyed
+// by PROTO field names: explicit => when set; proto3 implicit => when non-default; required => always;
+// repeated/map => when non-empty; a oneof => its active member as a direct entry. A dropped field is
+// left out. Values go through their own impls: `bytes` as one opaque value (not a sequence of u8), an
+// enum by its own impl, strings, sub-messages and maps through theirs. The walk reads the SAME public
+// getters as a user, so a wrong decoded value shows up here too.
+
+// How the walk records one field: `entry` for a value bound as `rp_v`, `member` for a oneof match arm
+// whose member is bound by reference. `$n$` is the proto name.
+struct FieldWalk {
+    const char* entry;
+    const char* member;
+};
+
+// `Debug`: a field of the `debug_struct` `rp_s`.
+constexpr FieldWalk kDebugWalk = {
+    "rp_s.field($n$, &rp_v);\n",
+    "$e$::$v$(rp_v) => {\n  rp_s.field($n$, rp_v);\n}\n",
+};
+
+// `Serialize` (the `serde` option): an entry of the map `rp_map`.
+constexpr FieldWalk kSerializeWalk = {
+    "rp_map.serialize_entry($n$, &rp_v)?;\n",
+    "$e$::$v$(rp_v) => rp_map.serialize_entry($n$, rp_v)?,\n",
+};
 
 // A Rust string literal for a proto field name (names are `[A-Za-z0-9_]`, so no escaping needed).
-std::string rust_str_lit(const std::string& name) {
-    return "\"" + name + "\"";
+std::string rust_str_lit(std::string_view name) {
+    return "\"" + std::string(name) + "\"";
 }
 
-void emit_field_serialize(Printer& printer, const FieldNode& field, const std::string& accessor) {
+void emit_field_walk(Printer& printer, const FieldNode& field, const std::string& accessor,
+                     const FieldWalk& walk) {
     const std::string key = rust_str_lit(field.name);
     printer.print("{\n");
     printer.indent();
@@ -2300,7 +2334,7 @@ void emit_field_serialize(Printer& printer, const FieldNode& field, const std::s
         printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
         printer.print("if !rp_v.is_empty() {\n");
         printer.indent();
-        printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n", {{"n", key}});
+        printer.print(walk.entry, {{"n", key}});
         printer.outdent();
         printer.print("}\n");
     } else if (field.is_message_type || field.presence == FieldPresence::Explicit) {
@@ -2309,12 +2343,12 @@ void emit_field_serialize(Printer& printer, const FieldNode& field, const std::s
         printer.print("if let ::core::option::Option::Some(rp_v) = self.$a$() {\n",
                       {{"a", accessor}});
         printer.indent();
-        printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n", {{"n", key}});
+        printer.print(walk.entry, {{"n", key}});
         printer.outdent();
         printer.print("}\n");
     } else if (field.presence == FieldPresence::Required) {
         printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
-        printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n", {{"n", key}});
+        printer.print(walk.entry, {{"n", key}});
     } else {  // Implicit (proto3 singular): emit only a non-default value, as protobuf JSON does.
         std::string cond;
         if (field.is_enum_type) {
@@ -2333,7 +2367,7 @@ void emit_field_serialize(Printer& printer, const FieldNode& field, const std::s
         printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
         printer.print("if $c$ {\n", {{"c", cond}});
         printer.indent();
-        printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n", {{"n", key}});
+        printer.print(walk.entry, {{"n", key}});
         printer.outdent();
         printer.print("}\n");
     }
@@ -2341,8 +2375,8 @@ void emit_field_serialize(Printer& printer, const FieldNode& field, const std::s
     printer.print("}\n");
 }
 
-void emit_oneof_serialize(Printer& printer, const NameTable& table, const MessageNode& msg,
-                          const OneofNode& oneof, const std::string& accessor) {
+void emit_oneof_walk(Printer& printer, const NameTable& table, const MessageNode& msg,
+                     const OneofNode& oneof, const std::string& accessor, const FieldWalk& walk) {
     const std::vector<std::string> variants = oneof_variant_names(oneof);
     const std::string enum_path = oneof_path(table, msg, oneof);
     printer.print("if let ::core::option::Option::Some(rp_o) = self.$a$() {\n", {{"a", accessor}});
@@ -2350,10 +2384,9 @@ void emit_oneof_serialize(Printer& printer, const NameTable& table, const Messag
     printer.print("match rp_o {\n");
     printer.indent();
     for (std::size_t i = 0; i < oneof.fields.size(); ++i) {
-        const FieldNode& member = oneof.fields[i];
-        // The member is bound by reference, which serializes as the value.
-        printer.print("$e$::$v$(rp_v) => rp_map.serialize_entry($n$, rp_v)?,\n",
-                      {{"e", enum_path}, {"v", variants[i]}, {"n", rust_str_lit(member.name)}});
+        printer.print(
+            walk.member,
+            {{"e", enum_path}, {"v", variants[i]}, {"n", rust_str_lit(oneof.fields[i].name)}});
     }
     printer.outdent();
     printer.print("}\n");
@@ -2361,17 +2394,55 @@ void emit_oneof_serialize(Printer& printer, const NameTable& table, const Messag
     printer.print("}\n");
 }
 
-void emit_map_serialize(Printer& printer, const MapFieldNode& map, const std::string& accessor) {
+void emit_map_walk(Printer& printer, const MapFieldNode& map, const std::string& accessor,
+                   const FieldWalk& walk) {
     printer.print("{\n");
     printer.indent();
     printer.print("let rp_v = self.$a$();\n", {{"a", accessor}});
     printer.print("if !rp_v.is_empty() {\n");
     printer.indent();
-    printer.print("rp_map.serialize_entry($n$, &rp_v)?;\n", {{"n", rust_str_lit(map.name)}});
+    printer.print(walk.entry, {{"n", rust_str_lit(map.name)}});
     printer.outdent();
     printer.print("}\n");
     printer.outdent();
     printer.print("}\n");
+}
+
+void emit_message_walk(Printer& printer, const NameTable& table, const MessageNode& msg,
+                       const FieldModes& modes, const AccessorNames& accessors,
+                       const FieldWalk& walk) {
+    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
+        if (field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
+            emit_field_walk(printer, msg.fields[i], accessors.fields[i], walk);
+        }
+    }
+    for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
+        if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
+            emit_map_walk(printer, msg.map_fields[i], accessors.maps[i], walk);
+        }
+    }
+    for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
+        emit_oneof_walk(printer, table, msg, msg.oneofs[i], accessors.oneofs[i], walk);
+    }
+}
+
+// `Name { field: value, .. }` under the type's own name, as `derive(Debug)` would print it: a raw
+// identifier `r#type` prints as `type`.
+void emit_message_debug(Printer& printer, const NameTable& table, const MessageNode& msg,
+                        const FieldModes& modes, const AccessorNames& accessors) {
+    printer.print("impl<'a> ::core::fmt::Debug for $M$<'a> {\n");
+    printer.indent();
+    printer.print(
+        "fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {\n");
+    printer.indent();
+    printer.print("let mut rp_s = rp_f.debug_struct($n$);\n",
+                  {{"n", rust_str_lit(ident_identity(table.messages.at(msg.fqn).type_name))}});
+    emit_message_walk(printer, table, msg, modes, accessors, kDebugWalk);
+    printer.print("rp_s.finish()\n");
+    printer.outdent();
+    printer.print("}\n");
+    printer.outdent();
+    printer.print("}\n\n");
 }
 
 void emit_message_serialize(Printer& printer, const NameTable& table, const MessageNode& msg,
@@ -2388,19 +2459,7 @@ void emit_message_serialize(Printer& printer, const NameTable& table, const Mess
     printer.indent();
     printer.print("use ::rapidproto::serde::ser::SerializeMap as _;\n");
     printer.print("let mut rp_map = rp_ser.serialize_map(::core::option::Option::None)?;\n");
-    for (std::size_t i = 0; i < msg.fields.size(); ++i) {
-        if (field_mode(modes, msg.fields[i]) != arenagen::FieldMode::Drop) {
-            emit_field_serialize(printer, msg.fields[i], accessors.fields[i]);
-        }
-    }
-    for (std::size_t i = 0; i < msg.map_fields.size(); ++i) {
-        if (map_mode(modes, msg.map_fields[i]) != arenagen::FieldMode::Drop) {
-            emit_map_serialize(printer, msg.map_fields[i], accessors.maps[i]);
-        }
-    }
-    for (std::size_t i = 0; i < msg.oneofs.size(); ++i) {
-        emit_oneof_serialize(printer, table, msg, msg.oneofs[i], accessors.oneofs[i]);
-    }
+    emit_message_walk(printer, table, msg, modes, accessors, kSerializeWalk);
     printer.print("rp_map.end()\n");
     printer.outdent();
     printer.print("}\n");
@@ -2429,7 +2488,9 @@ void emit_message(Printer& printer, const NameTable& table, const MessageNode& m
     // ([`emit_message_decode`]) so a reader skims the whole getter API without the wire-loop bodies in
     // between.
     emit_message_accessors(printer, table, msg, modes, accessors, layout);
-    // The `serde::Serialize` impl reads those same getters.
+    // The `Debug` and `serde::Serialize` impls read those same getters.
+    printer.print("\n");
+    emit_message_debug(printer, table, msg, modes, accessors);
     if (serde) {
         emit_message_serialize(printer, table, msg, modes, accessors);
     }
@@ -3099,6 +3160,18 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
     printer.print("pub struct $M$<'a> {\n");
     printer.indent();
     printer.print("rp_input: &'a [u8],\n");
+    printer.outdent();
+    printer.print("}\n\n");
+    // A handle has not decoded anything, so `Debug` prints only how many bytes it holds.
+    printer.print("impl ::core::fmt::Debug for $M$<'_> {\n");
+    printer.indent();
+    printer.print(
+        "fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {\n");
+    printer.indent();
+    printer.print("rp_f.debug_struct($n$).field(\"len\", &self.rp_input.len()).finish()\n",
+                  {{"n", rust_str_lit(ident_identity(table.messages.at(msg.fqn).type_name))}});
+    printer.outdent();
+    printer.print("}\n");
     printer.outdent();
     printer.print("}\n\n");
     printer.print("impl<'a> $M$<'a> {\n");

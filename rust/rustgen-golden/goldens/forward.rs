@@ -31,6 +31,19 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.z)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Fwd<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Fwd");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.z() {
+            rp_s.field("z", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Fwd<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -133,6 +146,19 @@ pub mod arena {
         ((self.rp_presence & (1 << 0)) != 0).then_some(self.w)
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Pub<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Pub");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.w() {
+            rp_s.field("w", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Pub<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -246,6 +272,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Fwd<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Fwd<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Fwd").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Fwd<'a> {
@@ -375,6 +407,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Pub<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Pub<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Pub").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Pub<'a> {

@@ -10,9 +10,15 @@ mod rp_check {
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 pub mod common {
   pub mod weather {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct Unit(pub i32);
+
+    impl ::core::fmt::Debug for Unit {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        ::core::fmt::Debug::fmt(&self.classify(), rp_f)
+      }
+    }
 
     impl Unit {
       pub const UNSPECIFIED: Unit = Unit(0);
@@ -62,6 +68,26 @@ pub mod arena {
         self.longitude
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Location<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Location");
+        {
+          let rp_v = self.latitude();
+          if rp_v.to_bits() != 0 {
+            rp_s.field("latitude", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.longitude();
+          if rp_v.to_bits() != 0 {
+            rp_s.field("longitude", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     ::rapidproto::impl_decode_owned!(Location);
 
     pub struct Station<'a> {
@@ -102,9 +128,62 @@ pub mod arena {
         self.status.as_ref()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Station<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Station");
+        {
+          let rp_v = self.name();
+          if !rp_v.is_empty() {
+            rp_s.field("name", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.location() {
+            rp_s.field("location", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.unit();
+          if rp_v.0 != 0 {
+            rp_s.field("unit", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.temperatures();
+          if !rp_v.is_empty() {
+            rp_s.field("temperatures", &rp_v);
+          }
+        }
+        {
+          if let ::core::option::Option::Some(rp_v) = self.note() {
+            rp_s.field("note", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.labels();
+          if !rp_v.is_empty() {
+            rp_s.field("labels", &rp_v);
+          }
+        }
+        if let ::core::option::Option::Some(rp_o) = self.status() {
+          match rp_o {
+            crate::example::arena::weather::station::Status::Error(rp_v) => {
+              rp_s.field("error", rp_v);
+            }
+            crate::example::arena::weather::station::Status::UptimeSeconds(rp_v) => {
+              rp_s.field("uptime_seconds", rp_v);
+            }
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     ::rapidproto::impl_decode_owned!(Station);
 
     pub mod station {
+      #[derive(Debug)]
       pub enum Status<'a> {
         Error(::rapidproto::ProtoStr<'a>),
         UptimeSeconds(u64),
@@ -120,6 +199,20 @@ pub mod arena {
         self.stations.as_slice()
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Report<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Report");
+        {
+          let rp_v = self.stations();
+          if !rp_v.is_empty() {
+            rp_s.field("stations", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     ::rapidproto::impl_decode_owned!(Report);
 
     impl<'a> Location<'a> {
@@ -641,6 +734,12 @@ pub mod stream {
       rp_input: &'a [u8],
     }
 
+    impl ::core::fmt::Debug for Location<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Location").field("len", &self.rp_input.len()).finish()
+      }
+    }
+
     impl<'a> Location<'a> {
       /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
       /// above `u32::MAX` bytes.
@@ -818,6 +917,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Station<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Station<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Station").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Station<'a> {
@@ -1296,6 +1401,12 @@ pub mod stream {
     #[derive(Clone, Copy)]
     pub struct Report<'a> {
       rp_input: &'a [u8],
+    }
+
+    impl ::core::fmt::Debug for Report<'_> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        rp_f.debug_struct("Report").field("len", &self.rp_input.len()).finish()
+      }
     }
 
     impl<'a> Report<'a> {

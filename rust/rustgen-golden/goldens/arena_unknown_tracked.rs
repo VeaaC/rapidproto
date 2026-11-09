@@ -35,6 +35,20 @@ pub mod arena {
         self.rp_unknown
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Flag<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Flag");
+        {
+          let rp_v = self.value();
+          if rp_v {
+            rp_s.field("value", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Flag<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
@@ -73,6 +87,25 @@ pub mod arena {
         self.rp_unknown
       }
     }
+
+    impl<'a> ::core::fmt::Debug for Holder<'a> {
+      fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        let mut rp_s = rp_f.debug_struct("Holder");
+        {
+          if let ::core::option::Option::Some(rp_v) = self.flag() {
+            rp_s.field("flag", &rp_v);
+          }
+        }
+        {
+          let rp_v = self.n();
+          if rp_v != 0 {
+            rp_s.field("n", &rp_v);
+          }
+        }
+        rp_s.finish()
+      }
+    }
+
     impl<'a> ::rapidproto::serde::Serialize for Holder<'a> {
       fn serialize<RpS>(&self, rp_ser: RpS) -> ::core::result::Result<RpS::Ok, RpS::Error>
       where
