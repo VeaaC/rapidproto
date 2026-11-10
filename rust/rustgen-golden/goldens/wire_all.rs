@@ -7,9 +7,11 @@ mod rp_check {
   const _: () = crate::wire_all::rp_check::C; // This path must be where this file is included.
 }
 
+/// Arena decoders, which decode a whole message into an arena.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod arena {
 
+  /// The `wire` package.
   pub mod wire {
     pub struct AllWire<'a> {
       zz: i64,
@@ -180,7 +182,9 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(AllWire);
 
+    /// Types declared in `wire.AllWire`.
     pub mod all_wire {
+      /// The `pick` oneof of `wire.AllWire`.
       #[derive(Debug)]
       pub enum Pick<'a> {
         Oi(i32),
@@ -230,6 +234,7 @@ pub mod arena {
       ::rapidproto::impl_decode_owned!(G);
 
       impl<'a> G<'a> {
+        /// Decodes `input` into `arena` and returns the message.
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a G<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -310,6 +315,7 @@ pub mod arena {
     }
 
     impl<'a> AllWire<'a> {
+      /// Decodes `input` into `arena` and returns the message.
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a AllWire<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -579,49 +585,77 @@ pub mod arena {
 #[doc(hidden)]
 pub use ::rapidproto::rp_rt;
 
+/// Stream decoders, which pass the fields you select to your handlers.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod stream {
 
+  /// The `wire` package.
   pub mod wire {
-    /// Streaming visitor for `AllWire`. Select a field by overriding its `WANT_<field>` const AND
-    /// its `on_<field>` method (the `all_wire_stream` macro does both); a field left at the default
-    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+    /// Receives the selected fields of a `wire.AllWire` message.
+    ///
+    /// Usually you build one with [`all_wire_stream!`]. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
+    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
+    /// `on_unknown` select the fields the schema does not declare.
     pub trait AllWireVisitor<'a> {
+      /// Whether the decoder calls [`on_zz`](Self::on_zz).
       const WANT_zz: bool = false;
+      /// Handles the `zz` field.
       #[inline(always)]
       fn on_zz(&mut self, value: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_db`](Self::on_db).
       const WANT_db: bool = false;
+      /// Handles the `db` field.
       #[inline(always)]
       fn on_db(&mut self, value: f64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_fx`](Self::on_fx).
       const WANT_fx: bool = false;
+      /// Handles the `fx` field.
       #[inline(always)]
       fn on_fx(&mut self, value: u32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_s`](Self::on_s).
       const WANT_s: bool = false;
+      /// Handles the `s` field.
       #[inline(always)]
       fn on_s(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_by`](Self::on_by).
       const WANT_by: bool = false;
+      /// Handles the `by` field.
       #[inline(always)]
       fn on_by(&mut self, value: ::rapidproto::ProtoBytes<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_nested`](Self::on_nested).
       const WANT_nested: bool = false;
+      /// Handles the `nested` sub-message. Read its fields with `value.decode`.
       #[inline(always)]
       fn on_nested(&mut self, value: crate::wire_all::stream::wire::AllWire<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_packed`](Self::on_packed).
       const WANT_packed: bool = false;
+      /// Handles one element of `packed`.
       #[inline(always)]
       fn on_packed(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_g`](Self::on_g).
       const WANT_g: bool = false;
+      /// Handles the `g` sub-message. Read its fields with `value.decode`.
       #[inline(always)]
       fn on_g(&mut self, value: crate::wire_all::stream::wire::all_wire::G<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_oi`](Self::on_oi).
       const WANT_oi: bool = false;
+      /// Handles the `oi` field.
       #[inline(always)]
       fn on_oi(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_os`](Self::on_os).
       const WANT_os: bool = false;
+      /// Handles the `os` field.
       #[inline(always)]
       fn on_os(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
       const WANT_UNKNOWN: bool = false;
+      /// Handles a field the schema does not declare.
       #[inline(always)]
       fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
+    /// An encoded `wire.AllWire` message, read field by field with [`decode`](Self::decode).
     #[derive(Clone, Copy)]
     pub struct AllWire<'a> {
       rp_input: &'a [u8],
@@ -634,8 +668,10 @@ pub mod stream {
     }
 
     impl<'a> AllWire<'a> {
-      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-      /// above `u32::MAX` bytes.
+      /// Wraps an encoded message.
+      ///
+      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
+      /// if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<AllWire<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -647,12 +683,16 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::wire_all::stream) fn rp_new(rp_input: &'a [u8]) -> AllWire<'a> { AllWire { rp_input } }
 
-      /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-      /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-      /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+      /// The encoded message.
+      ///
+      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+      /// Decodes the message and passes each selected field to `visitor`.
+      ///
+      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
+      /// the decode. Fails if the input is malformed or a handler returns an error.
       pub fn decode<V: AllWireVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -1025,8 +1065,11 @@ pub mod stream {
       }
     }
 
-    /// Builds a `AllWireVisitor` from per-field closures: `all_wire_stream! { field => |value| .. }`, or
-    /// `all_wire_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+    /// Builds a [`AllWireVisitor`] from handlers, one per selected field.
+    ///
+    /// With `all_wire_stream! { field => |value| .. }`, each handler captures its own state.
+    /// With `all_wire_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+    /// `state`. The key `unknown` selects the fields the schema does not declare.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_8wire_all_4wire7AllWire {
@@ -1049,19 +1092,28 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_8wire_all_4wire7AllWire as all_wire_stream;
 
+    /// Types declared in `wire.AllWire`.
     pub mod all_wire {
-      /// Streaming visitor for `G`. Select a field by overriding its `WANT_<field>` const AND
-      /// its `on_<field>` method (the `g_stream` macro does both); a field left at the default
-      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+      /// Receives the selected fields of a `wire.AllWire.G` message.
+      ///
+      /// Usually you build one with [`g_stream!`]. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
+      /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
+      /// `on_unknown` select the fields the schema does not declare.
       pub trait GVisitor<'a> {
+        /// Whether the decoder calls [`on_a`](Self::on_a).
         const WANT_a: bool = false;
+        /// Handles the `a` field.
         #[inline(always)]
         fn on_a(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
         const WANT_UNKNOWN: bool = false;
+        /// Handles a field the schema does not declare.
         #[inline(always)]
         fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
+      /// An encoded `wire.AllWire.G` message, read field by field with [`decode`](Self::decode).
       #[derive(Clone, Copy)]
       pub struct G<'a> {
         rp_input: &'a [u8],
@@ -1074,8 +1126,10 @@ pub mod stream {
       }
 
       impl<'a> G<'a> {
-        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-        /// above `u32::MAX` bytes.
+        /// Wraps an encoded message.
+        ///
+        /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
+        /// if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<G<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -1087,12 +1141,16 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::wire_all::stream) fn rp_new(rp_input: &'a [u8]) -> G<'a> { G { rp_input } }
 
-        /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-        /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-        /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+        /// The encoded message.
+        ///
+        /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+        /// Decodes the message and passes each selected field to `visitor`.
+        ///
+        /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
+        /// the decode. Fails if the input is malformed or a handler returns an error.
         pub fn decode<V: GVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -1168,8 +1226,11 @@ pub mod stream {
         }
       }
 
-      /// Builds a `GVisitor` from per-field closures: `g_stream! { field => |value| .. }`, or
-      /// `g_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+      /// Builds a [`GVisitor`] from handlers, one per selected field.
+      ///
+      /// With `g_stream! { field => |value| .. }`, each handler captures its own state.
+      /// With `g_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+      /// `state`. The key `unknown` selects the fields the schema does not declare.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_8wire_all_4wire7AllWire1G {

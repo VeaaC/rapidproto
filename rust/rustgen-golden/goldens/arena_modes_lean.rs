@@ -13,9 +13,16 @@ mod rp_check {
   const _: () = crate::arena_modes_lean::rp_check::C; // This path must be where this file is included.
 }
 
+/// Enums, shared by arena and stream decoders.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
+  /// The `fm` package.
   pub mod fm {
+    /// The `fm.Level` enum.
+    ///
+    /// A field can hold a number the schema does not name, so this wraps any `i32`.
+    /// Each named value is a constant. To `match` on a value, use
+    /// [`classify`](Self::classify).
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct Level(pub i32);
@@ -39,7 +46,8 @@ pub mod common {
       pub const L_ZERO: Level = Level(0);
       pub const L_ONE: Level = Level(1);
 
-      /// The matchable classification of this value.
+      /// Returns the value as an enum you can `match`. A number the schema does not name is
+      /// `Unknown`.
       #[inline]
       #[must_use]
       pub fn classify(self) -> LevelClass {
@@ -51,13 +59,21 @@ pub mod common {
       }
     }
 
+    /// The values of the `fm.Level` enum, for `match`.
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     pub enum LevelClass {
       LZero,
       LOne,
+      /// A number the schema does not name.
       Unknown(i32),
     }
+    /// Types declared in `fm.Blob`.
     pub mod blob {
+      /// The `fm.Blob.Kind` enum.
+      ///
+      /// A field can hold a number the schema does not name, so this wraps any `i32`.
+      /// Each named value is a constant. To `match` on a value, use
+      /// [`classify`](Self::classify).
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
       #[repr(transparent)]
       pub struct Kind(pub i32);
@@ -81,7 +97,8 @@ pub mod common {
         pub const K_UNSET: Kind = Kind(0);
         pub const K_INLINE: Kind = Kind(1);
 
-        /// The matchable classification of this value.
+        /// Returns the value as an enum you can `match`. A number the schema does not name is
+        /// `Unknown`.
         #[inline]
         #[must_use]
         pub fn classify(self) -> KindClass {
@@ -93,19 +110,23 @@ pub mod common {
         }
       }
 
+      /// The values of the `fm.Blob.Kind` enum, for `match`.
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
       pub enum KindClass {
         KUnset,
         KInline,
+        /// A number the schema does not name.
         Unknown(i32),
       }
     }
   }
 }
 
+/// Arena decoders, which decode a whole message into an arena.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod arena {
 
+  /// The `fm` package.
   pub mod fm {
     pub struct Blob<'a> {
       payload: ::rapidproto::ProtoBytes<'a>,
@@ -353,6 +374,7 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Holder);
 
+    /// Types declared in `fm.Holder`.
     pub mod holder {
       pub struct Grp<'a> {
         g: i32,
@@ -397,6 +419,7 @@ pub mod arena {
       ::rapidproto::impl_decode_owned!(Grp);
 
       impl<'a> Grp<'a> {
+        /// Decodes `input` into `arena` and returns the message.
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Grp<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -477,6 +500,7 @@ pub mod arena {
     }
 
     impl<'a> Blob<'a> {
+      /// Decodes `input` into `arena` and returns the message.
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Blob<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -567,6 +591,7 @@ pub mod arena {
     }
 
     impl<'a> Holder<'a> {
+      /// Decodes `input` into `arena` and returns the message.
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Holder<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

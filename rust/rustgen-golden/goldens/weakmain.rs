@@ -7,9 +7,11 @@ mod rp_check {
   const _: () = crate::weakmain::rp_check::C; // This path must be where this file is included.
 }
 
+/// Arena decoders, which decode a whole message into an arena.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod arena {
 
+  /// The `wd` package.
   pub mod wd {
     pub struct WDep<'a> {
       v: i32,
@@ -54,6 +56,7 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(WDep);
 
     impl<'a> WDep<'a> {
+      /// Decodes `input` into `arena` and returns the message.
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a WDep<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -133,6 +136,7 @@ pub mod arena {
     }
   }
 
+  /// The `wm` package.
   pub mod wm {
     pub struct WMain<'a> {
       d: crate::weakmain::arena::wd::WDep<'a>,
@@ -176,6 +180,7 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(WMain);
 
     impl<'a> WMain<'a> {
+      /// Decodes `input` into `arena` and returns the message.
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a WMain<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -264,22 +269,32 @@ pub mod arena {
 #[doc(hidden)]
 pub use ::rapidproto::rp_rt;
 
+/// Stream decoders, which pass the fields you select to your handlers.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod stream {
 
+  /// The `wd` package.
   pub mod wd {
-    /// Streaming visitor for `WDep`. Select a field by overriding its `WANT_<field>` const AND
-    /// its `on_<field>` method (the `w_dep_stream` macro does both); a field left at the default
-    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+    /// Receives the selected fields of a `wd.WDep` message.
+    ///
+    /// Usually you build one with [`w_dep_stream!`]. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
+    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
+    /// `on_unknown` select the fields the schema does not declare.
     pub trait WDepVisitor<'a> {
+      /// Whether the decoder calls [`on_v`](Self::on_v).
       const WANT_v: bool = false;
+      /// Handles the `v` field.
       #[inline(always)]
       fn on_v(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
       const WANT_UNKNOWN: bool = false;
+      /// Handles a field the schema does not declare.
       #[inline(always)]
       fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
+    /// An encoded `wd.WDep` message, read field by field with [`decode`](Self::decode).
     #[derive(Clone, Copy)]
     pub struct WDep<'a> {
       rp_input: &'a [u8],
@@ -292,8 +307,10 @@ pub mod stream {
     }
 
     impl<'a> WDep<'a> {
-      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-      /// above `u32::MAX` bytes.
+      /// Wraps an encoded message.
+      ///
+      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
+      /// if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<WDep<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -305,12 +322,16 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::weakmain::stream) fn rp_new(rp_input: &'a [u8]) -> WDep<'a> { WDep { rp_input } }
 
-      /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-      /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-      /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+      /// The encoded message.
+      ///
+      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+      /// Decodes the message and passes each selected field to `visitor`.
+      ///
+      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
+      /// the decode. Fails if the input is malformed or a handler returns an error.
       pub fn decode<V: WDepVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -386,8 +407,11 @@ pub mod stream {
       }
     }
 
-    /// Builds a `WDepVisitor` from per-field closures: `w_dep_stream! { field => |value| .. }`, or
-    /// `w_dep_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+    /// Builds a [`WDepVisitor`] from handlers, one per selected field.
+    ///
+    /// With `w_dep_stream! { field => |value| .. }`, each handler captures its own state.
+    /// With `w_dep_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+    /// `state`. The key `unknown` selects the fields the schema does not declare.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_8weakmain_2wd4WDep {
@@ -402,19 +426,28 @@ pub mod stream {
     pub use __rp_8weakmain_2wd4WDep as w_dep_stream;
   }
 
+  /// The `wm` package.
   pub mod wm {
-    /// Streaming visitor for `WMain`. Select a field by overriding its `WANT_<field>` const AND
-    /// its `on_<field>` method (the `w_main_stream` macro does both); a field left at the default
-    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+    /// Receives the selected fields of a `wm.WMain` message.
+    ///
+    /// Usually you build one with [`w_main_stream!`]. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
+    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
+    /// `on_unknown` select the fields the schema does not declare.
     pub trait WMainVisitor<'a> {
+      /// Whether the decoder calls [`on_d`](Self::on_d).
       const WANT_d: bool = false;
+      /// Handles the `d` sub-message. Read its fields with `value.decode`.
       #[inline(always)]
       fn on_d(&mut self, value: crate::weakmain::stream::wd::WDep<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
       const WANT_UNKNOWN: bool = false;
+      /// Handles a field the schema does not declare.
       #[inline(always)]
       fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
+    /// An encoded `wm.WMain` message, read field by field with [`decode`](Self::decode).
     #[derive(Clone, Copy)]
     pub struct WMain<'a> {
       rp_input: &'a [u8],
@@ -427,8 +460,10 @@ pub mod stream {
     }
 
     impl<'a> WMain<'a> {
-      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-      /// above `u32::MAX` bytes.
+      /// Wraps an encoded message.
+      ///
+      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
+      /// if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<WMain<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -440,12 +475,16 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::weakmain::stream) fn rp_new(rp_input: &'a [u8]) -> WMain<'a> { WMain { rp_input } }
 
-      /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-      /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-      /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+      /// The encoded message.
+      ///
+      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+      /// Decodes the message and passes each selected field to `visitor`.
+      ///
+      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
+      /// the decode. Fails if the input is malformed or a handler returns an error.
       pub fn decode<V: WMainVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -521,8 +560,11 @@ pub mod stream {
       }
     }
 
-    /// Builds a `WMainVisitor` from per-field closures: `w_main_stream! { field => |value| .. }`, or
-    /// `w_main_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+    /// Builds a [`WMainVisitor`] from handlers, one per selected field.
+    ///
+    /// With `w_main_stream! { field => |value| .. }`, each handler captures its own state.
+    /// With `w_main_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+    /// `state`. The key `unknown` selects the fields the schema does not declare.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_8weakmain_2wm5WMain {

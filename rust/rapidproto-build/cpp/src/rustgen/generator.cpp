@@ -66,14 +66,18 @@ struct PkgTrie {
     std::vector<const FileNode*> files;
     std::map<std::string, PkgTrie> children;  // RAW component -> child (sorted => deterministic)
     std::string emitted;  // this node's deduped Rust module name (empty at root)
+    std::string package;  // this node's dotted package path, for its module doc (empty at root)
 };
 
 PkgTrie build_pkg_trie(const std::vector<const FileNode*>& files) {
     PkgTrie root;
     for (const FileNode* file : files) {
         PkgTrie* node = &root;
+        std::string package;
         for (const std::string& component : dotted_components(file->package)) {
+            package += package.empty() ? component : "." + component;
             node = &node->children[component];
+            node->package = package;
         }
         node->files.push_back(file);
     }
@@ -258,6 +262,15 @@ NameTable build_name_table(const PkgTrie& root) {
 constexpr std::string_view kDebugFmt =
     "fn fmt(&self, rp_f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {\n";
 
+// A proto full name as the docs show it, without the leading dot (`.weather.Station` ->
+// `weather.Station`).
+std::string proto_name(std::string_view fqn) {
+    if (!fqn.empty() && fqn.front() == '.') {
+        fqn.remove_prefix(1);
+    }
+    return std::string(fqn);
+}
+
 // Emit the newtype + classify enum for one proto enum.
 //
 //   #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -283,7 +296,14 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node, b
 
     printer.set("T", names.type_name);
     printer.set("K", names.class_name);
+    printer.set("proto", proto_name(node.fqn));
 
+    printer.print(
+        "/// The `$proto$` enum.\n"
+        "///\n"
+        "/// A field can hold a number the schema does not name, so this wraps any `i32`.\n"
+        "/// Each named value is a constant. To `match` on a value, use\n"
+        "/// [`classify`](Self::classify).\n");
     // `Default` yields the all-zero enum value (`$T$(0)`), protobuf's default for an enum field.
     printer.print("#[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]\n");
     // `repr(transparent)`: a zero-cost wrapper, layout-identical to its `i32`. (It does NOT let a
@@ -331,7 +351,9 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node, b
                       {{"name", consts[i]}, {"n", std::to_string(node.values[i].number)}});
     }
     printer.print("\n");
-    printer.print("/// The matchable classification of this value.\n");
+    printer.print(
+        "/// Returns the value as an enum you can `match`. A number the schema does not name is\n"
+        "/// `Unknown`.\n");
     printer.print("#[inline]\n");
     printer.print("#[must_use]\n");
     printer.print("pub fn classify(self) -> $K$ {\n");
@@ -356,12 +378,14 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node, b
     printer.outdent();
     printer.print("}\n\n");
 
+    printer.print("/// The values of the `$proto$` enum, for `match`.\n");
     printer.print("#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]\n");
     printer.print("pub enum $K$ {\n");
     printer.indent();
     for (const std::string& variant : variants) {
         printer.print("$v$,\n", {{"v", variant}});
     }
+    printer.print("/// A number the schema does not name.\n");
     printer.print("Unknown(i32),\n");
     printer.outdent();
     printer.print("}\n");
@@ -482,8 +506,11 @@ bool oneof_borrows(const OneofNode& oneof) {
 // derive: the oneof getter hands back a borrow (`Option<&Payload>`), matching C++ (a reference into the
 // union, no copy) and keeping `Copy` off the public API -- deriving it would be a hard-to-revert
 // commitment, and `Copy` is for cheap integer-like values, not a sum type.
-void emit_oneof_enum(Printer& printer, const NameTable& table, const OneofNode& oneof) {
+void emit_oneof_enum(Printer& printer, const NameTable& table, const MessageNode& msg,
+                     const OneofNode& oneof) {
     const std::vector<std::string> variants = oneof_variant_names(oneof);
+    printer.print("/// The `$o$` oneof of `$m$`.\n",
+                  {{"o", oneof.name}, {"m", proto_name(msg.fqn)}});
     printer.print("#[derive(Debug)]\n");
     printer.print("pub enum $n$$lt$ {\n",
                   {{"n", table.oneofs.at(&oneof)}, {"lt", oneof_borrows(oneof) ? "<'a>" : ""}});
@@ -2115,6 +2142,7 @@ void emit_input_size_check(Printer& printer, const std::string& input) {
 void emit_decode(Printer& printer, const NameTable& table, const MessageNode& msg,
                  const AccessorNames& accessors, const FieldModes& modes,
                  const arenagen::MessageLayout* layout) {
+    printer.print("/// Decodes `input` into `arena` and returns the message.\n");
     printer.print(
         "pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) "
         "-> ::core::result::Result<&'a $M$<'a>, ::rapidproto::DecodeError> {\n");
@@ -2278,6 +2306,9 @@ void emit_message_accessors(Printer& printer, const NameTable& table, const Mess
         emit_oneof_accessor(printer, table, msg, msg.oneofs[i], accessors.oneofs[i]);
     }
     if (modes.wants_unknown(&msg)) {
+        printer.print(
+            "/// Whether this message held a field the schema does not declare. Fields of a\n"
+            "/// sub-message do not count.\n");
         printer.print("pub fn has_unknown_fields(&self) -> bool {\n");
         printer.indent();
         printer.print("self.rp_unknown\n");
@@ -2549,6 +2580,23 @@ void emit_message_decode(Printer& printer, const NameTable& table, const Message
     printer.print("}\n");
 }
 
+// Open `pub mod <name> {` for the types declared in `msg`, with its doc, and indent. Every tree gives a
+// message with nested types such a module.
+void emit_nested_module_open(Printer& printer, const std::string& name, const MessageNode& msg) {
+    printer.print("/// Types declared in `$m$`.\n", {{"m", proto_name(msg.fqn)}});
+    printer.print("pub mod $n$ {\n", {{"n", name}});
+    printer.indent();
+}
+
+// Open `pub mod <name> {` for a package, with its doc, and indent. A node with no files of its own is
+// only a prefix of the packages below it.
+void emit_package_module_open(Printer& printer, const PkgTrie& node) {
+    printer.print(node.files.empty() ? "/// Packages under `$p$`.\n" : "/// The `$p$` package.\n",
+                  {{"p", node.package}});
+    printer.print("pub mod $n$ {\n", {{"n", node.emitted}});
+    printer.indent();
+}
+
 // Recursively emit arena message structs: each message as a struct+impl, then -- in a
 // `pub mod <snake>` one level deeper -- its oneof enums followed by its nested messages. The submodule
 // name comes from the name table (deduped against sibling messages and struct/oneof-enum names), so it
@@ -2565,13 +2613,13 @@ void emit_arena_messages(Printer& printer, const NameTable& table,
         const bool has_submodule = !msgs[i]->nested_messages.empty() || !msgs[i]->oneofs.empty();
         if (has_submodule) {
             const std::string& sub = table.messages.at(msgs[i]->fqn).submodule;
-            printer.print("\npub mod $m$ {\n", {{"m", sub}});
-            printer.indent();
+            printer.print("\n");
+            emit_nested_module_open(printer, sub, *msgs[i]);
             for (std::size_t k = 0; k < msgs[i]->oneofs.size(); ++k) {
                 if (k != 0) {
                     printer.print("\n");
                 }
-                emit_oneof_enum(printer, table, msgs[i]->oneofs[k]);
+                emit_oneof_enum(printer, table, *msgs[i], msgs[i]->oneofs[k]);
             }
             if (!msgs[i]->oneofs.empty() && !msgs[i]->nested_messages.empty()) {
                 printer.print("\n");  // separate the oneof enums from the nested messages
@@ -2598,8 +2646,7 @@ void emit_common_message_enums(Printer& printer, const NameTable& table,
         if (!codegen::holds_enum(*msg)) {
             continue;
         }
-        printer.print("pub mod $m$ {\n", {{"m", table.messages.at(msg->fqn).submodule}});
-        printer.indent();
+        emit_nested_module_open(printer, table.messages.at(msg->fqn).submodule, *msg);
         for (std::size_t i = 0; i < msg->enums.size(); ++i) {
             if (i != 0) {
                 printer.print("\n");
@@ -2669,8 +2716,7 @@ void emit_common_node(Printer& printer, const NameTable& table, const PkgTrie& n
         if (!subtree_has_enums(child)) {
             continue;
         }
-        printer.print("pub mod $m$ {\n", {{"m", child.emitted}});
-        printer.indent();
+        emit_package_module_open(printer, child);
         emit_common_node(printer, table, child, serde);
         printer.outdent();
         printer.print("}\n");
@@ -2686,8 +2732,8 @@ void emit_arena_node(Printer& printer, const NameTable& table, const PkgTrie& no
         if (!subtree_has_messages(child)) {
             continue;
         }
-        printer.print("\npub mod $m$ {\n", {{"m", child.emitted}});
-        printer.indent();
+        printer.print("\n");
+        emit_package_module_open(printer, child);
         emit_arena_node(printer, table, child, modes, layouts, serde);
         printer.outdent();
         printer.print("}\n");
@@ -2863,26 +2909,45 @@ std::string stream_slot_value_type(const NameTable& table, const StreamSlot& slo
     return stream_value_type(table, *slot.field, lt, in_macro);
 }
 
+// The doc of a slot's `on_<field>` handler, which names the proto field.
+std::string handler_doc(const StreamSlot& slot) {
+    if (slot.map != nullptr) {
+        return "Handles one entry of the `" + slot.map->name + "` map.";
+    }
+    const FieldNode& field = *slot.field;
+    if (!field.is_message_type) {
+        return field.is_repeated ? "Handles one element of `" + field.name + "`."
+                                 : "Handles the `" + field.name + "` field.";
+    }
+    return (field.is_repeated ? "Handles one element of `" + field.name + "`."
+                              : "Handles the `" + field.name + "` sub-message.") +
+           " Read its fields with `value.decode`.";
+}
+
 // `pub trait <Msg>Visitor<'a> { const WANT_<f>: bool = false; fn on_<f>(&mut self, V) -> Result<Flow>
 // { Ok(Continue) } .. const WANT_UNKNOWN; fn on_unknown(..) .. }` -- the handler surface a consumer
 // overrides. Every const defaults false and every method to a no-op continue, so an un-overridden field
 // is genuinely unselected (its read compiles away, leaving only its skip). The `<'a>` is always present.
 void emit_stream_visitor_trait(Printer& printer, const NameTable& table,
                                const std::vector<StreamSlot>& slots) {
-    // A short doc comment steers the reader to the macro and pins the one hand-impl footgun: a field is
-    // selected by overriding BOTH `WANT_<field>` and `on_<field>` -- the macro always emits the pair,
-    // but a hand-impl that sets only `on_<field>` leaves `WANT_<field>` false, so the field is silently
-    // never decoded.
+    // The doc steers the reader to the macro and pins the one hand-impl footgun: a field is selected by
+    // overriding BOTH `WANT_<field>` and `on_<field>` -- the macro always emits the pair, but a
+    // hand-impl that sets only `on_<field>` leaves `WANT_<field>` false, so the field is silently never
+    // decoded.
     printer.print(
-        "/// Streaming visitor for `$M$`. Select a field by overriding its `WANT_<field>` const "
-        "AND\n"
-        "/// its `on_<field>` method (the `$mac_hint$` macro does both); a field left at the "
-        "default\n"
-        "/// `WANT_<field> = false` is skipped on the wire with no dispatch.\n");
+        "/// Receives the selected fields of a `$proto$` message.\n"
+        "///\n"
+        "/// Usually you build one with [`$mac_hint$!`]. To write one by hand, select a field\n"
+        "/// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.\n"
+        "/// Without the constant, the handler is never called. `WANT_UNKNOWN` and\n"
+        "/// `on_unknown` select the fields the schema does not declare.\n");
     printer.print("pub trait $Vis$<'a> {\n");
     printer.indent();
     for (const StreamSlot& slot : slots) {
+        printer.print("/// Whether the decoder calls [`on_$n$`](Self::on_$n$).\n",
+                      {{"n", slot.name}});
         printer.print("const WANT_$n$: bool = false;\n", {{"n", slot.name}});
+        printer.print("/// $doc$\n", {{"doc", handler_doc(slot)}});
         printer.print("#[inline(always)]\n");
         printer.print(
             "fn on_$n$(&mut self, value: $t$) -> "
@@ -2893,7 +2958,9 @@ void emit_stream_visitor_trait(Printer& printer, const NameTable& table,
     }
     // The unknown-field handler: fires for a field number the schema does not declare (a declared
     // number with a wrong wire type is skipped, not delivered), when selected.
+    printer.print("/// Whether the decoder calls [`on_unknown`](Self::on_unknown).\n");
     printer.print("const WANT_UNKNOWN: bool = false;\n");
+    printer.print("/// Handles a field the schema does not declare.\n");
     printer.print("#[inline(always)]\n");
     printer.print(
         "fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> "
@@ -3219,6 +3286,8 @@ void emit_stream_unknown_arm(Printer& printer, const MessageNode& msg) {
 // const.
 void emit_stream_decode(Printer& printer, const NameTable& table, const MessageNode& msg,
                         const std::vector<StreamSlot>& slots) {
+    printer.print(
+        "/// An encoded `$proto$` message, read field by field with [`decode`](Self::decode).\n");
     printer.print("#[derive(Clone, Copy)]\n");
     printer.print("pub struct $M$<'a> {\n");
     printer.indent();
@@ -3242,9 +3311,10 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
     // `decode`, so a check there would run at every level. Inline in `decode`, it also grew every decode
     // enough that LLVM stopped inlining the wire reads into some of them.
     printer.print(
-        "/// Wrap an encoded message for [`decode`](Self::decode). Fails with "
-        "`ErrorKind::InputTooLarge`\n"
-        "/// above `u32::MAX` bytes.\n");
+        "/// Wraps an encoded message.\n"
+        "///\n"
+        "/// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)\n"
+        "/// if `input` is longer than `u32::MAX` bytes.\n");
     printer.print("#[inline(always)]\n");
     printer.print(
         "pub fn new(input: &'a [u8]) -> ::core::result::Result<$M$<'a>, "
@@ -3265,13 +3335,16 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
     // materialize a chosen sub-message mid-stream (the stream->arena hybrid), composing the two models
     // without any coupling in the generated code.
     printer.print(
-        "/// The message body bytes this handle reads -- the slice `decode` walks. Pass them to "
-        "the\n"
-        "/// arena model's `decode(.., &arena)` for this message to materialize it as a tree "
-        "instead\n"
-        "/// (stream the outer message, arena-decode a chosen sub-message mid-stream).\n");
+        "/// The encoded message.\n"
+        "///\n"
+        "/// To decode a sub-message whole, pass this to the arena decoder's `decode`.\n");
     printer.print("#[inline(always)]\n");
     printer.print("pub fn bytes(&self) -> &'a [u8] { self.rp_input }\n\n");
+    printer.print(
+        "/// Decodes the message and passes each selected field to `visitor`.\n"
+        "///\n"
+        "/// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped\n"
+        "/// the decode. Fails if the input is malformed or a handler returns an error.\n");
     printer.print(
         "pub fn decode<V: $Vis$<'a>>(self, mut visitor: V) "
         "-> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {\n");
@@ -3336,9 +3409,11 @@ void emit_stream_macro(Printer& printer, const NameTable& table, const MessageNo
     printer.set("valid", valid_keys);
 
     printer.print(
-        "/// Builds a `$Vis$` from per-field closures: `$mac$! { field => |value| .. }`, or\n"
-        "/// `$mac$!(&mut state; { field => |state, value| .. })` to lend every handler one "
-        "state.\n");
+        "/// Builds a [`$Vis$`] from handlers, one per selected field.\n"
+        "///\n"
+        "/// With `$mac$! { field => |value| .. }`, each handler captures its own state.\n"
+        "/// With `$mac$!(&mut state; { field => |state, value| .. })`, the handlers share\n"
+        "/// `state`. The key `unknown` selects the fields the schema does not declare.\n");
 
     printer.print("#[doc(hidden)]\n#[macro_export]\n");
     printer.print("macro_rules! $def$ {\n");
@@ -3381,6 +3456,7 @@ void emit_stream_message(Printer& printer, const NameTable& table, const Message
     printer.set("M", table.messages.at(msg.fqn).type_name);
     printer.set("Vis", table.messages.at(msg.fqn).visitor_name);
     printer.set("mac_hint", macro_name);
+    printer.set("proto", proto_name(msg.fqn));
     emit_stream_visitor_trait(printer, table, slots);
     printer.print("\n");
     emit_stream_decode(printer, table, msg, slots);
@@ -3404,9 +3480,8 @@ void emit_stream_messages(Printer& printer, const NameTable& table,
             to_snake_case(ident_identity(table.messages.at(msgs[i]->fqn).type_name)) + "_stream");
         emit_stream_message(printer, table, *msgs[i], macro_name);
         if (!msgs[i]->nested_messages.empty()) {
-            const std::string& sub = table.messages.at(msgs[i]->fqn).submodule;
-            printer.print("\npub mod $m$ {\n", {{"m", sub}});
-            printer.indent();
+            printer.print("\n");
+            emit_nested_module_open(printer, table.messages.at(msgs[i]->fqn).submodule, *msgs[i]);
             emit_stream_messages(printer, table, addrs(msgs[i]->nested_messages));
             printer.outdent();
             printer.print("}\n");
@@ -3422,8 +3497,8 @@ void emit_stream_node(Printer& printer, const NameTable& table, const PkgTrie& n
         if (!subtree_has_messages(child)) {
             continue;
         }
-        printer.print("\npub mod $m$ {\n", {{"m", child.emitted}});
-        printer.indent();
+        printer.print("\n");
+        emit_package_module_open(printer, child);
         emit_stream_node(printer, table, child);
         printer.outdent();
         printer.print("}\n");
@@ -3474,6 +3549,7 @@ std::string generate_common(const std::vector<const FileNode*>& files, bool serd
     }
     const NameTable table = build_name_table(root);
     Printer printer;
+    printer.print("/// Enums, shared by arena and stream decoders.\n");
     printer.print(kModuleLints);
     printer.print("pub mod common {\n");
     printer.indent();
@@ -3512,6 +3588,7 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
     table.root = module_path;
     table.tree = "arena";
     Printer printer;
+    printer.print("/// Arena decoders, which decode a whole message into an arena.\n");
     printer.print(kModuleLints);
     printer.print("pub mod arena {\n");
     printer.indent();
@@ -3536,6 +3613,7 @@ std::string generate_stream(const std::vector<const FileNode*>& files,
     // crate with no direct `rapidproto` dependency. Beside the trees, so no schema name can meet it.
     printer.print(kModuleLints);
     printer.print("#[doc(hidden)]\npub use ::rapidproto::rp_rt;\n\n");
+    printer.print("/// Stream decoders, which pass the fields you select to your handlers.\n");
     printer.print(kModuleLints);
     printer.print("pub mod stream {\n");
     printer.indent();

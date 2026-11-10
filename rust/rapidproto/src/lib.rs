@@ -155,8 +155,12 @@ macro_rules! impl_decode_owned {
         }
 
         impl<'a> $msg<'a> {
-            /// Decode `input` into a self-contained handle that owns the bytes and the arena; read
-            /// the message with `Owned::get`. No external lifetime to manage.
+            /// Decodes `input` into an [`Owned`](::rapidproto::Owned), which holds the input and the
+            /// arena.
+            ///
+            /// `input` can be a `Vec<u8>`, a `Box<[u8]>`, or a `&[u8]`, which is copied. Read the
+            /// message with [`Owned::get`](::rapidproto::Owned::get). Needs the `alloc` feature of
+            /// `rapidproto`.
             pub fn decode_owned(
                 input: impl ::core::convert::Into<$crate::Box<[u8]>>,
             ) -> ::core::result::Result<$crate::Owned<$msg<'static>>, $crate::DecodeError> {

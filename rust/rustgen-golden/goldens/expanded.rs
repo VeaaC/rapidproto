@@ -7,10 +7,18 @@ mod rp_check {
   const _: () = crate::expanded::rp_check::C; // This path must be where this file is included.
 }
 
+/// Enums, shared by arena and stream decoders.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
+  /// The `xp` package.
   pub mod xp {
+    /// Types declared in `xp.Expanded`.
     pub mod expanded {
+      /// The `xp.Expanded.Kind` enum.
+      ///
+      /// A field can hold a number the schema does not name, so this wraps any `i32`.
+      /// Each named value is a constant. To `match` on a value, use
+      /// [`classify`](Self::classify).
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
       #[repr(transparent)]
       pub struct Kind(pub i32);
@@ -35,7 +43,8 @@ pub mod common {
         pub const B: Kind = Kind(1);
         pub const C: Kind = Kind(5);
 
-        /// The matchable classification of this value.
+        /// Returns the value as an enum you can `match`. A number the schema does not name is
+        /// `Unknown`.
         #[inline]
         #[must_use]
         pub fn classify(self) -> KindClass {
@@ -48,20 +57,24 @@ pub mod common {
         }
       }
 
+      /// The values of the `xp.Expanded.Kind` enum, for `match`.
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
       pub enum KindClass {
         A,
         B,
         C,
+        /// A number the schema does not name.
         Unknown(i32),
       }
     }
   }
 }
 
+/// Arena decoders, which decode a whole message into an arena.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod arena {
 
+  /// The `xp` package.
   pub mod xp {
     pub struct Expanded<'a> {
       uzz: ::rapidproto::PackedSlice<'a, i64>,
@@ -170,6 +183,7 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Expanded);
 
     impl<'a> Expanded<'a> {
+      /// Decodes `input` into `arena` and returns the message.
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Expanded<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -449,34 +463,52 @@ pub mod arena {
 #[doc(hidden)]
 pub use ::rapidproto::rp_rt;
 
+/// Stream decoders, which pass the fields you select to your handlers.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod stream {
 
+  /// The `xp` package.
   pub mod xp {
-    /// Streaming visitor for `Expanded`. Select a field by overriding its `WANT_<field>` const AND
-    /// its `on_<field>` method (the `expanded_stream` macro does both); a field left at the default
-    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+    /// Receives the selected fields of a `xp.Expanded` message.
+    ///
+    /// Usually you build one with [`expanded_stream!`]. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
+    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
+    /// `on_unknown` select the fields the schema does not declare.
     pub trait ExpandedVisitor<'a> {
+      /// Whether the decoder calls [`on_uzz`](Self::on_uzz).
       const WANT_uzz: bool = false;
+      /// Handles one element of `uzz`.
       #[inline(always)]
       fn on_uzz(&mut self, value: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_ub`](Self::on_ub).
       const WANT_ub: bool = false;
+      /// Handles one element of `ub`.
       #[inline(always)]
       fn on_ub(&mut self, value: bool) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_uk`](Self::on_uk).
       const WANT_uk: bool = false;
+      /// Handles one element of `uk`.
       #[inline(always)]
       fn on_uk(&mut self, value: crate::expanded::common::xp::expanded::Kind) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_ufx`](Self::on_ufx).
       const WANT_ufx: bool = false;
+      /// Handles one element of `ufx`.
       #[inline(always)]
       fn on_ufx(&mut self, value: u64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_usf`](Self::on_usf).
       const WANT_usf: bool = false;
+      /// Handles one element of `usf`.
       #[inline(always)]
       fn on_usf(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
       const WANT_UNKNOWN: bool = false;
+      /// Handles a field the schema does not declare.
       #[inline(always)]
       fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
+    /// An encoded `xp.Expanded` message, read field by field with [`decode`](Self::decode).
     #[derive(Clone, Copy)]
     pub struct Expanded<'a> {
       rp_input: &'a [u8],
@@ -489,8 +521,10 @@ pub mod stream {
     }
 
     impl<'a> Expanded<'a> {
-      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-      /// above `u32::MAX` bytes.
+      /// Wraps an encoded message.
+      ///
+      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
+      /// if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Expanded<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -502,12 +536,16 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::expanded::stream) fn rp_new(rp_input: &'a [u8]) -> Expanded<'a> { Expanded { rp_input } }
 
-      /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-      /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-      /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+      /// The encoded message.
+      ///
+      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+      /// Decodes the message and passes each selected field to `visitor`.
+      ///
+      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
+      /// the decode. Fails if the input is malformed or a handler returns an error.
       pub fn decode<V: ExpandedVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -929,8 +967,11 @@ pub mod stream {
       }
     }
 
-    /// Builds a `ExpandedVisitor` from per-field closures: `expanded_stream! { field => |value| .. }`, or
-    /// `expanded_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+    /// Builds a [`ExpandedVisitor`] from handlers, one per selected field.
+    ///
+    /// With `expanded_stream! { field => |value| .. }`, each handler captures its own state.
+    /// With `expanded_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+    /// `state`. The key `unknown` selects the fields the schema does not declare.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_8expanded_2xp8Expanded {

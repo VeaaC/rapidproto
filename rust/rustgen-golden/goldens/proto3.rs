@@ -7,9 +7,16 @@ mod rp_check {
   const _: () = crate::proto3::rp_check::C; // This path must be where this file is included.
 }
 
+/// Enums, shared by arena and stream decoders.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
+  /// The `p3` package.
   pub mod p3 {
+    /// The `p3.State` enum.
+    ///
+    /// A field can hold a number the schema does not name, so this wraps any `i32`.
+    /// Each named value is a constant. To `match` on a value, use
+    /// [`classify`](Self::classify).
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct State(pub i32);
@@ -33,7 +40,8 @@ pub mod common {
       pub const UNKNOWN: State = State(0);
       pub const ON: State = State(1);
 
-      /// The matchable classification of this value.
+      /// Returns the value as an enum you can `match`. A number the schema does not name is
+      /// `Unknown`.
       #[inline]
       #[must_use]
       pub fn classify(self) -> StateClass {
@@ -45,18 +53,22 @@ pub mod common {
       }
     }
 
+    /// The values of the `p3.State` enum, for `match`.
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     pub enum StateClass {
       Unknown_,
       On,
+      /// A number the schema does not name.
       Unknown(i32),
     }
   }
 }
 
+/// Arena decoders, which decode a whole message into an arena.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod arena {
 
+  /// The `p3` package.
   pub mod p3 {
     pub struct Msg<'a> {
       implicit_i: i32,
@@ -417,7 +429,9 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Msg);
 
+    /// Types declared in `p3.Msg`.
     pub mod msg {
+      /// The `pick` oneof of `p3.Msg`.
       #[derive(Debug)]
       pub enum Pick<'a> {
         A(i32),
@@ -429,6 +443,7 @@ pub mod arena {
     }
 
     impl<'a> Msg<'a> {
+      /// Decodes `input` into `arena` and returns the message.
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Msg<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -1538,91 +1553,147 @@ pub mod arena {
 #[doc(hidden)]
 pub use ::rapidproto::rp_rt;
 
+/// Stream decoders, which pass the fields you select to your handlers.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod stream {
 
+  /// The `p3` package.
   pub mod p3 {
-    /// Streaming visitor for `Msg`. Select a field by overriding its `WANT_<field>` const AND
-    /// its `on_<field>` method (the `msg_stream` macro does both); a field left at the default
-    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+    /// Receives the selected fields of a `p3.Msg` message.
+    ///
+    /// Usually you build one with [`msg_stream!`]. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
+    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
+    /// `on_unknown` select the fields the schema does not declare.
     pub trait MsgVisitor<'a> {
+      /// Whether the decoder calls [`on_implicit_i`](Self::on_implicit_i).
       const WANT_implicit_i: bool = false;
+      /// Handles the `implicit_i` field.
       #[inline(always)]
       fn on_implicit_i(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_explicit_i`](Self::on_explicit_i).
       const WANT_explicit_i: bool = false;
+      /// Handles the `explicit_i` field.
       #[inline(always)]
       fn on_explicit_i(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_name`](Self::on_name).
       const WANT_name: bool = false;
+      /// Handles the `name` field.
       #[inline(always)]
       fn on_name(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_state`](Self::on_state).
       const WANT_state: bool = false;
+      /// Handles the `state` field.
       #[inline(always)]
       fn on_state(&mut self, value: crate::proto3::common::p3::State) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_self_`](Self::on_self_).
       const WANT_self_: bool = false;
+      /// Handles the `self` sub-message. Read its fields with `value.decode`.
       #[inline(always)]
       fn on_self_(&mut self, value: crate::proto3::stream::p3::Msg<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_nums`](Self::on_nums).
       const WANT_nums: bool = false;
+      /// Handles one element of `nums`.
       #[inline(always)]
       fn on_nums(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_unpacked`](Self::on_unpacked).
       const WANT_unpacked: bool = false;
+      /// Handles one element of `unpacked`.
       #[inline(always)]
       fn on_unpacked(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_states`](Self::on_states).
       const WANT_states: bool = false;
+      /// Handles one element of `states`.
       #[inline(always)]
       fn on_states(&mut self, value: crate::proto3::common::p3::State) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_reals`](Self::on_reals).
       const WANT_reals: bool = false;
+      /// Handles one element of `reals`.
       #[inline(always)]
       fn on_reals(&mut self, value: f64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_codes`](Self::on_codes).
       const WANT_codes: bool = false;
+      /// Handles one element of `codes`.
       #[inline(always)]
       fn on_codes(&mut self, value: u32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_bools`](Self::on_bools).
       const WANT_bools: bool = false;
+      /// Handles one element of `bools`.
       #[inline(always)]
       fn on_bools(&mut self, value: bool) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_ratio`](Self::on_ratio).
       const WANT_ratio: bool = false;
+      /// Handles the `ratio` field.
       #[inline(always)]
       fn on_ratio(&mut self, value: f64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_scale`](Self::on_scale).
       const WANT_scale: bool = false;
+      /// Handles the `scale` field.
       #[inline(always)]
       fn on_scale(&mut self, value: f32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_chunks`](Self::on_chunks).
       const WANT_chunks: bool = false;
+      /// Handles one element of `chunks`.
       #[inline(always)]
       fn on_chunks(&mut self, value: ::rapidproto::ProtoBytes<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_counts`](Self::on_counts).
       const WANT_counts: bool = false;
+      /// Handles one entry of the `counts` map.
       #[inline(always)]
       fn on_counts(&mut self, value: (::rapidproto::ProtoStr<'a>, i32)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_flags`](Self::on_flags).
       const WANT_flags: bool = false;
+      /// Handles one entry of the `flags` map.
       #[inline(always)]
       fn on_flags(&mut self, value: (bool, ::rapidproto::ProtoStr<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_toggles`](Self::on_toggles).
       const WANT_toggles: bool = false;
+      /// Handles one entry of the `toggles` map.
       #[inline(always)]
       fn on_toggles(&mut self, value: (::rapidproto::ProtoStr<'a>, bool)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_ratios`](Self::on_ratios).
       const WANT_ratios: bool = false;
+      /// Handles one entry of the `ratios` map.
       #[inline(always)]
       fn on_ratios(&mut self, value: (::rapidproto::ProtoStr<'a>, f64)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_blobs`](Self::on_blobs).
       const WANT_blobs: bool = false;
+      /// Handles one entry of the `blobs` map.
       #[inline(always)]
       fn on_blobs(&mut self, value: (::rapidproto::ProtoStr<'a>, ::rapidproto::ProtoBytes<'a>)) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_a`](Self::on_a).
       const WANT_a: bool = false;
+      /// Handles the `a` field.
       #[inline(always)]
       fn on_a(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_b`](Self::on_b).
       const WANT_b: bool = false;
+      /// Handles the `b` field.
       #[inline(always)]
       fn on_b(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_c`](Self::on_c).
       const WANT_c: bool = false;
+      /// Handles the `c` field.
       #[inline(always)]
       fn on_c(&mut self, value: bool) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_d`](Self::on_d).
       const WANT_d: bool = false;
+      /// Handles the `d` field.
       #[inline(always)]
       fn on_d(&mut self, value: f64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_e`](Self::on_e).
       const WANT_e: bool = false;
+      /// Handles the `e` field.
       #[inline(always)]
       fn on_e(&mut self, value: ::rapidproto::ProtoBytes<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
       const WANT_UNKNOWN: bool = false;
+      /// Handles a field the schema does not declare.
       #[inline(always)]
       fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
+    /// An encoded `p3.Msg` message, read field by field with [`decode`](Self::decode).
     #[derive(Clone, Copy)]
     pub struct Msg<'a> {
       rp_input: &'a [u8],
@@ -1635,8 +1706,10 @@ pub mod stream {
     }
 
     impl<'a> Msg<'a> {
-      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-      /// above `u32::MAX` bytes.
+      /// Wraps an encoded message.
+      ///
+      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
+      /// if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Msg<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -1648,12 +1721,16 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::proto3::stream) fn rp_new(rp_input: &'a [u8]) -> Msg<'a> { Msg { rp_input } }
 
-      /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-      /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-      /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+      /// The encoded message.
+      ///
+      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+      /// Decodes the message and passes each selected field to `visitor`.
+      ///
+      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
+      /// the decode. Fails if the input is malformed or a handler returns an error.
       pub fn decode<V: MsgVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -3141,8 +3218,11 @@ pub mod stream {
       }
     }
 
-    /// Builds a `MsgVisitor` from per-field closures: `msg_stream! { field => |value| .. }`, or
-    /// `msg_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+    /// Builds a [`MsgVisitor`] from handlers, one per selected field.
+    ///
+    /// With `msg_stream! { field => |value| .. }`, each handler captures its own state.
+    /// With `msg_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+    /// `state`. The key `unknown` selects the fields the schema does not declare.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_6proto3_2p33Msg {

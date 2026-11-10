@@ -58,11 +58,14 @@ jobs:
         run: cargo clippy -p rapidproto --all-targets --no-default-features -- -D warnings
       # The no-alloc tier gets its own run because a link to an alloc-gated item breaks only there.
       # rapidproto runs alone there, because rustgen-golden's dependency turns on its `serde`.
+      # Generated code allows warnings, so `-D warnings` misses its broken links: the link check over
+      # the goldens catches them.
       - name: Docs
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
           cargo doc --workspace --exclude rapidproto-bench --no-deps --all-features
+          python3 ../tests/rustdoc_check.py target/doc rustgen_golden
           cargo doc -p rapidproto-bench --no-deps
           cargo doc -p rapidproto --no-deps --no-default-features
           cargo doc -p rustgen-golden --no-deps --no-default-features
