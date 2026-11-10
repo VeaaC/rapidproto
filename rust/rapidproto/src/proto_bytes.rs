@@ -18,8 +18,9 @@ use crate::PackedSlice;
 pub struct ProtoBytes<'a>(PackedSlice<'a, u8>);
 
 impl<'a> ProtoBytes<'a> {
-    /// Wraps `bytes` without copying them. Use it for a `ProtoBytes` that does not come from decoding,
-    /// such as a test value.
+    /// Wraps `bytes` without copying them.
+    ///
+    /// Use it for a `ProtoBytes` that does not come from decoding, such as a test value.
     ///
     /// # Panics
     ///

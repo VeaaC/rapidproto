@@ -305,8 +305,8 @@ impl<'buf> Arena<'buf> {
 
     /// Makes all of the arena's memory available again.
     ///
-    /// The arena keeps the memory it holds, so the next decode allocates from the heap only if it needs
-    /// more.
+    /// The arena keeps the memory it holds and reuses it. Repeating the same decode allocates nothing,
+    /// but a decode with larger values can still allocate.
     pub fn reset(&mut self) {
         self.used.set(0);
         #[cfg(feature = "alloc")]

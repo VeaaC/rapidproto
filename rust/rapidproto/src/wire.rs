@@ -36,9 +36,8 @@ use crate::error::ErrorKind;
 
 /// How a field's value is encoded on the wire.
 ///
-/// An unknown field reports it through
-/// [`UnknownField::wire_type`](crate::stream::UnknownField::wire_type). Cast it with `as u8` to get the
-/// numeric wire type, the low 3 bits of the field's tag.
+/// An unknown field reports it through [`UnknownField::wire_type`](crate::stream::UnknownField::wire_type).
+/// Cast it with `as u8` to get the numeric wire type, the low 3 bits of the field's tag.
 // Each variant is pinned to its wire code, so generated decoders can use it as a raw tag component.
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

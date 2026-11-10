@@ -35,9 +35,11 @@
 //! # Names
 //!
 //! Each package becomes a module path in all three modules, so `weather` becomes `arena::weather`,
-//! and a package `a.b` would become `arena::a::b`. Types declared inside a message go in a module named
-//! after the message. So the `status` oneof of `Station` becomes `arena::weather::station::Status`.
-//! Enum constants drop the enum's name as a prefix, so `UNIT_CELSIUS` becomes `Unit::CELSIUS`.
+//! and a package `a.b` would become `arena::a::b`. Types declared inside a message, and the enum for
+//! each of its `oneof`s, go in a module named after the message, so the `status` oneof of `Station`
+//! becomes `arena::weather::station::Status`. Enum constants drop the enum's name as a prefix, so
+//! `UNIT_CELSIUS` becomes `Unit::CELSIUS`. A field named after a Rust keyword or a generated method
+//! is renamed, such as `type` to `r#type` and `decode` to `decode_`.
 //!
 //! # Accessors
 //!
@@ -47,10 +49,10 @@
 //! |---|---|
 //! | Scalar | Its value, or zero when the field is absent |
 //! | `string` or `bytes` | A [`ProtoStr`](crate::ProtoStr) or [`ProtoBytes`](crate::ProtoBytes), empty when absent |
-//! | Enum | Its generated enum type, such as `Unit` |
+//! | Enum | Its generated enum type, such as `Unit`, holding 0 when absent |
 //! | Field with presence, such as `optional` | An `Option` of the above |
-//! | `required` field | Its value |
-//! | Message | An `Option` of a reference, such as `Option<&Location>` |
+//! | `required` scalar, enum, `string` or `bytes` | Its value |
+//! | Message, `required` or not | An `Option` of a reference, such as `Option<&Location>` |
 //! | `repeated` field | A slice, such as `&[f32]` or `&[Station]` |
 //! | `map` | A [`MapView`](crate::MapView) |
 //! | `oneof` | An `Option` of a reference to an enum with one variant per member |
@@ -126,7 +128,7 @@
 //! ```
 //! # mod example { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/example/weather.rs")); }
 //! # fn main() -> Result<(), rapidproto::DecodeError> {
-//! # let input =b"\x0a\x12\x0a\x06Zurich\x22\x08\x00\x00\x48\x41\x00\x00\x50\x41\
+//! # let input = b"\x0a\x12\x0a\x06Zurich\x22\x08\x00\x00\x48\x41\x00\x00\x50\x41\
 //! #               \x0a\x10\x0a\x04Oslo\x22\x08\x00\x00\x80\x3f\x00\x00\x00\x40";
 //! use example::stream::weather::{report_stream, station_stream, Report};
 //! use rapidproto::stream::Flow;
@@ -149,7 +151,7 @@
 //! ```
 //! # mod example { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/example/weather.rs")); }
 //! # fn main() -> Result<(), rapidproto::DecodeError> {
-//! # let input =b"\x0a\x12\x0a\x06Zurich\x22\x08\x00\x00\x48\x41\x00\x00\x50\x41\
+//! # let input = b"\x0a\x12\x0a\x06Zurich\x22\x08\x00\x00\x48\x41\x00\x00\x50\x41\
 //! #               \x0a\x10\x0a\x04Oslo\x22\x08\x00\x00\x80\x3f\x00\x00\x00\x40";
 //! use example::stream::weather::{report_stream, station_stream, Report};
 //! use rapidproto::stream::Flow;

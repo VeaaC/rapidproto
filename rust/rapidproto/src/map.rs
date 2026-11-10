@@ -69,7 +69,9 @@ impl<'a, K, V> MapView<'a, K, V> {
         }
     }
 
-    /// Returns the value for `key`, or `None`. A key repeated on the wire gives its last value.
+    /// Returns the value for `key`, or `None`.
+    ///
+    /// A key repeated on the wire gives its last value.
     #[inline]
     pub fn get<Q>(&self, key: &Q) -> Option<&'a V>
     where

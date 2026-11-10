@@ -19,8 +19,9 @@ use crate::PackedSlice;
 pub struct ProtoStr<'a>(PackedSlice<'a, u8>);
 
 impl<'a> ProtoStr<'a> {
-    /// Wraps `bytes` without copying or checking them. Use it for a `ProtoStr` that does not come from
-    /// decoding, such as a lookup key or a test value.
+    /// Wraps `bytes` without copying or checking them.
+    ///
+    /// Use it for a `ProtoStr` that does not come from decoding, such as a lookup key or a test value.
     ///
     /// # Panics
     ///
@@ -66,8 +67,9 @@ impl<'a> ProtoStr<'a> {
         core::str::from_utf8(self.as_bytes())
     }
 
-    /// Returns the string with each invalid UTF-8 sequence replaced by U+FFFD. It borrows when the
-    /// string is valid, and allocates otherwise.
+    /// Returns the string with each invalid UTF-8 sequence replaced by U+FFFD.
+    ///
+    /// It borrows when the string is valid, and allocates otherwise.
     #[cfg(feature = "alloc")]
     #[inline]
     pub fn to_str_lossy(self) -> alloc::borrow::Cow<'a, str> {

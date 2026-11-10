@@ -20,7 +20,9 @@ pub enum ErrorKind {
     /// An arena decoder allows [`MAX_DECODE_DEPTH`](crate::MAX_DECODE_DEPTH) levels. Every decoder
     /// allows groups the same depth, whether it reads them or skips them.
     DepthLimitExceeded,
-    /// The arena could not allocate. Its buffer is full and it cannot grow, it reached the limit from
+    /// The arena could not allocate.
+    ///
+    /// Its buffer is full and it cannot grow, it reached the limit from
     /// [`Arena::set_capacity_limit`](crate::Arena::set_capacity_limit), or the global allocator failed.
     ArenaExhausted,
     /// An arena decoder found no value for a `required` field.
@@ -46,10 +48,11 @@ pub enum ErrorKind {
 ///
 /// It holds an [`ErrorKind`], a byte offset and, for some kinds, a field number.
 ///
-/// The offset counts from the start of the message that failed. For a sub-message, that is the first
-/// byte after its length prefix, not the start of the whole input, so the offset alone does not locate
-/// the error in the input. A value that is cut short reports where the value starts, and a malformed
-/// group where the group starts. A decoder reports an [`ArenaExhausted`](ErrorKind::ArenaExhausted) error at offset 0.
+/// The offset counts from the start of the message that failed. For a sub-message or a map entry, that
+/// is the first byte after its length prefix, and for a group the first byte after its start-group tag.
+/// It is not the start of the whole input, so the offset alone does not locate the error in the input.
+/// A value that is cut short, or a malformed group, reports where its value starts, just after its
+/// tag. A decoder reports an [`ArenaExhausted`](ErrorKind::ArenaExhausted) error at offset 0.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct DecodeError {
     kind: ErrorKind,
@@ -58,8 +61,9 @@ pub struct DecodeError {
 }
 
 impl DecodeError {
-    /// Creates an error of `kind` at `offset`, with no field number. A stream handler can return one
-    /// to end the decode.
+    /// Creates an error of `kind` at `offset`, with no field number.
+    ///
+    /// A stream handler can return one to end the decode.
     #[inline]
     pub fn new(kind: ErrorKind, offset: usize) -> Self {
         Self {

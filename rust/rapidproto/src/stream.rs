@@ -12,12 +12,13 @@
 //! # Handlers
 //!
 //! With `msg_stream! { field => |value| .. }`, each handler is a closure that captures its own state.
-//! Two closures cannot both capture the same `&mut` variable, so to share state, pass it first:
+//! Two closures cannot both change the same variable, so to share state, pass it first:
 //! `msg_stream!(&mut state; { field => |state, value| .. })`.
 //!
-//! A handler returns `()`, a [`Flow`], or a `Result` of either with [`DecodeError`]. An error ends the
-//! decode, and `decode` returns it. `Flow::Stop` ends the decode, and `decode` returns
-//! `Ok(Flow::Stop)`. A decode that reaches the end of its message returns `Ok(Flow::Continue)`.
+//! A handler closure returns `()`, a [`Flow`], or a `Result` of either with [`DecodeError`]. An
+//! `on_<field>` method returns `Result<Flow, DecodeError>`. An error ends the decode, and `decode`
+//! returns it. `Flow::Stop` ends the decode, and `decode` returns `Ok(Flow::Stop)`. A decode that
+//! reaches the end of its message returns `Ok(Flow::Continue)`.
 //!
 //! A handler for a sub-message chooses how far a stop reaches. `|sub| sub.decode(..)` returns the
 //! result, so a stop inside the sub-message ends the outer `decode` too.
@@ -26,22 +27,27 @@
 //!
 //! # What a handler receives
 //!
-//! - A scalar, `string` or `bytes` field: its value. A `repeated` field calls the handler once per
-//!   element, packed or not, and a singular field that appears twice on the wire calls it twice.
-//! - An enum field: its generated enum type, which holds any `i32`.
-//! - A sub-message or group: its stream struct. Call `decode` on it, or ignore it.
-//! - A `map` field: one `(key, value)` pair per entry. A message value is its stream struct.
-//! - A `oneof`: each member has its own handler, and a later member does not replace an earlier one.
-//! - Unknown fields: the `unknown` handler receives each one as an [`UnknownField`].
+//! | Field | Handler receives |
+//! |---|---|
+//! | Scalar, `string` or `bytes` | Its value |
+//! | Enum | Its generated enum type, which holds any `i32` |
+//! | Sub-message or group | Its stream struct, to `decode` or ignore |
+//! | `map` | A `(key, value)` pair, where a message value is its stream struct |
+//! | Unknown field | An [`UnknownField`], in the `unknown` handler |
 //!
-//! A declared field that arrives with the wrong wire type is skipped, and does not reach `unknown`.
+//! A `repeated` field calls its handler once per element, packed or not, and a `map` field once per
+//! entry. A singular field that appears twice on the wire calls its handler twice. Each member of a
+//! `oneof` has its own handler, and a later member does not replace an earlier one.
+//!
+//! A declared field that arrives with the wrong wire type is skipped, and does not reach `unknown`. A
+//! stream decoder does not check `required` fields.
 //!
 //! # Untrusted input
 //!
 //! `decode` does not decode sub-messages itself. It hands them to your handlers. If your handlers
 //! follow a recursive schema on untrusted input, limit the depth yourself, because
 //! [`MAX_DECODE_DEPTH`](crate::MAX_DECODE_DEPTH) applies only to arena decoders. Groups are the
-//! exception: nesting them deeper than `MAX_DECODE_DEPTH` fails, even when they are skipped.
+//! exception. Nesting them deeper than `MAX_DECODE_DEPTH` fails, even when they are skipped.
 //!
 //! # Many fields
 //!
@@ -56,8 +62,8 @@
 //! set its `WANT_<field>` to `true` and override its `on_<field>` method. The macro does both, but by
 //! hand it is easy to forget `WANT_<field>`, and then `on_<field>` is never called.
 //!
-//! `decode` takes the visitor by value, so implement the trait for `&mut` your type to keep its state
-//! after the decode. A handler for a sub-message passes the same state on with
+//! `decode` takes the visitor by value, so implement the trait for a `&mut` reference to your type to
+//! keep its state after the decode. A handler for a sub-message passes the same state on with
 //! `station.decode(&mut **self)`. This counts the stations and temperatures in `input`, an encoded
 //! `Report` from the [`example`](crate::example) schema:
 //!
@@ -110,10 +116,11 @@ pub use crate::wire::WireType;
 /// A handler returns it to choose, and `decode` returns it to say which happened.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Flow {
-    /// A handler returns it to keep decoding, as returning `()` does. `decode` returns it when it read
-    /// the message to its end.
+    /// Keeps decoding when a handler returns it, as returning `()` does.
+    ///
+    /// `decode` returns it when it read the message to its end.
     Continue,
-    /// A handler returns it to end this message's `decode`, and `decode` then returns it too.
+    /// Ends this message's `decode` when a handler returns it, and `decode` then returns it too.
     Stop,
 }
 

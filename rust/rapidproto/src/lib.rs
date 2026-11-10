@@ -41,8 +41,8 @@
 //! with the wrong wire type. It does not check that strings are valid UTF-8. [`ProtoStr::to_str`] does
 //! that when you read one.
 //!
-//! An arena decoder fails if a singular message field appears twice, where Protobuf would merge the
-//! two.
+//! An arena decoder fails if a `required` field is missing, or if a singular message field appears
+//! twice, where Protobuf would merge the two. A stream decoder checks neither.
 //!
 //! # Untrusted input
 //!
@@ -91,7 +91,7 @@
 //! With `serde_json`, a non-finite `float` or `double` becomes `null`, and a `map` fails if a `string`
 //! key has invalid UTF-8.
 //!
-//! [`rapidproto-build`]: https://docs.rs/rapidproto-build
+//! [`rapidproto-build`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/
 //! [`Config::stream`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.stream
 //! [`Config::serde`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.serde
 // Without `alloc` there is no `Owned`, so its links go to the feature list, which says why.
@@ -236,6 +236,6 @@ macro_rules! impl_decode_owned {
 /// How deep sub-messages and groups can nest in an arena decoder.
 ///
 /// Deeper nesting fails with [`ErrorKind::DepthLimitExceeded`], which bounds the stack a decode uses.
-/// An unoptimized build has larger stack frames, and a decode at this depth can overflow a 2 MiB
-/// thread stack there.
+/// In an unoptimized build stack frames are larger, and a decode this deep can overflow the default
+/// 2 MiB stack of a spawned thread.
 pub const MAX_DECODE_DEPTH: u32 = 100;
