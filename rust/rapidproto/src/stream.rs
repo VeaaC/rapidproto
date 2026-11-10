@@ -41,35 +41,53 @@
 //! `child.decode(..)` inside a handler owns that recursion depth and must bound it if the input is
 //! untrusted — the arena model's decode-depth cap does not apply to consumer-driven recursion.
 //!
-//! # Hand-implementing a visitor
+//! # Implementing a visitor by hand
 //!
-//! The `msg_stream!` macro is the usual way to build a visitor, but the generated `<Msg>Visitor` trait
-//! can be implemented by hand (e.g. for a reusable visitor type). A field is selected by overriding
-//! **both** its `WANT_<field>` const **and** its `on_<field>` method: the macro always emits the pair,
-//! but by hand it is easy to write `on_<field>` and forget `WANT_<field> = true`, leaving the field at
-//! its default `WANT_<field> = false` so the driver never dispatches it — the method silently never
-//! fires. The generated trait is shaped like the toy one below:
+//! The `msg_stream!` macro is the usual way to build a visitor, but you can also implement the
+//! generated `<Msg>Visitor` trait yourself, for example for a reusable visitor type. To select a field,
+//! set its `WANT_<field>` to `true` and override its `on_<field>` method. The macro does both, but by
+//! hand it is easy to forget `WANT_<field>`, and then `on_<field>` is never called.
+//!
+//! `decode` takes the visitor by value, so implement the trait for `&mut` your type to keep its state
+//! after the decode. A handler for a sub-message passes the same state on with
+//! `child.decode(&mut **self)`. This counts the stations and temperatures of the
+//! [`example`](crate::example) schema's `Report`:
 //!
 //! ```
+//! # mod example { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/example/weather.rs")); }
+//! # fn main() -> Result<(), rapidproto::DecodeError> {
+//! # let bytes = b"\x0a\x14\x0a\x06Zurich\x18\x01\x22\x08\x00\x00\x48\x41\x00\x00\x50\x41";
+//! use example::stream::weather::{Report, ReportVisitor, Station, StationVisitor};
 //! use rapidproto::stream::Flow;
 //! use rapidproto::DecodeError;
 //!
-//! // Shaped like a generated `<Msg>Visitor` (one `WANT_`/`on_` pair per field).
-//! trait ExampleVisitor<'a> {
-//!     #[allow(non_upper_case_globals)]
-//!     const WANT_value: bool = false;
-//!     fn on_value(&mut self, _v: i64) -> Result<Flow, DecodeError> { Ok(Flow::Continue) }
+//! #[derive(Default)]
+//! struct Count {
+//!     stations: usize,
+//!     temperatures: usize,
 //! }
 //!
-//! struct Collect(Vec<i64>);
-//! impl<'a> ExampleVisitor<'a> for Collect {
-//!     const WANT_value: bool = true; // required, or `on_value` is never dispatched
-//!     fn on_value(&mut self, v: i64) -> Result<Flow, DecodeError> {
-//!         self.0.push(v);
+//! impl<'a> ReportVisitor<'a> for &mut Count {
+//!     const WANT_stations: bool = true;
+//!     fn on_stations(&mut self, station: Station<'a>) -> Result<Flow, DecodeError> {
+//!         self.stations += 1;
+//!         station.decode(&mut **self)
+//!     }
+//! }
+//!
+//! impl<'a> StationVisitor<'a> for &mut Count {
+//!     const WANT_temperatures: bool = true; // without it, `on_temperatures` is never called
+//!     fn on_temperatures(&mut self, _: f32) -> Result<Flow, DecodeError> {
+//!         self.temperatures += 1;
 //!         Ok(Flow::Continue)
 //!     }
 //! }
-//! # let _ = Collect(Vec::new());
+//!
+//! let mut count = Count::default();
+//! Report::new(bytes)?.decode(&mut count)?;
+//! assert_eq!((count.stations, count.temperatures), (1, 2));
+//! # Ok(())
+//! # }
 //! ```
 
 use core::fmt;
@@ -264,7 +282,7 @@ impl fmt::Debug for UnknownField<'_> {
 
 impl<'a> UnknownField<'a> {
     /// Construct from a raw tag key (`field << 3 | wire`) and the field's value bytes. Called by
-    /// generated decoders; not part of the stable surface.
+    /// generated decoders, which reject the reserved wire types 6 and 7 before they get here.
     #[doc(hidden)]
     #[inline(always)]
     pub fn new(key: u32, bytes: &'a [u8]) -> Self {
@@ -277,11 +295,11 @@ impl<'a> UnknownField<'a> {
         self.key >> 3
     }
 
-    /// The field's wire type (`None` only for the reserved wire codes 6/7, which a decoded field
-    /// never carries).
+    /// The field's wire type.
     #[inline(always)]
-    pub fn wire_type(&self) -> Option<WireType> {
-        WireType::from_bits(self.key & 0b111)
+    pub fn wire_type(&self) -> WireType {
+        // Only a misuse of the hidden `new` can pass a reserved wire type.
+        WireType::from_bits(self.key & 0b111).unwrap_or(WireType::Varint)
     }
 
     /// The field's raw value bytes (after the tag).
@@ -300,7 +318,7 @@ mod tests {
         let field = UnknownField::new(5 << 3 | 2, b"\x02hi");
         assert_eq!(
             format!("{field:?}"),
-            r#"UnknownField { field_number: 5, wire_type: Some(Len), bytes: b"\x02hi" }"#
+            r#"UnknownField { field_number: 5, wire_type: Len, bytes: b"\x02hi" }"#
         );
     }
 }

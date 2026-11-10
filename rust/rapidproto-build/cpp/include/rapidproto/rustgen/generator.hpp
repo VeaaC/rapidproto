@@ -38,7 +38,8 @@ using arenagen::LayoutSet;
 // enum (top-level and nested), under `pub mod common` with one `pub mod` per package component. Enums
 // are model-agnostic (plain `i32` newtypes), identical whichever decoder model is also generated.
 // Same-package files merge into one module scope; nested enums live in a per-message submodule. `serde`
-// also implements `serde::Serialize` for each enum.
+// also implements `serde::Serialize` for each enum. A package with no enum in it or below it gets no
+// module, and `files` with no enum give an empty string.
 std::string generate_common(const std::vector<const FileNode*>& files, bool serde = false);
 
 // Emit the `arena` module body for `files`: the arena decoder's message structs (nested messages in
@@ -46,7 +47,8 @@ std::string generate_common(const std::vector<const FileNode*>& files, bool serd
 // package component. `modes` selects per-field drop/raw and per-message unknown-fields handling;
 // default (inactive) materializes everything. Enum-typed fields reference the sibling `common` tree.
 // `serde` also implements `serde::Serialize` for each message. `module_path` is where the file is
-// included (see RustOptions).
+// included (see RustOptions). A package with no message in it or below it gets no module, and `files`
+// with no message give an empty string. The same holds for `generate_stream`.
 std::string generate_arena(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
                            const FieldModes& modes = {}, bool serde = false,
                            const std::string& module_path = "crate");

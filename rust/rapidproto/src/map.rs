@@ -65,9 +65,10 @@ impl<'a, K, V> MapView<'a, K, V> {
 
     /// Iterate `(key, value)` pairs in wire order.
     #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = (&'a K, &'a V)> {
-        let entries = self.entries.as_slice();
-        entries.iter().map(|e| (&e.0, &e.1))
+    pub fn iter(&self) -> MapIter<'a, K, V> {
+        MapIter {
+            entries: self.entries.as_slice().iter(),
+        }
     }
 
     /// The value for `key`, or `None`. Last-one-wins: scans from the end, so a key repeated on the
@@ -82,6 +83,75 @@ impl<'a, K, V> MapView<'a, K, V> {
         entries.iter().rev().find(|e| e.0.eq(key)).map(|e| &e.1)
     }
 }
+
+/// Iterates the `(key, value)` pairs in wire order, as [`iter`](MapView::iter) does.
+impl<'a, K, V> IntoIterator for MapView<'a, K, V> {
+    type Item = (&'a K, &'a V);
+    type IntoIter = MapIter<'a, K, V>;
+
+    #[inline]
+    fn into_iter(self) -> MapIter<'a, K, V> {
+        self.iter()
+    }
+}
+
+/// Iterates the `(key, value)` pairs in wire order, as [`iter`](MapView::iter) does.
+impl<'a, K, V> IntoIterator for &MapView<'a, K, V> {
+    type Item = (&'a K, &'a V);
+    type IntoIter = MapIter<'a, K, V>;
+
+    #[inline]
+    fn into_iter(self) -> MapIter<'a, K, V> {
+        self.iter()
+    }
+}
+
+/// An iterator over a [`MapView`]'s `(key, value)` pairs in wire order, from
+/// [`MapView::iter`].
+pub struct MapIter<'a, K, V> {
+    entries: core::slice::Iter<'a, (K, V)>,
+}
+
+impl<K, V> Clone for MapIter<'_, K, V> {
+    #[inline]
+    fn clone(&self) -> Self {
+        MapIter {
+            entries: self.entries.clone(),
+        }
+    }
+}
+
+/// Prints the entries left, in wire order.
+impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for MapIter<'_, K, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_map().entries(self.clone()).finish()
+    }
+}
+
+impl<'a, K, V> Iterator for MapIter<'a, K, V> {
+    type Item = (&'a K, &'a V);
+
+    #[inline]
+    fn next(&mut self) -> Option<(&'a K, &'a V)> {
+        self.entries.next().map(|(k, v)| (k, v))
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.entries.size_hint()
+    }
+}
+
+impl<K, V> DoubleEndedIterator for MapIter<'_, K, V> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.entries.next_back().map(|(k, v)| (k, v))
+    }
+}
+
+impl<K, V> ExactSizeIterator for MapIter<'_, K, V> {}
+
+impl<K, V> core::iter::FusedIterator for MapIter<'_, K, V> {}
 
 #[cfg(test)]
 mod tests {
@@ -98,6 +168,24 @@ mod tests {
         assert_eq!(m.get(&9), None);
         let collected: alloc::vec::Vec<_> = m.iter().map(|(k, v)| (*k, *v)).collect();
         assert_eq!(collected, [(1, "a"), (2, "b"), (3, "c")]);
+    }
+
+    #[test]
+    fn a_for_loop_iterates_in_wire_order() {
+        let entries = [(1i32, "a"), (2, "b")];
+        let m = MapView::new(&entries);
+        let mut seen = alloc::vec::Vec::new();
+        for (k, v) in m {
+            seen.push((*k, *v));
+        }
+        for (k, v) in &m {
+            seen.push((*k, *v));
+        }
+        assert_eq!(seen, [(1, "a"), (2, "b"), (1, "a"), (2, "b")]);
+        let mut iter = m.iter();
+        assert_eq!(iter.len(), 2);
+        assert_eq!(iter.next_back(), Some((&2, &"b")));
+        assert_eq!(alloc::format!("{iter:?}"), r#"{1: "a"}"#);
     }
 
     #[test]

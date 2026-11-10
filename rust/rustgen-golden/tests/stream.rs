@@ -205,7 +205,7 @@ fn an_unknown_handler_receives_only_non_schema_fields() {
                 match u.field_number() {
                     99 => s.varint_bytes = u.bytes().to_vec(),
                     100 => {
-                        assert_eq!(u.wire_type(), Some(WireType::Len));
+                        assert_eq!(u.wire_type(), WireType::Len);
                         s.len_bytes = u.bytes().to_vec();
                     }
                     _ => {}

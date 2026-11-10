@@ -29,17 +29,24 @@ pub enum ErrorKind {
     /// number (see [`DecodeError::field_number`]).
     MissingRequired,
     /// A singular (non-repeated) message field appeared more than once. RapidProto rejects this rather
-    /// than merging the occurrences (matching the C++ decoder); singular scalar fields keep the last.
+    /// than merging the occurrences; singular scalar fields keep the last.
     RepeatedSingularMessage,
     /// The input is larger than the decoder supports (`> u32::MAX` bytes).
     InputTooLarge,
+    /// A `string` is not valid UTF-8. A decoder never returns this, since it does not check strings.
+    /// It comes from `From<Utf8Error>`, so `?` on [`ProtoStr::to_str`](crate::ProtoStr::to_str) works
+    /// in a stream handler. The offset is the position of the first invalid byte in the string, not in
+    /// the input.
+    InvalidUtf8,
 }
 
-/// A decode failure: a matchable [`ErrorKind`], the byte offset into the input where it was detected,
-/// and the field number it concerns when one applies. The offset is relative to the message body being
-/// decoded -- for a failure inside a nested length-delimited sub-message it is relative to that
-/// sub-message, not the top-level input (matching the C++ decoder). Offset and field number are uniform
-/// accessors rather than per-variant fields, so matching on the kind stays clean.
+/// A decode failure: a matchable [`ErrorKind`], a byte offset, and the field number it concerns when
+/// one applies.
+///
+/// The offset counts from the start of the message that failed. Inside a sub-message, that is the start
+/// of its body, not of the whole input, so the offset alone does not locate the error in the input. A
+/// value that is cut short reports where the value starts, and a malformed group where the group
+/// starts. A decoder reports an [`ArenaExhausted`](ErrorKind::ArenaExhausted) error at offset 0.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct DecodeError {
     kind: ErrorKind,
@@ -74,7 +81,8 @@ impl DecodeError {
         self.kind
     }
 
-    /// The byte offset into the message body where the failure was detected.
+    /// The byte offset of the failure, counted from the start of the message that failed (see
+    /// [`DecodeError`]).
     #[inline]
     pub fn offset(&self) -> usize {
         self.offset
@@ -91,6 +99,9 @@ impl DecodeError {
 impl core::fmt::Display for DecodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let what = match self.kind {
+            ErrorKind::InvalidUtf8 => {
+                return write!(f, "invalid UTF-8 at byte {} of a string", self.offset);
+            }
             ErrorKind::Truncated => "truncated input",
             ErrorKind::InvalidTag => "invalid field tag",
             ErrorKind::VarintOverflow => "varint overflow",
@@ -112,10 +123,34 @@ impl core::fmt::Display for DecodeError {
 impl core::error::Error for DecodeError {}
 
 impl From<ArenaExhausted> for DecodeError {
-    /// The arena does not know the wire offset, so this yields offset 0; the decode layer that
-    /// knows its position should prefer [`DecodeError::new`] with the real offset.
+    /// An [`ArenaExhausted`](ErrorKind::ArenaExhausted) error at offset 0, since the arena does not
+    /// know a position in the input.
     #[inline]
     fn from(_: ArenaExhausted) -> Self {
         DecodeError::new(ErrorKind::ArenaExhausted, 0)
+    }
+}
+
+impl From<core::str::Utf8Error> for DecodeError {
+    /// An [`InvalidUtf8`](ErrorKind::InvalidUtf8) error at the first invalid byte of the string.
+    #[inline]
+    fn from(error: core::str::Utf8Error) -> Self {
+        DecodeError::new(ErrorKind::InvalidUtf8, error.valid_up_to())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_utf8_reports_its_position_in_the_string() {
+        let to_str = |bytes: &[u8]| -> Result<(), DecodeError> {
+            core::str::from_utf8(bytes)?;
+            Ok(())
+        };
+        let error = to_str(b"ab\xffc").unwrap_err();
+        assert_eq!((error.kind(), error.offset()), (ErrorKind::InvalidUtf8, 2));
+        assert_eq!(error.to_string(), "invalid UTF-8 at byte 2 of a string");
     }
 }
