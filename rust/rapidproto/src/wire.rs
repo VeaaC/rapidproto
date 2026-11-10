@@ -34,24 +34,27 @@
 
 use crate::error::ErrorKind;
 
-/// How a field's value is encoded on the wire. A field the schema does not declare reports it through
+/// How a field's value is encoded on the wire.
+///
+/// An unknown field reports it through
 /// [`UnknownField::wire_type`](crate::stream::UnknownField::wire_type). Cast it with `as u8` to get the
 /// numeric wire type, the low 3 bits of the field's tag.
 // Each variant is pinned to its wire code, so generated decoders can use it as a raw tag component.
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum WireType {
-    /// Wire type 0: base-128 varint (int32/64, uint32/64, sint*, bool, enum).
+    /// Wire type 0, a varint: `int32`, `int64`, `uint32`, `uint64`, `sint32`, `sint64`, `bool` and
+    /// enums.
     Varint = 0,
-    /// Wire type 1: fixed 64-bit (fixed64, sfixed64, double).
+    /// Wire type 1, 8 bytes: `fixed64`, `sfixed64` and `double`.
     I64 = 1,
-    /// Wire type 2: length-delimited (string, bytes, embedded message, packed repeated).
+    /// Wire type 2, length-delimited: `string`, `bytes`, messages and packed `repeated` fields.
     Len = 2,
-    /// Wire type 3: group start (proto2 groups; deprecated).
+    /// Wire type 3, the start of a group.
     SGroup = 3,
-    /// Wire type 4: group end.
+    /// Wire type 4, the end of a group.
     EGroup = 4,
-    /// Wire type 5: fixed 32-bit (fixed32, sfixed32, float).
+    /// Wire type 5, 4 bytes: `fixed32`, `sfixed32` and `float`.
     I32 = 5,
 }
 

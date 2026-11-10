@@ -16,40 +16,39 @@ use alloc::boxed::Box;
 
 use crate::{Arena, DecodeError};
 
-/// How `decode_owned` decodes a message type whose borrow it will own. Generated code implements it
-/// on the message type itself at `'static` (a zero-cost tag): the `Message<'a>` GAT names the message
-/// at the borrow `'a`, and `decode_borrowed` is the ordinary `T::decode`.
+/// A message type that [`Owned`] can hold.
+///
+/// Generated arena messages implement it, so you do not need to.
 ///
 /// # Safety
-/// [`Owned`] stores the decoded root with its borrow erased to `'static` and reborrows it (shorter)
-/// in [`get`](Owned::get). That is sound only if `Self::Message` is:
-/// - **covariant** in `'a` (so `Message<'static>` can be read as `Message<'shorter>`),
-/// - **layout-identical** at every lifetime (the erasure is an address reinterpret), and
-/// - free of **interior mutability over the `'a` borrow** (no `Cell<&'a _>` / `&'a mut _` reachable),
-///   so a short-lived `&self` view cannot store a short reference into a `'static`-typed slot, and
-/// - never pointing at the **`Arena` value itself**: the reference `decode_borrowed` returns, and
-///   everything reachable from it, point only into `input`, memory `arena` allocated, or `'static`
-///   data. `Owned` moves the arena after the decode; its chunks stay put but the `Arena` does not.
+/// [`Owned`] stores the message with its lifetime changed to `'static`, and [`get`](Owned::get)
+/// shortens it again. That is sound only if `Self::Message`:
+/// - is covariant in `'a`, so `Message<'static>` can be read as a `Message` with a shorter lifetime,
+/// - has the same layout at every lifetime,
+/// - has no interior mutability over the `'a` borrow, such as a `Cell<&'a _>` or a reachable
+///   `&'a mut _`, so a short-lived `&self` cannot store a short reference where a `'static` one is
+///   expected, and
+/// - never points at the `Arena` value itself. The reference `decode_borrowed` returns, and everything
+///   reachable from it, point only into `input`, memory `arena` allocated, or `'static` data. `Owned`
+///   moves the arena after the decode, and its memory stays in place, but the `Arena` value does not.
 ///
-/// Every generated message satisfies this (borrowed/by-value fields only, no interior mutability).
-/// Do not implement this trait by hand without upholding all four.
+/// Every generated message meets these conditions.
 pub unsafe trait ArenaDecode {
-    /// The decoded message, borrowing the input and arena for `'a`.
+    /// The message type, borrowing the input and the arena for `'a`.
     type Message<'a>: 'a;
 
-    /// Decode the whole message from `input`, allocating its tree in `arena`.
-    ///
-    /// # Errors
-    /// Returns the decoder's [`DecodeError`] for malformed or over-nested input.
+    /// Decodes `input` into `arena` and returns the message.
     fn decode_borrowed<'a>(
         input: &'a [u8],
         arena: &'a Arena<'a>,
     ) -> Result<&'a Self::Message<'a>, DecodeError>;
 }
 
-/// A decoded message that owns everything it borrows: the input bytes and the [`Arena`] holding the
-/// tree. Construct it with a generated `T::decode_owned`; read the message with [`get`](Owned::get).
-/// `'static`-capable — it carries no borrowed lifetime.
+/// A decoded message together with its input and its [`Arena`].
+///
+/// The generated `Msg::decode_owned` returns an `Owned<Msg<'static>>`. The `'static` only names the
+/// message type. [`get`](Owned::get) returns the message borrowed from the `Owned`. An `Owned` has no
+/// lifetime, so you can store it or return it from a function.
 ///
 /// It is `Send` when the message is, and `Sync` when the message is. Every generated message is both,
 /// so an `Owned` can move to another thread or be shared through an `Arc`.
@@ -95,7 +94,7 @@ impl<D: ArenaDecode> Drop for Owned<D> {
 }
 
 impl<D: ArenaDecode> Owned<D> {
-    /// The decoded message, borrowed for as long as this handle is. Call accessors on it as usual.
+    /// Returns the message, borrowed from the `Owned`.
     #[must_use]
     pub fn get(&self) -> &D::Message<'_> {
         // SAFETY: `root` points into `self.arena`/`self.input`, both owned by `self` and unmoved and

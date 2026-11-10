@@ -1,62 +1,70 @@
-//! Streaming-decode primitives: the runtime types a generated streaming decoder builds on. Streaming
-//! visits fields as they appear on the wire and never materializes the message, so a consumer pays
-//! only for the fields it selects; unselected fields are skipped on the wire with no dispatch.
+//! Types for stream decoders.
 //!
-//! The generator emits, per message `Msg`: a reader handle `Msg<'a>` (`Msg::new(bytes)?.decode(visitor)`),
-//! a `MsgVisitor<'a>` trait (one `const WANT_<field>: bool = false` plus a defaulted
-//! `on_<field>(&mut self, V) -> Result<Flow, DecodeError>` method per field), and a per-message
-//! `msg_stream! { field => closure, .. }` macro that builds a visitor whose closures capture local
-//! state. The macro also takes an optional shared-state form,
-//! `msg_stream!(&mut state; { field => |state, value| .. })`, where the driver lends one `&mut state`
-//! to every handler as its first argument instead of each closure capturing it — the way to aggregate
-//! many fields into one accumulator (or parse into one struct), which exclusive-`&mut` captures cannot
-//! express. The decode driver gates each field on `V::WANT_<field>` (an associated `const`, so a release
-//! build folds the branch and drops the decode+dispatch for every unselected field, leaving only the
-//! wire-skip). A handler returns `()`, a [`Flow`], or a `Result` of either. An `Err(DecodeError)` ends
-//! the `decode` with that error. `Flow::Stop` ends it with `Ok(Flow::Stop)`, and a `decode` that reaches
-//! the end of its message returns `Ok(Flow::Continue)`.
+//! A stream decoder reads a message's fields in wire order and passes the ones you select to your
+//! handlers. It builds no message and does not allocate. `rapidproto-build` generates stream decoders
+//! when you turn on its [`Config::stream`]. The [`example`](crate::example) module shows the generated
+//! code.
 //!
-//! A handler for a sub-message chooses how far a stop reaches. `|child| child.decode(..)` returns the
-//! result, so a stop inside the child ends the outer `decode` too. `|child| { child.decode(..)?; Ok(()) }`
-//! discards the `Flow`, so it ends only the child. Both pass an error on.
+//! For each message `Msg`, the generator emits a stream struct `Msg<'a>`, a visitor trait
+//! `MsgVisitor<'a>`, and a macro `msg_stream!` that builds a visitor from handlers. Decode with
+//! `Msg::new(input)?.decode(visitor)`.
 //!
-//! The macro expands one recursion step per selected field, and calls nested inside handlers share
-//! rustc's macro recursion budget: selecting more than about 120 fields in one call (fewer across nested
-//! calls) needs a raised `#![recursion_limit = "256"]` in the calling crate.
+//! # Handlers
 //!
-//! Streaming is a raw field visit, not a materialized message, so the consumer owns anything the arena
-//! model would resolve: a handler fires once per wire occurrence of its field (a repeated field, or a
-//! singular one duplicated by a non-canonical encoder, calls the handler more than once), and the
-//! members of a `oneof` are independent handlers, not collapsed to last-wins — overwrite in the closure
-//! if that is what you want. A sub-message or group field hands the consumer the child's reader handle
-//! (`child.decode(child_visitor)`); an enum is delivered as its generated newtype; a map field delivers
-//! each entry as a `(key, value)` pair (a message value is the child's reader handle). There is no
-//! catch-all ("every known field") handler: the per-field visitor is the selection mechanism. For
-//! fields a schema does not declare, select the per-message `unknown` handler (it receives an
-//! [`UnknownField`]).
+//! With `msg_stream! { field => |value| .. }`, each handler is a closure that captures its own state.
+//! Two closures cannot both capture the same `&mut` variable, so to share state, pass it first:
+//! `msg_stream!(&mut state; { field => |state, value| .. })`.
 //!
-//! `decode` itself never recurses: a nested message/group/map value is handed over as a child reader
-//! handle (and anything unselected is skipped iteratively), so adversarial input alone cannot overflow
-//! the stack through the decoder. A consumer that walks a self-referential schema by calling
-//! `child.decode(..)` inside a handler owns that recursion depth and must bound it if the input is
-//! untrusted — the arena model's decode-depth cap does not apply to consumer-driven recursion.
+//! A handler returns `()`, a [`Flow`], or a `Result` of either with [`DecodeError`]. An error ends the
+//! decode, and `decode` returns it. `Flow::Stop` ends the decode, and `decode` returns
+//! `Ok(Flow::Stop)`. A decode that reaches the end of its message returns `Ok(Flow::Continue)`.
 //!
-//! # Implementing a visitor by hand
+//! A handler for a sub-message chooses how far a stop reaches. `|sub| sub.decode(..)` returns the
+//! result, so a stop inside the sub-message ends the outer `decode` too.
+//! `|sub| { sub.decode(..)?; Ok(()) }` discards the `Flow`, so it ends only the sub-message. Both pass
+//! an error on.
+//!
+//! # What a handler receives
+//!
+//! - A scalar, `string` or `bytes` field: its value. A `repeated` field calls the handler once per
+//!   element, packed or not, and a singular field that appears twice on the wire calls it twice.
+//! - An enum field: its generated enum type, which holds any `i32`.
+//! - A sub-message or group: its stream struct. Call `decode` on it, or ignore it.
+//! - A `map` field: one `(key, value)` pair per entry. A message value is its stream struct.
+//! - A `oneof`: each member has its own handler, and a later member does not replace an earlier one.
+//! - Unknown fields: the `unknown` handler receives each one as an [`UnknownField`].
+//!
+//! A declared field that arrives with the wrong wire type is skipped, and does not reach `unknown`.
+//!
+//! # Untrusted input
+//!
+//! `decode` does not decode sub-messages itself. It hands them to your handlers. If your handlers
+//! follow a recursive schema on untrusted input, limit the depth yourself, because
+//! [`MAX_DECODE_DEPTH`](crate::MAX_DECODE_DEPTH) applies only to arena decoders. Groups are the
+//! exception: nesting them deeper than `MAX_DECODE_DEPTH` fails, even when they are skipped.
+//!
+//! # Many fields
+//!
+//! The macro takes one recursion step per selected field, and macro calls nested in handlers share
+//! rustc's recursion limit. Above about 120 selected fields, add `#![recursion_limit = "256"]` to your
+//! crate.
+//!
+//! # Writing a visitor by hand
 //!
 //! The `msg_stream!` macro is the usual way to build a visitor, but you can also implement the
-//! generated `<Msg>Visitor` trait yourself, for example for a reusable visitor type. To select a field,
+//! generated `MsgVisitor` trait yourself, for example for a reusable visitor type. To select a field,
 //! set its `WANT_<field>` to `true` and override its `on_<field>` method. The macro does both, but by
 //! hand it is easy to forget `WANT_<field>`, and then `on_<field>` is never called.
 //!
 //! `decode` takes the visitor by value, so implement the trait for `&mut` your type to keep its state
 //! after the decode. A handler for a sub-message passes the same state on with
-//! `child.decode(&mut **self)`. This counts the stations and temperatures of the
-//! [`example`](crate::example) schema's `Report`:
+//! `station.decode(&mut **self)`. This counts the stations and temperatures in `input`, an encoded
+//! `Report` from the [`example`](crate::example) schema:
 //!
 //! ```
 //! # mod example { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/example/weather.rs")); }
 //! # fn main() -> Result<(), rapidproto::DecodeError> {
-//! # let bytes = b"\x0a\x14\x0a\x06Zurich\x18\x01\x22\x08\x00\x00\x48\x41\x00\x00\x50\x41";
+//! # let input = b"\x0a\x14\x0a\x06Zurich\x18\x01\x22\x08\x00\x00\x48\x41\x00\x00\x50\x41";
 //! use example::stream::weather::{Report, ReportVisitor, Station, StationVisitor};
 //! use rapidproto::stream::Flow;
 //! use rapidproto::DecodeError;
@@ -84,25 +92,28 @@
 //! }
 //!
 //! let mut count = Count::default();
-//! Report::new(bytes)?.decode(&mut count)?;
+//! Report::new(input)?.decode(&mut count)?;
 //! assert_eq!((count.stations, count.temperatures), (1, 2));
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! [`Config::stream`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.stream
 
 use core::fmt;
 
 use crate::error::DecodeError;
 pub use crate::wire::WireType;
 
-/// Whether a streaming decode continues or stops. A handler returns it to choose, and `decode` returns
-/// it to say which happened.
+/// Whether a stream decode continues or stops.
+///
+/// A handler returns it to choose, and `decode` returns it to say which happened.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Flow {
-    /// From a handler: keep decoding, which is also what returning `()` means. From `decode`: the
-    /// message was read to its end.
+    /// A handler returns it to keep decoding, as returning `()` does. `decode` returns it when it read
+    /// the message to its end.
     Continue,
-    /// From a handler: end this message's `decode`. From `decode`: a handler ended it.
+    /// A handler returns it to end this message's `decode`, and `decode` then returns it too.
     Stop,
 }
 
@@ -259,10 +270,7 @@ macro_rules! stream_visitor {
     }};
 }
 
-/// A field on the wire that the message's schema does not declare, delivered to a message's `unknown`
-/// handler (when selected). Carries the field number, its wire type, and the field's raw value bytes:
-/// the bytes after the tag, exactly as they appear on the wire — for a length-delimited field this
-/// includes the length prefix, and for a group it is the body plus the trailing end-group tag.
+/// A field the schema does not declare, passed to the `unknown` handler.
 #[derive(Clone, Copy)]
 pub struct UnknownField<'a> {
     key: u32,
@@ -289,20 +297,22 @@ impl<'a> UnknownField<'a> {
         UnknownField { key, bytes }
     }
 
-    /// The field number.
+    /// Returns the field number.
     #[inline(always)]
     pub fn field_number(&self) -> u32 {
         self.key >> 3
     }
 
-    /// The field's wire type.
+    /// Returns the field's wire type.
     #[inline(always)]
     pub fn wire_type(&self) -> WireType {
         // Only a misuse of the hidden `new` can pass a reserved wire type.
         WireType::from_bits(self.key & 0b111).unwrap_or(WireType::Varint)
     }
 
-    /// The field's raw value bytes (after the tag).
+    /// Returns the field's encoded value, the bytes after its tag.
+    ///
+    /// A length-delimited value includes its length prefix, and a group includes its end-group tag.
     #[inline(always)]
     pub fn bytes(&self) -> &'a [u8] {
         self.bytes

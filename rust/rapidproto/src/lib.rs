@@ -94,7 +94,8 @@
 //! [`rapidproto-build`]: https://docs.rs/rapidproto-build
 //! [`Config::stream`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.stream
 //! [`Config::serde`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.serde
-
+// Without `alloc` there is no `Owned`, so its links go to the feature list, which says why.
+#![cfg_attr(not(feature = "alloc"), doc = "[`Owned`]: #features")]
 // The test harness needs `std`, which also lets the no-allocator path be unit-tested with
 // `--no-default-features`.
 #![cfg_attr(not(test), no_std)]
@@ -232,6 +233,9 @@ macro_rules! impl_decode_owned {
     ($msg:ident) => {};
 }
 
-/// How deep a generated `decode` lets sub-messages and groups nest. Deeper nesting fails with
-/// [`ErrorKind::DepthLimitExceeded`], so untrusted input cannot exhaust the stack.
+/// How deep sub-messages and groups can nest in an arena decoder.
+///
+/// Deeper nesting fails with [`ErrorKind::DepthLimitExceeded`], which bounds the stack a decode uses.
+/// An unoptimized build has larger stack frames, and a decode at this depth can overflow a 2 MiB
+/// thread stack there.
 pub const MAX_DECODE_DEPTH: u32 = 100;

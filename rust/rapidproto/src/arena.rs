@@ -80,12 +80,15 @@ impl Grow {
     }
 }
 
-/// A chunked bump arena. `'buf` ties it to a caller-seeded first chunk (if any); it defaults to
-/// `'static` so the heap-only constructor carries no borrow.
+/// The memory that arena decoders store messages in.
 ///
-/// An arena can move to another thread when nothing borrows it, and an async task that holds an arena
-/// and messages decoded into it can run on a multi-threaded executor. Threads cannot share an arena:
-/// it is `Send` but not `Sync`.
+/// It hands out memory by moving a pointer forward. Dropping the arena frees all of it at once, and
+/// [`reset`](Arena::reset) makes all of it available again. `'buf` is the lifetime of the buffer given
+/// to [`with_buffer`](Arena::with_buffer). `Arena::new` returns an `Arena<'static>`.
+///
+/// An arena is `Send` but not `Sync`. It can move to another thread when nothing borrows it, and an
+/// async task that holds an arena and the messages decoded into it can run on a multi-threaded
+/// executor.
 pub struct Arena<'buf> {
     // Hot bump state (plain `Cell`s so the fast path never borrows the chunk list).
     cur: Cell<NonNull<u8>>,
@@ -132,10 +135,11 @@ fn aligned_region(base: *mut u8, len: usize) -> Option<(NonNull<u8>, NonNull<u8>
 }
 
 impl<'buf> Arena<'buf> {
-    /// Seed the arena with a caller-provided first chunk. Available in **every** tier — this is the
-    /// only constructor the no-allocator tier has, and it needs no allocator. A buffer of 16 bytes or
-    /// less is ignored, so the arena starts empty. With `alloc` it then grows on first use. Without
-    /// `alloc`, it then has no room for anything.
+    /// Creates an arena that allocates from `buf` first.
+    ///
+    /// With the `alloc` feature, the arena grows on the heap once `buf` is full. Without it, this is
+    /// the only constructor, and allocation fails once `buf` is full. A `buf` of 16 bytes or less is
+    /// ignored.
     pub fn with_buffer(buf: &'buf mut [u8]) -> Self {
         let region = if buf.len() > MAX_ALIGN {
             aligned_region(buf.as_mut_ptr(), buf.len())
@@ -273,20 +277,23 @@ impl<'buf> Arena<'buf> {
         }
     }
 
-    /// Bytes handed out to callers (the useful payload; alignment padding is not counted).
+    /// Returns the number of bytes in use, not counting alignment padding.
     pub fn bytes_used(&self) -> usize {
         self.used.get()
     }
 
-    /// Total usable bytes across all held chunks (the host memory the arena is holding).
+    /// Returns the number of bytes the arena holds, in use or not, including a buffer given to
+    /// [`with_buffer`](Arena::with_buffer).
     pub fn bytes_reserved(&self) -> usize {
         self.reserved.get()
     }
 
-    /// Cap the total reserved bytes: a grow past `max_reserved_bytes` fails with `Err`, so decoding
-    /// untrusted input cannot make the arena allocate without bound. Default: unbounded. Set before
-    /// decoding; should be at least any seed buffer. In the no-allocator tier there is no growth to
-    /// cap, so this has no effect.
+    /// Limits [`bytes_reserved`](Arena::bytes_reserved), so untrusted input cannot make the arena grow
+    /// without bound.
+    ///
+    /// Growing past `max_reserved_bytes` fails, and the decode returns
+    /// [`ErrorKind::ArenaExhausted`](crate::ErrorKind::ArenaExhausted). There is no limit by default.
+    /// Without the `alloc` feature the arena never grows, so the limit has no effect.
     pub fn set_capacity_limit(&self, max_reserved_bytes: usize) {
         #[cfg(feature = "alloc")]
         {
@@ -296,8 +303,10 @@ impl<'buf> Arena<'buf> {
         let _ = max_reserved_bytes;
     }
 
-    /// Rewind to the first chunk for reuse. With `alloc` the chunks are **kept** (no free, no
-    /// malloc on the next decode); in the no-allocator tier it rewinds to the seed.
+    /// Makes all of the arena's memory available again.
+    ///
+    /// The arena keeps the memory it holds, so the next decode allocates from the heap only if it needs
+    /// more.
     pub fn reset(&mut self) {
         self.used.set(0);
         #[cfg(feature = "alloc")]
@@ -430,10 +439,9 @@ fn chunk_fits(c: &Chunk, bytes: usize, align: usize) -> bool {
     pad <= avail && bytes <= avail - pad
 }
 
-/// Heap-only constructors, available only when an allocator is present.
 #[cfg(feature = "alloc")]
 impl Arena<'static> {
-    /// A heap-only arena: empty, growing from the first allocation.
+    /// Creates an empty arena that grows on the heap.
     pub fn new() -> Arena<'static> {
         let dangling = NonNull::<u8>::dangling();
         Arena {
