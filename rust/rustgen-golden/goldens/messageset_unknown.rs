@@ -9,9 +9,11 @@ mod rp_check {
   const _: () = crate::messageset_unknown::rp_check::C; // This path must be where this file is included.
 }
 
+/// Arena decoders, which decode a whole message into an arena.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod arena {
 
+  /// The `ms` package.
   pub mod ms {
     pub struct Outer<'a> {
       ordinary: i32,
@@ -68,6 +70,7 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Outer);
 
+    /// Types declared in `ms.Outer`.
     pub mod outer {
       pub struct Container<'a> {
         rp_unknown: bool,
@@ -75,6 +78,9 @@ pub mod arena {
       }
 
       impl<'a> Container<'a> {
+        /// Returns `true` if the encoded message had a field the schema does not declare.
+        ///
+        /// Unknown fields inside a sub-message do not count.
         pub fn has_unknown_fields(&self) -> bool {
           self.rp_unknown
         }
@@ -101,6 +107,7 @@ pub mod arena {
       ::rapidproto::impl_decode_owned!(Container);
 
       impl<'a> Container<'a> {
+        /// Decodes `input` into `arena` and returns the message.
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Container<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -205,6 +212,7 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Ext);
 
     impl<'a> Outer<'a> {
+      /// Decodes `input` into `arena` and returns the message.
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Outer<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -310,6 +318,7 @@ pub mod arena {
     }
 
     impl<'a> Ext<'a> {
+      /// Decodes `input` into `arena` and returns the message.
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Ext<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

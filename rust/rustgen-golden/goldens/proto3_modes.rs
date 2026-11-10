@@ -13,9 +13,16 @@ mod rp_check {
   const _: () = crate::proto3_modes::rp_check::C; // This path must be where this file is included.
 }
 
+/// The schema's enums.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
+  /// The `p3` package.
   pub mod p3 {
+    /// The `p3.State` enum.
+    ///
+    /// A field can hold a number the schema does not name, so this wraps any `i32`.
+    /// Each named value is a constant, which also works as a `match` pattern. For an
+    /// exhaustive `match`, use [`classify`](Self::classify).
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct State(pub i32);
@@ -39,7 +46,9 @@ pub mod common {
       pub const UNKNOWN: State = State(0);
       pub const ON: State = State(1);
 
-      /// The matchable classification of this value.
+      /// Returns the value as an enum you can `match`.
+      ///
+      /// A number the schema does not name is `Unknown`.
       #[inline]
       #[must_use]
       pub fn classify(self) -> StateClass {
@@ -51,18 +60,22 @@ pub mod common {
       }
     }
 
+    /// The values of the `p3.State` enum, for `match`.
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
     pub enum StateClass {
       Unknown_,
       On,
+      /// A number the schema does not name.
       Unknown(i32),
     }
   }
 }
 
+/// Arena decoders, which decode a whole message into an arena.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod arena {
 
+  /// The `p3` package.
   pub mod p3 {
     pub struct Msg<'a> {
       implicit_i: i32,
@@ -138,6 +151,9 @@ pub mod arena {
       pub fn pick(&self) -> ::core::option::Option<&crate::proto3_modes::arena::p3::msg::Pick<'a>> {
         self.pick.as_ref()
       }
+      /// Returns `true` if the encoded message had a field the schema does not declare.
+      ///
+      /// Unknown fields inside a sub-message do not count.
       pub fn has_unknown_fields(&self) -> bool {
         self.rp_unknown
       }
@@ -379,7 +395,9 @@ pub mod arena {
 
     ::rapidproto::impl_decode_owned!(Msg);
 
+    /// Types declared in `p3.Msg`.
     pub mod msg {
+      /// The `pick` oneof of `p3.Msg`.
       #[derive(Debug)]
       pub enum Pick<'a> {
         A(i32),
@@ -391,6 +409,7 @@ pub mod arena {
     }
 
     impl<'a> Msg<'a> {
+      /// Decodes `input` into `arena` and returns the message.
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Msg<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));

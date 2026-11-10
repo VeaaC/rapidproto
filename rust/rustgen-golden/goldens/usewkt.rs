@@ -7,10 +7,18 @@ mod rp_check {
   const _: () = crate::usewkt::rp_check::C; // This path must be where this file is included.
 }
 
+/// The schema's enums.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
+  /// Packages under `google`.
   pub mod google {
+    /// The `google.protobuf` package.
     pub mod protobuf {
+      /// The `google.protobuf.Syntax` enum.
+      ///
+      /// A field can hold a number the schema does not name, so this wraps any `i32`.
+      /// Each named value is a constant, which also works as a `match` pattern. For an
+      /// exhaustive `match`, use [`classify`](Self::classify).
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
       #[repr(transparent)]
       pub struct Syntax(pub i32);
@@ -34,7 +42,9 @@ pub mod common {
         pub const PROTO2: Syntax = Syntax(0);
         pub const PROTO3: Syntax = Syntax(1);
 
-        /// The matchable classification of this value.
+        /// Returns the value as an enum you can `match`.
+        ///
+        /// A number the schema does not name is `Unknown`.
         #[inline]
         #[must_use]
         pub fn classify(self) -> SyntaxClass {
@@ -46,13 +56,21 @@ pub mod common {
         }
       }
 
+      /// The values of the `google.protobuf.Syntax` enum, for `match`.
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
       pub enum SyntaxClass {
         Proto2,
         Proto3,
+        /// A number the schema does not name.
         Unknown(i32),
       }
+      /// Types declared in `google.protobuf.Field`.
       pub mod field {
+        /// The `google.protobuf.Field.Kind` enum.
+        ///
+        /// A field can hold a number the schema does not name, so this wraps any `i32`.
+        /// Each named value is a constant, which also works as a `match` pattern. For an
+        /// exhaustive `match`, use [`classify`](Self::classify).
         #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
         #[repr(transparent)]
         pub struct Kind(pub i32);
@@ -93,7 +111,9 @@ pub mod common {
           pub const TYPE_SINT32: Kind = Kind(17);
           pub const TYPE_SINT64: Kind = Kind(18);
 
-          /// The matchable classification of this value.
+          /// Returns the value as an enum you can `match`.
+          ///
+          /// A number the schema does not name is `Unknown`.
           #[inline]
           #[must_use]
           pub fn classify(self) -> KindClass {
@@ -122,6 +142,7 @@ pub mod common {
           }
         }
 
+        /// The values of the `google.protobuf.Field.Kind` enum, for `match`.
         #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
         pub enum KindClass {
           TypeUnknown,
@@ -143,9 +164,15 @@ pub mod common {
           TypeSfixed64,
           TypeSint32,
           TypeSint64,
+          /// A number the schema does not name.
           Unknown(i32),
         }
 
+        /// The `google.protobuf.Field.Cardinality` enum.
+        ///
+        /// A field can hold a number the schema does not name, so this wraps any `i32`.
+        /// Each named value is a constant, which also works as a `match` pattern. For an
+        /// exhaustive `match`, use [`classify`](Self::classify).
         #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
         #[repr(transparent)]
         pub struct Cardinality(pub i32);
@@ -171,7 +198,9 @@ pub mod common {
           pub const REQUIRED: Cardinality = Cardinality(2);
           pub const REPEATED: Cardinality = Cardinality(3);
 
-          /// The matchable classification of this value.
+          /// Returns the value as an enum you can `match`.
+          ///
+          /// A number the schema does not name is `Unknown`.
           #[inline]
           #[must_use]
           pub fn classify(self) -> CardinalityClass {
@@ -185,12 +214,14 @@ pub mod common {
           }
         }
 
+        /// The values of the `google.protobuf.Field.Cardinality` enum, for `match`.
         #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
         pub enum CardinalityClass {
           Unknown_,
           Optional,
           Required,
           Repeated,
+          /// A number the schema does not name.
           Unknown(i32),
         }
       }
@@ -198,11 +229,14 @@ pub mod common {
   }
 }
 
+/// Arena decoders, which decode a whole message into an arena.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod arena {
 
+  /// Packages under `google`.
   pub mod google {
 
+    /// The `google.protobuf` package.
     pub mod protobuf {
       pub struct Timestamp<'a> {
         seconds: i64,
@@ -963,6 +997,7 @@ pub mod arena {
       ::rapidproto::impl_decode_owned!(Option);
 
       impl<'a> Timestamp<'a> {
+        /// Decodes `input` into `arena` and returns the message.
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Timestamp<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -1057,6 +1092,7 @@ pub mod arena {
       }
 
       impl<'a> Duration<'a> {
+        /// Decodes `input` into `arena` and returns the message.
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Duration<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -1151,6 +1187,7 @@ pub mod arena {
       }
 
       impl<'a> Any<'a> {
+        /// Decodes `input` into `arena` and returns the message.
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Any<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -1235,6 +1272,7 @@ pub mod arena {
       }
 
       impl<'a> SourceContext<'a> {
+        /// Decodes `input` into `arena` and returns the message.
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a SourceContext<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -1300,6 +1338,7 @@ pub mod arena {
       }
 
       impl<'a> Type<'a> {
+        /// Decodes `input` into `arena` and returns the message.
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Type<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -1466,6 +1505,7 @@ pub mod arena {
       }
 
       impl<'a> Field<'a> {
+        /// Decodes `input` into `arena` and returns the message.
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Field<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -1710,6 +1750,7 @@ pub mod arena {
       }
 
       impl<'a> Enum<'a> {
+        /// Decodes `input` into `arena` and returns the message.
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Enum<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -1857,6 +1898,7 @@ pub mod arena {
       }
 
       impl<'a> EnumValue<'a> {
+        /// Decodes `input` into `arena` and returns the message.
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a EnumValue<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -1960,6 +2002,7 @@ pub mod arena {
       }
 
       impl<'a> Option<'a> {
+        /// Decodes `input` into `arena` and returns the message.
         pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Option<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
             return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -2051,6 +2094,7 @@ pub mod arena {
     }
   }
 
+  /// The `uw` package.
   pub mod uw {
     pub struct Event<'a> {
       at: crate::usewkt::arena::google::protobuf::Timestamp<'a>,
@@ -2122,6 +2166,7 @@ pub mod arena {
     ::rapidproto::impl_decode_owned!(Event);
 
     impl<'a> Event<'a> {
+      /// Decodes `input` into `arena` and returns the message.
       pub fn decode(input: &'a [u8], arena: &'a ::rapidproto::Arena<'a>) -> ::core::result::Result<&'a Event<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
           return ::core::result::Result::Err(::rapidproto::DecodeError::new(::rapidproto::ErrorKind::InputTooLarge, 0));
@@ -2254,27 +2299,40 @@ pub mod arena {
 #[doc(hidden)]
 pub use ::rapidproto::rp_rt;
 
+/// Stream decoders, which pass the fields you select to your handlers.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod stream {
 
+  /// Packages under `google`.
   pub mod google {
 
+    /// The `google.protobuf` package.
     pub mod protobuf {
-      /// Streaming visitor for `Timestamp`. Select a field by overriding its `WANT_<field>` const AND
-      /// its `on_<field>` method (the `timestamp_stream` macro does both); a field left at the default
-      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+      /// Receives the selected fields of `google.protobuf.Timestamp`.
+      ///
+      /// Usually you build one with `timestamp_stream!`. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+      /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+      /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
       pub trait TimestampVisitor<'a> {
+        /// Whether the decoder calls [`on_seconds`](Self::on_seconds).
         const WANT_seconds: bool = false;
+        /// Handles the `seconds` field.
         #[inline(always)]
         fn on_seconds(&mut self, value: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_nanos`](Self::on_nanos).
         const WANT_nanos: bool = false;
+        /// Handles the `nanos` field.
         #[inline(always)]
         fn on_nanos(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
         const WANT_UNKNOWN: bool = false;
+        /// Handles a field the schema does not declare.
         #[inline(always)]
         fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
+      /// An encoded `google.protobuf.Timestamp` message, read field by field with [`decode`](Self::decode).
       #[derive(Clone, Copy)]
       pub struct Timestamp<'a> {
         rp_input: &'a [u8],
@@ -2287,8 +2345,9 @@ pub mod stream {
       }
 
       impl<'a> Timestamp<'a> {
-        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-        /// above `u32::MAX` bytes.
+        /// Wraps an encoded message.
+        ///
+        /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<Timestamp<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -2300,12 +2359,17 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::usewkt::stream) fn rp_new(rp_input: &'a [u8]) -> Timestamp<'a> { Timestamp { rp_input } }
 
-        /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-        /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-        /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+        /// Returns the encoded message.
+        ///
+        /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+        /// Decodes the message and passes each selected field to `visitor`.
+        ///
+        /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+        /// error or the message is malformed. A sub-message is checked only when a handler
+        /// decodes it.
         pub fn decode<V: TimestampVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -2411,8 +2475,11 @@ pub mod stream {
         }
       }
 
-      /// Builds a `TimestampVisitor` from per-field closures: `timestamp_stream! { field => |value| .. }`, or
-      /// `timestamp_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+      /// Builds an implementation of [`TimestampVisitor`] from handlers, one per selected field.
+      ///
+      /// With `timestamp_stream! { field => |value| .. }`, each handler captures its own state.
+      /// With `timestamp_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+      /// `state`. The key `unknown` selects the fields the schema does not declare.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf9Timestamp {
@@ -2427,21 +2494,31 @@ pub mod stream {
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf9Timestamp as timestamp_stream;
 
-      /// Streaming visitor for `Duration`. Select a field by overriding its `WANT_<field>` const AND
-      /// its `on_<field>` method (the `duration_stream` macro does both); a field left at the default
-      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+      /// Receives the selected fields of `google.protobuf.Duration`.
+      ///
+      /// Usually you build one with `duration_stream!`. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+      /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+      /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
       pub trait DurationVisitor<'a> {
+        /// Whether the decoder calls [`on_seconds`](Self::on_seconds).
         const WANT_seconds: bool = false;
+        /// Handles the `seconds` field.
         #[inline(always)]
         fn on_seconds(&mut self, value: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_nanos`](Self::on_nanos).
         const WANT_nanos: bool = false;
+        /// Handles the `nanos` field.
         #[inline(always)]
         fn on_nanos(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
         const WANT_UNKNOWN: bool = false;
+        /// Handles a field the schema does not declare.
         #[inline(always)]
         fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
+      /// An encoded `google.protobuf.Duration` message, read field by field with [`decode`](Self::decode).
       #[derive(Clone, Copy)]
       pub struct Duration<'a> {
         rp_input: &'a [u8],
@@ -2454,8 +2531,9 @@ pub mod stream {
       }
 
       impl<'a> Duration<'a> {
-        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-        /// above `u32::MAX` bytes.
+        /// Wraps an encoded message.
+        ///
+        /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<Duration<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -2467,12 +2545,17 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::usewkt::stream) fn rp_new(rp_input: &'a [u8]) -> Duration<'a> { Duration { rp_input } }
 
-        /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-        /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-        /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+        /// Returns the encoded message.
+        ///
+        /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+        /// Decodes the message and passes each selected field to `visitor`.
+        ///
+        /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+        /// error or the message is malformed. A sub-message is checked only when a handler
+        /// decodes it.
         pub fn decode<V: DurationVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -2578,8 +2661,11 @@ pub mod stream {
         }
       }
 
-      /// Builds a `DurationVisitor` from per-field closures: `duration_stream! { field => |value| .. }`, or
-      /// `duration_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+      /// Builds an implementation of [`DurationVisitor`] from handlers, one per selected field.
+      ///
+      /// With `duration_stream! { field => |value| .. }`, each handler captures its own state.
+      /// With `duration_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+      /// `state`. The key `unknown` selects the fields the schema does not declare.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf8Duration {
@@ -2594,21 +2680,31 @@ pub mod stream {
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf8Duration as duration_stream;
 
-      /// Streaming visitor for `Any`. Select a field by overriding its `WANT_<field>` const AND
-      /// its `on_<field>` method (the `any_stream` macro does both); a field left at the default
-      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+      /// Receives the selected fields of `google.protobuf.Any`.
+      ///
+      /// Usually you build one with `any_stream!`. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+      /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+      /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
       pub trait AnyVisitor<'a> {
+        /// Whether the decoder calls [`on_type_url`](Self::on_type_url).
         const WANT_type_url: bool = false;
+        /// Handles the `type_url` field.
         #[inline(always)]
         fn on_type_url(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_value`](Self::on_value).
         const WANT_value: bool = false;
+        /// Handles the `value` field.
         #[inline(always)]
         fn on_value(&mut self, value: ::rapidproto::ProtoBytes<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
         const WANT_UNKNOWN: bool = false;
+        /// Handles a field the schema does not declare.
         #[inline(always)]
         fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
+      /// An encoded `google.protobuf.Any` message, read field by field with [`decode`](Self::decode).
       #[derive(Clone, Copy)]
       pub struct Any<'a> {
         rp_input: &'a [u8],
@@ -2621,8 +2717,9 @@ pub mod stream {
       }
 
       impl<'a> Any<'a> {
-        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-        /// above `u32::MAX` bytes.
+        /// Wraps an encoded message.
+        ///
+        /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<Any<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -2634,12 +2731,17 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::usewkt::stream) fn rp_new(rp_input: &'a [u8]) -> Any<'a> { Any { rp_input } }
 
-        /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-        /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-        /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+        /// Returns the encoded message.
+        ///
+        /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+        /// Decodes the message and passes each selected field to `visitor`.
+        ///
+        /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+        /// error or the message is malformed. A sub-message is checked only when a handler
+        /// decodes it.
         pub fn decode<V: AnyVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -2745,8 +2847,11 @@ pub mod stream {
         }
       }
 
-      /// Builds a `AnyVisitor` from per-field closures: `any_stream! { field => |value| .. }`, or
-      /// `any_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+      /// Builds an implementation of [`AnyVisitor`] from handlers, one per selected field.
+      ///
+      /// With `any_stream! { field => |value| .. }`, each handler captures its own state.
+      /// With `any_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+      /// `state`. The key `unknown` selects the fields the schema does not declare.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf3Any {
@@ -2761,18 +2866,26 @@ pub mod stream {
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf3Any as any_stream;
 
-      /// Streaming visitor for `SourceContext`. Select a field by overriding its `WANT_<field>` const AND
-      /// its `on_<field>` method (the `source_context_stream` macro does both); a field left at the default
-      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+      /// Receives the selected fields of `google.protobuf.SourceContext`.
+      ///
+      /// Usually you build one with `source_context_stream!`. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+      /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+      /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
       pub trait SourceContextVisitor<'a> {
+        /// Whether the decoder calls [`on_file_name`](Self::on_file_name).
         const WANT_file_name: bool = false;
+        /// Handles the `file_name` field.
         #[inline(always)]
         fn on_file_name(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
         const WANT_UNKNOWN: bool = false;
+        /// Handles a field the schema does not declare.
         #[inline(always)]
         fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
+      /// An encoded `google.protobuf.SourceContext` message, read field by field with [`decode`](Self::decode).
       #[derive(Clone, Copy)]
       pub struct SourceContext<'a> {
         rp_input: &'a [u8],
@@ -2785,8 +2898,9 @@ pub mod stream {
       }
 
       impl<'a> SourceContext<'a> {
-        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-        /// above `u32::MAX` bytes.
+        /// Wraps an encoded message.
+        ///
+        /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<SourceContext<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -2798,12 +2912,17 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::usewkt::stream) fn rp_new(rp_input: &'a [u8]) -> SourceContext<'a> { SourceContext { rp_input } }
 
-        /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-        /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-        /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+        /// Returns the encoded message.
+        ///
+        /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+        /// Decodes the message and passes each selected field to `visitor`.
+        ///
+        /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+        /// error or the message is malformed. A sub-message is checked only when a handler
+        /// decodes it.
         pub fn decode<V: SourceContextVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -2879,8 +2998,11 @@ pub mod stream {
         }
       }
 
-      /// Builds a `SourceContextVisitor` from per-field closures: `source_context_stream! { field => |value| .. }`, or
-      /// `source_context_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+      /// Builds an implementation of [`SourceContextVisitor`] from handlers, one per selected field.
+      ///
+      /// With `source_context_stream! { field => |value| .. }`, each handler captures its own state.
+      /// With `source_context_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+      /// `state`. The key `unknown` selects the fields the schema does not declare.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf13SourceContext {
@@ -2894,33 +3016,57 @@ pub mod stream {
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf13SourceContext as source_context_stream;
 
-      /// Streaming visitor for `Type`. Select a field by overriding its `WANT_<field>` const AND
-      /// its `on_<field>` method (the `type_stream` macro does both); a field left at the default
-      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+      /// Receives the selected fields of `google.protobuf.Type`.
+      ///
+      /// Usually you build one with `type_stream!`. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+      /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+      /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
       pub trait TypeVisitor<'a> {
+        /// Whether the decoder calls [`on_name`](Self::on_name).
         const WANT_name: bool = false;
+        /// Handles the `name` field.
         #[inline(always)]
         fn on_name(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_fields`](Self::on_fields).
         const WANT_fields: bool = false;
+        /// Handles one element of `fields`.
+        ///
+        /// Read its fields with `value.decode`.
         #[inline(always)]
         fn on_fields(&mut self, value: crate::usewkt::stream::google::protobuf::Field<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_oneofs`](Self::on_oneofs).
         const WANT_oneofs: bool = false;
+        /// Handles one element of `oneofs`.
         #[inline(always)]
         fn on_oneofs(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_options`](Self::on_options).
         const WANT_options: bool = false;
+        /// Handles one element of `options`.
+        ///
+        /// Read its fields with `value.decode`.
         #[inline(always)]
         fn on_options(&mut self, value: crate::usewkt::stream::google::protobuf::Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_source_context`](Self::on_source_context).
         const WANT_source_context: bool = false;
+        /// Handles the `source_context` sub-message.
+        ///
+        /// Read its fields with `value.decode`.
         #[inline(always)]
         fn on_source_context(&mut self, value: crate::usewkt::stream::google::protobuf::SourceContext<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_syntax`](Self::on_syntax).
         const WANT_syntax: bool = false;
+        /// Handles the `syntax` field.
         #[inline(always)]
         fn on_syntax(&mut self, value: crate::usewkt::common::google::protobuf::Syntax) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
         const WANT_UNKNOWN: bool = false;
+        /// Handles a field the schema does not declare.
         #[inline(always)]
         fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
+      /// An encoded `google.protobuf.Type` message, read field by field with [`decode`](Self::decode).
       #[derive(Clone, Copy)]
       pub struct Type<'a> {
         rp_input: &'a [u8],
@@ -2933,8 +3079,9 @@ pub mod stream {
       }
 
       impl<'a> Type<'a> {
-        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-        /// above `u32::MAX` bytes.
+        /// Wraps an encoded message.
+        ///
+        /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<Type<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -2946,12 +3093,17 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::usewkt::stream) fn rp_new(rp_input: &'a [u8]) -> Type<'a> { Type { rp_input } }
 
-        /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-        /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-        /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+        /// Returns the encoded message.
+        ///
+        /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+        /// Decodes the message and passes each selected field to `visitor`.
+        ///
+        /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+        /// error or the message is malformed. A sub-message is checked only when a handler
+        /// decodes it.
         pub fn decode<V: TypeVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -3177,8 +3329,11 @@ pub mod stream {
         }
       }
 
-      /// Builds a `TypeVisitor` from per-field closures: `type_stream! { field => |value| .. }`, or
-      /// `type_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+      /// Builds an implementation of [`TypeVisitor`] from handlers, one per selected field.
+      ///
+      /// With `type_stream! { field => |value| .. }`, each handler captures its own state.
+      /// With `type_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+      /// `state`. The key `unknown` selects the fields the schema does not declare.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf4Type {
@@ -3197,45 +3352,73 @@ pub mod stream {
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf4Type as type_stream;
 
-      /// Streaming visitor for `Field`. Select a field by overriding its `WANT_<field>` const AND
-      /// its `on_<field>` method (the `field_stream` macro does both); a field left at the default
-      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+      /// Receives the selected fields of `google.protobuf.Field`.
+      ///
+      /// Usually you build one with `field_stream!`. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+      /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+      /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
       pub trait FieldVisitor<'a> {
+        /// Whether the decoder calls [`on_kind`](Self::on_kind).
         const WANT_kind: bool = false;
+        /// Handles the `kind` field.
         #[inline(always)]
         fn on_kind(&mut self, value: crate::usewkt::common::google::protobuf::field::Kind) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_cardinality`](Self::on_cardinality).
         const WANT_cardinality: bool = false;
+        /// Handles the `cardinality` field.
         #[inline(always)]
         fn on_cardinality(&mut self, value: crate::usewkt::common::google::protobuf::field::Cardinality) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_number`](Self::on_number).
         const WANT_number: bool = false;
+        /// Handles the `number` field.
         #[inline(always)]
         fn on_number(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_name`](Self::on_name).
         const WANT_name: bool = false;
+        /// Handles the `name` field.
         #[inline(always)]
         fn on_name(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_type_url`](Self::on_type_url).
         const WANT_type_url: bool = false;
+        /// Handles the `type_url` field.
         #[inline(always)]
         fn on_type_url(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_oneof_index`](Self::on_oneof_index).
         const WANT_oneof_index: bool = false;
+        /// Handles the `oneof_index` field.
         #[inline(always)]
         fn on_oneof_index(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_packed`](Self::on_packed).
         const WANT_packed: bool = false;
+        /// Handles the `packed` field.
         #[inline(always)]
         fn on_packed(&mut self, value: bool) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_options`](Self::on_options).
         const WANT_options: bool = false;
+        /// Handles one element of `options`.
+        ///
+        /// Read its fields with `value.decode`.
         #[inline(always)]
         fn on_options(&mut self, value: crate::usewkt::stream::google::protobuf::Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_json_name`](Self::on_json_name).
         const WANT_json_name: bool = false;
+        /// Handles the `json_name` field.
         #[inline(always)]
         fn on_json_name(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_default_value`](Self::on_default_value).
         const WANT_default_value: bool = false;
+        /// Handles the `default_value` field.
         #[inline(always)]
         fn on_default_value(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
         const WANT_UNKNOWN: bool = false;
+        /// Handles a field the schema does not declare.
         #[inline(always)]
         fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
+      /// An encoded `google.protobuf.Field` message, read field by field with [`decode`](Self::decode).
       #[derive(Clone, Copy)]
       pub struct Field<'a> {
         rp_input: &'a [u8],
@@ -3248,8 +3431,9 @@ pub mod stream {
       }
 
       impl<'a> Field<'a> {
-        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-        /// above `u32::MAX` bytes.
+        /// Wraps an encoded message.
+        ///
+        /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<Field<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -3261,12 +3445,17 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::usewkt::stream) fn rp_new(rp_input: &'a [u8]) -> Field<'a> { Field { rp_input } }
 
-        /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-        /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-        /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+        /// Returns the encoded message.
+        ///
+        /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+        /// Decodes the message and passes each selected field to `visitor`.
+        ///
+        /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+        /// error or the message is malformed. A sub-message is checked only when a handler
+        /// decodes it.
         pub fn decode<V: FieldVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -3612,8 +3801,11 @@ pub mod stream {
         }
       }
 
-      /// Builds a `FieldVisitor` from per-field closures: `field_stream! { field => |value| .. }`, or
-      /// `field_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+      /// Builds an implementation of [`FieldVisitor`] from handlers, one per selected field.
+      ///
+      /// With `field_stream! { field => |value| .. }`, each handler captures its own state.
+      /// With `field_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+      /// `state`. The key `unknown` selects the fields the schema does not declare.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf5Field {
@@ -3636,30 +3828,52 @@ pub mod stream {
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf5Field as field_stream;
 
-      /// Streaming visitor for `Enum`. Select a field by overriding its `WANT_<field>` const AND
-      /// its `on_<field>` method (the `enum_stream` macro does both); a field left at the default
-      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+      /// Receives the selected fields of `google.protobuf.Enum`.
+      ///
+      /// Usually you build one with `enum_stream!`. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+      /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+      /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
       pub trait EnumVisitor<'a> {
+        /// Whether the decoder calls [`on_name`](Self::on_name).
         const WANT_name: bool = false;
+        /// Handles the `name` field.
         #[inline(always)]
         fn on_name(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_enumvalue`](Self::on_enumvalue).
         const WANT_enumvalue: bool = false;
+        /// Handles one element of `enumvalue`.
+        ///
+        /// Read its fields with `value.decode`.
         #[inline(always)]
         fn on_enumvalue(&mut self, value: crate::usewkt::stream::google::protobuf::EnumValue<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_options`](Self::on_options).
         const WANT_options: bool = false;
+        /// Handles one element of `options`.
+        ///
+        /// Read its fields with `value.decode`.
         #[inline(always)]
         fn on_options(&mut self, value: crate::usewkt::stream::google::protobuf::Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_source_context`](Self::on_source_context).
         const WANT_source_context: bool = false;
+        /// Handles the `source_context` sub-message.
+        ///
+        /// Read its fields with `value.decode`.
         #[inline(always)]
         fn on_source_context(&mut self, value: crate::usewkt::stream::google::protobuf::SourceContext<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_syntax`](Self::on_syntax).
         const WANT_syntax: bool = false;
+        /// Handles the `syntax` field.
         #[inline(always)]
         fn on_syntax(&mut self, value: crate::usewkt::common::google::protobuf::Syntax) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
         const WANT_UNKNOWN: bool = false;
+        /// Handles a field the schema does not declare.
         #[inline(always)]
         fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
+      /// An encoded `google.protobuf.Enum` message, read field by field with [`decode`](Self::decode).
       #[derive(Clone, Copy)]
       pub struct Enum<'a> {
         rp_input: &'a [u8],
@@ -3672,8 +3886,9 @@ pub mod stream {
       }
 
       impl<'a> Enum<'a> {
-        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-        /// above `u32::MAX` bytes.
+        /// Wraps an encoded message.
+        ///
+        /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<Enum<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -3685,12 +3900,17 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::usewkt::stream) fn rp_new(rp_input: &'a [u8]) -> Enum<'a> { Enum { rp_input } }
 
-        /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-        /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-        /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+        /// Returns the encoded message.
+        ///
+        /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+        /// Decodes the message and passes each selected field to `visitor`.
+        ///
+        /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+        /// error or the message is malformed. A sub-message is checked only when a handler
+        /// decodes it.
         pub fn decode<V: EnumVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -3886,8 +4106,11 @@ pub mod stream {
         }
       }
 
-      /// Builds a `EnumVisitor` from per-field closures: `enum_stream! { field => |value| .. }`, or
-      /// `enum_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+      /// Builds an implementation of [`EnumVisitor`] from handlers, one per selected field.
+      ///
+      /// With `enum_stream! { field => |value| .. }`, each handler captures its own state.
+      /// With `enum_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+      /// `state`. The key `unknown` selects the fields the schema does not declare.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf4Enum {
@@ -3905,24 +4128,38 @@ pub mod stream {
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf4Enum as enum_stream;
 
-      /// Streaming visitor for `EnumValue`. Select a field by overriding its `WANT_<field>` const AND
-      /// its `on_<field>` method (the `enum_value_stream` macro does both); a field left at the default
-      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+      /// Receives the selected fields of `google.protobuf.EnumValue`.
+      ///
+      /// Usually you build one with `enum_value_stream!`. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+      /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+      /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
       pub trait EnumValueVisitor<'a> {
+        /// Whether the decoder calls [`on_name`](Self::on_name).
         const WANT_name: bool = false;
+        /// Handles the `name` field.
         #[inline(always)]
         fn on_name(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_number`](Self::on_number).
         const WANT_number: bool = false;
+        /// Handles the `number` field.
         #[inline(always)]
         fn on_number(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_options`](Self::on_options).
         const WANT_options: bool = false;
+        /// Handles one element of `options`.
+        ///
+        /// Read its fields with `value.decode`.
         #[inline(always)]
         fn on_options(&mut self, value: crate::usewkt::stream::google::protobuf::Option<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
         const WANT_UNKNOWN: bool = false;
+        /// Handles a field the schema does not declare.
         #[inline(always)]
         fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
+      /// An encoded `google.protobuf.EnumValue` message, read field by field with [`decode`](Self::decode).
       #[derive(Clone, Copy)]
       pub struct EnumValue<'a> {
         rp_input: &'a [u8],
@@ -3935,8 +4172,9 @@ pub mod stream {
       }
 
       impl<'a> EnumValue<'a> {
-        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-        /// above `u32::MAX` bytes.
+        /// Wraps an encoded message.
+        ///
+        /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<EnumValue<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -3948,12 +4186,17 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::usewkt::stream) fn rp_new(rp_input: &'a [u8]) -> EnumValue<'a> { EnumValue { rp_input } }
 
-        /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-        /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-        /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+        /// Returns the encoded message.
+        ///
+        /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+        /// Decodes the message and passes each selected field to `visitor`.
+        ///
+        /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+        /// error or the message is malformed. A sub-message is checked only when a handler
+        /// decodes it.
         pub fn decode<V: EnumValueVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -4089,8 +4332,11 @@ pub mod stream {
         }
       }
 
-      /// Builds a `EnumValueVisitor` from per-field closures: `enum_value_stream! { field => |value| .. }`, or
-      /// `enum_value_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+      /// Builds an implementation of [`EnumValueVisitor`] from handlers, one per selected field.
+      ///
+      /// With `enum_value_stream! { field => |value| .. }`, each handler captures its own state.
+      /// With `enum_value_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+      /// `state`. The key `unknown` selects the fields the schema does not declare.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf9EnumValue {
@@ -4106,21 +4352,33 @@ pub mod stream {
       #[doc(inline)]
       pub use __rp_6usewkt_6google8protobuf9EnumValue as enum_value_stream;
 
-      /// Streaming visitor for `Option`. Select a field by overriding its `WANT_<field>` const AND
-      /// its `on_<field>` method (the `option_stream` macro does both); a field left at the default
-      /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+      /// Receives the selected fields of `google.protobuf.Option`.
+      ///
+      /// Usually you build one with `option_stream!`. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+      /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+      /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
       pub trait OptionVisitor<'a> {
+        /// Whether the decoder calls [`on_name`](Self::on_name).
         const WANT_name: bool = false;
+        /// Handles the `name` field.
         #[inline(always)]
         fn on_name(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_value`](Self::on_value).
         const WANT_value: bool = false;
+        /// Handles the `value` sub-message.
+        ///
+        /// Read its fields with `value.decode`.
         #[inline(always)]
         fn on_value(&mut self, value: crate::usewkt::stream::google::protobuf::Any<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+        /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
         const WANT_UNKNOWN: bool = false;
+        /// Handles a field the schema does not declare.
         #[inline(always)]
         fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       }
 
+      /// An encoded `google.protobuf.Option` message, read field by field with [`decode`](Self::decode).
       #[derive(Clone, Copy)]
       pub struct Option<'a> {
         rp_input: &'a [u8],
@@ -4133,8 +4391,9 @@ pub mod stream {
       }
 
       impl<'a> Option<'a> {
-        /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-        /// above `u32::MAX` bytes.
+        /// Wraps an encoded message.
+        ///
+        /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<Option<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -4146,12 +4405,17 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::usewkt::stream) fn rp_new(rp_input: &'a [u8]) -> Option<'a> { Option { rp_input } }
 
-        /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-        /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-        /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+        /// Returns the encoded message.
+        ///
+        /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+        /// Decodes the message and passes each selected field to `visitor`.
+        ///
+        /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+        /// error or the message is malformed. A sub-message is checked only when a handler
+        /// decodes it.
         pub fn decode<V: OptionVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -4257,8 +4521,11 @@ pub mod stream {
         }
       }
 
-      /// Builds a `OptionVisitor` from per-field closures: `option_stream! { field => |value| .. }`, or
-      /// `option_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+      /// Builds an implementation of [`OptionVisitor`] from handlers, one per selected field.
+      ///
+      /// With `option_stream! { field => |value| .. }`, each handler captures its own state.
+      /// With `option_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+      /// `state`. The key `unknown` selects the fields the schema does not declare.
       #[doc(hidden)]
       #[macro_export]
       macro_rules! __rp_6usewkt_6google8protobuf6Option {
@@ -4275,25 +4542,44 @@ pub mod stream {
     }
   }
 
+  /// The `uw` package.
   pub mod uw {
-    /// Streaming visitor for `Event`. Select a field by overriding its `WANT_<field>` const AND
-    /// its `on_<field>` method (the `event_stream` macro does both); a field left at the default
-    /// `WANT_<field> = false` is skipped on the wire with no dispatch.
+    /// Receives the selected fields of `uw.Event`.
+    ///
+    /// Usually you build one with `event_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait EventVisitor<'a> {
+      /// Whether the decoder calls [`on_at`](Self::on_at).
       const WANT_at: bool = false;
+      /// Handles the `at` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_at(&mut self, value: crate::usewkt::stream::google::protobuf::Timestamp<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_took`](Self::on_took).
       const WANT_took: bool = false;
+      /// Handles the `took` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_took(&mut self, value: crate::usewkt::stream::google::protobuf::Duration<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_shape`](Self::on_shape).
       const WANT_shape: bool = false;
+      /// Handles the `shape` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_shape(&mut self, value: crate::usewkt::stream::google::protobuf::Type<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
+      /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
       const WANT_UNKNOWN: bool = false;
+      /// Handles a field the schema does not declare.
       #[inline(always)]
       fn on_unknown(&mut self, value: ::rapidproto::stream::UnknownField<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
     }
 
+    /// An encoded `uw.Event` message, read field by field with [`decode`](Self::decode).
     #[derive(Clone, Copy)]
     pub struct Event<'a> {
       rp_input: &'a [u8],
@@ -4306,8 +4592,9 @@ pub mod stream {
     }
 
     impl<'a> Event<'a> {
-      /// Wrap an encoded message for [`decode`](Self::decode). Fails with `ErrorKind::InputTooLarge`
-      /// above `u32::MAX` bytes.
+      /// Wraps an encoded message.
+      ///
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Event<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -4319,12 +4606,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::usewkt::stream) fn rp_new(rp_input: &'a [u8]) -> Event<'a> { Event { rp_input } }
 
-      /// The message body bytes this handle reads -- the slice `decode` walks. Pass them to the
-      /// arena model's `decode(.., &arena)` for this message to materialize it as a tree instead
-      /// (stream the outer message, arena-decode a chosen sub-message mid-stream).
+      /// Returns the encoded message.
+      ///
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
+      /// Decodes the message and passes each selected field to `visitor`.
+      ///
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: EventVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -4460,8 +4752,11 @@ pub mod stream {
       }
     }
 
-    /// Builds a `EventVisitor` from per-field closures: `event_stream! { field => |value| .. }`, or
-    /// `event_stream!(&mut state; { field => |state, value| .. })` to lend every handler one state.
+    /// Builds an implementation of [`EventVisitor`] from handlers, one per selected field.
+    ///
+    /// With `event_stream! { field => |value| .. }`, each handler captures its own state.
+    /// With `event_stream!(&mut state; { field => |state, value| .. })`, the handlers share
+    /// `state`. The key `unknown` selects the fields the schema does not declare.
     #[doc(hidden)]
     #[macro_export]
     macro_rules! __rp_6usewkt_2uw5Event {

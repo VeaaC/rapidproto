@@ -69,9 +69,10 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 // Each macro expands at the consumer's call site and names everything by a path from `$crate` through
 // `module_path`, with the runtime behind a `#[doc(hidden)] rp_rt` re-export beside the `stream` tree,
 // so it needs nothing else in scope and works from another crate. It is a hidden `#[macro_export]
-// __rp_<path>_<fqn>`, re-exported at its module path under its friendly name.
+// __rp_<path>_<fqn>`, re-exported at its module path under its friendly name. `arena` says whether the
+// file also has the arena tree, which the docs then point to.
 std::string generate_stream(const std::vector<const FileNode*>& files,
-                            const std::string& module_path = "crate");
+                            const std::string& module_path = "crate", bool arena = true);
 
 // What `generate_file` emits. `common` is always emitted (both decoder models reference it). Default
 // is the arena model only. At least one model must be set; the caller enforces that.

@@ -25,6 +25,7 @@ class Page(HTMLParser):
     def __init__(self, path):
         super().__init__()
         self.ids = set()
+        self.redirect = None
         self.hrefs = []
         self.in_std_section = False
         self.docblock_divs = 0
@@ -40,6 +41,8 @@ class Page(HTMLParser):
         # Anchors in the standard library's section stay valid targets: the sidebar links to them.
         if "id" in attrs:
             self.ids.add(attrs["id"])
+        if tag == "meta" and attrs.get("http-equiv") == "refresh":
+            self.redirect = attrs.get("content", "").partition("URL=")[2]
         if tag == "h2":
             self.in_std_section = attrs.get("id") == STD_SECTION
         if self.in_std_section:
@@ -78,6 +81,12 @@ def main(doc_dir, crates):
             pages[path] = Page(path)
         return pages[path]
 
+    def landing(path):
+        # A link to another crate can point at one of rustdoc's redirect pages, which keeps the fragment.
+        if path.endswith(".html") and page(path).redirect:
+            return os.path.normpath(os.path.join(os.path.dirname(path), page(path).redirect))
+        return path
+
     source_dir = os.path.join(os.path.normpath(doc_dir), "src") + os.sep
     errors = []
     for crate in crates:
@@ -101,6 +110,8 @@ def main(doc_dir, crates):
                 file = os.path.normpath(os.path.join(os.path.dirname(path), target)) if target else path
                 if file.startswith(source_dir):
                     continue
+                if os.path.exists(file):
+                    file = landing(file)
                 if not os.path.exists(file):
                     errors.append(f"{path}: dead link {href}")
                 elif fragment and file.endswith(".html") and fragment not in page(file).ids:
