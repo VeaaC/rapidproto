@@ -7,7 +7,7 @@ mod rp_check {
   const _: () = crate::pkgalias::rp_check::C; // This path must be where this file is included.
 }
 
-/// Enums, shared by arena and stream decoders.
+/// The schema's enums.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
   /// The `pa` package.
@@ -17,8 +17,8 @@ pub mod common {
       /// The `pa.linux_.E` enum.
       ///
       /// A field can hold a number the schema does not name, so this wraps any `i32`.
-      /// Each named value is a constant. To `match` on a value, use
-      /// [`classify`](Self::classify).
+      /// Each named value is a constant, which also works as a `match` pattern. For an
+      /// exhaustive `match`, use [`classify`](Self::classify).
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
       #[repr(transparent)]
       pub struct E(pub i32);
@@ -41,8 +41,9 @@ pub mod common {
       impl E {
         pub const E0: E = E(0);
 
-        /// Returns the value as an enum you can `match`. A number the schema does not name is
-        /// `Unknown`.
+        /// Returns the value as an enum you can `match`.
+        ///
+        /// A number the schema does not name is `Unknown`.
         #[inline]
         #[must_use]
         pub fn classify(self) -> EClass {
@@ -66,8 +67,8 @@ pub mod common {
       /// The `pa.linux.E` enum.
       ///
       /// A field can hold a number the schema does not name, so this wraps any `i32`.
-      /// Each named value is a constant. To `match` on a value, use
-      /// [`classify`](Self::classify).
+      /// Each named value is a constant, which also works as a `match` pattern. For an
+      /// exhaustive `match`, use [`classify`](Self::classify).
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
       #[repr(transparent)]
       pub struct E(pub i32);
@@ -90,8 +91,9 @@ pub mod common {
       impl E {
         pub const F0: E = E(0);
 
-        /// Returns the value as an enum you can `match`. A number the schema does not name is
-        /// `Unknown`.
+        /// Returns the value as an enum you can `match`.
+        ///
+        /// A number the schema does not name is `Unknown`.
         #[inline]
         #[must_use]
         pub fn classify(self) -> EClass {
@@ -449,12 +451,12 @@ pub mod stream {
 
   /// The `pa` package.
   pub mod pa {
-    /// Receives the selected fields of a `pa.linux_` message.
+    /// Receives the selected fields of `pa.linux_`.
     ///
-    /// Usually you build one with [`linux___stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `linux___stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait linux__Visitor<'a> {
       /// Whether the decoder calls [`on_e`](Self::on_e).
       const WANT_e: bool = false;
@@ -463,7 +465,9 @@ pub mod stream {
       fn on_e(&mut self, value: crate::pkgalias::common::pa::linux_::E) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_sub`](Self::on_sub).
       const WANT_sub: bool = false;
-      /// Handles the `sub` sub-message. Read its fields with `value.decode`.
+      /// Handles the `sub` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_sub(&mut self, value: crate::pkgalias::stream::pa::linux::Sub<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_f`](Self::on_f).
@@ -493,8 +497,7 @@ pub mod stream {
     impl<'a> linux__<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<linux__<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -506,16 +509,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::pkgalias::stream) fn rp_new(rp_input: &'a [u8]) -> linux__<'a> { linux__ { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: linux__Visitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -651,7 +655,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`linux__Visitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`linux__Visitor`] from handlers, one per selected field.
     ///
     /// With `linux___stream! { field => |value| .. }`, each handler captures its own state.
     /// With `linux___stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -673,12 +677,12 @@ pub mod stream {
 
     /// The `pa.linux` package.
     pub mod linux {
-      /// Receives the selected fields of a `pa.linux.Sub` message.
+      /// Receives the selected fields of `pa.linux.Sub`.
       ///
-      /// Usually you build one with [`sub_stream!`]. To write one by hand, select a field
-      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-      /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-      /// `on_unknown` select the fields the schema does not declare.
+      /// Usually you build one with `sub_stream!`. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+      /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+      /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
       pub trait SubVisitor<'a> {
         /// Whether the decoder calls [`on_f`](Self::on_f).
         const WANT_f: bool = false;
@@ -707,8 +711,7 @@ pub mod stream {
       impl<'a> Sub<'a> {
         /// Wraps an encoded message.
         ///
-        /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-        /// if `input` is longer than `u32::MAX` bytes.
+        /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<Sub<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -720,16 +723,17 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::pkgalias::stream) fn rp_new(rp_input: &'a [u8]) -> Sub<'a> { Sub { rp_input } }
 
-        /// The encoded message.
+        /// Returns the encoded message.
         ///
-        /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+        /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
         /// Decodes the message and passes each selected field to `visitor`.
         ///
-        /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-        /// the decode. Fails if the input is malformed or a handler returns an error.
+        /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+        /// error or the message is malformed. A sub-message is checked only when a handler
+        /// decodes it.
         pub fn decode<V: SubVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -805,7 +809,7 @@ pub mod stream {
         }
       }
 
-      /// Builds a [`SubVisitor`] from handlers, one per selected field.
+      /// Builds an implementation of [`SubVisitor`] from handlers, one per selected field.
       ///
       /// With `sub_stream! { field => |value| .. }`, each handler captures its own state.
       /// With `sub_stream!(&mut state; { field => |state, value| .. })`, the handlers share

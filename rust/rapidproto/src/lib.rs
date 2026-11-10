@@ -155,12 +155,12 @@ macro_rules! impl_decode_owned {
         }
 
         impl<'a> $msg<'a> {
-            /// Decodes `input` into an [`Owned`](::rapidproto::Owned), which holds the input and the
-            /// arena.
+            // No links: this expands in the user's crate, whose `cargo doc --no-deps` cannot reach
+            // this crate's pages, and rustdoc then writes a link's raw path as its address.
+            /// Decodes `input` into an `Owned`, which holds the input and the arena.
             ///
-            /// `input` can be a `Vec<u8>`, a `Box<[u8]>`, or a `&[u8]`, which is copied. Read the
-            /// message with [`Owned::get`](::rapidproto::Owned::get). Needs the `alloc` feature of
-            /// `rapidproto`.
+            /// Pass a `Vec<u8>` or a `Box<[u8]>` to hand over the buffer. A `&[u8]` is copied.
+            /// Read the message with `Owned::get`. Needs the `alloc` feature of `rapidproto`.
             pub fn decode_owned(
                 input: impl ::core::convert::Into<$crate::Box<[u8]>>,
             ) -> ::core::result::Result<$crate::Owned<$msg<'static>>, $crate::DecodeError> {

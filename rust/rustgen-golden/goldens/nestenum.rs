@@ -7,7 +7,7 @@ mod rp_check {
   const _: () = crate::nestenum::rp_check::C; // This path must be where this file is included.
 }
 
-/// Enums, shared by arena and stream decoders.
+/// The schema's enums.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
   /// The `ne` package.
@@ -17,8 +17,8 @@ pub mod common {
       /// The `ne.Outer.Kind` enum.
       ///
       /// A field can hold a number the schema does not name, so this wraps any `i32`.
-      /// Each named value is a constant. To `match` on a value, use
-      /// [`classify`](Self::classify).
+      /// Each named value is a constant, which also works as a `match` pattern. For an
+      /// exhaustive `match`, use [`classify`](Self::classify).
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
       #[repr(transparent)]
       pub struct Kind(pub i32);
@@ -42,8 +42,9 @@ pub mod common {
         pub const A: Kind = Kind(0);
         pub const B: Kind = Kind(1);
 
-        /// Returns the value as an enum you can `match`. A number the schema does not name is
-        /// `Unknown`.
+        /// Returns the value as an enum you can `match`.
+        ///
+        /// A number the schema does not name is `Unknown`.
         #[inline]
         #[must_use]
         pub fn classify(self) -> KindClass {
@@ -68,8 +69,8 @@ pub mod common {
         /// The `ne.Outer.Inner.Deep` enum.
         ///
         /// A field can hold a number the schema does not name, so this wraps any `i32`.
-        /// Each named value is a constant. To `match` on a value, use
-        /// [`classify`](Self::classify).
+        /// Each named value is a constant, which also works as a `match` pattern. For an
+        /// exhaustive `match`, use [`classify`](Self::classify).
         #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
         #[repr(transparent)]
         pub struct Deep(pub i32);
@@ -92,8 +93,9 @@ pub mod common {
         impl Deep {
           pub const A: Deep = Deep(0);
 
-          /// Returns the value as an enum you can `match`. A number the schema does not name is
-          /// `Unknown`.
+          /// Returns the value as an enum you can `match`.
+          ///
+          /// A number the schema does not name is `Unknown`.
           #[inline]
           #[must_use]
           pub fn classify(self) -> DeepClass {
@@ -416,12 +418,12 @@ pub mod stream {
 
   /// The `ne` package.
   pub mod ne {
-    /// Receives the selected fields of a `ne.Outer` message.
+    /// Receives the selected fields of `ne.Outer`.
     ///
-    /// Usually you build one with [`outer_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `outer_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait OuterVisitor<'a> {
       /// Whether the decoder calls [`on_k`](Self::on_k).
       const WANT_k: bool = false;
@@ -430,7 +432,9 @@ pub mod stream {
       fn on_k(&mut self, value: crate::nestenum::common::ne::outer::Kind) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_i`](Self::on_i).
       const WANT_i: bool = false;
-      /// Handles the `i` sub-message. Read its fields with `value.decode`.
+      /// Handles the `i` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_i(&mut self, value: crate::nestenum::stream::ne::outer::Inner<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
@@ -455,8 +459,7 @@ pub mod stream {
     impl<'a> Outer<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Outer<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -468,16 +471,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::nestenum::stream) fn rp_new(rp_input: &'a [u8]) -> Outer<'a> { Outer { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: OuterVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -583,7 +587,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`OuterVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`OuterVisitor`] from handlers, one per selected field.
     ///
     /// With `outer_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `outer_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -604,12 +608,12 @@ pub mod stream {
 
     /// Types declared in `ne.Outer`.
     pub mod outer {
-      /// Receives the selected fields of a `ne.Outer.Inner` message.
+      /// Receives the selected fields of `ne.Outer.Inner`.
       ///
-      /// Usually you build one with [`inner_stream!`]. To write one by hand, select a field
-      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-      /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-      /// `on_unknown` select the fields the schema does not declare.
+      /// Usually you build one with `inner_stream!`. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+      /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+      /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
       pub trait InnerVisitor<'a> {
         /// Whether the decoder calls [`on_d`](Self::on_d).
         const WANT_d: bool = false;
@@ -638,8 +642,7 @@ pub mod stream {
       impl<'a> Inner<'a> {
         /// Wraps an encoded message.
         ///
-        /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-        /// if `input` is longer than `u32::MAX` bytes.
+        /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<Inner<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -651,16 +654,17 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::nestenum::stream) fn rp_new(rp_input: &'a [u8]) -> Inner<'a> { Inner { rp_input } }
 
-        /// The encoded message.
+        /// Returns the encoded message.
         ///
-        /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+        /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
         /// Decodes the message and passes each selected field to `visitor`.
         ///
-        /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-        /// the decode. Fails if the input is malformed or a handler returns an error.
+        /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+        /// error or the message is malformed. A sub-message is checked only when a handler
+        /// decodes it.
         pub fn decode<V: InnerVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -736,7 +740,7 @@ pub mod stream {
         }
       }
 
-      /// Builds a [`InnerVisitor`] from handlers, one per selected field.
+      /// Builds an implementation of [`InnerVisitor`] from handlers, one per selected field.
       ///
       /// With `inner_stream! { field => |value| .. }`, each handler captures its own state.
       /// With `inner_stream!(&mut state; { field => |state, value| .. })`, the handlers share

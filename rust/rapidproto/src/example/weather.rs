@@ -7,7 +7,7 @@ mod rp_check {
   const _: () = crate::example::rp_check::C; // This path must be where this file is included.
 }
 
-/// Enums, shared by arena and stream decoders.
+/// The schema's enums.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
   /// The `weather` package.
@@ -15,8 +15,8 @@ pub mod common {
     /// The `weather.Unit` enum.
     ///
     /// A field can hold a number the schema does not name, so this wraps any `i32`.
-    /// Each named value is a constant. To `match` on a value, use
-    /// [`classify`](Self::classify).
+    /// Each named value is a constant, which also works as a `match` pattern. For an
+    /// exhaustive `match`, use [`classify`](Self::classify).
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct Unit(pub i32);
@@ -32,8 +32,9 @@ pub mod common {
       pub const CELSIUS: Unit = Unit(1);
       pub const FAHRENHEIT: Unit = Unit(2);
 
-      /// Returns the value as an enum you can `match`. A number the schema does not name is
-      /// `Unknown`.
+      /// Returns the value as an enum you can `match`.
+      ///
+      /// A number the schema does not name is `Unknown`.
       #[inline]
       #[must_use]
       pub fn classify(self) -> UnitClass {
@@ -740,12 +741,12 @@ pub mod stream {
 
   /// The `weather` package.
   pub mod weather {
-    /// Receives the selected fields of a `weather.Location` message.
+    /// Receives the selected fields of `weather.Location`.
     ///
-    /// Usually you build one with [`location_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `location_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait LocationVisitor<'a> {
       /// Whether the decoder calls [`on_latitude`](Self::on_latitude).
       const WANT_latitude: bool = false;
@@ -779,8 +780,7 @@ pub mod stream {
     impl<'a> Location<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Location<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -792,16 +792,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::example::stream) fn rp_new(rp_input: &'a [u8]) -> Location<'a> { Location { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: LocationVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -907,7 +908,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`LocationVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`LocationVisitor`] from handlers, one per selected field.
     ///
     /// With `location_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `location_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -926,12 +927,12 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_7example_7weather8Location as location_stream;
 
-    /// Receives the selected fields of a `weather.Station` message.
+    /// Receives the selected fields of `weather.Station`.
     ///
-    /// Usually you build one with [`station_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `station_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait StationVisitor<'a> {
       /// Whether the decoder calls [`on_name`](Self::on_name).
       const WANT_name: bool = false;
@@ -940,7 +941,9 @@ pub mod stream {
       fn on_name(&mut self, value: ::rapidproto::ProtoStr<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_location`](Self::on_location).
       const WANT_location: bool = false;
-      /// Handles the `location` sub-message. Read its fields with `value.decode`.
+      /// Handles the `location` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_location(&mut self, value: crate::example::stream::weather::Location<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_unit`](Self::on_unit).
@@ -995,8 +998,7 @@ pub mod stream {
     impl<'a> Station<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Station<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -1008,16 +1010,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::example::stream) fn rp_new(rp_input: &'a [u8]) -> Station<'a> { Station { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: StationVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -1437,7 +1440,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`StationVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`StationVisitor`] from handlers, one per selected field.
     ///
     /// With `station_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `station_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -1462,16 +1465,18 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_7example_7weather7Station as station_stream;
 
-    /// Receives the selected fields of a `weather.Report` message.
+    /// Receives the selected fields of `weather.Report`.
     ///
-    /// Usually you build one with [`report_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `report_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait ReportVisitor<'a> {
       /// Whether the decoder calls [`on_stations`](Self::on_stations).
       const WANT_stations: bool = false;
-      /// Handles one element of `stations`. Read its fields with `value.decode`.
+      /// Handles one element of `stations`.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_stations(&mut self, value: crate::example::stream::weather::Station<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
@@ -1496,8 +1501,7 @@ pub mod stream {
     impl<'a> Report<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Report<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -1509,16 +1513,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::example::stream) fn rp_new(rp_input: &'a [u8]) -> Report<'a> { Report { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: ReportVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -1594,7 +1599,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`ReportVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`ReportVisitor`] from handlers, one per selected field.
     ///
     /// With `report_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `report_stream!(&mut state; { field => |state, value| .. })`, the handlers share

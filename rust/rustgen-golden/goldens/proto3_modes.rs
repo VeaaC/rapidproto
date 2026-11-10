@@ -13,7 +13,7 @@ mod rp_check {
   const _: () = crate::proto3_modes::rp_check::C; // This path must be where this file is included.
 }
 
-/// Enums, shared by arena and stream decoders.
+/// The schema's enums.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
   /// The `p3` package.
@@ -21,8 +21,8 @@ pub mod common {
     /// The `p3.State` enum.
     ///
     /// A field can hold a number the schema does not name, so this wraps any `i32`.
-    /// Each named value is a constant. To `match` on a value, use
-    /// [`classify`](Self::classify).
+    /// Each named value is a constant, which also works as a `match` pattern. For an
+    /// exhaustive `match`, use [`classify`](Self::classify).
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct State(pub i32);
@@ -46,8 +46,9 @@ pub mod common {
       pub const UNKNOWN: State = State(0);
       pub const ON: State = State(1);
 
-      /// Returns the value as an enum you can `match`. A number the schema does not name is
-      /// `Unknown`.
+      /// Returns the value as an enum you can `match`.
+      ///
+      /// A number the schema does not name is `Unknown`.
       #[inline]
       #[must_use]
       pub fn classify(self) -> StateClass {
@@ -150,8 +151,9 @@ pub mod arena {
       pub fn pick(&self) -> ::core::option::Option<&crate::proto3_modes::arena::p3::msg::Pick<'a>> {
         self.pick.as_ref()
       }
-      /// Whether this message held a field the schema does not declare. Fields of a
-      /// sub-message do not count.
+      /// Returns `true` if the encoded message had a field the schema does not declare.
+      ///
+      /// Unknown fields inside a sub-message do not count.
       pub fn has_unknown_fields(&self) -> bool {
         self.rp_unknown
       }

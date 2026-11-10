@@ -13,7 +13,7 @@ mod rp_check {
   const _: () = crate::arena_modes_lean::rp_check::C; // This path must be where this file is included.
 }
 
-/// Enums, shared by arena and stream decoders.
+/// The schema's enums.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
   /// The `fm` package.
@@ -21,8 +21,8 @@ pub mod common {
     /// The `fm.Level` enum.
     ///
     /// A field can hold a number the schema does not name, so this wraps any `i32`.
-    /// Each named value is a constant. To `match` on a value, use
-    /// [`classify`](Self::classify).
+    /// Each named value is a constant, which also works as a `match` pattern. For an
+    /// exhaustive `match`, use [`classify`](Self::classify).
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct Level(pub i32);
@@ -46,8 +46,9 @@ pub mod common {
       pub const L_ZERO: Level = Level(0);
       pub const L_ONE: Level = Level(1);
 
-      /// Returns the value as an enum you can `match`. A number the schema does not name is
-      /// `Unknown`.
+      /// Returns the value as an enum you can `match`.
+      ///
+      /// A number the schema does not name is `Unknown`.
       #[inline]
       #[must_use]
       pub fn classify(self) -> LevelClass {
@@ -72,8 +73,8 @@ pub mod common {
       /// The `fm.Blob.Kind` enum.
       ///
       /// A field can hold a number the schema does not name, so this wraps any `i32`.
-      /// Each named value is a constant. To `match` on a value, use
-      /// [`classify`](Self::classify).
+      /// Each named value is a constant, which also works as a `match` pattern. For an
+      /// exhaustive `match`, use [`classify`](Self::classify).
       #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
       #[repr(transparent)]
       pub struct Kind(pub i32);
@@ -97,8 +98,9 @@ pub mod common {
         pub const K_UNSET: Kind = Kind(0);
         pub const K_INLINE: Kind = Kind(1);
 
-        /// Returns the value as an enum you can `match`. A number the schema does not name is
-        /// `Unknown`.
+        /// Returns the value as an enum you can `match`.
+        ///
+        /// A number the schema does not name is `Unknown`.
         #[inline]
         #[must_use]
         pub fn classify(self) -> KindClass {

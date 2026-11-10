@@ -2900,12 +2900,12 @@ pub mod stream {
 
   /// The `mr` package.
   pub mod mr {
-    /// Receives the selected fields of a `mr.Small` message.
+    /// Receives the selected fields of `mr.Small`.
     ///
-    /// Usually you build one with [`small_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `small_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait SmallVisitor<'a> {
       /// Whether the decoder calls [`on_x`](Self::on_x).
       const WANT_x: bool = false;
@@ -2939,8 +2939,7 @@ pub mod stream {
     impl<'a> Small<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Small<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -2952,16 +2951,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::arena_manyreq::stream) fn rp_new(rp_input: &'a [u8]) -> Small<'a> { Small { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: SmallVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -3067,7 +3067,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`SmallVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`SmallVisitor`] from handlers, one per selected field.
     ///
     /// With `small_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `small_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -3086,16 +3086,18 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_13arena_manyreq_2mr5Small as small_stream;
 
-    /// Receives the selected fields of a `mr.ReqInline` message.
+    /// Receives the selected fields of `mr.ReqInline`.
     ///
-    /// Usually you build one with [`req_inline_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `req_inline_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait ReqInlineVisitor<'a> {
       /// Whether the decoder calls [`on_s`](Self::on_s).
       const WANT_s: bool = false;
-      /// Handles the `s` sub-message. Read its fields with `value.decode`.
+      /// Handles the `s` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_s(&mut self, value: crate::arena_manyreq::stream::mr::Small<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_tag`](Self::on_tag).
@@ -3125,8 +3127,7 @@ pub mod stream {
     impl<'a> ReqInline<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<ReqInline<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -3138,16 +3139,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::arena_manyreq::stream) fn rp_new(rp_input: &'a [u8]) -> ReqInline<'a> { ReqInline { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: ReqInlineVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -3253,7 +3255,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`ReqInlineVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`ReqInlineVisitor`] from handlers, one per selected field.
     ///
     /// With `req_inline_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `req_inline_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -3272,12 +3274,12 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_13arena_manyreq_2mr9ReqInline as req_inline_stream;
 
-    /// Receives the selected fields of a `mr.ManyRequired` message.
+    /// Receives the selected fields of `mr.ManyRequired`.
     ///
-    /// Usually you build one with [`many_required_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `many_required_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait ManyRequiredVisitor<'a> {
       /// Whether the decoder calls [`on_f1`](Self::on_f1).
       const WANT_f1: bool = false;
@@ -3626,8 +3628,7 @@ pub mod stream {
     impl<'a> ManyRequired<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<ManyRequired<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -3639,16 +3640,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::arena_manyreq::stream) fn rp_new(rp_input: &'a [u8]) -> ManyRequired<'a> { ManyRequired { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: ManyRequiredVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -5644,7 +5646,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`ManyRequiredVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`ManyRequiredVisitor`] from handlers, one per selected field.
     ///
     /// With `many_required_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `many_required_stream!(&mut state; { field => |state, value| .. })`, the handlers share

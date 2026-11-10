@@ -302,8 +302,8 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node, b
         "/// The `$proto$` enum.\n"
         "///\n"
         "/// A field can hold a number the schema does not name, so this wraps any `i32`.\n"
-        "/// Each named value is a constant. To `match` on a value, use\n"
-        "/// [`classify`](Self::classify).\n");
+        "/// Each named value is a constant, which also works as a `match` pattern. For an\n"
+        "/// exhaustive `match`, use [`classify`](Self::classify).\n");
     // `Default` yields the all-zero enum value (`$T$(0)`), protobuf's default for an enum field.
     printer.print("#[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]\n");
     // `repr(transparent)`: a zero-cost wrapper, layout-identical to its `i32`. (It does NOT let a
@@ -352,8 +352,9 @@ void emit_enum(Printer& printer, const NameTable& table, const EnumNode& node, b
     }
     printer.print("\n");
     printer.print(
-        "/// Returns the value as an enum you can `match`. A number the schema does not name is\n"
-        "/// `Unknown`.\n");
+        "/// Returns the value as an enum you can `match`.\n"
+        "///\n"
+        "/// A number the schema does not name is `Unknown`.\n");
     printer.print("#[inline]\n");
     printer.print("#[must_use]\n");
     printer.print("pub fn classify(self) -> $K$ {\n");
@@ -2307,8 +2308,9 @@ void emit_message_accessors(Printer& printer, const NameTable& table, const Mess
     }
     if (modes.wants_unknown(&msg)) {
         printer.print(
-            "/// Whether this message held a field the schema does not declare. Fields of a\n"
-            "/// sub-message do not count.\n");
+            "/// Returns `true` if the encoded message had a field the schema does not declare.\n"
+            "///\n"
+            "/// Unknown fields inside a sub-message do not count.\n");
         printer.print("pub fn has_unknown_fields(&self) -> bool {\n");
         printer.indent();
         printer.print("self.rp_unknown\n");
@@ -2580,8 +2582,8 @@ void emit_message_decode(Printer& printer, const NameTable& table, const Message
     printer.print("}\n");
 }
 
-// Open `pub mod <name> {` for the types declared in `msg`, with its doc, and indent. Every tree gives a
-// message with nested types such a module.
+// Open `pub mod <name> {` for the types declared in `msg`, with its doc, and indent. Each tree opens one
+// for a message whose nested types it emits.
 void emit_nested_module_open(Printer& printer, const std::string& name, const MessageNode& msg) {
     printer.print("/// Types declared in `$m$`.\n", {{"m", proto_name(msg.fqn)}});
     printer.print("pub mod $n$ {\n", {{"n", name}});
@@ -2912,16 +2914,16 @@ std::string stream_slot_value_type(const NameTable& table, const StreamSlot& slo
 // The doc of a slot's `on_<field>` handler, which names the proto field.
 std::string handler_doc(const StreamSlot& slot) {
     if (slot.map != nullptr) {
-        return "Handles one entry of the `" + slot.map->name + "` map.";
+        return "/// Handles one entry of the `" + slot.map->name + "` map.\n";
     }
     const FieldNode& field = *slot.field;
-    if (!field.is_message_type) {
-        return field.is_repeated ? "Handles one element of `" + field.name + "`."
-                                 : "Handles the `" + field.name + "` field.";
+    const std::string kind = field.is_message_type ? "sub-message" : "field";
+    std::string doc = field.is_repeated ? "/// Handles one element of `" + field.name + "`.\n"
+                                        : "/// Handles the `" + field.name + "` " + kind + ".\n";
+    if (field.is_message_type) {
+        doc += "///\n/// Read its fields with `value.decode`.\n";
     }
-    return (field.is_repeated ? "Handles one element of `" + field.name + "`."
-                              : "Handles the `" + field.name + "` sub-message.") +
-           " Read its fields with `value.decode`.";
+    return doc;
 }
 
 // `pub trait <Msg>Visitor<'a> { const WANT_<f>: bool = false; fn on_<f>(&mut self, V) -> Result<Flow>
@@ -2933,21 +2935,22 @@ void emit_stream_visitor_trait(Printer& printer, const NameTable& table,
     // The doc steers the reader to the macro and pins the one hand-impl footgun: a field is selected by
     // overriding BOTH `WANT_<field>` and `on_<field>` -- the macro always emits the pair, but a
     // hand-impl that sets only `on_<field>` leaves `WANT_<field>` false, so the field is silently never
-    // decoded.
+    // decoded. It names the macro without a link: docs that include private items leave out the
+    // macro's re-export, and the link would show as literal brackets there.
     printer.print(
-        "/// Receives the selected fields of a `$proto$` message.\n"
+        "/// Receives the selected fields of `$proto$`.\n"
         "///\n"
-        "/// Usually you build one with [`$mac_hint$!`]. To write one by hand, select a field\n"
-        "/// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.\n"
-        "/// Without the constant, the handler is never called. `WANT_UNKNOWN` and\n"
-        "/// `on_unknown` select the fields the schema does not declare.\n");
+        "/// Usually you build one with `$mac_hint$!`. To write one by hand, select a field\n"
+        "/// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If\n"
+        "/// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the\n"
+        "/// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.\n");
     printer.print("pub trait $Vis$<'a> {\n");
     printer.indent();
     for (const StreamSlot& slot : slots) {
         printer.print("/// Whether the decoder calls [`on_$n$`](Self::on_$n$).\n",
                       {{"n", slot.name}});
         printer.print("const WANT_$n$: bool = false;\n", {{"n", slot.name}});
-        printer.print("/// $doc$\n", {{"doc", handler_doc(slot)}});
+        printer.print(handler_doc(slot));
         printer.print("#[inline(always)]\n");
         printer.print(
             "fn on_$n$(&mut self, value: $t$) -> "
@@ -3286,6 +3289,8 @@ void emit_stream_unknown_arm(Printer& printer, const MessageNode& msg) {
 // const.
 void emit_stream_decode(Printer& printer, const NameTable& table, const MessageNode& msg,
                         const std::vector<StreamSlot>& slots) {
+    // Generated docs link only within the user's crate. Their `cargo doc --no-deps` cannot reach the
+    // runtime's pages, and rustdoc then writes a link into it as its raw path.
     printer.print(
         "/// An encoded `$proto$` message, read field by field with [`decode`](Self::decode).\n");
     printer.print("#[derive(Clone, Copy)]\n");
@@ -3313,8 +3318,7 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
     printer.print(
         "/// Wraps an encoded message.\n"
         "///\n"
-        "/// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)\n"
-        "/// if `input` is longer than `u32::MAX` bytes.\n");
+        "/// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.\n");
     printer.print("#[inline(always)]\n");
     printer.print(
         "pub fn new(input: &'a [u8]) -> ::core::result::Result<$M$<'a>, "
@@ -3334,17 +3338,16 @@ void emit_stream_decode(Printer& printer, const NameTable& table, const MessageN
     // `decode(bytes, &arena)` expects -- so exposing them lets a consumer stream the outer message and
     // materialize a chosen sub-message mid-stream (the stream->arena hybrid), composing the two models
     // without any coupling in the generated code.
-    printer.print(
-        "/// The encoded message.\n"
-        "///\n"
-        "/// To decode a sub-message whole, pass this to the arena decoder's `decode`.\n");
+    // `$bytes_arena$` (see generate_stream) points to the arena decoder when the file has one.
+    printer.print("/// Returns the encoded message.\n$bytes_arena$");
     printer.print("#[inline(always)]\n");
     printer.print("pub fn bytes(&self) -> &'a [u8] { self.rp_input }\n\n");
     printer.print(
         "/// Decodes the message and passes each selected field to `visitor`.\n"
         "///\n"
-        "/// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped\n"
-        "/// the decode. Fails if the input is malformed or a handler returns an error.\n");
+        "/// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an\n"
+        "/// error or the message is malformed. A sub-message is checked only when a handler\n"
+        "/// decodes it.\n");
     printer.print(
         "pub fn decode<V: $Vis$<'a>>(self, mut visitor: V) "
         "-> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {\n");
@@ -3409,7 +3412,7 @@ void emit_stream_macro(Printer& printer, const NameTable& table, const MessageNo
     printer.set("valid", valid_keys);
 
     printer.print(
-        "/// Builds a [`$Vis$`] from handlers, one per selected field.\n"
+        "/// Builds an implementation of [`$Vis$`] from handlers, one per selected field.\n"
         "///\n"
         "/// With `$mac$! { field => |value| .. }`, each handler captures its own state.\n"
         "/// With `$mac$!(&mut state; { field => |state, value| .. })`, the handlers share\n"
@@ -3549,7 +3552,7 @@ std::string generate_common(const std::vector<const FileNode*>& files, bool serd
     }
     const NameTable table = build_name_table(root);
     Printer printer;
-    printer.print("/// Enums, shared by arena and stream decoders.\n");
+    printer.print("/// The schema's enums.\n");
     printer.print(kModuleLints);
     printer.print("pub mod common {\n");
     printer.indent();
@@ -3599,7 +3602,7 @@ std::string generate_arena(const std::vector<const FileNode*>& files, const Layo
 }
 
 std::string generate_stream(const std::vector<const FileNode*>& files,
-                            const std::string& module_path) {
+                            const std::string& module_path, bool arena) {
     PkgTrie root = build_pkg_trie(files);
     if (!subtree_has_messages(root)) {
         return {};
@@ -3609,6 +3612,12 @@ std::string generate_stream(const std::vector<const FileNode*>& files,
     table.root = module_path;
     table.tree = "stream";
     Printer printer;
+    // The rest of a stream struct's `bytes()` doc (emit_stream_decode).
+    printer.set(
+        "bytes_arena",
+        arena ? "///\n/// To decode a sub-message whole, pass these bytes to the arena decoder's "
+                "`decode`.\n"
+              : "");
     // The runtime's module of this name, for the macros (stream_runtime_path), which can expand in a
     // crate with no direct `rapidproto` dependency. Beside the trees, so no schema name can meet it.
     printer.print(kModuleLints);
@@ -3650,7 +3659,7 @@ std::string generate_file(const std::vector<const FileNode*>& files, const Layou
         append(generate_arena(files, layouts, modes, options.serde, options.module_path));
     }
     if (options.stream) {
-        append(generate_stream(files, options.module_path));
+        append(generate_stream(files, options.module_path, options.arena));
     }
     return out;
 }

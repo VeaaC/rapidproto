@@ -78,8 +78,9 @@ pub mod arena {
       }
 
       impl<'a> Container<'a> {
-        /// Whether this message held a field the schema does not declare. Fields of a
-        /// sub-message do not count.
+        /// Returns `true` if the encoded message had a field the schema does not declare.
+        ///
+        /// Unknown fields inside a sub-message do not count.
         pub fn has_unknown_fields(&self) -> bool {
           self.rp_unknown
         }

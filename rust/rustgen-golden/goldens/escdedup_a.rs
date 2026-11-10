@@ -7,7 +7,7 @@ mod rp_check {
   const _: () = crate::escdedup_a::rp_check::C; // This path must be where this file is included.
 }
 
-/// Enums, shared by arena and stream decoders.
+/// The schema's enums.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
   /// The `escdedup` package.
@@ -15,8 +15,8 @@ pub mod common {
     /// The `escdedup.decode` enum.
     ///
     /// A field can hold a number the schema does not name, so this wraps any `i32`.
-    /// Each named value is a constant. To `match` on a value, use
-    /// [`classify`](Self::classify).
+    /// Each named value is a constant, which also works as a `match` pattern. For an
+    /// exhaustive `match`, use [`classify`](Self::classify).
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct decode(pub i32);
@@ -40,8 +40,9 @@ pub mod common {
       pub const UNSET: decode = decode(0);
       pub const ON: decode = decode(1);
 
-      /// Returns the value as an enum you can `match`. A number the schema does not name is
-      /// `Unknown`.
+      /// Returns the value as an enum you can `match`.
+      ///
+      /// A number the schema does not name is `Unknown`.
       #[inline]
       #[must_use]
       pub fn classify(self) -> decodeClass {
@@ -361,12 +362,12 @@ pub mod stream {
 
   /// The `escdedup` package.
   pub mod escdedup {
-    /// Receives the selected fields of a `escdedup.decode_` message.
+    /// Receives the selected fields of `escdedup.decode_`.
     ///
-    /// Usually you build one with [`decode__stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `decode__stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait decode_Visitor<'a> {
       /// Whether the decoder calls [`on_x`](Self::on_x).
       const WANT_x: bool = false;
@@ -395,8 +396,7 @@ pub mod stream {
     impl<'a> decode_<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<decode_<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -408,16 +408,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::escdedup_a::stream) fn rp_new(rp_input: &'a [u8]) -> decode_<'a> { decode_ { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: decode_Visitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -493,7 +494,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`decode_Visitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`decode_Visitor`] from handlers, one per selected field.
     ///
     /// With `decode__stream! { field => |value| .. }`, each handler captures its own state.
     /// With `decode__stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -511,16 +512,18 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_10escdedup_a_8escdedup7decode_ as decode__stream;
 
-    /// Receives the selected fields of a `escdedup.Holder` message.
+    /// Receives the selected fields of `escdedup.Holder`.
     ///
-    /// Usually you build one with [`holder_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `holder_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait HolderVisitor<'a> {
       /// Whether the decoder calls [`on_ref_`](Self::on_ref_).
       const WANT_ref_: bool = false;
-      /// Handles the `ref` sub-message. Read its fields with `value.decode`.
+      /// Handles the `ref` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_ref_(&mut self, value: crate::escdedup_a::stream::escdedup::decode_<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_kind`](Self::on_kind).
@@ -550,8 +553,7 @@ pub mod stream {
     impl<'a> Holder<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Holder<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -563,16 +565,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::escdedup_a::stream) fn rp_new(rp_input: &'a [u8]) -> Holder<'a> { Holder { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: HolderVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -678,7 +681,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`HolderVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`HolderVisitor`] from handlers, one per selected field.
     ///
     /// With `holder_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `holder_stream!(&mut state; { field => |state, value| .. })`, the handlers share

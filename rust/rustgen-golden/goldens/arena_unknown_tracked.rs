@@ -26,8 +26,9 @@ pub mod arena {
       pub fn value(&self) -> bool {
         (self.rp_presence & (1 << 0)) != 0
       }
-      /// Whether this message held a field the schema does not declare. Fields of a
-      /// sub-message do not count.
+      /// Returns `true` if the encoded message had a field the schema does not declare.
+      ///
+      /// Unknown fields inside a sub-message do not count.
       pub fn has_unknown_fields(&self) -> bool {
         self.rp_unknown
       }
@@ -79,8 +80,9 @@ pub mod arena {
       pub fn n(&self) -> i32 {
         self.n
       }
-      /// Whether this message held a field the schema does not declare. Fields of a
-      /// sub-message do not count.
+      /// Returns `true` if the encoded message had a field the schema does not declare.
+      ///
+      /// Unknown fields inside a sub-message do not count.
       pub fn has_unknown_fields(&self) -> bool {
         self.rp_unknown
       }

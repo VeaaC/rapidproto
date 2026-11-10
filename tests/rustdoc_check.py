@@ -81,13 +81,11 @@ def main(doc_dir, crates):
             pages[path] = Page(path)
         return pages[path]
 
-    def anchors(path):
+    def landing(path):
         # A link to another crate can point at one of rustdoc's redirect pages, which keeps the fragment.
-        if page(path).redirect:
-            path = os.path.normpath(os.path.join(os.path.dirname(path), page(path).redirect))
-            if not os.path.exists(path):
-                return set()
-        return page(path).ids
+        if path.endswith(".html") and page(path).redirect:
+            return os.path.normpath(os.path.join(os.path.dirname(path), page(path).redirect))
+        return path
 
     source_dir = os.path.join(os.path.normpath(doc_dir), "src") + os.sep
     errors = []
@@ -112,9 +110,11 @@ def main(doc_dir, crates):
                 file = os.path.normpath(os.path.join(os.path.dirname(path), target)) if target else path
                 if file.startswith(source_dir):
                     continue
+                if os.path.exists(file):
+                    file = landing(file)
                 if not os.path.exists(file):
                     errors.append(f"{path}: dead link {href}")
-                elif fragment and file.endswith(".html") and fragment not in anchors(file):
+                elif fragment and file.endswith(".html") and fragment not in page(file).ids:
                     errors.append(f"{path}: dead anchor {href}")
 
     for error in errors:

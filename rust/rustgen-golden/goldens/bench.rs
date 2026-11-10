@@ -7,7 +7,7 @@ mod rp_check {
   const _: () = crate::bench::rp_check::C; // This path must be where this file is included.
 }
 
-/// Enums, shared by arena and stream decoders.
+/// The schema's enums.
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 pub mod common {
   /// The `bench` package.
@@ -15,8 +15,8 @@ pub mod common {
     /// The `bench.Kind` enum.
     ///
     /// A field can hold a number the schema does not name, so this wraps any `i32`.
-    /// Each named value is a constant. To `match` on a value, use
-    /// [`classify`](Self::classify).
+    /// Each named value is a constant, which also works as a `match` pattern. For an
+    /// exhaustive `match`, use [`classify`](Self::classify).
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
     #[repr(transparent)]
     pub struct Kind(pub i32);
@@ -40,8 +40,9 @@ pub mod common {
       pub const UNSPECIFIED: Kind = Kind(0);
       pub const ONE: Kind = Kind(1);
 
-      /// Returns the value as an enum you can `match`. A number the schema does not name is
-      /// `Unknown`.
+      /// Returns the value as an enum you can `match`.
+      ///
+      /// A number the schema does not name is `Unknown`.
       #[inline]
       #[must_use]
       pub fn classify(self) -> KindClass {
@@ -3752,12 +3753,12 @@ pub mod stream {
 
   /// The `bench` package.
   pub mod bench {
-    /// Receives the selected fields of a `bench.Address` message.
+    /// Receives the selected fields of `bench.Address`.
     ///
-    /// Usually you build one with [`address_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `address_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait AddressVisitor<'a> {
       /// Whether the decoder calls [`on_street`](Self::on_street).
       const WANT_street: bool = false;
@@ -3796,8 +3797,7 @@ pub mod stream {
     impl<'a> Address<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Address<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -3809,16 +3809,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Address<'a> { Address { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: AddressVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -3954,7 +3955,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`AddressVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`AddressVisitor`] from handlers, one per selected field.
     ///
     /// With `address_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `address_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -3974,12 +3975,12 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench7Address as address_stream;
 
-    /// Receives the selected fields of a `bench.Attribute` message.
+    /// Receives the selected fields of `bench.Attribute`.
     ///
-    /// Usually you build one with [`attribute_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `attribute_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait AttributeVisitor<'a> {
       /// Whether the decoder calls [`on_key`](Self::on_key).
       const WANT_key: bool = false;
@@ -4013,8 +4014,7 @@ pub mod stream {
     impl<'a> Attribute<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Attribute<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -4026,16 +4026,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Attribute<'a> { Attribute { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: AttributeVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -4141,7 +4142,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`AttributeVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`AttributeVisitor`] from handlers, one per selected field.
     ///
     /// With `attribute_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `attribute_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -4160,12 +4161,12 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench9Attribute as attribute_stream;
 
-    /// Receives the selected fields of a `bench.Person` message.
+    /// Receives the selected fields of `bench.Person`.
     ///
-    /// Usually you build one with [`person_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `person_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait PersonVisitor<'a> {
       /// Whether the decoder calls [`on_id`](Self::on_id).
       const WANT_id: bool = false;
@@ -4199,7 +4200,9 @@ pub mod stream {
       fn on_created(&mut self, value: u64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_address`](Self::on_address).
       const WANT_address: bool = false;
-      /// Handles the `address` sub-message. Read its fields with `value.decode`.
+      /// Handles the `address` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_address(&mut self, value: crate::bench::stream::bench::Address<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_tags`](Self::on_tags).
@@ -4214,7 +4217,9 @@ pub mod stream {
       fn on_history(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_attributes`](Self::on_attributes).
       const WANT_attributes: bool = false;
-      /// Handles one element of `attributes`. Read its fields with `value.decode`.
+      /// Handles one element of `attributes`.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_attributes(&mut self, value: crate::bench::stream::bench::Attribute<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_counters`](Self::on_counters).
@@ -4244,8 +4249,7 @@ pub mod stream {
     impl<'a> Person<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Person<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -4257,16 +4261,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Person<'a> { Person { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: PersonVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -4778,7 +4783,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`PersonVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`PersonVisitor`] from handlers, one per selected field.
     ///
     /// With `person_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `person_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -4806,12 +4811,12 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench6Person as person_stream;
 
-    /// Receives the selected fields of a `bench.Dataset` message.
+    /// Receives the selected fields of `bench.Dataset`.
     ///
-    /// Usually you build one with [`dataset_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `dataset_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait DatasetVisitor<'a> {
       /// Whether the decoder calls [`on_name`](Self::on_name).
       const WANT_name: bool = false;
@@ -4825,7 +4830,9 @@ pub mod stream {
       fn on_version(&mut self, value: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_people`](Self::on_people).
       const WANT_people: bool = false;
-      /// Handles one element of `people`. Read its fields with `value.decode`.
+      /// Handles one element of `people`.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_people(&mut self, value: crate::bench::stream::bench::Person<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
@@ -4850,8 +4857,7 @@ pub mod stream {
     impl<'a> Dataset<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Dataset<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -4863,16 +4869,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Dataset<'a> { Dataset { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: DatasetVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -5008,7 +5015,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`DatasetVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`DatasetVisitor`] from handlers, one per selected field.
     ///
     /// With `dataset_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `dataset_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -5028,12 +5035,12 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench7Dataset as dataset_stream;
 
-    /// Receives the selected fields of a `bench.Wide` message.
+    /// Receives the selected fields of `bench.Wide`.
     ///
-    /// Usually you build one with [`wide_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `wide_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait WideVisitor<'a> {
       /// Whether the decoder calls [`on_a`](Self::on_a).
       const WANT_a: bool = false;
@@ -5087,8 +5094,7 @@ pub mod stream {
     impl<'a> Wide<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Wide<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -5100,16 +5106,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Wide<'a> { Wide { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: WideVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -5519,7 +5526,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`WideVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`WideVisitor`] from handlers, one per selected field.
     ///
     /// With `wide_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `wide_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -5542,16 +5549,18 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench4Wide as wide_stream;
 
-    /// Receives the selected fields of a `bench.WideSet` message.
+    /// Receives the selected fields of `bench.WideSet`.
     ///
-    /// Usually you build one with [`wide_set_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `wide_set_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait WideSetVisitor<'a> {
       /// Whether the decoder calls [`on_items`](Self::on_items).
       const WANT_items: bool = false;
-      /// Handles one element of `items`. Read its fields with `value.decode`.
+      /// Handles one element of `items`.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_items(&mut self, value: crate::bench::stream::bench::Wide<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
@@ -5576,8 +5585,7 @@ pub mod stream {
     impl<'a> WideSet<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<WideSet<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -5589,16 +5597,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> WideSet<'a> { WideSet { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: WideSetVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -5674,7 +5683,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`WideSetVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`WideSetVisitor`] from handlers, one per selected field.
     ///
     /// With `wide_set_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `wide_set_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -5692,12 +5701,12 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench7WideSet as wide_set_stream;
 
-    /// Receives the selected fields of a `bench.Big` message.
+    /// Receives the selected fields of `bench.Big`.
     ///
-    /// Usually you build one with [`big_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `big_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait BigVisitor<'a> {
       /// Whether the decoder calls [`on_numbers`](Self::on_numbers).
       const WANT_numbers: bool = false;
@@ -5741,8 +5750,7 @@ pub mod stream {
     impl<'a> Big<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Big<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -5754,16 +5762,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Big<'a> { Big { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: BigVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -6111,7 +6120,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`BigVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`BigVisitor`] from handlers, one per selected field.
     ///
     /// With `big_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `big_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -6132,16 +6141,18 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench3Big as big_stream;
 
-    /// Receives the selected fields of a `bench.BigSet` message.
+    /// Receives the selected fields of `bench.BigSet`.
     ///
-    /// Usually you build one with [`big_set_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `big_set_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait BigSetVisitor<'a> {
       /// Whether the decoder calls [`on_items`](Self::on_items).
       const WANT_items: bool = false;
-      /// Handles one element of `items`. Read its fields with `value.decode`.
+      /// Handles one element of `items`.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_items(&mut self, value: crate::bench::stream::bench::Big<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
@@ -6166,8 +6177,7 @@ pub mod stream {
     impl<'a> BigSet<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<BigSet<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -6179,16 +6189,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> BigSet<'a> { BigSet { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: BigSetVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -6264,7 +6275,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`BigSetVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`BigSetVisitor`] from handlers, one per selected field.
     ///
     /// With `big_set_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `big_set_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -6282,12 +6293,12 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench6BigSet as big_set_stream;
 
-    /// Receives the selected fields of a `bench.Vec3` message.
+    /// Receives the selected fields of `bench.Vec3`.
     ///
-    /// Usually you build one with [`vec3_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `vec3_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait Vec3Visitor<'a> {
       /// Whether the decoder calls [`on_x`](Self::on_x).
       const WANT_x: bool = false;
@@ -6326,8 +6337,7 @@ pub mod stream {
     impl<'a> Vec3<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Vec3<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -6339,16 +6349,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Vec3<'a> { Vec3 { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: Vec3Visitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -6484,7 +6495,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`Vec3Visitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`Vec3Visitor`] from handlers, one per selected field.
     ///
     /// With `vec3_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `vec3_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -6504,12 +6515,12 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench4Vec3 as vec3_stream;
 
-    /// Receives the selected fields of a `bench.Particle` message.
+    /// Receives the selected fields of `bench.Particle`.
     ///
-    /// Usually you build one with [`particle_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `particle_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait ParticleVisitor<'a> {
       /// Whether the decoder calls [`on_id`](Self::on_id).
       const WANT_id: bool = false;
@@ -6518,12 +6529,16 @@ pub mod stream {
       fn on_id(&mut self, value: i64) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_position`](Self::on_position).
       const WANT_position: bool = false;
-      /// Handles the `position` sub-message. Read its fields with `value.decode`.
+      /// Handles the `position` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_position(&mut self, value: crate::bench::stream::bench::Vec3<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_velocity`](Self::on_velocity).
       const WANT_velocity: bool = false;
-      /// Handles the `velocity` sub-message. Read its fields with `value.decode`.
+      /// Handles the `velocity` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_velocity(&mut self, value: crate::bench::stream::bench::Vec3<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_color`](Self::on_color).
@@ -6553,8 +6568,7 @@ pub mod stream {
     impl<'a> Particle<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Particle<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -6566,16 +6580,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Particle<'a> { Particle { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: ParticleVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -6741,7 +6756,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`ParticleVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`ParticleVisitor`] from handlers, one per selected field.
     ///
     /// With `particle_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `particle_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -6762,16 +6777,18 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench8Particle as particle_stream;
 
-    /// Receives the selected fields of a `bench.ParticleSet` message.
+    /// Receives the selected fields of `bench.ParticleSet`.
     ///
-    /// Usually you build one with [`particle_set_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `particle_set_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait ParticleSetVisitor<'a> {
       /// Whether the decoder calls [`on_items`](Self::on_items).
       const WANT_items: bool = false;
-      /// Handles one element of `items`. Read its fields with `value.decode`.
+      /// Handles one element of `items`.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_items(&mut self, value: crate::bench::stream::bench::Particle<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
@@ -6796,8 +6813,7 @@ pub mod stream {
     impl<'a> ParticleSet<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<ParticleSet<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -6809,16 +6825,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> ParticleSet<'a> { ParticleSet { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: ParticleSetVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -6894,7 +6911,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`ParticleSetVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`ParticleSetVisitor`] from handlers, one per selected field.
     ///
     /// With `particle_set_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `particle_set_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -6912,12 +6929,12 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench11ParticleSet as particle_set_stream;
 
-    /// Receives the selected fields of a `bench.Sample` message.
+    /// Receives the selected fields of `bench.Sample`.
     ///
-    /// Usually you build one with [`sample_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `sample_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait SampleVisitor<'a> {
       /// Whether the decoder calls [`on_a`](Self::on_a).
       const WANT_a: bool = false;
@@ -6971,8 +6988,7 @@ pub mod stream {
     impl<'a> Sample<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Sample<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -6984,16 +7000,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Sample<'a> { Sample { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: SampleVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -7219,7 +7236,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`SampleVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`SampleVisitor`] from handlers, one per selected field.
     ///
     /// With `sample_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `sample_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -7242,12 +7259,12 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench6Sample as sample_stream;
 
-    /// Receives the selected fields of a `bench.Record` message.
+    /// Receives the selected fields of `bench.Record`.
     ///
-    /// Usually you build one with [`record_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `record_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait RecordVisitor<'a> {
       /// Whether the decoder calls [`on_f1`](Self::on_f1).
       const WANT_f1: bool = false;
@@ -7326,12 +7343,16 @@ pub mod stream {
       fn on_f15(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_s1`](Self::on_s1).
       const WANT_s1: bool = false;
-      /// Handles the `s1` sub-message. Read its fields with `value.decode`.
+      /// Handles the `s1` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_s1(&mut self, value: crate::bench::stream::bench::Sample<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_s2`](Self::on_s2).
       const WANT_s2: bool = false;
-      /// Handles the `s2` sub-message. Read its fields with `value.decode`.
+      /// Handles the `s2` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_s2(&mut self, value: crate::bench::stream::bench::Sample<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_f18`](Self::on_f18).
@@ -7371,8 +7392,7 @@ pub mod stream {
     impl<'a> Record<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<Record<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -7384,16 +7404,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> Record<'a> { Record { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: RecordVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -8039,7 +8060,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`RecordVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`RecordVisitor`] from handlers, one per selected field.
     ///
     /// With `record_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `record_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -8076,16 +8097,18 @@ pub mod stream {
     #[doc(inline)]
     pub use __rp_5bench_5bench6Record as record_stream;
 
-    /// Receives the selected fields of a `bench.RecordSet` message.
+    /// Receives the selected fields of `bench.RecordSet`.
     ///
-    /// Usually you build one with [`record_set_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `record_set_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait RecordSetVisitor<'a> {
       /// Whether the decoder calls [`on_records`](Self::on_records).
       const WANT_records: bool = false;
-      /// Handles one element of `records`. Read its fields with `value.decode`.
+      /// Handles one element of `records`.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_records(&mut self, value: crate::bench::stream::bench::Record<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_unknown`](Self::on_unknown).
@@ -8110,8 +8133,7 @@ pub mod stream {
     impl<'a> RecordSet<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<RecordSet<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -8123,16 +8145,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::bench::stream) fn rp_new(rp_input: &'a [u8]) -> RecordSet<'a> { RecordSet { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: RecordSetVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -8208,7 +8231,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`RecordSetVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`RecordSetVisitor`] from handlers, one per selected field.
     ///
     /// With `record_set_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `record_set_stream!(&mut state; { field => |state, value| .. })`, the handlers share

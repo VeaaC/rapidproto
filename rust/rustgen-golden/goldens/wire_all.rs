@@ -591,12 +591,12 @@ pub mod stream {
 
   /// The `wire` package.
   pub mod wire {
-    /// Receives the selected fields of a `wire.AllWire` message.
+    /// Receives the selected fields of `wire.AllWire`.
     ///
-    /// Usually you build one with [`all_wire_stream!`]. To write one by hand, select a field
-    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-    /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-    /// `on_unknown` select the fields the schema does not declare.
+    /// Usually you build one with `all_wire_stream!`. To write one by hand, select a field
+    /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+    /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+    /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
     pub trait AllWireVisitor<'a> {
       /// Whether the decoder calls [`on_zz`](Self::on_zz).
       const WANT_zz: bool = false;
@@ -625,7 +625,9 @@ pub mod stream {
       fn on_by(&mut self, value: ::rapidproto::ProtoBytes<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_nested`](Self::on_nested).
       const WANT_nested: bool = false;
-      /// Handles the `nested` sub-message. Read its fields with `value.decode`.
+      /// Handles the `nested` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_nested(&mut self, value: crate::wire_all::stream::wire::AllWire<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_packed`](Self::on_packed).
@@ -635,7 +637,9 @@ pub mod stream {
       fn on_packed(&mut self, value: i32) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_g`](Self::on_g).
       const WANT_g: bool = false;
-      /// Handles the `g` sub-message. Read its fields with `value.decode`.
+      /// Handles the `g` sub-message.
+      ///
+      /// Read its fields with `value.decode`.
       #[inline(always)]
       fn on_g(&mut self, value: crate::wire_all::stream::wire::all_wire::G<'a>) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> { ::core::result::Result::Ok(::rapidproto::stream::Flow::Continue) }
       /// Whether the decoder calls [`on_oi`](Self::on_oi).
@@ -670,8 +674,7 @@ pub mod stream {
     impl<'a> AllWire<'a> {
       /// Wraps an encoded message.
       ///
-      /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-      /// if `input` is longer than `u32::MAX` bytes.
+      /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
       #[inline(always)]
       pub fn new(input: &'a [u8]) -> ::core::result::Result<AllWire<'a>, ::rapidproto::DecodeError> {
         if input.len() > u32::MAX as usize {
@@ -683,16 +686,17 @@ pub mod stream {
       #[inline(always)]
       pub(in crate::wire_all::stream) fn rp_new(rp_input: &'a [u8]) -> AllWire<'a> { AllWire { rp_input } }
 
-      /// The encoded message.
+      /// Returns the encoded message.
       ///
-      /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+      /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
       #[inline(always)]
       pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
       /// Decodes the message and passes each selected field to `visitor`.
       ///
-      /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-      /// the decode. Fails if the input is malformed or a handler returns an error.
+      /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+      /// error or the message is malformed. A sub-message is checked only when a handler
+      /// decodes it.
       pub fn decode<V: AllWireVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
         let rp_body: &'a [u8] = self.rp_input;
         let mut rp_rest: &'a [u8] = rp_body;
@@ -1065,7 +1069,7 @@ pub mod stream {
       }
     }
 
-    /// Builds a [`AllWireVisitor`] from handlers, one per selected field.
+    /// Builds an implementation of [`AllWireVisitor`] from handlers, one per selected field.
     ///
     /// With `all_wire_stream! { field => |value| .. }`, each handler captures its own state.
     /// With `all_wire_stream!(&mut state; { field => |state, value| .. })`, the handlers share
@@ -1094,12 +1098,12 @@ pub mod stream {
 
     /// Types declared in `wire.AllWire`.
     pub mod all_wire {
-      /// Receives the selected fields of a `wire.AllWire.G` message.
+      /// Receives the selected fields of `wire.AllWire.G`.
       ///
-      /// Usually you build one with [`g_stream!`]. To write one by hand, select a field
-      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`.
-      /// Without the constant, the handler is never called. `WANT_UNKNOWN` and
-      /// `on_unknown` select the fields the schema does not declare.
+      /// Usually you build one with `g_stream!`. To write one by hand, select a field
+      /// by setting its `WANT_<field>` constant to `true` and overriding `on_<field>`. If
+      /// `WANT_<field>` stays `false`, the decoder never calls `on_<field>`. To receive the
+      /// fields the schema does not declare, set `WANT_UNKNOWN` and override `on_unknown`.
       pub trait GVisitor<'a> {
         /// Whether the decoder calls [`on_a`](Self::on_a).
         const WANT_a: bool = false;
@@ -1128,8 +1132,7 @@ pub mod stream {
       impl<'a> G<'a> {
         /// Wraps an encoded message.
         ///
-        /// Fails with [`ErrorKind::InputTooLarge`](::rapidproto::ErrorKind::InputTooLarge)
-        /// if `input` is longer than `u32::MAX` bytes.
+        /// Fails with `ErrorKind::InputTooLarge` if `input` is longer than `u32::MAX` bytes.
         #[inline(always)]
         pub fn new(input: &'a [u8]) -> ::core::result::Result<G<'a>, ::rapidproto::DecodeError> {
           if input.len() > u32::MAX as usize {
@@ -1141,16 +1144,17 @@ pub mod stream {
         #[inline(always)]
         pub(in crate::wire_all::stream) fn rp_new(rp_input: &'a [u8]) -> G<'a> { G { rp_input } }
 
-        /// The encoded message.
+        /// Returns the encoded message.
         ///
-        /// To decode a sub-message whole, pass this to the arena decoder's `decode`.
+        /// To decode a sub-message whole, pass these bytes to the arena decoder's `decode`.
         #[inline(always)]
         pub fn bytes(&self) -> &'a [u8] { self.rp_input }
 
         /// Decodes the message and passes each selected field to `visitor`.
         ///
-        /// Returns [`Flow::Stop`](::rapidproto::stream::Flow::Stop) if a handler stopped
-        /// the decode. Fails if the input is malformed or a handler returns an error.
+        /// Returns `Flow::Stop` if a handler stopped the decode. Fails if a handler returns an
+        /// error or the message is malformed. A sub-message is checked only when a handler
+        /// decodes it.
         pub fn decode<V: GVisitor<'a>>(self, mut visitor: V) -> ::core::result::Result<::rapidproto::stream::Flow, ::rapidproto::DecodeError> {
           let rp_body: &'a [u8] = self.rp_input;
           let mut rp_rest: &'a [u8] = rp_body;
@@ -1226,7 +1230,7 @@ pub mod stream {
         }
       }
 
-      /// Builds a [`GVisitor`] from handlers, one per selected field.
+      /// Builds an implementation of [`GVisitor`] from handlers, one per selected field.
       ///
       /// With `g_stream! { field => |value| .. }`, each handler captures its own state.
       /// With `g_stream!(&mut state; { field => |state, value| .. })`, the handlers share
