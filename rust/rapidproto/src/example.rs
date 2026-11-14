@@ -7,7 +7,7 @@
 #![doc = include_str!("example/weather.proto")]
 //! ```
 //!
-//! To generate the same code in your crate, call `rapidproto-build` from `build.rs`:
+//! To generate the same code in your crate, use `rapidproto-build` in `build.rs`:
 //!
 //! ```ignore
 //! // build.rs

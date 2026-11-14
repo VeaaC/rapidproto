@@ -393,7 +393,7 @@ fn internal(error: impl std::fmt::Display) -> GenError {
 
 /// Options for generating decoders.
 ///
-/// The [crate docs](crate) show how to use it from `build.rs`.
+/// The [crate docs](crate) show how to use it in `build.rs`.
 #[derive(Debug)]
 pub struct Config {
     module_path: String,

@@ -41,13 +41,13 @@
 //! with the wrong wire type. It does not check that strings are valid UTF-8. [`ProtoStr::to_str`] does
 //! that when you read one.
 //!
-//! An arena decoder fails if a `required` field is missing, or if a singular message field appears
-//! twice, where Protobuf would merge the two. A stream decoder checks neither.
+//! An arena decoder fails if a `required` field is missing, or if a singular message or group field
+//! appears twice, where Protobuf would merge the two. A stream decoder checks neither.
 //!
 //! # Untrusted input
 //!
-//! An arena decoder fails if sub-messages nest deeper than [`MAX_DECODE_DEPTH`]. Its arena can grow to
-//! many times the size of the input, so decode into your own arena and limit it with
+//! An arena decoder fails if sub-messages or groups nest deeper than [`MAX_DECODE_DEPTH`]. Its arena
+//! can grow to many times the size of the input, so decode into your own arena and limit it with
 //! [`Arena::set_capacity_limit`]. A stream decoder does not allocate, and it decodes a sub-message
 //! only when your handler calls `decode` on it.
 //!
@@ -213,8 +213,8 @@ macro_rules! impl_decode_owned {
             // this crate's pages, and rustdoc then writes a link's raw path as its address.
             /// Decodes `input` into an `Owned`, which holds the input and the arena.
             ///
-            /// Pass a `Vec<u8>` or a `Box<[u8]>` to hand over the buffer. A `&[u8]` is copied.
-            /// Read the message with `Owned::get`. Needs the `alloc` feature of `rapidproto`.
+            /// Pass a `Vec<u8>` or a `Box<[u8]>` to hand over the buffer. A `&[u8]` is copied, and a
+            /// `Vec` with spare capacity may be too. Read the message with `Owned::get`. Needs the `alloc` feature of `rapidproto`.
             pub fn decode_owned(
                 input: impl ::core::convert::Into<$crate::Box<[u8]>>,
             ) -> ::core::result::Result<$crate::Owned<$msg<'static>>, $crate::DecodeError> {

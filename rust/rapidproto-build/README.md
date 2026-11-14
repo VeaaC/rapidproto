@@ -32,7 +32,6 @@ fn main() {
 you passed to `Config::new`, and decode with it:
 
 ```rust
-// src/lib.rs
 mod schema {
     include!(concat!(env!("OUT_DIR"), "/my_schema.rs"));
 }
