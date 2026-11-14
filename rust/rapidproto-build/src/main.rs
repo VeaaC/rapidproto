@@ -1,8 +1,7 @@
-//! `rapidproto-rust` — generate Rust protobuf decoders from `.proto` files on the command line.
+//! The `rapidproto-rust` command-line tool, which generates Rust decoders from `.proto` files.
 //!
-//! The same code generation as [`rapidproto_build::Config`] (used from a `build.rs`), exposed as a
-//! standalone tool: pass the module path, entry `.proto`s, `-I` include dirs, and decode-profile
-//! options, and it writes the generated Rust to a file or stdout. No `protoc` needed.
+//! It runs the same generator as [`rapidproto_build::Config`] and writes the code to a file or to
+//! standard output. `rapidproto-rust --help` lists its options.
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -20,14 +19,14 @@ usage: rapidproto-rust --module-path <path> [options] <entry.proto>...
   --module-path <path>  where the output is included: crate, or a path from it like crate::schema
   -I <dir>              add an import search path (repeatable; default: the current directory)
   -o, --out <file>      write the generated Rust here (default: stdout)
-  --field-modes <file>  a decode profile (drop/raw/unknown-fields lines; repeatable)
-  --drop <name>         drop a field or type (no storage, no accessor)
-  --raw <name>          keep a message field's/type's payloads for deferred decodes
-  --unknown <name>      reserve the unknown-fields bit on one message (repeatable)
-  --unknown-present     reserve the unknown-fields bit on every message
-  --stream              also emit the stream visitor model (<Msg>Visitor + <msg>_stream!)
-  --no-arena            omit the arena model (combine with --stream for stream-only output)
-  --serde               implement serde::Serialize (the output needs rapidproto's serde feature)
+  --field-modes <file>  apply a decode profile file (repeatable)
+  --drop <name>         remove a field, or every field of a type, and its accessor (repeatable)
+  --raw <name>          keep a message field, or every field of a type, encoded (repeatable)
+  --unknown <message>   add has_unknown_fields() to one message (repeatable)
+  --unknown-present     add has_unknown_fields() to every message
+  --stream              also generate stream decoders
+  --no-arena            do not generate arena decoders (use with --stream)
+  --serde               implement serde::Serialize (needs rapidproto's serde feature)
   -h, --help            show this help";
 
 fn main() -> ExitCode {
