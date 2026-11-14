@@ -4,6 +4,7 @@
 //!
 //! ```text
 //! <dir>/<name>.bin           an arena scenario, protoc-serialized   (rapidproto_arena_bench)
+//! <dir>/<name>.sum           the C++ arena walk's checksum over it  (rapidproto_arena_bench)
 //! <dir>/stream/<stem>.bin    a streaming scenario                   (rapidproto_bench)
 //! <dir>/rv/<stem>.pool       a varint-sweep pool                    (both)
 //! <dir>/external/<stem>.bin  a real-world dataset's input           (rapidproto_arena_bench)
@@ -20,9 +21,9 @@
 //!
 //! A real-world dataset's input exists only when the C++ bench was built with that dataset fetched
 //! (`tests/fetch_corpus.py`; OSM's extract also `tests/fetch_osm_dataset.py`), so its scenarios are
-//! skipped without it ([`Source::is_external`]); every other payload is required. The Rust walks over those
-//! inputs are ported from the C++ ones field for field, so the runner holds them to the dumped C++
-//! checksum ([`cpp_checksum`]).
+//! skipped without it ([`Source::is_external`]); every other payload is required. The Rust walks over
+//! those inputs and over the arena shapes are ported from the C++ ones field for field, so the runner
+//! holds them to the dumped C++ checksum ([`cpp_checksum`]).
 
 use std::io::{BufReader, Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
@@ -103,25 +104,27 @@ pub fn present(dir: &Path, source: &Source) -> bool {
     source.path(dir).is_file()
 }
 
-/// The C++ arms' checksum over a real-world dataset's input (`<dir>/external/<stem>.sum`, which the dump
-/// writes beside every such input); `None` for every other source, whose checksums follow this crate's
-/// own convention.
-pub fn cpp_checksum(dir: &Path, source: &Source) -> Option<u64> {
-    let (Source::External(stem) | Source::Batch(stem)) = source else {
-        return None;
+/// The C++ arms' checksum over an arena shape's or a real-world dataset's input (`<dir>/<stem>.sum`
+/// or `<dir>/external/<stem>.sum`, which the dump writes beside every such input).
+pub fn cpp_checksum(dir: &Path, source: &Source) -> u64 {
+    let path = match source {
+        Source::Arena(stem) => dir.join(format!("{stem}.sum")),
+        Source::External(stem) | Source::Batch(stem) => {
+            dir.join("external").join(format!("{stem}.sum"))
+        }
+        Source::Stream(_) | Source::Pool(_) => {
+            panic!("the dump records C++ checksums only for arena shapes and real-world datasets")
+        }
     };
-    let path = dir.join("external").join(format!("{stem}.sum"));
     assert!(
         path.is_file(),
         "{path:?} is missing: the payload directory predates the recorded C++ checksums -- re-dump \
          it with the C++ arena bench"
     );
     let text = String::from_utf8(read(&path)).unwrap_or_default();
-    Some(
-        text.trim()
-            .parse()
-            .unwrap_or_else(|_| panic!("bad checksum in {path:?}")),
-    )
+    text.trim()
+        .parse()
+        .unwrap_or_else(|_| panic!("bad checksum in {path:?}"))
 }
 
 /// Load a scenario's input from the payload directory `dir`.

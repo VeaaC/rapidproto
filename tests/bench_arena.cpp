@@ -54,6 +54,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -444,6 +445,33 @@ std::uint64_t checksum_arena_record(const rp::arena::bench::RecordSet* d) {
     return s;
 }
 
+// The arena walk's checksum over shape `name`'s payload, or nullopt when it does not decode. The dump
+// records it beside the payload (<name>.sum), and the Rust runner holds its arms to it.
+std::optional<std::uint64_t> shape_checksum(std::string_view name, const std::string& payload) {
+    rapidproto::Arena arena;
+    const rapidproto::ByteView view(payload);
+    const auto walk = [](const auto* msg, auto sum) -> std::optional<std::uint64_t> {
+        if (msg == nullptr) {
+            return std::nullopt;
+        }
+        return sum(msg);
+    };
+    if (name == "dataset") {
+        return walk(rp::arena::bench::Dataset::decode(view, arena), checksum_arena_dataset);
+    }
+    if (name == "wide") {
+        return walk(rp::arena::bench::WideSet::decode(view, arena), checksum_arena_wide);
+    }
+    if (name == "records") {
+        return walk(rp::arena::bench::RecordSet::decode(view, arena), checksum_arena_record);
+    }
+    if (name == "particles") {
+        return walk(rp::arena::bench::ParticleSet::decode(view, arena), checksum_arena_particle);
+    }
+    // The four big* shapes.
+    return walk(rp::arena::bench::BigSet::decode(view, arena), checksum_arena_big);
+}
+
 std::uint64_t checksum_stream(rapidproto::ByteView buf) {
     using namespace rp::stream::bench;
     std::uint64_t s = 0;
@@ -694,8 +722,16 @@ int main() {
     // them; real-world datasets only when this build has them.
     if (const char* const dir = std::getenv("RAPIDPROTO_BENCH_DUMP_DIR")) {
         for (const std::string_view name : kScenarios) {
-            if (!rpbench::write_payload(std::filesystem::path(dir) / (std::string(name) + ".bin"),
-                                        make_scenario(name))) {
+            const std::string payload = make_scenario(name);
+            const std::optional<std::uint64_t> sum = shape_checksum(name, payload);
+            if (!sum) {
+                std::fprintf(stderr, "bench: the arena decoder rejects the '%.*s' payload\n",
+                             static_cast<int>(name.size()), name.data());
+                return 1;
+            }
+            const std::filesystem::path base = std::filesystem::path(dir) / std::string(name);
+            if (!rpbench::write_payload(base.string() + ".bin", payload) ||
+                !rpbench::write_sum(base.string() + ".sum", *sum)) {
                 return 1;
             }
         }

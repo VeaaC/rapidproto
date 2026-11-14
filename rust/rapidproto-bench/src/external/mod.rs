@@ -34,6 +34,7 @@ pub fn scenarios() -> Vec<Scenario> {
         source,
         arms,
         mem: None,
+        cpp_sum: true,
     };
     #[cfg(rp_bench_gm)]
     let (gm1, gm2): (ArmsFn, ArmsFn) = (messages::gm1_arms, messages::gm2_arms);

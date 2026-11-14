@@ -15,13 +15,13 @@
 //!
 //! CHECKSUM. On the shared shapes (`tests/bench/bench.proto`) every arm walks every field into one
 //! wrapping `u64` sum, so a lazy or owning decoder is not flattered by skipping work, and a scenario's
-//! arms must agree or the run aborts. Scalars follow the C++ arena bench (string/bytes -> length,
-//! bool -> 0/1, double -> IEEE bits, integers -> value); a repeated string, repeated message or map
-//! contributes its element COUNT where C++ sums the elements' lengths, so on these shapes the sum is a
-//! per-language gate, not a cross-language one. The messages are proto3 (absent fields read as zero),
-//! so walking every accessor equals walking the present fields. The real-world datasets use the C++
-//! walks, ported, instead. `records sparse (dropped)` sums the three fields its drop profile keeps,
-//! as C++ does.
+//! arms must agree or the run aborts. Every arm's walk is the C++ arena bench's, value for value
+//! (string/bytes -> length, bool -> 0/1, double -> IEEE bits, integers -> value with C++'s casts,
+//! and every element of a repeated field or map), so both languages do the same work and the arms
+//! must also equal the checksum the C++ dump records beside each shape. The messages are proto3
+//! (absent fields read as zero), so walking every accessor equals walking the present fields. The
+//! real-world datasets use the C++ walks, ported, too. `records sparse (dropped)` sums the three
+//! fields its drop profile keeps, as C++ does; the dump records no checksum for it.
 
 // RapidProto's cold and warm arms for message type `$ty`, `$ck` walking the decoded tree; the warm
 // arm owns its arena. Defined ahead of the modules using it.
@@ -228,6 +228,7 @@ pub fn scenario_specs() -> Vec<Scenario> {
         source: Source::Arena(name),
         arms,
         mem: None,
+        cpp_sum: true,
     };
     let mut out = vec![Scenario {
         mem: Some(ours::dataset_memory),
@@ -245,9 +246,11 @@ pub fn scenario_specs() -> Vec<Scenario> {
             Some("scalar records (dispatch-bound)"),
             recordset_arms,
         ),
+        // `records`' input, but the drop profile keeps three fields, so `records.sum` is not its sum.
         Scenario {
             name: "records sparse (dropped)".to_string(),
             cpp_name: Some("records sparse (dropped)".to_string()),
+            cpp_sum: false,
             ..shape("records", None, recordset_sparse_arms)
         },
         shape("particles", None, particleset_arms),
@@ -258,6 +261,7 @@ pub fn scenario_specs() -> Vec<Scenario> {
         name,
         arms,
         mem: None,
+        cpp_sum: false,
     };
     for dist in payloads::varint_dists() {
         for count in payloads::VARINT_LENGTHS {

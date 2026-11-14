@@ -98,16 +98,16 @@ fn checksum_wideset(ws: &pb::WideSet) -> u64 {
     for it in ws.items.iter() {
         let it = it.expect("femtopb wide");
         for v in it.a.iter() {
-            sum = sum.wrapping_add(v.expect("femtopb a") as u64);
+            sum = sum.wrapping_add(u64::from(v.expect("femtopb a") as u32));
         }
         for v in it.b.iter() {
-            sum = sum.wrapping_add(v.expect("femtopb b") as u64);
+            sum = sum.wrapping_add(u64::from(v.expect("femtopb b") as u32));
         }
         for v in it.c.iter() {
-            sum = sum.wrapping_add(v.expect("femtopb c") as u64);
+            sum = sum.wrapping_add(u64::from(v.expect("femtopb c") as u32));
         }
         for v in it.d.iter() {
-            sum = sum.wrapping_add(v.expect("femtopb d") as u64);
+            sum = sum.wrapping_add(u64::from(v.expect("femtopb d") as u32));
         }
         for x in it.s.iter() {
             sum = sum.wrapping_add(x.expect("femtopb s").len() as u64);

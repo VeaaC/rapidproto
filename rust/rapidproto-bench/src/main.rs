@@ -21,8 +21,8 @@
 //! # produce the shared payloads once (the C++ arena bench's, ~1.7 GB; keep them on disk):
 //! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_arena_bench
 //! # run pinned + aligned (the discipline note is runner.rs's), one run at a time, on a quiesced box:
-//! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6" \
-//!     taskset -c 0 cargo run -p rapidproto-bench --release --bin bench
+//! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
+//!     taskset -c 2 cargo run -p rapidproto-bench --release --bin bench
 //! ```
 //!
 //! GOOGLE-UPB CAPSTONE (feature `google-upb`, OFF by default): adds Google's official upb-backed

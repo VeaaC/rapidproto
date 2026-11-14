@@ -22,9 +22,9 @@
 //! has none); `vs_base_pct` compares arms within this runner only.
 //!
 //! Run discipline, or the numbers lie: pinned (`taskset -c N`), aligned (`RUSTFLAGS=
-//! "-Cllvm-args=-align-all-functions=6"`, so an unrelated edit relaying the binary does not move
-//! throughput by code placement alone), `performance` governor, turbo/SMT off, one run at a time on a
-//! quiesced box.
+//! "-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64"`, so an unrelated edit relaying
+//! the binary does not move throughput by code placement alone), `performance` governor, turbo/SMT
+//! off, one run at a time on a quiesced box.
 //!
 //! Env: `RAPIDPROTO_BENCH_DIR` (required) the payload directory; `RAPIDPROTO_BENCH_CHECK_ONLY` run only
 //! the agreement gate (no timing -- valid on any box); `RAPIDPROTO_BENCH_JSON` also emit one `rec:"arm"`
@@ -50,6 +50,9 @@ pub struct Scenario {
     pub source: Source,
     pub arms: ArmsFn,
     pub mem: Option<MemFn>,
+    /// Whether the arms must also equal the C++ checksum the dump records beside the input
+    /// ([`payloads::cpp_checksum`]): set where the Rust walk is the C++ one, value for value.
+    pub cpp_sum: bool,
 }
 
 /// One cold decode of the input into a fresh arena, returning the arena's `(bytes_used,
@@ -250,8 +253,8 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
     if !opts.check_only {
         eprintln!(
             "\nNOTE: throughput is meaningful only pinned (taskset -c N), aligned \
-             (-Cllvm-args=-align-all-functions=6), governor=performance, turbo/SMT off, one run at a \
-             time. ins/B via an external `perf stat -e instructions:u`.\n"
+             (-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64), governor=performance, \
+             turbo/SMT off, one run at a time. ins/B via an external `perf stat -e instructions:u`.\n"
         );
         if !report.legend.is_empty() {
             println!("\n{}\n", report.legend);
@@ -292,9 +295,9 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
         ran += 1;
         let inputs = payloads::load(&opts.dir, &sc.source);
         let mut arms = select_arms(arms, opts.arm_filter.as_deref());
-        // An arm that relies on UB for this scenario (quick-protobuf's unaligned packed-double slice)
-        // only behaves in a release build; in a debug build the alignment UB-check aborts the process.
-        // Drop it there so debug runs still work -- it is measured in release only, and flagged there.
+        // An arm whose decoder for this scenario's message is unsound (quick-protobuf's unaligned
+        // packed-double slice) is dropped in a debug build, where the alignment UB-check aborts the
+        // process on payloads that carry the field. It is measured in release only, and flagged there.
         if cfg!(debug_assertions) {
             arms.retain(|a| !(report.ub)(name, a.name));
         }
@@ -325,7 +328,9 @@ pub fn run(scenarios: Vec<Scenario>, report: &Report) -> i32 {
             }
             return 1;
         }
-        let cpp_sum = payloads::cpp_checksum(&opts.dir, &sc.source);
+        let cpp_sum = sc
+            .cpp_sum
+            .then(|| payloads::cpp_checksum(&opts.dir, &sc.source));
         if cpp_sum.is_some_and(|c| c != agreed[0]) {
             eprintln!(
                 "CHECKSUM MISMATCH in scenario {name}: the arms agree on {:#018x}, the C++ arms on \
