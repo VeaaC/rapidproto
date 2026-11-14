@@ -60,7 +60,8 @@ pub type MemFn = fn(&[u8]) -> (usize, usize);
 pub struct Report {
     /// The NDJSON `decoder` field (`rust-ecosystem`, `rust-stream`).
     pub decoder: &'static str,
-    /// Whether `(scenario, arm)` relied on undefined behaviour (flagged `‡` and in the NDJSON).
+    /// Whether the arm's decoder for the scenario's message has undefined behaviour (flagged `‡` and
+    /// in the NDJSON).
     pub ub: fn(&str, &str) -> bool,
     /// Printed once before the table (a legend for the flags above, say).
     pub legend: &'static str,

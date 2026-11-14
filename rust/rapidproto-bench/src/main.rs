@@ -47,10 +47,11 @@ fn main() {
     let report = Report {
         decoder: "rust-ecosystem",
         ub: has_unaligned_fixed_slice_ub,
-        legend: "‡ = this measurement relied on UNDEFINED BEHAVIOUR: the arm read a packed \
-                 fixed-width float field (`Big.reals`, `repeated double`) as an unaligned borrowed \
-                 slice. Correct on x86 here, but a misaligned reference -- flag it in any table built \
-                 from these numbers. (`ub_unaligned_fixed_slice` in the ndjson.)",
+        legend: "‡ = the arm's decoder for this message has UNDEFINED BEHAVIOUR: it reads the packed \
+                 fixed-width float field `Big.reals` (`repeated double`) as an unaligned borrowed \
+                 slice, on any payload that carries it (only `big` and `big_fixed` do). It happens to \
+                 work on x86, but the decoder is unsound -- flag it in any table built from these \
+                 numbers. (`ub_unaligned_fixed_slice` in the ndjson.)",
         // RapidProto's arms are the C++ bench's under Rust names; google-upb runs the upb kernel the
         // C++ `upb` arm does. The other competitors are Rust-only.
         cpp_arm: |arm| match arm {

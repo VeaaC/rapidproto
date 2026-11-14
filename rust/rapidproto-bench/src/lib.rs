@@ -193,18 +193,23 @@ pub fn recordset_sparse_arms() -> Vec<Arm> {
     ours::recordset_sparse()
 }
 
-/// Whether `arm`'s decode of `scenario` reads a packed fixed-width float field as an UNALIGNED
-/// borrowed slice -- undefined behaviour. Only quick-protobuf's zero-copy `read_packed_fixed` does
-/// this (see [`competitors::quick_protobuf`]), and only on the `Big`-shaped scenarios whose `reals`
-/// field is `repeated double`: it hands back a `&[f64]` pointing straight into the (align-1) input.
-/// Correct on x86 in a release build where the check is compiled out, but a misaligned reference --
-/// it aborts under debug UB-checks / Miri, and would misread on a big-endian host. (Our own arena
-/// decoder instead memcpy's packed fixed data into an aligned arena array, so it is sound.) The runner
-/// uses this to drop the arm from these scenarios in a debug build and to flag the measurement in the
-/// release table / ndjson, so the generated benchmark tables can mark it. The varint sweeps carry no
-/// `reals`, so they never take that path.
+/// Whether `arm`'s decoder for `scenario`'s message is unsound: it reads a packed fixed-width float
+/// field as an UNALIGNED borrowed slice -- undefined behaviour on any input that carries the field.
+/// Only quick-protobuf's zero-copy `read_packed_fixed` does this (see [`competitors::quick_protobuf`]),
+/// and the schema's only packed fixed-width field is `Big.reals` (`repeated double`), so the unsound
+/// decoders are quick-protobuf's for `BigSet` (the `big*` shapes) and `Big` (the varint sweeps). It
+/// hands back a `&[f64]` pointing straight into the (align-1) input. Correct on x86 in a release build
+/// where the check is compiled out, but a misaligned reference -- it aborts under debug UB-checks /
+/// Miri, and would misread on a big-endian host. (Our own arena decoder instead memcpy's packed fixed
+/// data into an aligned arena array, so it is sound.) Only `big` and `big_fixed` fill `reals`
+/// (tests/bench_arena.cpp), so only their runs execute the misaligned read, but a decoder that is
+/// unsound for its message is flagged on every payload of it. The runner uses this to drop the arm
+/// from these scenarios in a debug build and to flag the measurement in the release table / ndjson,
+/// so the generated benchmark tables can mark it.
 pub fn has_unaligned_fixed_slice_ub(scenario: &str, arm: &str) -> bool {
-    arm == "quick-protobuf" && matches!(scenario, "big" | "big_varint" | "big_fixed" | "big_osm")
+    let decodes_big = matches!(scenario, "big" | "big_varint" | "big_fixed" | "big_osm")
+        || scenario.starts_with("rv");
+    arm == "quick-protobuf" && decodes_big
 }
 
 /// The arena scenarios, in the C++ bench's order: `dataset` (with the arena memory report), the
