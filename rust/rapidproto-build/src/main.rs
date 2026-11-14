@@ -19,9 +19,9 @@ usage: rapidproto-rust --module-path <path> [options] <entry.proto>...
   --module-path <path>  where the output is included: crate, or a path from it like crate::schema
   -I <dir>              add an import search path (repeatable; default: the current directory)
   -o, --out <file>      write the generated Rust here (default: stdout)
-  --field-modes <file>  apply a decode profile file (repeatable)
-  --drop <name>         remove a field, or every field of a type, and its accessor (repeatable)
-  --raw <name>          keep a message field, or every field of a type, encoded (repeatable)
+  --field-modes <file>  apply a decode profile of drop, raw and unknown-fields lines (repeatable)
+  --drop <name>         remove a field and its accessor, or every field of type <name> (repeatable)
+  --raw <name>          keep a message field encoded, or every field of type <name> (repeatable)
   --unknown <message>   add has_unknown_fields() to one message (repeatable)
   --unknown-present     add has_unknown_fields() to every message
   --stream              also generate stream decoders

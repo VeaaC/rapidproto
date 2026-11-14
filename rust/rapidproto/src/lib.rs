@@ -2,8 +2,8 @@
 //!
 //! RapidProto only decodes. `rapidproto-build` generates decoders from your schema at build time, and
 //! the generated code uses this crate. Add `rapidproto` to your dependencies and `rapidproto-build` to
-//! your build dependencies, both at the same version. The [`example`] module shows a schema, the build
-//! script and the generated code.
+//! your build dependencies, both pinned to the same version with `=`. The [`example`] module shows a
+//! schema, the build script and the generated code.
 //!
 //! # Arena and stream decoders
 //!

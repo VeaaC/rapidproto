@@ -1,8 +1,8 @@
 //! Generates Rust decoders for Protobuf schemas in a build script, without `protoc`.
 //!
 //! The decoders use the [`rapidproto`] runtime. Add `rapidproto` to your dependencies and
-//! `rapidproto-build` to your build dependencies, both at the same version. The runtime's
-//! [`example`] module shows a schema and the code generated for it.
+//! `rapidproto-build` to your build dependencies, both pinned to the same version with `=`. The
+//! runtime's [`example`] module shows a schema and the code generated for it.
 //!
 //! Call [`Config`] from `build.rs`:
 //!
@@ -27,10 +27,10 @@
 //! let order = schema::arena::shop::Order::decode(&input, &arena)?;
 //! ```
 //!
-//! `Config` generates arena decoders by default. It can also generate stream decoders, apply a decode
-//! profile, and implement `serde::Serialize`. To get the code as a string instead of a file, use
-//! [`Config::generate`]. Imports of the well-known types, such as `google/protobuf/timestamp.proto`,
-//! resolve without the files.
+//! `Config` generates arena decoders by default. It can also generate [stream decoders], apply a
+//! [decode profile], and implement [`serde::Serialize`]. To get the code as a string instead of a
+//! file, use [`Config::generate`]. Imports of the well-known types, such as
+//! `google/protobuf/timestamp.proto`, resolve without the files.
 //!
 //! The command-line tool `rapidproto-rust` generates the same code, for projects that commit it.
 //! Install it with `cargo install rapidproto-build --version 0.1.0-alpha.1`, and see
@@ -48,9 +48,9 @@
 //! `default-features = false, features = ["native"]` avoids building the interpreter. To use the wasm
 //! generator on purpose, without the warning, enable only `wasm`.
 //!
-//! Cargo builds build-time code without optimization, so the interpreter is slow by default: seconds
-//! for a small schema, minutes for a very large one. If you use the wasm generator, optimize
-//! build-time code in your workspace:
+//! Cargo builds build-time code without optimization, so the interpreter is slow by default. It takes
+//! seconds for a small schema and minutes for a very large one. If you use the wasm generator,
+//! optimize build-time code in your workspace:
 //!
 //! ```toml
 //! [profile.dev.build-override]
@@ -61,6 +61,9 @@
 //!
 //! [`rapidproto`]: https://docs.rs/rapidproto/latest/rapidproto/
 //! [`example`]: https://docs.rs/rapidproto/latest/rapidproto/example/index.html
+//! [stream decoders]: Config::stream
+//! [decode profile]: Config::field_modes
+//! [`serde::Serialize`]: Config::serde
 #![warn(missing_docs)]
 
 use std::collections::btree_map::Entry;
@@ -447,12 +450,12 @@ impl Config {
     ///
     /// - `drop pkg.Msg.field` removes the field and its accessor.
     /// - `raw pkg.Msg.field` keeps a message or group field as its encoded message. The accessor
-    ///   returns it as `ProtoBytes`, in an `Option` for a singular field and in a slice for a
+    ///   returns it as [`ProtoBytes`], in an `Option` for a singular field and in a slice for a
     ///   `repeated` one, ready for the field type's `decode`.
     /// - `unknown-fields pkg.Msg` adds `has_unknown_fields()` to the message.
     ///
-    /// `drop` and `raw` also take a message type, `pkg.Msg`, to cover every field of that type. A
-    /// directive for a field wins over one for its type. Neither applies to a `oneof` member, `raw`
+    /// `drop` and `raw` also take a message type, `pkg.Msg`, to cover every field whose type is
+    /// `pkg.Msg`. `drop` also takes an enum type. A directive for a field wins over one for its type. Neither applies to a `oneof` member, `raw`
     /// does not apply to a `map` field, and `drop` does not apply to a `required` field. Naming such a
     /// field fails, and a directive for its type leaves it as it is. Stream decoders ignore the
     /// profile.
@@ -464,6 +467,8 @@ impl Config {
     ///     .compile(&["shop.proto"])
     ///     .expect("generate decoders");
     /// ```
+    ///
+    /// [`ProtoBytes`]: https://docs.rs/rapidproto/latest/rapidproto/struct.ProtoBytes.html
     pub fn field_modes(mut self, modes: impl Into<String>) -> Self {
         self.modes = modes.into();
         self
@@ -471,15 +476,18 @@ impl Config {
 
     /// Adds `has_unknown_fields()` to every arena message.
     ///
-    /// It returns `true` if the encoded message had a field the schema does not declare.
+    /// It returns `true` if the encoded message had a field the schema does not declare. Unknown
+    /// fields inside a sub-message do not count.
     pub fn unknown_present(mut self, yes: bool) -> Self {
         self.unknown_present = yes;
         self
     }
 
-    /// Generates arena decoders, which decode the whole message into an `Arena`.
+    /// Generates arena decoders, which decode the whole message into an [`Arena`].
     ///
     /// They are on by default. At least one of `arena` and [`stream`](Config::stream) must be on.
+    ///
+    /// [`Arena`]: https://docs.rs/rapidproto/latest/rapidproto/struct.Arena.html
     pub fn arena(mut self, yes: bool) -> Self {
         self.arena = yes;
         self
@@ -489,8 +497,9 @@ impl Config {
     ///
     /// They are off by default. The [`rapidproto::stream`] docs show how to use them.
     ///
-    /// A macro expands where you call it and reaches the rest of the generated code through the path
-    /// given to [`Config::new`], so each module on that path must be visible from the call. Make the
+    /// Each message gets a `msg_stream!` macro, which builds a visitor from your handlers. The macro
+    /// expands where you call it and reaches the rest of the generated code through the path given to
+    /// [`Config::new`], so each module on that path must be visible from the call. Make the
     /// modules `pub` to call it from `tests/` or another crate. To call it from elsewhere in the
     /// crate, a module nested below the crate root needs `pub(crate)`.
     ///
@@ -503,10 +512,11 @@ impl Config {
         self
     }
 
-    /// Implements `serde::Serialize` for the generated enums and arena messages.
+    /// Implements `serde::Serialize` for the arena messages and the types generated for the schema's
+    /// enums.
     ///
-    /// It is off by default. The generated code then needs the `serde` feature of `rapidproto`, and
-    /// does not compile without it. The [`rapidproto` docs] describe the output.
+    /// It is off by default. When it is on, the generated code needs the `serde` feature of
+    /// `rapidproto`, and does not compile without it. The [`rapidproto` docs] describe the output.
     ///
     /// To make this optional in your own crate, declare a `serde` feature that enables
     /// `rapidproto/serde`, and read it in `build.rs`:
@@ -586,8 +596,11 @@ impl Config {
     /// returns the file's path.
     ///
     /// The file is named after the first entry, so `proto/message.proto` gives `message.rs`. A second
-    /// call whose first entry has the same name, such as `other/message.proto`, fails. Cargo re-runs the build script when an
-    /// entry or a `.proto` file under the include directories changes.
+    /// call whose first entry has the same name, such as `other/message.proto`, fails. Use
+    /// [`Config::generate`] to write such files under names of your own.
+    ///
+    /// Cargo re-runs the build script when an entry or a `.proto` file under the include directories
+    /// changes.
     pub fn compile(&self, entries: &[impl AsRef<Path>]) -> Result<PathBuf, GenError> {
         // Warned from here, the consumer's own build script, because cargo hides the warnings of a
         // dependency's build script.

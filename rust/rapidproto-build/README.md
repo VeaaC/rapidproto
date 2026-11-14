@@ -4,7 +4,8 @@ Generates [`rapidproto`] Rust decoders for Protobuf schemas in a build script, w
 
 > This is a test release. The API and the generated code will change.
 
-Add both crates at the same version, because the generated code targets the matching runtime:
+Pin both crates to the same version with `=`, because the generated code targets the matching
+runtime:
 
 ```toml
 # Cargo.toml
@@ -28,17 +29,21 @@ fn main() {
 ```
 
 `compile` writes `my_schema.rs` to `OUT_DIR`, named after the first entry. Include it at the path
-you passed to `Config::new`:
+you passed to `Config::new`, and decode with it:
 
 ```rust
 // src/lib.rs
 mod schema {
     include!(concat!(env!("OUT_DIR"), "/my_schema.rs"));
 }
+
+// For `package shop;` and `message Order` in my_schema.proto:
+let arena = rapidproto::Arena::new();
+let order = schema::arena::shop::Order::decode(&input, &arena)?;
 ```
 
-The [documentation] covers the options: stream decoders, decode profiles and `serde`. The
-`rapidproto-rust` command-line tool generates the same code, for projects that commit it.
+The [documentation] covers stream decoders, decode profiles and `serde`. The `rapidproto-rust`
+command-line tool generates the same code, for projects that commit it.
 
 ## How the generator runs
 
@@ -50,9 +55,9 @@ The `native` and `wasm` features choose between them, and both are on by default
 C++ compiler, `default-features = false, features = ["native"]` avoids building the interpreter.
 To use the wasm generator on purpose, without the warning, enable only `wasm`.
 
-Cargo builds build scripts without optimization, which makes the interpreter slow: seconds for a
-small schema, minutes for a very large one. If you use the wasm generator, optimize build-time code
-in your workspace:
+Cargo builds build-time code without optimization, which makes the interpreter slow. It takes
+seconds for a small schema and minutes for a very large one. If you use the wasm generator,
+optimize build-time code in your workspace:
 
 ```toml
 [profile.dev.build-override]
@@ -62,8 +67,9 @@ opt-level = 3
 ```
 
 Licensed under Apache-2.0 (see `LICENSE` and `NOTICE`). The crate ships the prebuilt wasm
-generator, which statically links third-party code, wasi-libc and the LLVM C++ runtime. Their
-license notices and the build provenance are in `THIRD_PARTY_NOTICES.md`.
+generator, which statically links wasi-libc and the LLVM C++ runtime. The crate also contains the
+Protobuf well-known type definitions. `THIRD_PARTY_NOTICES.md` has their license notices and the
+build provenance.
 
 [`rapidproto`]: https://crates.io/crates/rapidproto
 [documentation]: https://docs.rs/rapidproto-build
