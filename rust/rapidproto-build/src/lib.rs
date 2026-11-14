@@ -1,7 +1,10 @@
-//! Generate Rust protobuf decoders from `.proto` files in a build script. You do not need `protoc` or
-//! a separate code generator.
+//! Generates Rust decoders for Protobuf schemas in a build script, without `protoc`.
 //!
-//! Most consumers call [`Config`] from a `build.rs` to generate at build time:
+//! The decoders use the [`rapidproto`] runtime. Add `rapidproto` to your dependencies and
+//! `rapidproto-build` to your build dependencies, both pinned to the same version with `=`. The
+//! runtime's [`example`] module shows a schema and the code generated for it.
+//!
+//! Call [`Config`] from `build.rs`:
 //!
 //! ```no_run
 //! // build.rs
@@ -11,38 +14,43 @@
 //!     .expect("generate decoders");
 //! ```
 //!
-//! Then include the generated file at that path:
+//! [`Config::compile`] writes `message.rs` to `OUT_DIR`, named after the first entry. Include it at the
+//! path you passed to [`Config::new`], and decode with it:
 //!
 //! ```ignore
 //! mod schema {
 //!     include!(concat!(env!("OUT_DIR"), "/message.rs"));
 //! }
+//!
+//! // For `package shop;` and `message Order` in message.proto:
+//! let arena = rapidproto::Arena::new();
+//! let order = schema::arena::shop::Order::decode(&input, &arena)?;
 //! ```
 //!
-//! The generated decoders use the `rapidproto` runtime crate. To get the generated code as a string
-//! instead of a file, use [`Config::generate`].
+//! `Config` generates arena decoders by default. It can also generate [stream decoders], apply a
+//! [decode profile], and implement [`serde::Serialize`]. To get the code as a string instead of a
+//! file, use [`Config::generate`]. Imports of the well-known types, such as
+//! `google/protobuf/timestamp.proto`, resolve without the files.
 //!
-//! The same generator is also available as a command-line tool, `rapidproto-rust`, for generating
-//! decoders outside a build script. Install it with
-//! `cargo install rapidproto-build --version 0.1.0-alpha.1` and run `rapidproto-rust --help`.
+//! The command-line tool `rapidproto-rust` generates the same code, for projects that commit it.
+//! Install it with `cargo install rapidproto-build --version 0.1.0-alpha.1`, and see
+//! `rapidproto-rust --help` for its options.
 //!
 //! # How the generator runs
 //!
-//! The generator is RapidProto's C++ code generator, run one of two ways, chosen by features:
+//! The generator is written in C++, and two features choose how it runs. With `native`, this crate's
+//! build script compiles it, which needs a C++17 compiler. With `wasm`, it runs as an embedded
+//! WebAssembly module in the `wasmi` interpreter, which needs no compiler. Both produce the same
+//! output.
 //!
-//! - `native`: this crate's build script compiles the generator from the C++ sources it ships,
-//!   always optimized, and calls it in-process. It needs a C++17 compiler.
-//! - `wasm`: the generator is embedded as a WebAssembly module and run in the `wasmi` interpreter,
-//!   so no C++ compiler is needed.
+//! Both features are on by default. The native generator is used when it builds, and the wasm one
+//! otherwise, which [`Config::compile`] then warns about. If you have a C++ compiler,
+//! `default-features = false, features = ["native"]` avoids building the interpreter. To use the wasm
+//! generator on purpose, without the warning, enable only `wasm`.
 //!
-//! Both are on by default: the native generator is used, and the wasm one only if the native one
-//! does not build, which [`Config::compile`] warns about. Both produce the same output. With a C++
-//! compiler at hand, `native` alone builds the least.
-//!
-//! The interpreter runs at the speed it was compiled at, and cargo compiles build-time code
-//! unoptimized by default. The wasm generator is then about a thousand times slower than the native
-//! one: seconds for a small schema, minutes for a very large one. If you use it, optimize build-time
-//! code in the consuming workspace:
+//! Cargo builds build-time code without optimization, so the interpreter is slow by default. It takes
+//! seconds for a small schema and minutes for a very large one. If you use the wasm generator,
+//! optimize build-time code in your workspace:
 //!
 //! ```toml
 //! [profile.dev.build-override]
@@ -50,6 +58,12 @@
 //! [profile.release.build-override]
 //! opt-level = 3
 //! ```
+//!
+//! [`rapidproto`]: https://docs.rs/rapidproto/latest/rapidproto/
+//! [`example`]: https://docs.rs/rapidproto/latest/rapidproto/example/index.html
+//! [stream decoders]: Config::stream
+//! [decode profile]: Config::field_modes
+//! [`serde::Serialize`]: Config::serde
 #![warn(missing_docs)]
 
 use std::collections::btree_map::Entry;
@@ -120,7 +134,7 @@ pub struct GenError {
     /// a bad decode profile; negative for an I/O or internal failure. The tests and the CLI read it.
     #[doc(hidden)]
     pub code: i32,
-    /// A human-readable description of the failure.
+    /// A description of the failure.
     pub message: String,
 }
 
@@ -377,9 +391,9 @@ fn internal(error: impl std::fmt::Display) -> GenError {
     }
 }
 
-/// Generate decoders from a `build.rs`: run the generator over a schema's import closure, write the
-/// result into `OUT_DIR`, and register the inputs so cargo re-runs when a `.proto` changes. The
-/// [crate docs](crate) show an example.
+/// Options for generating decoders.
+///
+/// The [crate docs](crate) show how to use it from `build.rs`.
 #[derive(Debug)]
 pub struct Config {
     module_path: String,
@@ -393,9 +407,13 @@ pub struct Config {
 }
 
 impl Config {
-    /// A config for generated code included at `module_path`: `crate` for the crate root, or a path
-    /// from it such as `crate::schema`. Segments are ASCII identifiers. Write a keyword as a raw
-    /// identifier, such as `r#type`.
+    /// Creates a config for code included at `module_path`.
+    ///
+    /// The config generates arena decoders with no decode profile, and resolves imports in the current
+    /// directory, which is the package root in a build script.
+    ///
+    /// `module_path` is `crate` for the crate root, or a path from it such as `crate::schema`. Its
+    /// segments are ASCII identifiers. Write a keyword as a raw identifier, such as `r#type`.
     ///
     /// The generated code names its own types through this path, so it must lead to where you
     /// `include!` the file. A wrong path fails to compile.
@@ -417,50 +435,88 @@ impl Config {
         }
     }
 
-    /// Add a directory to search for `.proto` files (repeatable; if a file is found under more than
-    /// one, the first added wins).
+    /// Adds a directory to search for `.proto` files.
+    ///
+    /// Once you add one, the current directory is no longer searched. If several directories have the
+    /// same file, the first one added wins.
     pub fn include(mut self, dir: impl Into<PathBuf>) -> Self {
         self.includes.push(dir.into());
         self
     }
 
-    /// Set a decode profile: the text of a `.modes` file (`drop` / `raw` / `unknown-fields` lines).
+    /// Sets a decode profile, which changes what the arena decoders store.
+    ///
+    /// `modes` holds one directive per line, and `#` starts a comment:
+    ///
+    /// - `drop pkg.Msg.field` removes the field and its accessor.
+    /// - `raw pkg.Msg.field` keeps a message or group field as its encoded message. The accessor
+    ///   returns it as [`ProtoBytes`], in an `Option` for a singular field and in a slice for a
+    ///   `repeated` one, ready for the field type's `decode`.
+    /// - `unknown-fields pkg.Msg` adds `has_unknown_fields()` to the message.
+    ///
+    /// `drop` and `raw` also take a message type, `pkg.Msg`, to cover every field whose type is
+    /// `pkg.Msg`. `drop` also takes an enum type. A directive for a field wins over one for its type. Neither applies to a `oneof` member, `raw`
+    /// does not apply to a `map` field, and `drop` does not apply to a `required` field. Naming such a
+    /// field fails, and a directive for its type leaves it as it is. Stream decoders ignore the
+    /// profile.
+    ///
+    /// ```no_run
+    /// // build.rs
+    /// rapidproto_build::Config::new("crate::schema")
+    ///     .field_modes("drop shop.Order.notes\nraw shop.Order.items")
+    ///     .compile(&["shop.proto"])
+    ///     .expect("generate decoders");
+    /// ```
+    ///
+    /// [`ProtoBytes`]: https://docs.rs/rapidproto/latest/rapidproto/struct.ProtoBytes.html
     pub fn field_modes(mut self, modes: impl Into<String>) -> Self {
         self.modes = modes.into();
         self
     }
 
-    /// Reserve space to track unknown fields on every message.
+    /// Adds `has_unknown_fields()` to every arena message.
+    ///
+    /// It returns `true` if the encoded message had a field the schema does not declare. Unknown
+    /// fields inside a sub-message do not count.
     pub fn unknown_present(mut self, yes: bool) -> Self {
         self.unknown_present = yes;
         self
     }
 
-    /// Emit the random-access `arena` decoder model (the generated `arena::` module). On by default;
-    /// pass `false` to omit it (e.g. for a stream-only consumer). At least one model must stay enabled.
+    /// Generates arena decoders, which decode the whole message into an [`Arena`].
+    ///
+    /// They are on by default. At least one of `arena` and [`stream`](Config::stream) must be on.
+    ///
+    /// [`Arena`]: https://docs.rs/rapidproto/latest/rapidproto/struct.Arena.html
     pub fn arena(mut self, yes: bool) -> Self {
         self.arena = yes;
         self
     }
 
-    /// Emit the `stream` visitor model (the generated `stream::` module: a `<Msg>Visitor` trait, a
-    /// `<Msg>::decode` driver, and a `<msg>_stream!` builder macro) for decoding a few fields without
-    /// materializing the message. Off by default.
+    /// Generates stream decoders, which pass the fields you select to your handlers.
     ///
-    /// A macro expands where you call it and reaches the rest of the generated code through the path
-    /// given to [`Config::new`], so each module on that path must be visible from the call. Make the
+    /// They are off by default. The [`rapidproto::stream`] docs show how to use them.
+    ///
+    /// Each message gets a `msg_stream!` macro, which builds a visitor from your handlers. The macro
+    /// expands where you call it and reaches the rest of the generated code through the path given to
+    /// [`Config::new`], so each module on that path must be visible from the call. Make the
     /// modules `pub` to call it from `tests/` or another crate. To call it from elsewhere in the
     /// crate, a module nested below the crate root needs `pub(crate)`.
     ///
-    /// A `proc-macro` crate cannot export macros, so this model does not compile there. Put the
+    /// A `proc-macro` crate cannot export macros, so stream decoders do not compile there. Put the
     /// generated code in a separate crate instead.
+    ///
+    /// [`rapidproto::stream`]: https://docs.rs/rapidproto/latest/rapidproto/stream/index.html
     pub fn stream(mut self, yes: bool) -> Self {
         self.stream = yes;
         self
     }
 
-    /// Implement `serde::Serialize` for the generated enums and `arena` messages. Off by default. The
-    /// generated code then needs the `serde` feature of `rapidproto`, and does not compile without it.
+    /// Implements `serde::Serialize` for the arena messages and the types generated for the schema's
+    /// enums.
+    ///
+    /// It is off by default. When it is on, the generated code needs the `serde` feature of
+    /// `rapidproto`, and does not compile without it. The [`rapidproto` docs] describe the output.
     ///
     /// To make this optional in your own crate, declare a `serde` feature that enables
     /// `rapidproto/serde`, and read it in `build.rs`:
@@ -472,6 +528,8 @@ impl Config {
     ///     .compile(&["message.proto"])
     ///     .expect("generate decoders");
     /// ```
+    ///
+    /// [`rapidproto` docs]: https://docs.rs/rapidproto/latest/rapidproto/#serde
     pub fn serde(mut self, yes: bool) -> Self {
         self.serde = yes;
         self
@@ -484,12 +542,11 @@ impl Config {
         self
     }
 
-    /// Generate decoders for `entries` (one import closure) and return the generated Rust (one module
-    /// tree for the whole closure), writing nothing. Every `.proto` under the include directories (the
-    /// current directory when none was added) is made available to the generator, and each entry is
-    /// named by its path relative to the first include directory that holds it (its file name when
-    /// none does). [`Config::compile`] is this plus writing the file into `OUT_DIR` and registering
-    /// the inputs with cargo.
+    /// Generates decoders for `entries` and everything they import, and returns the code.
+    ///
+    /// Imports resolve against every `.proto` file under the include directories. An entry is named by
+    /// its path relative to the first include directory that holds it, or by its file name if none
+    /// does. [`Config::compile`] also writes the file and tells cargo when to re-run the build script.
     pub fn generate(&self, entries: &[impl AsRef<Path>]) -> Result<String, GenError> {
         // Canonicalize the include dirs once, so the source walk and the entry-key derivation compare
         // paths in the same absolute/normalized/symlink-resolved terms. Without this a `./`-prefixed
@@ -535,11 +592,15 @@ impl Config {
         generate_with(self.backend, &request)
     }
 
-    /// Generate decoders for `entries` (one import closure) into `OUT_DIR` and return the path to the
-    /// generated file to `include!`. The file is named after the first entry: `proto/message.proto`
-    /// gives `message.rs`, so a second call whose first entry has the same name without its extension
-    /// fails. Registers the entries and every `.proto` on the include path with cargo, so editing a
-    /// schema re-runs the build. Call this from a `build.rs` (it reads the `OUT_DIR` cargo sets).
+    /// Generates decoders for `entries` and everything they import, writes them to `OUT_DIR`, and
+    /// returns the file's path.
+    ///
+    /// The file is named after the first entry, so `proto/message.proto` gives `message.rs`. A second
+    /// call whose first entry has the same name, such as `other/message.proto`, fails. Use
+    /// [`Config::generate`] to write such files under names of your own.
+    ///
+    /// Cargo re-runs the build script when an entry or a `.proto` file under the include directories
+    /// changes.
     pub fn compile(&self, entries: &[impl AsRef<Path>]) -> Result<PathBuf, GenError> {
         // Warned from here, the consumer's own build script, because cargo hides the warnings of a
         // dependency's build script.

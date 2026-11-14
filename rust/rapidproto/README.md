@@ -6,7 +6,7 @@ Runtime for the Protobuf decoders that [`rapidproto-build`] generates.
 
 RapidProto only decodes. `rapidproto-build` generates decoders from your schema at build time,
 without `protoc`, and the generated code uses this crate. Add `rapidproto` to your dependencies and
-`rapidproto-build` to your build dependencies, both at the same version.
+`rapidproto-build` to your build dependencies, both pinned to the same version with `=`.
 
 An arena decoder decodes the whole message into an [`Arena`]. `string` and `bytes` values borrow
 from the input, and a repeated scalar field is a slice such as `&[i64]`. A stream decoder builds no
