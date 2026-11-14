@@ -4,16 +4,14 @@ use core::fmt;
 
 use crate::PackedSlice;
 
-/// A borrowed view over a protobuf `map`'s decoded entries.
+/// The entries of a Protobuf `map` field.
 ///
-/// Entries are stored as a flat slice and looked up by a linear scan. Maps are usually small, and this
-/// keeps decoding zero-copy with no index to build. The entries borrow the input and the arena for
-/// `'a`. A `string` key or value is a [`ProtoStr`](crate::ProtoStr) and a `bytes` value a
-/// [`ProtoBytes`](crate::ProtoBytes). A string key is looked up with a `&str`, as in `get("key")`.
+/// The entries keep their wire order, so a key repeated on the wire appears more than once.
+/// [`get`](MapView::get) searches the entries one by one, so for many lookups in a large map, build
+/// your own index from [`iter`](MapView::iter).
 ///
-/// Lookups follow protobuf's last-one-wins rule for a repeated key on the wire:
-/// [`get`](MapView::get) scans from the end, and [`iter`](MapView::iter) yields entries in wire
-/// order (so a duplicated key may appear more than once).
+/// A `string` key or value is a [`ProtoStr`](crate::ProtoStr), and a `bytes` value a
+/// [`ProtoBytes`](crate::ProtoBytes). Look up a `string` key with a `&str`, as in `get("key")`.
 pub struct MapView<'a, K, V> {
     entries: PackedSlice<'a, (K, V)>,
 }
@@ -45,25 +43,25 @@ impl<'a, K, V> MapView<'a, K, V> {
         }
     }
 
-    /// Number of entries as decoded (duplicated keys counted).
+    /// Returns the number of entries, counting a repeated key each time.
     #[inline]
     pub fn len(&self) -> usize {
         self.entries.as_slice().len()
     }
 
-    /// Whether the map has no entries.
+    /// Returns `true` if the map has no entries.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.entries.as_slice().is_empty()
     }
 
-    /// The raw entry slice, in wire order.
+    /// Returns the entries in wire order.
     #[inline]
     pub fn entries(&self) -> &'a [(K, V)] {
         self.entries.as_slice()
     }
 
-    /// Iterate `(key, value)` pairs in wire order.
+    /// Returns an iterator over the `(key, value)` pairs in wire order.
     #[inline]
     pub fn iter(&self) -> MapIter<'a, K, V> {
         MapIter {
@@ -71,8 +69,9 @@ impl<'a, K, V> MapView<'a, K, V> {
         }
     }
 
-    /// The value for `key`, or `None`. Last-one-wins: scans from the end, so a key repeated on the
-    /// wire resolves to its final value. `O(n)`.
+    /// Returns the value for `key`, or `None`.
+    ///
+    /// A key repeated on the wire gives its last value.
     #[inline]
     pub fn get<Q>(&self, key: &Q) -> Option<&'a V>
     where

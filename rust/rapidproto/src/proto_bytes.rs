@@ -8,19 +8,19 @@ use core::ops::Deref;
 
 use crate::PackedSlice;
 
-/// A protobuf `bytes` value, borrowed for `'a`.
+/// A Protobuf `bytes` value.
 ///
 /// It derefs to `[u8]` and compares with byte slices and arrays, as in `blob == b"\x01\x02"`. A slice
-/// reached through deref lives only as long as the borrow of the `ProtoBytes`;
-/// [`as_slice`](ProtoBytes::as_slice) returns it for the full `'a`. `Debug` prints a byte string
-/// literal, such as `b"a\xff"`.
+/// reached through deref borrows the `ProtoBytes`, and [`as_slice`](ProtoBytes::as_slice) returns one
+/// that borrows for `'a`. `Debug` prints a byte string, such as `b"a\xff"`.
 #[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct ProtoBytes<'a>(PackedSlice<'a, u8>);
 
 impl<'a> ProtoBytes<'a> {
-    /// Wrap `bytes`, without copying them. Use it for a `ProtoBytes` that does not come from decoding,
-    /// such as a test value.
+    /// Wraps `bytes` without copying them.
+    ///
+    /// Use it for a `ProtoBytes` that does not come from decoding, such as a test value.
     ///
     /// # Panics
     ///
@@ -42,7 +42,7 @@ impl<'a> ProtoBytes<'a> {
         Self(PackedSlice::new(bytes))
     }
 
-    /// The bytes, for the full `'a`.
+    /// Returns the bytes, borrowed for `'a`.
     #[inline]
     pub fn as_slice(self) -> &'a [u8] {
         self.0.as_slice()

@@ -2,51 +2,57 @@
 
 use crate::arena::ArenaExhausted;
 
-/// Why a decode failed. `#[non_exhaustive]`: variants may be added without a breaking change, so
-/// callers must include a `_` arm when matching.
+/// Why a decode failed.
 #[non_exhaustive]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ErrorKind {
-    /// The input ended in the middle of a field, length-delimited payload, or varint.
+    /// The input ended in the middle of a field.
     Truncated,
-    /// A field tag was malformed: a field number of 0 or above the Protobuf maximum (2^29 - 1), or a
-    /// reserved wire type (6 or 7).
+    /// A field tag has field number 0, a field number above 2^29 - 1, or one of the reserved wire
+    /// types 6 and 7.
     InvalidTag,
-    /// A base-128 varint did not fit 64 bits: more than ten bytes, or a tenth byte with bits above
-    /// bit 0. Unlike [`InvalidTag`](Self::InvalidTag) this is context-neutral -- it is returned
-    /// wherever a varint is read (a field value or a length prefix, not only a tag).
+    /// A varint is longer than ten bytes or does not fit in 64 bits.
     VarintOverflow,
-    /// A field's wire type is not one the decoder accepts for that position.
+    /// An end-group tag has no matching start-group tag.
     InvalidWireType,
-    /// Nesting exceeded a depth limit. In an arena decoder, [`MAX_DECODE_DEPTH`](crate::MAX_DECODE_DEPTH)
-    /// limits sub-messages and groups. Groups have an equal limit in every decoder, whether the field is
-    /// read or skipped.
+    /// Sub-messages or groups nest too deep.
+    ///
+    /// An arena decoder allows [`MAX_DECODE_DEPTH`](crate::MAX_DECODE_DEPTH) levels. Every decoder
+    /// allows groups the same depth, whether it reads them or skips them.
     DepthLimitExceeded,
-    /// The arena could not allocate. Its buffer is full and it cannot grow, it reached the limit from
+    /// The arena could not allocate.
+    ///
+    /// Its buffer is full and it cannot grow, it reached the limit from
     /// [`Arena::set_capacity_limit`](crate::Arena::set_capacity_limit), or the global allocator failed.
     ArenaExhausted,
-    /// A `required` (proto2) field was absent from the message. The error carries the missing field's
-    /// number (see [`DecodeError::field_number`]).
+    /// An arena decoder found no value for a `required` field.
+    ///
+    /// [`DecodeError::field_number`] gives the field's number.
     MissingRequired,
-    /// A singular (non-repeated) message field appeared more than once. RapidProto rejects this rather
-    /// than merging the occurrences; singular scalar fields keep the last.
+    /// A singular message field appears more than once.
+    ///
+    /// An arena decoder returns this where Protobuf would merge the two. A singular field of another
+    /// type keeps its last value. [`DecodeError::field_number`] gives the field's number.
     RepeatedSingularMessage,
-    /// The input is larger than the decoder supports (`> u32::MAX` bytes).
+    /// The input is longer than `u32::MAX` bytes.
     InputTooLarge,
-    /// A `string` is not valid UTF-8. A decoder never returns this, since it does not check strings.
-    /// It comes from `From<Utf8Error>`, so `?` on [`ProtoStr::to_str`](crate::ProtoStr::to_str) works
-    /// in a stream handler. The offset is the position of the first invalid byte in the string, not in
-    /// the input.
+    /// A `string` is not valid UTF-8.
+    ///
+    /// A decoder never returns this, since it does not check strings. It comes from `From<Utf8Error>`,
+    /// so `?` on [`ProtoStr::to_str`](crate::ProtoStr::to_str) works in a stream handler. The offset is
+    /// the position of the first invalid byte in the string, not in the input.
     InvalidUtf8,
 }
 
-/// A decode failure: a matchable [`ErrorKind`], a byte offset, and the field number it concerns when
-/// one applies.
+/// The error a decoder returns.
 ///
-/// The offset counts from the start of the message that failed. Inside a sub-message, that is the start
-/// of its body, not of the whole input, so the offset alone does not locate the error in the input. A
-/// value that is cut short reports where the value starts, and a malformed group where the group
-/// starts. A decoder reports an [`ArenaExhausted`](ErrorKind::ArenaExhausted) error at offset 0.
+/// It holds an [`ErrorKind`], a byte offset and, for some kinds, a field number.
+///
+/// The offset counts from the start of the message that failed. For a sub-message or a map entry, that
+/// is the first byte after its length prefix, and for a group the first byte after its start-group tag.
+/// It is not the start of the whole input, so the offset alone does not locate the error in the input.
+/// A value that is cut short, or a malformed group, reports where its value starts, just after its
+/// tag. A decoder reports an [`ArenaExhausted`](ErrorKind::ArenaExhausted) error at offset 0.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct DecodeError {
     kind: ErrorKind,
@@ -55,8 +61,9 @@ pub struct DecodeError {
 }
 
 impl DecodeError {
-    /// Construct an error of `kind` detected at `offset` bytes into the message body, with no field
-    /// number attached.
+    /// Creates an error of `kind` at `offset`, with no field number.
+    ///
+    /// A stream handler can return one to end the decode.
     #[inline]
     pub fn new(kind: ErrorKind, offset: usize) -> Self {
         Self {
@@ -75,21 +82,19 @@ impl DecodeError {
         self
     }
 
-    /// The kind of failure.
+    /// Returns the kind of failure.
     #[inline]
     pub fn kind(&self) -> ErrorKind {
         self.kind
     }
 
-    /// The byte offset of the failure, counted from the start of the message that failed (see
-    /// [`DecodeError`]).
+    /// Returns the byte offset of the failure, counted from the start of the message that failed.
     #[inline]
     pub fn offset(&self) -> usize {
         self.offset
     }
 
-    /// The field number this error concerns, when one applies (e.g. a missing `required` field or a
-    /// repeated singular message); `None` otherwise.
+    /// Returns the number of the field the error is about, such as a missing `required` field.
     #[inline]
     pub fn field_number(&self) -> Option<u32> {
         self.field

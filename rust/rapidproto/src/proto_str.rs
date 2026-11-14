@@ -6,12 +6,10 @@ use core::hash::{Hash, Hasher};
 
 use crate::PackedSlice;
 
-/// A protobuf `string`: its raw bytes, borrowed for `'a`, with UTF-8 validation left to the caller.
+/// A Protobuf `string` value, which may hold invalid UTF-8.
 ///
-/// Decoding does not validate, so a `ProtoStr` costs nothing to produce. The caller picks the cost it
-/// wants: [`as_bytes`](ProtoStr::as_bytes) is free, [`to_str`](ProtoStr::to_str) validates and can
-/// fail, and `to_str_lossy` (with `alloc`) never fails. What they return borrows for the full `'a`,
-/// also when called through a `&ProtoStr`.
+/// Decoding does not check UTF-8. [`to_str`](ProtoStr::to_str) checks it and returns a `Result`, and
+/// `to_str_lossy` replaces each invalid sequence with U+FFFD. What they return borrows for `'a`.
 ///
 /// It compares with `str`, as in `station.name() == "Zurich"`. `Display` writes the text with U+FFFD
 /// for each invalid sequence. `Debug` prints valid UTF-8 as a `str` does, and anything else as in
@@ -21,8 +19,9 @@ use crate::PackedSlice;
 pub struct ProtoStr<'a>(PackedSlice<'a, u8>);
 
 impl<'a> ProtoStr<'a> {
-    /// View `bytes` as a string, without copying or validating them. Use it for a `ProtoStr` that does
-    /// not come from decoding, such as a lookup key or a test value.
+    /// Wraps `bytes` without copying or checking them.
+    ///
+    /// Use it for a `ProtoStr` that does not come from decoding, such as a lookup key or a test value.
     ///
     /// # Panics
     ///
@@ -44,32 +43,33 @@ impl<'a> ProtoStr<'a> {
         Self(PackedSlice::new(bytes))
     }
 
-    /// The raw bytes, unchanged. Free.
+    /// Returns the string's bytes.
     #[inline]
     pub fn as_bytes(self) -> &'a [u8] {
         self.0.as_slice()
     }
 
-    /// Length in bytes.
+    /// Returns the length in bytes.
     #[inline]
     pub fn len(self) -> usize {
         self.as_bytes().len()
     }
 
-    /// Whether the string is empty.
+    /// Returns `true` if the string is empty.
     #[inline]
     pub fn is_empty(self) -> bool {
         self.as_bytes().is_empty()
     }
 
-    /// Validate as UTF-8.
+    /// Returns the string as a `&str`, or an error if it is not valid UTF-8.
     #[inline]
     pub fn to_str(self) -> Result<&'a str, core::str::Utf8Error> {
         core::str::from_utf8(self.as_bytes())
     }
 
-    /// Validate as UTF-8, substituting U+FFFD for each invalid sequence. Borrows when the bytes are
-    /// valid, and allocates the repaired copy otherwise.
+    /// Returns the string with each invalid UTF-8 sequence replaced by U+FFFD.
+    ///
+    /// It borrows when the string is valid, and allocates otherwise.
     #[cfg(feature = "alloc")]
     #[inline]
     pub fn to_str_lossy(self) -> alloc::borrow::Cow<'a, str> {
