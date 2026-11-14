@@ -4,7 +4,7 @@
 //! `rapidproto-build` to your build dependencies, both pinned to the same version with `=`. The
 //! runtime's [`example`] module shows a schema and the code generated for it.
 //!
-//! Call [`Config`] from `build.rs`:
+//! Use [`Config`] in `build.rs`:
 //!
 //! ```no_run
 //! // build.rs
@@ -454,11 +454,11 @@ impl Config {
     ///   `repeated` one, ready for the field type's `decode`.
     /// - `unknown-fields pkg.Msg` adds `has_unknown_fields()` to the message.
     ///
-    /// `drop` and `raw` also take a message type, `pkg.Msg`, to cover every field whose type is
-    /// `pkg.Msg`. `drop` also takes an enum type. A directive for a field wins over one for its type. Neither applies to a `oneof` member, `raw`
-    /// does not apply to a `map` field, and `drop` does not apply to a `required` field. Naming such a
-    /// field fails, and a directive for its type leaves it as it is. Stream decoders ignore the
-    /// profile.
+    /// `drop` and `raw` also take a message type, `pkg.Msg`, to cover every field of that type, and
+    /// `drop` takes an enum type the same way. A directive for a field wins over one for its type.
+    /// Neither applies to a `oneof` member, `raw` does not apply to a `map` field, and `drop` does
+    /// not apply to a `required` field. Naming such a field fails, and a directive for its type
+    /// leaves it as it is. Stream decoders ignore the profile.
     ///
     /// ```no_run
     /// // build.rs

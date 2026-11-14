@@ -18,7 +18,7 @@ pub enum ErrorKind {
     /// Sub-messages or groups nest too deep.
     ///
     /// An arena decoder allows [`MAX_DECODE_DEPTH`](crate::MAX_DECODE_DEPTH) levels. Every decoder
-    /// allows groups the same depth, whether it reads them or skips them.
+    /// limits groups to that depth, whether it reads or skips them.
     DepthLimitExceeded,
     /// The arena could not allocate.
     ///

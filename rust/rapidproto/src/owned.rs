@@ -50,8 +50,8 @@ pub unsafe trait ArenaDecode {
 /// message type. [`get`](Owned::get) returns the message borrowed from the `Owned`. An `Owned` has no
 /// lifetime, so you can store it or return it from a function.
 ///
-/// It is `Send` when the message is, and `Sync` when the message is. Every generated message is both,
-/// so an `Owned` can move to another thread or be shared through an `Arc`.
+/// It is `Send` when the message is `Send`, and `Sync` when it is `Sync`. Every generated message is
+/// both, so an `Owned` can move to another thread or be shared through an `Arc`.
 pub struct Owned<D: ArenaDecode> {
     // The decoded root, with its borrow erased to `'static`. It points INTO `arena`'s chunks and
     // `input`'s bytes, both owned below and never moved/mutated/freed until this `Owned` drops, so

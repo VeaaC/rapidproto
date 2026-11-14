@@ -17,7 +17,7 @@
 //!     .expect("generate decoders");
 //! ```
 //!
-//! then include the result at that path:
+//! Include the generated file at that path:
 //!
 //! ```ignore
 //! pub mod example {
