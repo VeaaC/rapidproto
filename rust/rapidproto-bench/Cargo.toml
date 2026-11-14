@@ -82,7 +82,8 @@ path = "src/stream_main.rs"
 # The Rust-vs-Rust A/B bench for the generated `bench` decoder across the C++ arena bench's scenarios
 # (the 8 shapes, cold and warm, and the repeated-varint sweeps), over the shared payloads. Run it
 # PINNED and ALIGNED (see the bench header for the directory):
-#   RUSTFLAGS="-Cllvm-args=-align-all-functions=6" taskset -c 0 cargo bench -p rapidproto-bench --bench decode
+#   RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
+#       taskset -c 2 cargo bench -p rapidproto-bench --bench decode
 [[bench]]
 name = "decode"
 harness = false

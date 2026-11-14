@@ -12,7 +12,7 @@
 //! gains from LTO + `codegen-units=1`. That is a real property of how each decoder is written -- a
 //! competitor optimizing poorly under the default profile is the competitor's trade-off, not a
 //! benchmark handicap -- so `--release` is a fair comparison. LTO + `codegen-units=1` speeds several
-//! competitors up a lot (femtopb most, on the packed shapes) and barely moves RapidProto; add
+//! competitors up a lot (femtopb most, on the packed shapes) and moves RapidProto much less; add
 //! `--config 'profile.release.lto="fat"' --config 'profile.release.codegen-units=1'` to see it.
 //!
 //! ```text

@@ -335,6 +335,7 @@ std::string load_scenario(std::string_view name) {
 }
 
 // ── checksums (must agree across decoders for Dataset; guard optimize-away for the sweep shapes) ───
+// The arena walks are also the Rust bench's reference: the dump records them (shape_checksum).
 
 std::uint64_t checksum_arena_dataset(const rp::arena::bench::Dataset* d) {
     std::uint64_t s = static_cast<std::uint64_t>(d->version()) + d->name().size();
@@ -468,8 +469,12 @@ std::optional<std::uint64_t> shape_checksum(std::string_view name, const std::st
     if (name == "particles") {
         return walk(rp::arena::bench::ParticleSet::decode(view, arena), checksum_arena_particle);
     }
-    // The four big* shapes.
-    return walk(rp::arena::bench::BigSet::decode(view, arena), checksum_arena_big);
+    if (name == "big_varint" || name == "big_fixed" || name == "big_osm" || name == "big") {
+        return walk(rp::arena::bench::BigSet::decode(view, arena), checksum_arena_big);
+    }
+    std::fprintf(stderr, "bench: no checksum walk for scenario '%.*s'\n",
+                 static_cast<int>(name.size()), name.data());
+    std::exit(1);
 }
 
 std::uint64_t checksum_stream(rapidproto::ByteView buf) {

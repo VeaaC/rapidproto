@@ -129,8 +129,7 @@ jobs:
         run: CXX=false RAPIDPROTO_EXPECT_FALLBACK=1 cargo test -p rapidproto-build --test smoke
 
   bench:
-    # rapidproto-bench at its DEFAULT features (see above): debug (the agreement tests + the
-    # debug-only quick-protobuf drop path), then release.
+    # rapidproto-bench at its DEFAULT features (see above): its tests in debug, then in release.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -143,10 +142,9 @@ jobs:
         run: cargo test -p rapidproto-bench
       # rapidproto-bench's quick-protobuf arm decodes `Big.reals` (repeated double) by borrowing the
       # input as an unaligned `&[f64]` -- UB that the debug build's alignment check aborts on. Its
-      # `bigset` agreement test is therefore release-only (`#[cfg(not(debug_assertions))]`) and the
-      # bench binary drops that arm in debug from every scenario that decodes `Big`, so the step above
-      # never runs it; this release step exercises it (the UB-check is compiled out, correct on this x86
-      # host).
+      # `bigset` agreement test is therefore release-only (`#[cfg(not(debug_assertions))]`), so the
+      # step above skips it; this release step runs it (the UB-check is compiled out, correct on this
+      # x86 host).
       - name: Test the ecosystem bench in release (exercises the release-only quick-protobuf arm)
         run: cargo test -p rapidproto-bench --release
 

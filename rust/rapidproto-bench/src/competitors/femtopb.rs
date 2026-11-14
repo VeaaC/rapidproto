@@ -14,8 +14,8 @@
 //! The only map in the schema is `Person.counters`, so `build.rs` strips that field before running
 //! femtopb-build (so the rest of the schema compiles), and the femtopb arm reports `dataset` (the only
 //! scenario using `Person`) as UNSUPPORTED -- `dataset()` returns `Arm::unsupported`, so the gap is
-//! listed and flagged in the table rather than silently skipped. The other seven scenarios have no
-//! maps and are decoded normally.
+//! listed and flagged in the table rather than silently skipped. The other scenarios have no maps
+//! and are decoded normally.
 //!
 //! Decode entry is `M::decode(bytes)` (the top-level, non-length-delimited read).
 

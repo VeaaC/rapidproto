@@ -24,7 +24,7 @@ two can be compared row for row.
 - Each scenario mirrors a C++ one, and RapidProto's arms match the C++ bench's. The NDJSON output
   names the matching C++ row (`cpp_scenario`, `cpp_arm`).
 - Nothing is timed until it is correct: a scenario's arms must agree on a checksum, and on the
-  real-world datasets that checksum must equal the C++ one.
+  eight arena shapes and the real-world datasets that checksum must equal the C++ one.
 - Every arm reads what it decodes into the checksum, so a lazy decoder pays for the work it defers
   and nothing is optimized away.
 - Arms take turns within each round, in rotating order, and an arm's result is its median.
@@ -45,10 +45,10 @@ The real-world datasets need the corpus fetched on the C++ side
 
 `RAPIDPROTO_BENCH_CHECK_ONLY=1` runs the correctness check alone, which is valid on any machine. For
 timing, quiesce the machine (`tests/bench_box.sh setup`; `restore` undoes it) and run nothing else.
-Pin to one core, and align functions so unrelated code changes don't shift the results:
+Pin to one core, and align functions and loops so unrelated code changes don't shift the results:
 
 ```sh
-RUSTFLAGS="-Cllvm-args=-align-all-functions=6" \
+RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
     taskset -c 2 cargo run -p rapidproto-bench --release --bin bench   # or --bin stream
 ```
 

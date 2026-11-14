@@ -1,8 +1,8 @@
 //! The measurement loop shared by the `bench` and `stream` runners. For each selected scenario:
 //!
 //! - skip it, with a note, when this build has no decoder for it or its real-world input is missing;
-//! - load the input and require every supported arm to return the same non-zero checksum (for a
-//!   real-world dataset, also the C++ checksum stored beside it);
+//! - load the input and require every supported arm to return the same non-zero checksum (with
+//!   [`Scenario::cpp_sum`], also the C++ checksum stored beside it);
 //! - time the arms; print one row per arm (and NDJSON with `RAPIDPROTO_BENCH_JSON`) and the memory
 //!   report if there is one;
 //! - drop the input before the next scenario (a sweep pool is up to ~80 MB).

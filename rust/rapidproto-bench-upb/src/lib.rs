@@ -5,7 +5,7 @@
 //! over it -- exactly our arena-of-borrowed-views model, which is what makes it the capstone.
 //!
 //! Each `pub fn <scenario>(bytes) -> u64` decodes with `Message::parse` and walks every field with the
-//! SAME convention as [`rapidproto_bench::checksum`], the C++ arena bench's walk value for value
+//! SAME convention as `rapidproto_bench::checksum`, the C++ arena bench's walk value for value
 //! (string/bytes -> byte length; every element of a repeated field or map read the same way; bool ->
 //! 0/1; double -> `to_bits`; enum -> raw i32; integers with C++'s casts; present-fields-only), so this
 //! arm agrees with every other arm and with C++, or the shared gate aborts. Reads go
