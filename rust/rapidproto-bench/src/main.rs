@@ -12,8 +12,9 @@
 //! gains from LTO + `codegen-units=1`. That is a real property of how each decoder is written -- a
 //! competitor optimizing poorly under the default profile is the competitor's trade-off, not a
 //! benchmark handicap -- so `--release` is a fair comparison. For transparency, LTO + `codegen-units=1`
-//! narrows prost's gap by up to ~1.5x on the compute-bound scenarios (the allocation/validation-bound
-//! shapes like `dataset` barely move -- that part is a model difference, not an optimization gap); add
+//! speeds the competitors up on the shape scenarios: femtopb by up to 4x on the packed `big*` shapes,
+//! quick-protobuf by up to 1.65x, prost and rust-protobuf by up to ~1.35x, google-upb (a C kernel)
+//! barely; RapidProto moves by 2% or less except `dataset` (+10%). Add
 //! `--config 'profile.release.lto="fat"' --config 'profile.release.codegen-units=1'` to see it.
 //!
 //! ```text

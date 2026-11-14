@@ -193,8 +193,9 @@ pub fn recordset_sparse_arms() -> Vec<Arm> {
     ours::recordset_sparse()
 }
 
-/// Whether `arm`'s decoder for `scenario`'s message is unsound: it reads a packed fixed-width float
-/// field as an UNALIGNED borrowed slice -- undefined behaviour on any input that carries the field.
+/// Whether `arm`'s decoder for `scenario`'s message is unsound: it reads a packed fixed-width field as
+/// an UNALIGNED borrowed slice -- undefined behaviour whenever the input leaves the field's data
+/// misaligned.
 /// Only quick-protobuf's zero-copy `read_packed_fixed` does this (see [`competitors::quick_protobuf`]),
 /// and the schema's only packed fixed-width field is `Big.reals` (`repeated double`), so the unsound
 /// decoders are quick-protobuf's for `BigSet` (the `big*` shapes) and `Big` (the varint sweeps). It

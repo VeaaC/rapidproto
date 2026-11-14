@@ -9,18 +9,20 @@
 //! Decode entry is `M::from_reader(&mut BytesReader, bytes)` -- the top-level (non-length-delimited)
 //! read; `deserialize_from_slice` is NOT used, it reads a length prefix our bare payloads don't have.
 //!
-//! SOUNDNESS (UB): the zero-copy win on packed fixed-width floats is unsound. For `Big.reals`
-//! (`repeated double`) pb-rs emits a `Cow<'a, [f64]>` filled by `BytesReader::read_packed_fixed`,
-//! which does `slice::from_raw_parts(input_ptr as *const f64, n)` with NO alignment handling -- a
-//! misaligned `&[f64]` into the align-1 input. It is correct on x86 in a release build (the alignment
-//! UB-check is compiled out) but genuine UB: it aborts under debug UB-checks / Miri and would misread
-//! on a big-endian host. (Our arena decoder instead memcpy's packed fixed data into an aligned arena
-//! array -- sound, and the per-field `reals` checksum still agrees on x86.) So this arm's decoders for
-//! `BigSet` and `Big` are unsound on any input that carries `reals`, and the runner treats every
-//! scenario that decodes them as UB (`has_unaligned_fixed_slice_ub`): it drops the arm there in a
-//! debug build and flags its rows in release; the `bigset` agreement test is release-only. Only packed
-//! fixed-width floats hit this; strings (`Cow<str>`, align 1) and varint-packed ints (`Vec`, decoded)
-//! are fine.
+//! SOUNDNESS (UB): the zero-copy win on packed fixed-width fields is unsound. For every packed
+//! fixed-width field (wire types 1 and 5; in bench.proto only `Big.reals`, `repeated double`) pb-rs
+//! emits a `Cow<'a, [T]>` filled by `BytesReader::read_packed_fixed`, which does
+//! `slice::from_raw_parts(input_ptr as *const T, n)` with NO alignment handling -- a `&[f64]` into the
+//! align-1 input, misaligned whenever the input puts the data off an 8-byte boundary. It is correct on
+//! x86 in a release build (the alignment UB-check is compiled out) but genuine UB: it aborts under
+//! debug UB-checks and would misread on a big-endian host. Miri rejects it twice over: the default
+//! Stacked Borrows model on any input where the field is non-empty (the slice is cast from a one-byte
+//! `&u8`, so its provenance covers one byte), and Tree Borrows on the unaligned `&[f64]`. (Our arena
+//! decoder instead memcpy's packed fixed data into an aligned arena array -- sound, and the per-field
+//! `reals` checksum still agrees on x86.) So this arm's decoders for `BigSet` and `Big` are unsound,
+//! and the runner treats every scenario that decodes them as UB (`has_unaligned_fixed_slice_ub`): it
+//! drops the arm there in a debug build and flags its rows in release; the `bigset` agreement test is
+//! release-only. Strings (`Cow<str>`, align 1) and varint-packed ints (`Vec`, decoded) are fine.
 //!
 //! FEATURE GAP: pb-rs generates CLOSED enums -- `From<i32>` maps any unknown value to the default
 //! (`_ => Self::default()`), so an out-of-range proto3 open-enum value is silently lost. The shared
