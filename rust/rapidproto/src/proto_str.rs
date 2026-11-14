@@ -9,7 +9,7 @@ use crate::PackedSlice;
 /// A Protobuf `string` value, which may hold invalid UTF-8.
 ///
 /// Decoding does not check UTF-8. [`to_str`](ProtoStr::to_str) checks it and returns a `Result`, and
-/// `to_str_lossy` replaces each invalid sequence with U+FFFD. What they return borrows for `'a`.
+/// `to_str_lossy` replaces each invalid sequence with U+FFFD.
 ///
 /// It compares with `str`, as in `station.name() == "Zurich"`. `Display` writes the text with U+FFFD
 /// for each invalid sequence. `Debug` prints valid UTF-8 as a `str` does, and anything else as in

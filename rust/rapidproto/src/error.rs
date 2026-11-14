@@ -18,7 +18,7 @@ pub enum ErrorKind {
     /// Sub-messages or groups nest too deep.
     ///
     /// An arena decoder allows [`MAX_DECODE_DEPTH`](crate::MAX_DECODE_DEPTH) levels. Every decoder
-    /// allows groups the same depth, whether it reads them or skips them.
+    /// limits groups to that depth, whether it reads or skips them.
     DepthLimitExceeded,
     /// The arena could not allocate.
     ///
@@ -29,7 +29,7 @@ pub enum ErrorKind {
     ///
     /// [`DecodeError::field_number`] gives the field's number.
     MissingRequired,
-    /// A singular message field appears more than once.
+    /// A singular message or group field appears more than once.
     ///
     /// An arena decoder returns this where Protobuf would merge the two. A singular field of another
     /// type keeps its last value. [`DecodeError::field_number`] gives the field's number.
@@ -50,7 +50,6 @@ pub enum ErrorKind {
 ///
 /// The offset counts from the start of the message that failed. For a sub-message or a map entry, that
 /// is the first byte after its length prefix, and for a group the first byte after its start-group tag.
-/// It is not the start of the whole input, so the offset alone does not locate the error in the input.
 /// A value that is cut short, or a malformed group, reports where its value starts, just after its
 /// tag. A decoder reports an [`ArenaExhausted`](ErrorKind::ArenaExhausted) error at offset 0.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

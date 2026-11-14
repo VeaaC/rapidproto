@@ -12,7 +12,7 @@
 //! # Handlers
 //!
 //! With `msg_stream! { field => |value| .. }`, each handler is a closure that captures its own state.
-//! Two closures cannot both change the same variable, so to share state, pass it first:
+//! Two closures cannot both change the same variable. To share state, pass it first, as in
 //! `msg_stream!(&mut state; { field => |state, value| .. })`.
 //!
 //! A handler closure returns `()`, a [`Flow`], or a `Result` of either with [`DecodeError`]. An
