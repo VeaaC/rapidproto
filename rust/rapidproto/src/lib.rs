@@ -180,6 +180,24 @@ pub mod rp_rt {
     pub use crate::*;
 }
 
+// The version check of generated code. Each generated file calls this with its generator's number,
+// `kGeneratedAbi` in src/rustgen/generator.cpp. Any other input fails the build, whatever its shape,
+// so a later generator may change the call. rustc reports macro errors before name and type errors,
+// so a user who mixes versions of rapidproto and rapidproto-build sees this message first, not dozens
+// of errors about this crate's internals.
+// Bump both numbers when generated code needs an item that earlier versions lack, or when an item it
+// uses changes or goes away. This holds for public items as well as hidden ones. A change in
+// behavior counts too, even if everything still compiles. The goldens catch a bump on only one side.
+// Nothing catches a missing bump, so each release decides whether one is needed.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! rp_abi {
+    (1) => {};
+    ($($other:tt)*) => {
+        ::core::compile_error!("use the same version of rapidproto and rapidproto-build");
+    };
+}
+
 /// Implement the owning-handle API for a generated message type `$msg`: the [`ArenaDecode`] tag impl
 /// on `$msg<'static>` plus the `$msg::decode_owned` convenience over [`decode_owned`]. Generated code
 /// invokes this once per message instead of expanding the boilerplate into every file; `$msg`
