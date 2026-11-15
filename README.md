@@ -20,7 +20,7 @@ Each schema gives you two decoders:
 
 In C++, the `rapidprotoc` compiler turns a schema into headers. You include them, and there is no
 library to link and no other dependency. In Rust, the `rapidproto-build` crate generates the
-decoders in your build script, without `protoc`, and the generated code uses the `rapidproto`
+decoders in your build script. It does not need `protoc`. The generated code uses the `rapidproto`
 crate. The Rust crates are test releases so far.
 
 ---
@@ -28,21 +28,19 @@ crate. The Rust crates are test releases so far.
 ## Why RapidProto
 
 On a realistic mixed payload, the C++ arena decoder is several times faster than `protoc`'s
-generated code with an arena, and the streaming decoder is faster than protozero. The Rust decoders
-are as fast as the C++ ones, and faster than prost, rust-protobuf, quick-protobuf, femtopb and
-google-protobuf on every payload in the comparison. The [benchmarks](docs/benchmarks.md) have the
-numbers.
+generated code with an arena. The C++ streaming decoder is faster than protozero. The Rust decoders
+are as fast as the C++ ones. On every payload in the comparison, the Rust arena decoder is faster
+than prost, rust-protobuf, quick-protobuf, femtopb and google-protobuf. The
+[benchmarks](docs/benchmarks.md) have the numbers.
 
-Strings and bytes are not copied. They borrow from the input, so the arena holds only the structure
-of the message. A decoded C++ message takes less memory than `protoc`'s.
+Strings and bytes are not copied. They borrow from the input. A decoded C++ message takes less
+memory than `protoc`'s.
 
-The decoders are generated for your schema, so a renamed field or a value of the wrong type is a
-compile error.
+RapidProto only decodes. It cannot encode messages, it has no reflection, and decoded messages are
+read-only. To build or change messages, use another Protobuf library.
 
-RapidProto only decodes. It has no serializer, no JSON codec and no reflection, and decoded
-messages are read-only. If you also need to build or change messages, use another Protobuf library
-for that. Enums are open, even where the schema declares them closed. Decoding does not check that
-strings are valid UTF-8. In Rust, `ProtoStr::to_str` checks a string when you need it as a `&str`.
+Enums are open, even where the schema declares them closed. Decoding does not check that strings
+are valid UTF-8. In Rust, `ProtoStr::to_str` checks a string when you need it as a `&str`.
 
 To inspect decoded messages, C++ has an optional [debug dumper](docs/dumper.md) that prints them as
 JSON-like text. In Rust, decoded messages implement `Debug`, and serde's `Serialize` if you enable
@@ -71,18 +69,19 @@ message Address {
 }
 ```
 
-To get test input, encode a message with `protoc`:
+Encode a test message with `protoc`:
 
 ```sh
-protoc --encode=example.Person -I. person.proto < values.txt > person.bin
+echo 'name: "Ada" id: 7 address { city: "London" }' |
+    protoc --encode=example.Person -I. person.proto > person.bin
 ```
 
 ### C++
 
 You need a C++17 compiler. Prebuilt `rapidprotoc` binaries for Linux, macOS and Windows are on the
-[releases page](https://github.com/VeaaC/rapidproto/releases). They are unsigned, so on macOS clear
-the quarantine flag if Gatekeeper blocks the binary (`xattr -d com.apple.quarantine rapidprotoc`),
-and on Windows dismiss the SmartScreen prompt. You can also build `rapidprotoc` from source:
+[releases page](https://github.com/VeaaC/rapidproto/releases). The binaries are unsigned. If
+Gatekeeper blocks one on macOS, run `xattr -d com.apple.quarantine rapidprotoc`. On Windows, dismiss
+the SmartScreen prompt. You can also build `rapidprotoc` from source:
 
 ```sh
 cmake --preset release
@@ -90,40 +89,52 @@ cmake --build --preset release --target rapidprotoc   # writes build/release/rap
 ```
 
 In a CMake build, the [`rapidproto_generate()` helper](docs/integration.md#cmake-integration) runs
-the generator for you. CMake can get RapidProto through FetchContent, an installed package, the
-Conan recipe or the vcpkg overlay port ([integration](docs/integration.md)). This quick start runs
-the generator by hand.
+the generator for you. You can get RapidProto through FetchContent, as an installed package, or from
+the Conan recipe or the vcpkg overlay port. [CLI & CMake](docs/integration.md) shows each way. This
+quick start runs the generator by hand.
 
-Generate the arena decoder and a copy of the runtime headers into `out/`:
+With `rapidprotoc` on your `PATH`, generate the arena decoder and a copy of the runtime headers into
+`out/`:
 
 ```sh
 rapidprotoc -I. --out-dir=out person.proto
 # writes out/person.rp.hpp, out/person.rp.common.hpp and out/rapidproto/*.hpp
 ```
 
-Decode a message and read its fields. `rapidproto::ByteView` is a `std::string_view`, so it does not
-own the input:
+Decode a message and read its fields:
 
 ```cpp
+// my_consumer.cpp
 #include "person.rp.hpp"
+
+#include <fstream>
+#include <iostream>
+#include <sstream>
 
 namespace ex = rp::arena::example;
 
-std::string buf = /* the encoded Person */;
+int main() {
+    std::ostringstream file;
+    file << std::ifstream("person.bin", std::ios::binary).rdbuf();
+    const std::string input = file.str();
 
-rapidproto::Arena arena;
-rapidproto::ArenaDecodeError err;
-const ex::Person* p = ex::Person::decode(rapidproto::ByteView(buf), arena, &err);
-if (p == nullptr) { /* malformed input: see err.code and err.offset */ }
+    rapidproto::Arena arena;
+    rapidproto::ArenaDecodeError err;
+    const ex::Person* person = ex::Person::decode(rapidproto::ByteView(input), arena, &err);
+    if (person == nullptr) {
+        return 1;  // malformed input: err.code and err.offset say why
+    }
 
-std::uint32_t id = p->id();
-std::string_view name = p->name();          // points into buf
-if (const ex::Address* a = p->address()) {  // nullptr when the field is absent
-    std::string_view city = a->city();
+    std::uint32_t id = person->id();
+    std::string_view name = person->name();  // points into input
+    if (const ex::Address* address = person->address()) {  // nullptr when absent
+        std::cout << name << " (" << id << ") lives in " << address->city() << '\n';
+    }
 }
 ```
 
-Compile with only `out/` on the include path:
+`rapidproto::ByteView` is a `std::string_view`, so it does not own the input. For a `std::uint8_t`
+buffer, `rapidproto::byte_view(ptr, size)` makes one. Compile with only `out/` on the include path:
 
 ```sh
 g++ -std=c++17 -Iout my_consumer.cpp -o my_consumer
@@ -131,12 +142,13 @@ g++ -std=c++17 -Iout my_consumer.cpp -o my_consumer
 
 [The arena decoder](docs/arena.md#what-each-field-kind-returns) shows what repeated fields, maps,
 oneofs and `optional` fields return. Pass `--stream` to generate the
-[streaming decoder](docs/streaming.md) instead, or `--arena --stream` for both.
+[streaming decoder](docs/streaming.md) in `person.rp.stream.hpp` instead, or `--arena --stream` for
+both.
 
 ### Rust
 
-Add both crates, pinned to the same version, because the generated code targets the runtime of its
-own version:
+Add both crates at the same version, pinned with `=`. The generated code needs the runtime of the
+version that generated it:
 
 ```toml
 # Cargo.toml
@@ -147,8 +159,8 @@ rapidproto = "=0.1.0-alpha.1"
 rapidproto-build = "=0.1.0-alpha.1"
 ```
 
-Generate the decoders in a build script. `rapidproto-build` compiles its generator with your C++
-compiler, or runs a WebAssembly build of it if you have none.
+Generate the decoders in `build.rs`, with `person.proto` next to `Cargo.toml`. `rapidproto-build`
+compiles its generator with your C++ compiler, or runs a WebAssembly build of it if you have none.
 
 ```rust
 // build.rs
@@ -202,8 +214,10 @@ and see the [`stream` module](https://docs.rs/rapidproto/latest/rapidproto/strea
 | Best for | working with the message as an object | extracting a few fields, processing a stream, lowest overhead |
 
 Both models can decode the same schema in one program, and a streaming decode can pass a
-sub-message to the arena decoder. See [using both models](docs/using-both-models.md) for C++ and
-the `stream` module for Rust.
+sub-message to the arena decoder. For C++, see [using both models](docs/using-both-models.md). In
+Rust, pass a sub-message's
+[`bytes()`](https://docs.rs/rapidproto/latest/rapidproto/example/stream/weather/struct.Station.html#method.bytes)
+to its arena decoder.
 
 ---
 
@@ -221,16 +235,13 @@ The C++ manual is in [docs/](docs/) and on <https://veaac.github.io/rapidproto/>
 | [Decode profiles](docs/profiles.md) | Dropping fields, keeping sub-messages as raw bytes, and detecting unknown fields in the arena decoder |
 | [CLI & CMake](docs/integration.md) | The `rapidprotoc` command line and the CMake helper, including cross-compiling |
 | [OSM PBF walkthrough](docs/osm-pbf.md) | OpenStreetMap's planet format, decoded with both models |
-| [One optimization at a time](docs/optimizations.md) | How the decoders got fast, with seven optimizations re-enabled one at a time and measured |
+| [One optimization at a time](docs/optimizations.md) | How the decoders got fast, with seven optimizations re-enabled in turn and measured |
 | [Benchmarks](docs/benchmarks.md) | The numbers for C++ and Rust, and how to reproduce them |
 
 The Rust guide is the crates' documentation on docs.rs. [`rapidproto`](https://docs.rs/rapidproto)
 covers decoding with both models, and [`rapidproto-build`](https://docs.rs/rapidproto-build) covers
-generating the code.
-
-[CHANGELOG.md](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md) lists the changes in each
-C++ release. [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md)
-describes the internals and the design, for contributors.
+generating the code. [CHANGELOG.md](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md)
+lists the changes in each C++ release.
 
 Each language has a runnable example that decodes one schema with both models,
 [`examples/consumer`](examples/consumer) for C++ and
@@ -242,18 +253,18 @@ Rust. The OpenStreetMap examples are [`examples/osm-pbf`](examples/osm-pbf) and
 
 ## Compatibility & stability
 
-The C++ releases follow SemVer-0 until 1.0, so the minor version is the breaking axis. 0.x and
-0.(x+1) may differ in breaking ways, a patch release never breaks anything, and the
-[CHANGELOG](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md) lists every break. From 1.0,
-only a major release may break or remove anything a consumer depends on. That covers the generated
-API, the decode profile format, the CLI flags, the `rapidproto_generate()` contract and the shape of
-the runtime headers. A minor release may deprecate something first. The CHANGELOG then announces it under
-Deprecated, and the old spelling keeps working until the next major release.
+Before 1.0, a C++ minor release, such as 0.4 to 0.5, may break things. A patch release never does.
+The [CHANGELOG](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md) lists every break. From
+1.0, only a major release may break or remove anything a consumer depends on. That covers the
+generated API, the decode profile format, the CLI flags, the `rapidproto_generate()` contract and
+the shape of the runtime headers. A minor release may deprecate something first. The CHANGELOG then
+announces it under Deprecated, and the old spelling keeps working until the next major release.
 
-CI builds and tests C++ on Linux, macOS and Windows, with GCC, Clang, AppleClang and MSVC. The
-depth limits that reject deeply nested input are sized for an 8 MB stack, the default on Linux and
-macOS. Windows gives an executable a 1 MB stack, so a program that decodes untrusted input on Windows
-should link with a larger one (`/STACK:8388608`).
+For C++, RapidProto supports Linux, macOS and Windows with GCC, Clang, AppleClang and MSVC, and CI
+builds and tests all of them. The C++ decoders' depth limits, which reject deeply nested input, are
+sized for an 8 MB stack, the default on Linux and macOS. Windows gives an executable a 1 MB stack,
+so a program that decodes untrusted input on Windows should link with a larger one
+(`/STACK:8388608`).
 
 Any Rust release before a stable one may change the API and the generated code. CI tests the Rust
 crates on Linux, and builds and runs the generator on macOS and Windows too.
@@ -281,7 +292,8 @@ RapidProto is licensed under the Apache License 2.0. See [`LICENSE`](LICENSE), w
 [`NOTICE`](NOTICE) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 The runtime headers that `rapidprotoc` copies into your output directory and the Rust crates carry
-the same license. The code generated from your schema is your own work, and RapidProto claims no
-rights over it. The embedded Protocol Buffers well-known type definitions are Copyright 2008 Google
-Inc., licensed 3-Clause BSD. Test and benchmark dependencies, such as Catch2, protozero and prost,
-are not distributed.
+the same license. The WebAssembly generator in `rapidproto-build` also contains wasi-libc and the
+LLVM C++ runtime, under their own licenses, which `THIRD_PARTY_NOTICES.md` lists. The code generated
+from your schema is your own work, and RapidProto claims no rights over it. The embedded Protocol
+Buffers well-known type definitions are Copyright 2008 Google Inc., licensed 3-Clause BSD. Test and
+benchmark dependencies, such as Catch2, protozero and prost, are not distributed.
