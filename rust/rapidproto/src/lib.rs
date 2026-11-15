@@ -180,6 +180,14 @@ pub mod rp_rt {
     pub use crate::*;
 }
 
+// The version of the hidden items generated code uses. Each generated file asserts that it equals the
+// generator's own number, so mismatched versions of rapidproto and rapidproto-build fail with one clear
+// error before any other. Bump it, together with `kGeneratedAbi` in src/rustgen/generator.cpp, when
+// generated code needs a hidden item that earlier versions lack, or when one changes or goes away.
+// The goldens do not compile while the two numbers differ.
+#[doc(hidden)]
+pub const GENERATED_ABI: u32 = 1;
+
 /// Implement the owning-handle API for a generated message type `$msg`: the [`ArenaDecode`] tag impl
 /// on `$msg<'static>` plus the `$msg::decode_owned` convenience over [`decode_owned`]. Generated code
 /// invokes this once per message instead of expanding the boilerplate into every file; `$msg`

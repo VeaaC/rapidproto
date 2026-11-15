@@ -3521,11 +3521,18 @@ constexpr const char* kModuleLints =
     "nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, "
     "clippy::pedantic, clippy::nursery, clippy::restriction)]\n";
 
-// A module that fails to compile unless the file is included at `module_path`: it reaches its own
-// private constant through that path. Nothing else checks the path of a file whose types never refer
-// to each other, whose macros would then fail at their first call, possibly in another crate. The
-// comment shares the path's line because rustc shows that line in the error.
-std::string module_path_check(const std::string& module_path) {
+// The version of the hidden runtime items generated code uses: `rapidproto::GENERATED_ABI`, which
+// documents when to bump it. Both must change together; the goldens do not compile while they differ.
+constexpr int kGeneratedAbi = 1;
+
+// A module of compile-time checks on the file, at its top so that rustc reports them first.
+// The first fails unless the file is included at `module_path`: it reaches its own private constant
+// through that path. Nothing else checks the path of a file whose types never refer to each other,
+// whose macros would then fail at their first call, possibly in another crate. The comment shares the
+// path's line because rustc shows that line in the error.
+// The second fails when the runtime is from a version of rapidproto whose hidden items this code does
+// not fit. Without it, mismatched crate versions give dozens of errors about runtime internals.
+std::string file_checks(const std::string& module_path) {
     Printer printer;
     printer.print(kModuleLints);
     printer.print("#[doc(hidden)]\nmod rp_check {\n");
@@ -3534,6 +3541,10 @@ std::string module_path_check(const std::string& module_path) {
     printer.print(
         "const _: () = $p$::rp_check::C; // This path must be where this file is included.\n",
         {{"p", module_path}});
+    printer.print(
+        "const _: () = assert!(::rapidproto::GENERATED_ABI == $abi$, \"rapidproto and "
+        "rapidproto-build must be the same version\");\n",
+        {{"abi", std::to_string(kGeneratedAbi)}});
     printer.outdent();
     printer.print("}\n");
     return printer.str();
@@ -3648,7 +3659,7 @@ std::string generate_file(const std::vector<const FileNode*>& files, const Layou
     // `common` (shared enum/newtype defs) is emitted whenever any decoder model is, since both the
     // arena and stream trees reference it. At least one model is always selected (the caller enforces
     // it); default is arena only. A tree with nothing in it is left out.
-    std::string out = banner + "\n" + module_path_check(options.module_path);
+    std::string out = banner + "\n" + file_checks(options.module_path);
     const auto append = [&out](const std::string& tree) {
         if (!tree.empty()) {
             out += "\n" + tree;
