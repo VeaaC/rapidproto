@@ -1,7 +1,8 @@
 # Rust support CI — runs only on the `rust` feature branch and PRs targeting it, so `main`'s C++
-# gate is untouched. Lint, tests and the ecosystem bench's tests run as parallel jobs, beside the
-# docs.rs build, the wasm-blob staleness gate, the native generator on macOS and Windows, Miri
-# (arena provenance/borrows), and a libFuzzer+ASan smoke over the arena decoder.
+# gate is untouched. Lint, tests and the ecosystem bench's tests run as parallel jobs, beside a
+# build at the minimum supported Rust version, the docs.rs build, the wasm-blob staleness gate, both
+# generators on macOS and Windows, Miri (arena provenance/borrows), and a libFuzzer+ASan smoke over
+# the arena decoder.
 #
 # The `rapidproto` runtime crate's no-alloc tier is tested and linted on its own (`-p rapidproto`),
 # and also runs under Miri: in a workspace command that builds tests, rustgen-golden's
@@ -71,8 +72,10 @@ jobs:
           cargo doc -p rustgen-golden --no-deps --no-default-features
 
   docs-rs:
-    # The published crates' docs as docs.rs builds them: on nightly, from each crate's
-    # `[package.metadata.docs.rs]`.
+    # The published crates as docs.rs gets them: packaged, so a file the package leaves out fails here
+    # instead of on docs.rs. The docs build on nightly from each crate's `[package.metadata.docs.rs]`,
+    # which gives rapidproto-build only the wasm generator. Its native generator is built from the
+    # package separately, alone: with both generators, a missing C++ file falls back to wasm unnoticed.
     runs-on: ubuntu-latest
     env:
       RUSTDOCFLAGS: -D warnings
@@ -80,13 +83,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
       - uses: dtolnay/install@cargo-docs-rs
-      - name: Docs
+      - name: Package the crates
+        run: cargo package -p rapidproto -p rapidproto-build --no-verify
+      # `-D warnings` lets links to `#[doc(hidden)]` items through, so the rendered links are checked
+      # too.
+      - name: Docs from the packages
         run: |
-          cargo docs-rs -p rapidproto
-          cargo docs-rs -p rapidproto-build
-      # `-D warnings` lets links to `#[doc(hidden)]` items through.
-      - name: Rendered doc links
-        run: python3 ../tests/rustdoc_check.py target/x86_64-unknown-linux-gnu/doc rapidproto rapidproto_build
+          for crate in rapidproto rapidproto-build; do
+            dir="$RUNNER_TEMP/$crate"
+            mkdir -p "$dir"
+            tar -xzf target/package/"$crate"-[0-9]*.crate -C "$dir" --strip-components=1
+            (cd "$dir" && cargo docs-rs &&
+              python3 "$GITHUB_WORKSPACE/tests/rustdoc_check.py" target/x86_64-unknown-linux-gnu/doc "${crate//-/_}")
+          done
+      - name: Build the packaged native generator
+        working-directory: ${{ runner.temp }}/rapidproto-build
+        run: cargo build --no-default-features --features native
 
   test:
     runs-on: ubuntu-latest
@@ -148,9 +160,43 @@ jobs:
       - name: Test the ecosystem bench in release (exercises the release-only quick-protobuf arm)
         run: cargo test -p rapidproto-bench --release
 
+  msrv:
+    # The `rust-version` both published crates inherit from the workspace: the runtime at both tiers,
+    # the generated code of every golden at both tiers (with its serde impls), the `rapidproto-rust`
+    # tool, and the consumer example, which decodes through generated code. Generated modules allow
+    # all lints, so clippy's `incompatible_msrv` cannot see them, and only this build checks them.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read the MSRV
+        id: msrv
+        run: |
+          version=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
+          test -n "$version"
+          grep -qF "You need Rust $version or newer" ../README.md
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          save-if: ${{ github.ref == 'refs/heads/rust' }}
+      - name: Test the runtime
+        run: |
+          cargo test -p rapidproto
+          cargo test -p rapidproto --no-default-features
+      - name: Build the generated goldens and the CLI
+        run: |
+          cargo build -p rustgen-golden
+          cargo build -p rustgen-golden --no-default-features
+          cargo build -p rapidproto-build
+      - name: Run the consumer example
+        run: cargo run -p consumer-example
+
   native-generator:
-    # rapidproto-build compiles its generator with the platform's C++ compiler. Native only, so a
-    # compile failure fails the job instead of falling back to the wasm generator.
+    # rapidproto-build's generators on macOS and Windows. First native only, so a C++ compile failure
+    # fails the job instead of falling back to the wasm generator. Then both, which must agree.
     strategy:
       fail-fast: false
       matrix:
@@ -161,6 +207,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Smoke-test the native generator
         run: cargo test -p rapidproto-build --no-default-features --features native --test smoke
+      # In release on Windows: this workspace's debug builds crash wasmi there (see the profile
+      # overrides in rust/Cargo.toml).
+      - name: Smoke-test both generators
+        run: cargo test -p rapidproto-build --test smoke ${{ runner.os == 'Windows' && '--release' || '' }}
 
   wasm-blob:
     # The rapidproto-build crate ships the generator committed in two forms: a wasm blob and a copy

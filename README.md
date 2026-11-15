@@ -149,8 +149,8 @@ both.
 
 ### Rust
 
-Add both crates at the same version, pinned with `=`. The generated code needs the runtime of the
-version that generated it:
+You need Rust 1.91 or newer. Add both crates at the same version, pinned with `=`. The generated
+code needs the runtime of the version that generated it:
 
 ```toml
 # Cargo.toml
