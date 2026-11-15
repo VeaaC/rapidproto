@@ -1,28 +1,36 @@
 # RapidProto documentation
 
-RapidProto compiles a `.proto` schema into header-only C++ decoders: no runtime library to link and
-no third-party dependencies. It is decode-only - no serialization, no reflection - and generates two
-models from one schema: an arena decoder that materializes a message tree, and a streaming decoder
-that hands each field to a callback. Both validate untrusted wire input and never crash on malformed
-bytes. On a mixed real-world payload the arena decoder decodes about 7× as fast as `protoc` + Arena
-([benchmarks](benchmarks.md)).
+RapidProto generates fast Protobuf decoders for C++ and Rust from `.proto` schemas. It only decodes.
+Each schema gives you an arena decoder, which decodes the whole message into an arena, and a
+streaming decoder, which passes each field to your code. Both validate untrusted input and never
+crash on malformed bytes.
 
-Start with the [quick start](../README.md#quick-start); [how it got fast](optimizations.md) walks
-the optimizations one at a time. The pages below are the topic-by-topic reference.
+These pages are the C++ manual. The Rust guide is the documentation of the
+[`rapidproto`](https://docs.rs/rapidproto) and [`rapidproto-build`](https://docs.rs/rapidproto-build)
+crates on docs.rs. The benchmarks cover both languages.
 
-- [arena.md](arena.md) - the arena decoder: accessors, the `Arena`, `decode_owned`, error handling
-- [streaming.md](streaming.md) - the streaming decoder: field tags, the consumption patterns, aborting
-- [dumper.md](dumper.md) - the `--dump` debug dumper: JSON-like inspection text, `DumpOptions`
-- [semantics.md](semantics.md) - the shared rules: lifetimes, validation & trust, presence, open enums,
-  duplicate fields
-- [using-both-models.md](using-both-models.md) - both models in one TU; coexisting with protoc
-- [profiles.md](profiles.md) - decode profiles (`drop` / `raw`) and unknown-field detection (arena)
-- [integration.md](integration.md) - the `rapidprotoc` CLI reference and the CMake helper
-- [osm-pbf.md](osm-pbf.md) - real-world walkthrough: OSM's planet format with both models
-- [optimizations.md](optimizations.md) - how the decoders got fast: seven optimizations,
-  re-enabled one at a time and measured
-- [benchmarks.md](benchmarks.md) - the numbers and how to reproduce them
+Start with the [quick start](../README.md#quick-start), then read the page for the topic you need:
 
-Contributor docs live at the repository root: [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md) (internals,
-invariants, design rationale), [CONTRIBUTING.md](https://github.com/VeaaC/rapidproto/blob/main/CONTRIBUTING.md),
-[SECURITY.md](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md), and [CHANGELOG.md](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md).
+- [The arena decoder](arena.md) covers accessors, the `Arena`, `decode_owned` and error handling.
+- [The streaming decoder](streaming.md) covers field tags, the three ways to consume fields, and
+  stopping early.
+- [The debug dumper](dumper.md) covers the `--dump` option, its JSON-like text and `DumpOptions`.
+- [Shared semantics](semantics.md) covers the rules both models follow, such as lifetimes,
+  validation, presence, open enums and duplicate fields.
+- [Using both models](using-both-models.md) covers both models in one translation unit and
+  coexisting with `protoc`.
+- [Decode profiles](profiles.md) covers dropping fields, keeping sub-messages as raw bytes, and
+  detecting unknown fields in the arena decoder.
+- [CLI & CMake](integration.md) covers the `rapidprotoc` command line and the CMake helper.
+- [OSM PBF walkthrough](osm-pbf.md) decodes OpenStreetMap's planet format with both models.
+- [One optimization at a time](optimizations.md) shows how the decoders got fast, with seven
+  optimizations re-enabled one at a time and measured.
+- [Benchmarks](benchmarks.md) has the numbers and how to reproduce them.
+
+The contributor docs are at the repository root.
+[architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md) describes the
+internals, invariants and design. [CONTRIBUTING.md](https://github.com/VeaaC/rapidproto/blob/main/CONTRIBUTING.md)
+covers building and testing, and [SECURITY.md](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md)
+the threat model. [CHANGELOG.md](https://github.com/VeaaC/rapidproto/blob/main/CHANGELOG.md) lists
+the changes in each C++ release, and [rust/README.md](https://github.com/VeaaC/rapidproto/blob/main/rust/README.md)
+describes the Rust workspace.

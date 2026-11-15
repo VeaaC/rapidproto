@@ -1,16 +1,16 @@
-# RapidProto — Rust support (work in progress)
+# RapidProto for Rust
 
-This directory is the in-tree Cargo workspace for RapidProto's native Rust decoders, developed on
-the long-running `rust` branch. It has only test releases so far and is not built by the C++ CMake
-project.
+This is the Cargo workspace of RapidProto's Rust decoders. The C++ CMake project does not build it.
+To use the decoders, start with the [quick start](../README.md#rust) and the
+[`rapidproto` documentation](https://docs.rs/rapidproto).
 
-- `rapidproto/` — the decode-only runtime (arena, borrowed views, wire primitives, errors).
-- `rapidproto-build/` — the build-time driver that generates Rust decoders with the C++ generator,
-  compiled natively or embedded as WebAssembly.
-- `rapidproto-bench/` — the decode benchmarks (below).
-
-The public interface is still taking shape and is not yet stable. The scratch spikes at the repo root
-(`rust-poc/`, `rust-m0/`) are exploratory and are **not** part of this workspace.
+- `rapidproto/` is the runtime crate that the generated code uses.
+- `rapidproto-build/` generates the decoders in a build script. It runs the C++ generator, compiled
+  natively or as WebAssembly.
+- `rustgen-golden/` compiles and tests the generated code for the test schemas, and fuzzes it.
+- `rapidproto-diff/` formats decoded messages for the differential test against `protoc`.
+- `examples/` holds a small consumer and an OpenStreetMap reader.
+- `rapidproto-bench/` and `rapidproto-bench-upb/` are the benchmarks.
 
 ## Benchmarks
 

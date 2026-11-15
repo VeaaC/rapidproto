@@ -14,7 +14,7 @@
 # from the layout's {% seo %}) is NOT a default -- themes normally pull it in, and this site has
 # no theme -- so it must be listed or the build fails on the unknown tag.
 title: RapidProto
-description: Fast, header-only Protobuf decoders for C++
+description: Fast Protobuf decoders for C++ and Rust
 # Project site: served under github.io/<repo>/. The gem does not infer this outside the real Pages
 # build, so it is pinned -- tests/site_check.py fails any site-absolute URL that escapes it.
 baseurl: /rapidproto
