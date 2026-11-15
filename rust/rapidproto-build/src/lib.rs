@@ -33,7 +33,7 @@
 //! `google/protobuf/timestamp.proto`, resolve without the files.
 //!
 //! The command-line tool `rapidproto-rust` generates the same code, for projects that commit it.
-//! Install it with `cargo install rapidproto-build --version 0.1.0-alpha.1`, and see
+//! Install it with `cargo install rapidproto-build --version 0.1.0-alpha.2`, and see
 //! `rapidproto-rust --help` for its options.
 //!
 //! # How the generator runs

@@ -18,7 +18,8 @@ set -euo pipefail
 # The pinned wasi-sdk. The blob bytes are tied to this toolchain, so the build must use exactly it:
 # a different wasi-sdk produces different bytes, which would otherwise surface downstream as a
 # confusing "blob is stale" (it is not -- the generator source is fine, the toolchain differs).
-# Bumping this (or project(VERSION), which the blob embeds) changes the blob, so regenerate + commit.
+# Bumping this changes the blob, and bumping project(VERSION) changes the version.hpp copied to
+# cpp/. Regenerate and commit after either.
 EXPECTED_WASI_SDK="34.0"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
