@@ -7,9 +7,12 @@
 [![docs.rs](https://img.shields.io/docsrs/rapidproto)](https://docs.rs/rapidproto)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-RapidProto generates fast Protobuf decoders for C++ and Rust from your `.proto` schemas. The
-decoders validate untrusted input and never crash on malformed bytes. They support proto2, proto3
-and editions 2023 and 2024, including groups, maps and oneofs.
+RapidProto generates fast Protobuf decoders for C++ and Rust from your `.proto` schemas. On a
+realistic mixed payload, the C++ arena decoder is about 7 times as fast as `protoc`'s generated code
+with an arena, and the Rust one is about 12 times as fast as prost.
+
+The decoders validate untrusted input and never crash on malformed bytes. They support proto2,
+proto3 and editions 2023 and 2024, including groups, maps and oneofs.
 
 Each schema gives you two decoders:
 
@@ -27,11 +30,10 @@ crate. The Rust crates are test releases so far.
 
 ## Why RapidProto
 
-On a realistic mixed payload, the C++ arena decoder is several times faster than `protoc`'s
-generated code with an arena. The C++ streaming decoder is faster than protozero. The Rust decoders
-are as fast as the C++ ones. On every payload in the comparison, the Rust arena decoder is faster
-than prost, rust-protobuf, quick-protobuf, femtopb and google-protobuf. The
-[benchmarks](docs/benchmarks.md) have the numbers.
+The C++ streaming decoder is faster than protozero. The Rust decoders are as fast as the C++ ones.
+On every payload in the comparison, the Rust arena decoder is faster than prost, rust-protobuf,
+quick-protobuf, femtopb and google-protobuf. The [benchmarks](docs/benchmarks.md) have the numbers
+and how they were measured.
 
 Strings and bytes are not copied. They borrow from the input. A decoded C++ message takes less
 memory than `protoc`'s.
