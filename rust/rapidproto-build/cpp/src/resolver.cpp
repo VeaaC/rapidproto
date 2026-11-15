@@ -110,9 +110,10 @@ std::optional<std::string> wellknown_fallback(const std::string& import_path, bo
     return std::nullopt;
 }
 
-// In-memory (wasm): the host hands the entry under the canonical name any importer would use, so
-// that name is both the identity and the lookup key; imports look up the same provider. Filesystem
-// canonicalization is skipped -- it would touch a disk that is not there.
+// In-memory (the request-frame front-end, native or wasm): the host hands the entry under the
+// canonical name any importer would use, so that name is both the identity and the lookup key;
+// imports look up the same provider. Filesystem canonicalization is skipped, because the sources do
+// not come from the disk.
 SourceAccess make_provider_access(const ResolverConfig::SourceProvider& provider,
                                   bool use_wellknown) {
     return SourceAccess{

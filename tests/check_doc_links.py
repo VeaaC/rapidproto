@@ -15,10 +15,15 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def doc_files():
+    # The Rust READMEs link into the C++ docs, so a renamed heading there breaks them too. Cargo's
+    # target/ directories are build output.
+    rust = [p for p in glob.glob(os.path.join(ROOT, "rust", "**", "*.md"), recursive=True)
+            if "target" not in os.path.relpath(p, ROOT).split(os.sep)]
     return sorted(
         glob.glob(os.path.join(ROOT, "*.md"))
         + glob.glob(os.path.join(ROOT, "docs", "*.md"))
         + glob.glob(os.path.join(ROOT, "examples", "**", "*.md"), recursive=True)
+        + rust
     )
 
 

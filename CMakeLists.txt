@@ -301,9 +301,9 @@ if(RAPIDPROTO_BUILD_TESTS)
   target_include_directories(catch2_vendored SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/tests)
   target_compile_features(catch2_vendored PUBLIC cxx_std_17)
 
-  # The Rust code generator. The rapidproto-build crate compiles its own copy of these sources (its
-  # cpp/ directory, written by rust/rapidproto-build/wasm/build-wasm.sh), so only the tests build it
-  # here, under the strict flags. Its Rust naming lives in include/rapidproto/rustgen/names.hpp.
+  # The tests and rapidproto_diffgen build the Rust generator here, under the strict flags. The
+  # rapidproto-build crate compiles its own copy of these sources, which
+  # rust/rapidproto-build/wasm/build-wasm.sh writes to its cpp/ directory.
   add_library(rapidproto_rustgen_lib STATIC src/rustgen/generator.cpp src/rustgen/frame.cpp)
   target_link_libraries(rapidproto_rustgen_lib PUBLIC rapidproto_lib rapidproto_codegen_lib
                                                       rapidproto_arenagen_lib

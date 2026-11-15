@@ -12,15 +12,14 @@ From 1.0 on, removals happen only in a major release, announced beforehand under
 - Rust support. The `rapidproto` crate is the runtime, and `rapidproto-build` generates the decoders
   in a build script. The crates are test releases so far. They have their own version numbers, and
   their documentation is on docs.rs, so this changelog covers the C++ side only.
-- The README and the [benchmarks](docs/benchmarks.md) cover both languages. The C++ manual's index
-  is [docs/README.md](docs/README.md).
+- The README and the [benchmarks](docs/benchmarks.md) cover both languages.
 - [Shared semantics](docs/semantics.md) says how a known field with the wrong wire type is handled.
   It is skipped, but it is not an unknown field.
 
 ### Changed
 
-- `rapidprotoc` reports an entry file it cannot read, even when an earlier entry already imports a
-  file of the same name. It used to skip that entry.
+- `rapidprotoc` reports an entry file it cannot read, even when an earlier entry already resolved a
+  file of that name. It used to skip that entry.
 
 ## 0.5.1 - 2026-09-13
 

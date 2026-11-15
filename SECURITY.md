@@ -37,7 +37,9 @@ configured cap* is in scope; unbounded growth with no cap configured is working 
 Memory safety on untrusted input is exercised by libFuzzer harnesses over the wire reader
 and both decode models, run under AddressSanitizer + UndefinedBehaviorSanitizer (`./check.sh deep`,
 which CI runs on every pull request). A fourth harness covers the schema front-end under the same
-sanitizers: a malformed schema must diagnose, not crash.
+sanitizers: a malformed schema must diagnose, not crash. On the Rust side, a libFuzzer harness runs
+over the generated arena decoder under AddressSanitizer, and the runtime's and the generated code's
+tests also run under Miri. Rust CI runs both on every pull request.
 
 ## Reporting a vulnerability
 

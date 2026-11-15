@@ -1,9 +1,9 @@
-# Rust CI, beside the C++ one (ci.yml) on every push to main and every pull request. A C++ change
-# can break the Rust side too: the generator is C++, and rapidproto-build ships a copy of its sources
-# and a wasm build of it. Lint, tests and the ecosystem bench's tests run as parallel jobs, beside a
-# build at the minimum supported Rust version, the docs.rs build, the wasm-blob staleness gate, both
-# generators on macOS and Windows, Miri (arena provenance/borrows), and a libFuzzer+ASan smoke over
-# the arena decoder.
+# Rust CI runs beside the C++ one (ci.yml) on every push to main and every pull request. A C++
+# change can break the Rust side too, because the generator is C++ and rapidproto-build ships a copy
+# of its sources and a wasm build of it. Lint, tests and the ecosystem bench's tests run as parallel
+# jobs, beside a build at the minimum supported Rust version, the docs.rs build, the wasm-blob
+# staleness gate, both generators on macOS and Windows, Miri (arena provenance/borrows), and a
+# libFuzzer+ASan smoke over the arena decoder.
 #
 # The `rapidproto` runtime crate's no-alloc tier is tested and linted on its own (`-p rapidproto`),
 # and also runs under Miri: in a workspace command that builds tests, rustgen-golden's

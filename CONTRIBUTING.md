@@ -1,7 +1,7 @@
 # Contributing to RapidProto
 
 RapidProto is a **decode-only** Protobuf decoder + code generator for
-C++17. Before changing anything, skim [architecture.md](architecture.md); Part I is a ~10-minute
+C++17 and Rust (see [Rust](#rust)). Before changing anything, skim [architecture.md](architecture.md); Part I is a ~10-minute
 tour of the pipeline, the two decode models (arena + streaming), and the invariants a change must
 not break.
 
@@ -183,6 +183,25 @@ is silently unpinned, since a package/namespace shape can fail in ways no compil
   that version, so it must never lag the surface it describes. From 1.0 on, minors never break
   or remove anything on the stable surface - deprecate in the CHANGELOG and remove in the next
   major (see the README's Compatibility section).
+
+## Rust
+
+The Rust crates are a Cargo workspace under `rust/`, which [rust/README.md](rust/README.md)
+describes. `./check.sh` does not build them. Rust CI (`.github/workflows/rust-ci.yml`) runs on every
+pull request, including one that changes only C++, because the Rust generator in `src/rustgen/` is
+C++ and shares the front-end with `rapidprotoc`. From `rust/`,
+`cargo test --workspace --exclude rapidproto-bench --all-features` runs most of its tests.
+
+`rapidproto-build` ships the generator twice: as a copy of its sources and headers in
+`rust/rapidproto-build/cpp/`, and as a WebAssembly build in `rust/rapidproto-build/wasm/`. The copy
+includes the front-end, the codegen layer and the runtime headers, and its `version.hpp` comes from
+`project(VERSION)`. After changing a copied file or the version, run
+`rust/rapidproto-build/wasm/build-wasm.sh` and commit what it writes. It needs wasi-sdk 34.0.
+`rust/rapidproto-build/wasm/check-wasm.sh` tells you whether both are up to date, and Rust CI fails
+when they are not.
+
+`tests/regen_goldens.sh` also rewrites the Rust goldens in `rust/rustgen-golden/` and the runtime's
+documentation example in `rust/rapidproto/src/example/`.
 
 ## Pull requests
 
