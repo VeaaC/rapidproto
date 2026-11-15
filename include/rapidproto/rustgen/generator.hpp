@@ -88,11 +88,11 @@ struct RustOptions {
 };
 
 // The full generated Rust source for `files`: a private `rp_check` module that fails to compile unless
-// the runtime is the version the code was generated for and the file is included at
-// `options.module_path`, the `common` tree, then the selected decoder tree(s)
-// (`arena` and/or `stream`), all siblings included together under one parent module. This is the single
-// source of truth for an invocation's `.rs` content -- the CLI writes it and the golden test compares
-// against it. `modes` is the resolved field-modes profile (default: materialize everything).
+// the runtime accepts the code's version number and the file is included at `options.module_path`,
+// the `common` tree, then the selected decoder tree(s) (`arena` and/or `stream`), all siblings
+// included together under one parent module. This is the single source of truth for an invocation's
+// `.rs` content. The CLI writes it, and the golden test compares against it. `modes` is the resolved
+// field-modes profile (default: materialize everything).
 std::string generate_file(const std::vector<const FileNode*>& files, const LayoutSet& layouts,
                           const FieldModes& modes = {}, const RustOptions& options = {});
 

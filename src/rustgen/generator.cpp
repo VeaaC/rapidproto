@@ -3526,9 +3526,10 @@ constexpr const char* kModuleLints =
 constexpr int kGeneratedAbi = 1;
 
 // A module of compile-time checks on the file.
-// The first fails unless the runtime accepts this code's version number. rustc expands macros before
-// it resolves names or checks types, so mismatched versions of rapidproto and rapidproto-build report
-// this error first instead of dozens about the runtime's internals.
+// The first fails unless the runtime accepts this code's version number. rustc reports macro errors
+// before name and type errors, so mismatched versions of rapidproto and rapidproto-build report this
+// error first instead of dozens about the runtime's internals. A runtime older than the check has no
+// `rp_abi!`, and the comment on the line is then the only hint, so it must fit an 80-column error.
 // The second fails unless the file is included at `module_path`, by reaching its own private constant
 // through that path. Nothing else checks the path of a file whose types never refer to each other,
 // whose macros would then fail at their first call, possibly in another crate. The comment shares the
@@ -3538,7 +3539,8 @@ std::string file_checks(const std::string& module_path) {
     printer.print(kModuleLints);
     printer.print("#[doc(hidden)]\nmod rp_check {\n");
     printer.indent();
-    printer.print("::rapidproto::rp_abi!($abi$);\n", {{"abi", std::to_string(kGeneratedAbi)}});
+    printer.print("::rapidproto::rp_abi!($abi$); // rapidproto must match rapidproto-build.\n",
+                  {{"abi", std::to_string(kGeneratedAbi)}});
     printer.print("const C: () = ();\n");
     printer.print(
         "const _: () = $p$::rp_check::C; // This path must be where this file is included.\n",
