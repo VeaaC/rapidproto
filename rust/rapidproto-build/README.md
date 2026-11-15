@@ -10,10 +10,10 @@ runtime:
 ```toml
 # Cargo.toml
 [dependencies]
-rapidproto = "=0.1.0-alpha.1"
+rapidproto = "=0.1.0-alpha.2"
 
 [build-dependencies]
-rapidproto-build = "=0.1.0-alpha.1"
+rapidproto-build = "=0.1.0-alpha.2"
 ```
 
 Generate the decoders from a build script:
