@@ -207,28 +207,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Smoke-test the native generator
         run: cargo test -p rapidproto-build --no-default-features --features native --test smoke
-      - name: DIAG (temporary) the Windows wasm crash
-        if: runner.os == 'Windows'
-        shell: bash
-        continue-on-error: true
-        run: |
-          set +e
-          note() { local m="$2"; m="${m//'%'/'%25'}"; m="${m//$'\r'/}"; m="${m//$'\n'/'%0A'}"; echo "::warning title=$1::$m"; }
-          opt3() { for p in "$@"; do printf -- '--config profile.dev.package.%s.opt-level=3 ' "$p"; done; }
-          cd "$GITHUB_WORKSPACE/.github/diag/wasmi-repro"
-          for set in "wasmi wasmi_core wasmi_ir" "wasmi" "wasmi wasmi_core wasmi_ir wasmi_collections wasmparser spin" "wasmi wasmi_core wasmi_ir wasmi_collections wasmparser spin wasmi_wasi wasi-common wiggle"; do
-            out=$(cargo run -q $(opt3 $set) 2>&1); rc=$?
-            note "repro opt3 [$set] rc=$rc" "$(tail -3 <<<"$out")"
-          done
-          cargo build -q $(opt3 wasmi wasmi_core wasmi_ir)
-          cdb="/c/Program Files (x86)/Windows Kits/10/Debuggers/x64/cdb.exe"
-          out=$("$cdb" -G -c "g; .lastevent; r; kn 40; q" target/debug/wasmi-repro.exe 2>&1)
-          note "cdb repro mixed" "$(grep -A60 'Last event' <<<"$out" | cut -c1-220)"
-          cd "$GITHUB_WORKSPACE/rust"
-          for set in "wasmi_collections wasmparser spin" "wasmi_collections wasmparser spin wasmi_wasi wasi-common wiggle"; do
-            out=$(cargo test -p rapidproto-build --no-default-features --features wasm --test smoke $(opt3 $set) -- --test-threads=1 2>&1); rc=$?
-            note "smoke plus opt3 [$set] rc=$rc" "$(tail -4 <<<"$out")"
-          done
       - name: Smoke-test both generators
         run: cargo test -p rapidproto-build --test smoke
 
