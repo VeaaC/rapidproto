@@ -180,13 +180,23 @@ pub mod rp_rt {
     pub use crate::*;
 }
 
-// The version of the hidden items generated code uses. Each generated file asserts that it equals the
-// generator's own number, so mismatched versions of rapidproto and rapidproto-build fail with one clear
-// error before any other. Bump it, together with `kGeneratedAbi` in src/rustgen/generator.cpp, when
-// generated code needs a hidden item that earlier versions lack, or when one changes or goes away.
-// The goldens do not compile while the two numbers differ.
+// The version check of generated code. Each generated file calls this with its generator's number,
+// `kGeneratedAbi` in src/rustgen/generator.cpp, and any number but this crate's fails the build.
+// rustc expands macros before it resolves names or checks types, so a user who mixes versions of
+// rapidproto and rapidproto-build sees this message first, not dozens of errors about this crate's
+// internals.
+// Bump both numbers when generated code needs an item that earlier versions lack, or when an item it
+// uses changes or goes away, hidden or public. A change in behavior counts too, even if everything
+// still compiles. The goldens catch a bump on only one side. Nothing catches a missing bump, so each
+// release decides whether one is needed.
 #[doc(hidden)]
-pub const GENERATED_ABI: u32 = 1;
+#[macro_export]
+macro_rules! rp_abi {
+    (1) => {};
+    ($other:literal) => {
+        ::core::compile_error!("use the same version of rapidproto and rapidproto-build");
+    };
+}
 
 /// Implement the owning-handle API for a generated message type `$msg`: the [`ArenaDecode`] tag impl
 /// on `$msg<'static>` plus the `$msg::decode_owned` convenience over [`decode_owned`]. Generated code

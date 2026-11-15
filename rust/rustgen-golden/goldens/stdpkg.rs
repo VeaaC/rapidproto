@@ -3,9 +3,9 @@
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]
 #[doc(hidden)]
 mod rp_check {
+  ::rapidproto::rp_abi!(1);
   const C: () = ();
   const _: () = crate::stdpkg::rp_check::C; // This path must be where this file is included.
-  const _: () = ::core::assert!(::rapidproto::GENERATED_ABI == 1, "rapidproto and rapidproto-build must be the same version");
 }
 
 /// Arena decoders, which decode a whole message into an arena.

@@ -88,7 +88,8 @@ struct RustOptions {
 };
 
 // The full generated Rust source for `files`: a private `rp_check` module that fails to compile unless
-// the file is included at `options.module_path`, the `common` tree, then the selected decoder tree(s)
+// the runtime is the version the code was generated for and the file is included at
+// `options.module_path`, the `common` tree, then the selected decoder tree(s)
 // (`arena` and/or `stream`), all siblings included together under one parent module. This is the single
 // source of truth for an invocation's `.rs` content -- the CLI writes it and the golden test compares
 // against it. `modes` is the resolved field-modes profile (default: materialize everything).

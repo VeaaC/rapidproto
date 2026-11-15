@@ -3521,30 +3521,28 @@ constexpr const char* kModuleLints =
     "nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, "
     "clippy::pedantic, clippy::nursery, clippy::restriction)]\n";
 
-// The version of the hidden runtime items generated code uses: `rapidproto::GENERATED_ABI`, which
-// documents when to bump it. Both must change together; the goldens do not compile while they differ.
+// The version of the contract between generated code and the runtime. The runtime's `rp_abi!` macro
+// accepts only this number, and its comment in rust/rapidproto/src/lib.rs says when to bump both.
 constexpr int kGeneratedAbi = 1;
 
-// A module of compile-time checks on the file, at its top so that rustc reports them first.
-// The first fails unless the file is included at `module_path`: it reaches its own private constant
+// A module of compile-time checks on the file.
+// The first fails unless the runtime accepts this code's version number. rustc expands macros before
+// it resolves names or checks types, so mismatched versions of rapidproto and rapidproto-build report
+// this error first instead of dozens about the runtime's internals.
+// The second fails unless the file is included at `module_path`, by reaching its own private constant
 // through that path. Nothing else checks the path of a file whose types never refer to each other,
 // whose macros would then fail at their first call, possibly in another crate. The comment shares the
 // path's line because rustc shows that line in the error.
-// The second fails when the runtime is from a version of rapidproto whose hidden items this code does
-// not fit. Without it, mismatched crate versions give dozens of errors about runtime internals.
 std::string file_checks(const std::string& module_path) {
     Printer printer;
     printer.print(kModuleLints);
     printer.print("#[doc(hidden)]\nmod rp_check {\n");
     printer.indent();
+    printer.print("::rapidproto::rp_abi!($abi$);\n", {{"abi", std::to_string(kGeneratedAbi)}});
     printer.print("const C: () = ();\n");
     printer.print(
         "const _: () = $p$::rp_check::C; // This path must be where this file is included.\n",
         {{"p", module_path}});
-    printer.print(
-        "const _: () = ::core::assert!(::rapidproto::GENERATED_ABI == $abi$, \"rapidproto and "
-        "rapidproto-build must be the same version\");\n",
-        {{"abi", std::to_string(kGeneratedAbi)}});
     printer.outdent();
     printer.print("}\n");
     return printer.str();
