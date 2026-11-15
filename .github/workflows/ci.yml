@@ -22,8 +22,8 @@ concurrency:
 
 jobs:
   # `differential` and `names` ride here rather than in their own jobs: both reuse the gcc build
-  # this job already makes. `differential` needs only protoc + the protobuf Python bindings, which
-  # setup-toolchain installs; `names` is what keeps the CMake helper's output paths in step with
+  # this job already makes. `differential` needs protoc + the protobuf Python bindings, which
+  # setup-toolchain installs, and its Rust arm uses the runner's cargo; `names` is what keeps the CMake helper's output paths in step with
   # the CLI (plus the declared-outputs delete/restore loop and a compiled prefixed TU), and used to
   # run only locally and on release tags -- a PR that broke it went green.
   gate:
