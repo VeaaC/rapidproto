@@ -8,7 +8,7 @@ description = "Runtime for the Protobuf decoders that rapidproto-build generates
 repository = "https://github.com/VeaaC/rapidproto/tree/rust"
 readme = "README.md"
 keywords = ["protobuf", "protocol-buffers", "decode", "zero-copy", "no-std"]
-categories = ["encoding", "parser-implementations", "no-std"]
+categories = ["encoding", "parser-implementations", "no-std", "no-std::no-alloc"]
 
 [features]
 default = ["alloc"]
