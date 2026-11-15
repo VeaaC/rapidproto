@@ -13,7 +13,7 @@ and **clang++-20** against **protobuf 4.25.3**. Reproduce with
 than instruction counts, since a schema-specialized decoder wins as much from branch prediction,
 pipelining, and superscalar execution as from fewer instructions. Every decoder is measured in the same
 run under identical conditions, so the ratios are stable; treat them as a box-specific rule of thumb, not
-a cross-machine constant.
+a cross-machine constant. The [Rust](#rust) numbers come from a separate bench.
 
 ## Arena vs `protoc` + `google::protobuf::Arena`
 
@@ -151,6 +151,107 @@ a word at a time straight into its array, while the streaming decoder decodes it
 Speedups vary with payload shape, and part of the arena/protoc gap is a feature gap - protoc validates
 UTF-8 on every proto3 string and RapidProto does not. The harness ships every scenario (and a memory
 report), so measure your own payloads.
+
+## Rust
+
+The Rust crate has its own bench in `rust/rapidproto-bench`. It decodes the payloads that the C++
+benches write. Each decoder decodes a payload and then reads every field, as in the C++ benches. On
+the eight payloads in the table below and on the real-world datasets, each decoder also has to
+produce the checksum that the C++ bench computes. The numbers were measured with rustc 1.91.1 and a
+release build without LTO. In the table and in the comparison with C++, each number is the median of
+five runs.
+
+### Other Rust decoders
+
+Throughput relative to prost:
+
+| Payload | RapidProto | prost | rust-protobuf | quick-protobuf | femtopb | google-protobuf |
+|---|---|---|---|---|---|---|
+| `Dataset` | 12 | 1 | 1.0 | 1.9 | n/a | 1.0 |
+| Packed `int64` | 2.6 | 1 | 1.3 | UB | 0.29 | 0.38 |
+| Packed `double` | 3.7 | 1 | 1.1 | UB | 0.69 | 0.43 |
+| Packed `sint64` deltas and enum | 2.8 | 1 | 0.89 | UB | 0.78 | 0.53 |
+| Packed `int64` and `double` | 2.8 | 1 | 1.2 | UB | 0.37 | 0.39 |
+| Many small messages | 8.1 | 1 | 0.94 | 1.4 | 2.0 | 1.4 |
+| Scalar records | 4.5 | 1 | 0.69 | 0.97 | 1.1 | 0.27 |
+| Particles | 3.7 | 1 | 0.43 | 0.89 | 0.74 | 0.20 |
+
+Each row is one payload:
+
+- `Dataset` is the mixed payload described at the top of this page.
+- Packed `int64` and `double` decodes 30 messages, each with two arrays of 10,000 values. The other
+  three packed rows decode 200 messages with 1,000 values per array.
+- Each of the 50,000 small messages holds four short `int32` arrays and two short string arrays.
+- Each of the 20,000 scalar records holds 18 scalar fields and two nested messages of scalars.
+- Each of the 50,000 particles holds an id, a color and two nested messages of three `double`
+  values.
+
+The crates produce different kinds of decoded messages:
+
+| Crate | Version | A decoded message |
+|---|---|---|
+| RapidProto | this repository | Lives in an arena and borrows strings and bytes from the input. The bench uses a new arena for every decode. |
+| prost | 0.14.6 | Owns its data in `String`, `Vec` and `HashMap` fields. |
+| rust-protobuf | 3.7.2 | Owns its data in `String`, `Vec` and `HashMap` fields. |
+| quick-protobuf | 0.8.1 | Borrows strings, bytes and packed fixed-width arrays from the input. Other repeated fields and maps are stored in `Vec` and `HashMap` fields. |
+| femtopb | 0.9.0 | Borrows from the input. Repeated fields are decoded while you iterate them. |
+| google-protobuf | 0.36.2-release | Lives in a upb arena. Strings are copied into the arena. |
+
+google-protobuf is Google's official Rust implementation of protobuf, currently in beta. It is also
+published as version 4 of the `protobuf` crate, whose earlier versions are rust-protobuf, and the
+bench uses it through `protobuf` 4.36.2-release. Built with Cargo, it runs on upb, Google's C protobuf
+library, which decodes into an arena. That makes it the crate closest to RapidProto's design. Its
+build script compiles upb without `-DNDEBUG`, so upb's assertions run in release builds. Building with
+`CFLAGS=-DNDEBUG` makes it more than 20% faster on the packed payloads.
+
+quick-protobuf reads packed fixed-width fields, like `repeated double`, as a slice into the input
+without checking alignment. That is undefined behavior whenever the data is misaligned, which
+depends on the input and on where it sits in memory. All four packed rows use the `Big` message,
+whose decoder has this flaw, so the table shows no number for quick-protobuf there.
+
+femtopb does not support map fields, so it cannot decode `Dataset`.
+
+The other crates check that every string is valid UTF-8 before they hand it out. RapidProto leaves
+the check to the caller. `ProtoStr::to_str` checks one string when you need it as a `&str`. The
+bench reads only string lengths, so RapidProto's numbers include no UTF-8 check. Checking every
+string lowers RapidProto's throughput by 53% on `Dataset` and by 21% on many small messages. That
+would put it at 5.9 and 6.4 times the speed of prost.
+
+### Rust vs C++
+
+The Rust crate decodes as fast as the C++ library. The comparison covers 233 pairs of scenario and
+decoder. On 135 of them the Rust build is within 3% of the clang++-20 C++ build, on 84 it is more
+than 3% faster, and on 14 it is 3% to 10% slower. The median Rust/C++ throughput ratio is 1.00 for
+the arena decoder and 1.03 for the streaming decoder. In this comparison, both arena decoders reuse
+one arena for every decode.
+
+### Reproducing the Rust numbers
+
+Build the C++ benches, write the payloads, build the Rust bench, and run it on a quiesced box (see
+[Reproducing](#reproducing) for the box setup):
+
+```sh
+cmake --preset clang
+cmake --build build/clang --target rapidproto_arena_bench rapidproto_bench
+RAPIDPROTO_BENCH_DUMP_DIR=$PWD/payloads build/clang/rapidproto_arena_bench
+RAPIDPROTO_BENCH_DUMP_DIR=$PWD/payloads build/clang/rapidproto_bench
+cd rust
+RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
+    cargo build --release -p rapidproto-bench --bins
+export RAPIDPROTO_BENCH_DIR=$PWD/../payloads
+taskset -c 2 target/release/bench   # the crate comparison and the arena decoder
+taskset -c 2 target/release/stream  # the streaming decoder
+```
+
+The `RUSTFLAGS` pin the Rust code's alignment, as the C++ bench builds do. The published numbers
+come from five runs of each binary, alternating between the two. The google-protobuf column needs
+`--features google-upb` and a `protoc` of exactly version 36.2 in `RAPIDPROTO_UPB_PROTOC`.
+`rust/rapidproto-bench/src/main.rs` shows how to build one.
+
+For the comparison with C++, also run `python3 tests/bench.py run --build-dir build/clang`, and set
+`RAPIDPROTO_BENCH_JSON=1` for the Rust runs. Each Rust record then names the C++ row it matches. The
+real-world datasets need the fetched corpus and dataset (see [Reproducing](#reproducing)), and
+`compute Instance` also needs `--features compute`.
 
 ## Reproducing
 

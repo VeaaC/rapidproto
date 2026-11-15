@@ -8,6 +8,7 @@
 // it compares and exits; RAPIDPROTO_BENCH_DIR=<dir> makes a run load them instead of building them
 // in-process. Layout:
 //   <dir>/<name>.bin           an arena scenario, protoc-serialized (bench_arena.cpp)
+//   <dir>/<name>.sum           the arena walk's checksum over that payload
 //   <dir>/stream/<stem>.bin    a streaming scenario (bench_streamgen.cpp)
 //   <dir>/rv/<stem>.pool       a varint-sweep pool (both benches; bench_varint.hpp)
 //   <dir>/external/<stem>.bin  a real-world dataset's input (osm_blocks: the pool <stem>.pool)

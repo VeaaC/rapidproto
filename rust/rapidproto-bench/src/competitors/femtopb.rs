@@ -14,8 +14,8 @@
 //! The only map in the schema is `Person.counters`, so `build.rs` strips that field before running
 //! femtopb-build (so the rest of the schema compiles), and the femtopb arm reports `dataset` (the only
 //! scenario using `Person`) as UNSUPPORTED -- `dataset()` returns `Arm::unsupported`, so the gap is
-//! listed and flagged in the table rather than silently skipped. The other seven scenarios have no
-//! maps and are decoded normally.
+//! listed and flagged in the table rather than silently skipped. The other scenarios have no maps
+//! and are decoded normally.
 //!
 //! Decode entry is `M::decode(bytes)` (the top-level, non-length-delimited read).
 
@@ -98,16 +98,16 @@ fn checksum_wideset(ws: &pb::WideSet) -> u64 {
     for it in ws.items.iter() {
         let it = it.expect("femtopb wide");
         for v in it.a.iter() {
-            sum = sum.wrapping_add(v.expect("femtopb a") as u64);
+            sum = sum.wrapping_add(u64::from(v.expect("femtopb a") as u32));
         }
         for v in it.b.iter() {
-            sum = sum.wrapping_add(v.expect("femtopb b") as u64);
+            sum = sum.wrapping_add(u64::from(v.expect("femtopb b") as u32));
         }
         for v in it.c.iter() {
-            sum = sum.wrapping_add(v.expect("femtopb c") as u64);
+            sum = sum.wrapping_add(u64::from(v.expect("femtopb c") as u32));
         }
         for v in it.d.iter() {
-            sum = sum.wrapping_add(v.expect("femtopb d") as u64);
+            sum = sum.wrapping_add(u64::from(v.expect("femtopb d") as u32));
         }
         for x in it.s.iter() {
             sum = sum.wrapping_add(x.expect("femtopb s").len() as u64);

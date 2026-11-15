@@ -137,7 +137,8 @@ fn bigset_arms_agree() {
     all_agree(rapidproto_bench::bigset_arms(), &bs.encode_to_vec());
 }
 
-// A varint-sweep payload: one `Big` carrying a single packed varint field (no `reals`, so no UB).
+// A varint-sweep payload: one `Big` carrying a single packed varint field (no `reals`, so
+// quick-protobuf's unaligned read never runs).
 #[test]
 fn big_arms_agree() {
     let numbers = pb::Big {

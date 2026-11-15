@@ -5,9 +5,10 @@
 //! over it -- exactly our arena-of-borrowed-views model, which is what makes it the capstone.
 //!
 //! Each `pub fn <scenario>(bytes) -> u64` decodes with `Message::parse` and walks every field with the
-//! SAME convention as [`rapidproto_bench::checksum`] (string/bytes -> byte length; repeated string /
-//! repeated message / map -> element COUNT; bool -> 0/1; double -> `to_bits`; enum -> raw i32;
-//! present-fields-only), so this arm agrees with every other arm or the shared gate aborts. Reads go
+//! SAME convention as `rapidproto_bench::checksum`, the C++ arena bench's walk value for value
+//! (string/bytes -> byte length; every element of a repeated field or map read the same way; bool ->
+//! 0/1; double -> `to_bits`; enum -> raw i32; integers with C++'s casts; present-fields-only), so this
+//! arm agrees with every other arm and with C++, or the shared gate aborts. Reads go
 //! through `.as_view()` to exercise the borrowed-view path a upb consumer actually uses. Enums are open
 //! (`i32::from(Kind)` preserves unknowns); packed doubles are copied into the upb arena, so -- unlike
 //! quick-protobuf -- there is no unaligned-slice UB and no `‡`.
@@ -27,7 +28,7 @@ use generated::*;
 pub fn dataset(bytes: &[u8]) -> u64 {
     let m = Dataset::parse(bytes).expect("google-upb decode");
     let v = m.as_view();
-    let mut sum = v.name().as_bytes().len() as u64 ^ (v.version() as u64);
+    let mut sum = (v.version() as u64).wrapping_add(v.name().as_bytes().len() as u64);
     for p in v.people().iter() {
         sum = sum
             .wrapping_add(p.id() as u64)
@@ -35,15 +36,28 @@ pub fn dataset(bytes: &[u8]) -> u64 {
             .wrapping_add(p.email().as_bytes().len() as u64)
             .wrapping_add(u64::from(p.active()))
             .wrapping_add(p.score().to_bits())
-            .wrapping_add(p.created())
-            .wrapping_add(p.tags().len() as u64)
-            .wrapping_add(p.attributes().len() as u64)
-            .wrapping_add(p.counters().len() as u64);
+            .wrapping_add(p.created());
         if let Some(a) = p.address_opt() {
-            sum = sum.wrapping_add(u64::from(a.zip()));
+            sum = sum
+                .wrapping_add(a.street().as_bytes().len() as u64)
+                .wrapping_add(a.city().as_bytes().len() as u64)
+                .wrapping_add(u64::from(a.zip()));
+        }
+        for t in p.tags().iter() {
+            sum = sum.wrapping_add(t.as_bytes().len() as u64);
         }
         for h in p.history().iter() {
-            sum = sum.wrapping_add(h as u64);
+            sum = sum.wrapping_add(u64::from(h as u32));
+        }
+        for a in p.attributes().iter() {
+            sum = sum
+                .wrapping_add(a.key().as_bytes().len() as u64)
+                .wrapping_add(a.value().as_bytes().len() as u64);
+        }
+        for (k, v) in p.counters().iter() {
+            sum = sum
+                .wrapping_add(k.as_bytes().len() as u64)
+                .wrapping_add(u64::from(v as u32));
         }
     }
     sum
@@ -86,16 +100,16 @@ pub fn wideset(bytes: &[u8]) -> u64 {
     let mut sum = 0u64;
     for it in v.items().iter() {
         for x in it.a().iter() {
-            sum = sum.wrapping_add(x as u64);
+            sum = sum.wrapping_add(u64::from(x as u32));
         }
         for x in it.b().iter() {
-            sum = sum.wrapping_add(x as u64);
+            sum = sum.wrapping_add(u64::from(x as u32));
         }
         for x in it.c().iter() {
-            sum = sum.wrapping_add(x as u64);
+            sum = sum.wrapping_add(u64::from(x as u32));
         }
         for x in it.d().iter() {
-            sum = sum.wrapping_add(x as u64);
+            sum = sum.wrapping_add(u64::from(x as u32));
         }
         for x in it.s().iter() {
             sum = sum.wrapping_add(x.as_bytes().len() as u64);

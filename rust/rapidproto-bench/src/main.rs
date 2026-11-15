@@ -11,17 +11,16 @@
 //! `#[inline(always)]`, so they inline here; prost's decode is not force-inlined the same way, so it
 //! gains from LTO + `codegen-units=1`. That is a real property of how each decoder is written -- a
 //! competitor optimizing poorly under the default profile is the competitor's trade-off, not a
-//! benchmark handicap -- so `--release` is a fair comparison. For transparency, LTO + `codegen-units=1`
-//! narrows prost's gap by up to ~1.5x on the compute-bound scenarios (the allocation/validation-bound
-//! shapes like `dataset` barely move -- that part is a model difference, not an optimization gap); add
+//! benchmark handicap -- so `--release` is a fair comparison. LTO + `codegen-units=1` speeds several
+//! competitors up a lot (femtopb most, on the packed shapes) and moves RapidProto much less; add
 //! `--config 'profile.release.lto="fat"' --config 'profile.release.codegen-units=1'` to see it.
 //!
 //! ```text
 //! # produce the shared payloads once (the C++ arena bench's, ~1.7 GB; keep them on disk):
 //! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_arena_bench
 //! # run pinned + aligned (the discipline note is runner.rs's), one run at a time, on a quiesced box:
-//! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6" \
-//!     taskset -c 0 cargo run -p rapidproto-bench --release --bin bench
+//! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
+//!     taskset -c 2 cargo run -p rapidproto-bench --release --bin bench
 //! ```
 //!
 //! GOOGLE-UPB CAPSTONE (feature `google-upb`, OFF by default): adds Google's official upb-backed
@@ -37,7 +36,7 @@
 //! cmake -S protobuf -B protobuf/_b -DCMAKE_BUILD_TYPE=Release -Dprotobuf_BUILD_TESTS=OFF
 //! cmake --build protobuf/_b --target protoc -j   # -> protobuf/_b/protoc-36.2.0
 //! RAPIDPROTO_UPB_PROTOC="$PWD/protobuf/_b/protoc-36.2.0" RAPIDPROTO_BENCH_DIR=<payloads> \
-//!     taskset -c 0 cargo run -p rapidproto-bench --release --bin bench --features google-upb
+//!     taskset -c 2 cargo run -p rapidproto-bench --release --bin bench --features google-upb
 //! ```
 
 use rapidproto_bench::runner::{self, Report};
@@ -47,10 +46,11 @@ fn main() {
     let report = Report {
         decoder: "rust-ecosystem",
         ub: has_unaligned_fixed_slice_ub,
-        legend: "‡ = this measurement relied on UNDEFINED BEHAVIOUR: the arm read a packed \
-                 fixed-width float field (`Big.reals`, `repeated double`) as an unaligned borrowed \
-                 slice. Correct on x86 here, but a misaligned reference -- flag it in any table built \
-                 from these numbers. (`ub_unaligned_fixed_slice` in the ndjson.)",
+        legend: "‡ = the arm's decoder for this message has UNDEFINED BEHAVIOUR: it reads the packed \
+                 fixed-width float field `Big.reals` (`repeated double`) as an unaligned borrowed \
+                 slice, on any payload that carries it (only `big` and `big_fixed` do). It happens to \
+                 work on x86, but the decoder is unsound -- flag it in any table built from these \
+                 numbers. (`ub_unaligned_fixed_slice` in the ndjson.)",
         // RapidProto's arms are the C++ bench's under Rust names; google-upb runs the upb kernel the
         // C++ `upb` arm does. The other competitors are Rust-only.
         cpp_arm: |arm| match arm {

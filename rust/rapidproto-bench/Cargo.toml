@@ -16,7 +16,7 @@ rapidproto = { path = "../rapidproto" }
 rustgen-golden = { path = "../rustgen-golden" }
 # Competitor: prost (materializes into owned Vec/String; the checksum walk reads every field so the
 # owned allocation is paid for, not elided).
-prost = "0.13"
+prost = "0.14"
 # Competitor: rust-protobuf, the 2nd most-used Rust protobuf crate. Also an owned model
 # (`parse_from_bytes` -> owned structs, UTF-8-validated); same read-every-field treatment.
 protobuf = "3"
@@ -53,8 +53,8 @@ compute = []
 rapidproto-build = { path = "../rapidproto-build" }
 # Pure-Rust protobuf compiler (no `protoc`): compiles bench.proto to a descriptor set that
 # prost-build turns into Rust.
-protox = "0.7"
-prost-build = "0.13"
+protox = "0.10"
+prost-build = "0.14"
 # rust-protobuf's codegen, driven with its pure-Rust parser (`.pure()`, no `protoc`).
 protobuf-codegen = "3"
 # quick-protobuf's codegen (also pure Rust, no `protoc`): renders bench.proto to its borrowed-view
@@ -82,7 +82,8 @@ path = "src/stream_main.rs"
 # The Rust-vs-Rust A/B bench for the generated `bench` decoder across the C++ arena bench's scenarios
 # (the 8 shapes, cold and warm, and the repeated-varint sweeps), over the shared payloads. Run it
 # PINNED and ALIGNED (see the bench header for the directory):
-#   RUSTFLAGS="-Cllvm-args=-align-all-functions=6" taskset -c 0 cargo bench -p rapidproto-bench --bench decode
+#   RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
+#       taskset -c 2 cargo bench -p rapidproto-bench --bench decode
 [[bench]]
 name = "decode"
 harness = false

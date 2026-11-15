@@ -8,23 +8,36 @@ use rustgen_golden::bench::arena::bench::{Big, BigSet, Dataset, ParticleSet, Rec
 use rustgen_golden::bench_records_sparse::arena::bench::RecordSet as SparseRecordSet;
 
 pub fn checksum_dataset(ds: &Dataset) -> u64 {
-    let mut sum = ds.name().as_bytes().len() as u64 ^ (ds.version() as u64);
+    let mut sum = (ds.version() as u64).wrapping_add(ds.name().len() as u64);
     for p in ds.people() {
         sum = sum
             .wrapping_add(p.id() as u64)
-            .wrapping_add(p.name().as_bytes().len() as u64)
-            .wrapping_add(p.email().as_bytes().len() as u64)
+            .wrapping_add(p.name().len() as u64)
+            .wrapping_add(p.email().len() as u64)
             .wrapping_add(u64::from(p.active()))
             .wrapping_add(p.score().to_bits())
-            .wrapping_add(p.created())
-            .wrapping_add(p.tags().len() as u64)
-            .wrapping_add(p.attributes().len() as u64)
-            .wrapping_add(p.counters().len() as u64);
+            .wrapping_add(p.created());
         if let Some(a) = p.address() {
-            sum = sum.wrapping_add(u64::from(a.zip()));
+            sum = sum
+                .wrapping_add(a.street().len() as u64)
+                .wrapping_add(a.city().len() as u64)
+                .wrapping_add(u64::from(a.zip()));
+        }
+        for t in p.tags() {
+            sum = sum.wrapping_add(t.len() as u64);
         }
         for &h in p.history() {
-            sum = sum.wrapping_add(h as u64);
+            sum = sum.wrapping_add(u64::from(h as u32));
+        }
+        for a in p.attributes() {
+            sum = sum
+                .wrapping_add(a.key().len() as u64)
+                .wrapping_add(a.value().len() as u64);
+        }
+        for (k, &v) in p.counters() {
+            sum = sum
+                .wrapping_add(k.len() as u64)
+                .wrapping_add(u64::from(v as u32));
         }
     }
     sum
@@ -58,16 +71,16 @@ pub fn checksum_wideset(ws: &WideSet) -> u64 {
     let mut sum = 0u64;
     for it in ws.items() {
         for &v in it.a() {
-            sum = sum.wrapping_add(v as u64);
+            sum = sum.wrapping_add(u64::from(v as u32));
         }
         for &v in it.b() {
-            sum = sum.wrapping_add(v as u64);
+            sum = sum.wrapping_add(u64::from(v as u32));
         }
         for &v in it.c() {
-            sum = sum.wrapping_add(v as u64);
+            sum = sum.wrapping_add(u64::from(v as u32));
         }
         for &v in it.d() {
-            sum = sum.wrapping_add(v as u64);
+            sum = sum.wrapping_add(u64::from(v as u32));
         }
         for x in it.s() {
             sum = sum.wrapping_add(x.len() as u64);

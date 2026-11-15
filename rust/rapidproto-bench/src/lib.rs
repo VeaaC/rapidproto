@@ -15,13 +15,13 @@
 //!
 //! CHECKSUM. On the shared shapes (`tests/bench/bench.proto`) every arm walks every field into one
 //! wrapping `u64` sum, so a lazy or owning decoder is not flattered by skipping work, and a scenario's
-//! arms must agree or the run aborts. Scalars follow the C++ arena bench (string/bytes -> length,
-//! bool -> 0/1, double -> IEEE bits, integers -> value); a repeated string, repeated message or map
-//! contributes its element COUNT where C++ sums the elements' lengths, so on these shapes the sum is a
-//! per-language gate, not a cross-language one. The messages are proto3 (absent fields read as zero),
-//! so walking every accessor equals walking the present fields. The real-world datasets use the C++
-//! walks, ported, instead. `records sparse (dropped)` sums the three fields its drop profile keeps,
-//! as C++ does.
+//! arms must agree or the run aborts. Every arm's walk is the C++ arena bench's, value for value
+//! (string/bytes -> length, bool -> 0/1, double -> IEEE bits, integers -> value with C++'s casts,
+//! and every element of a repeated field or map), so both languages do the same work and the arms
+//! must also equal the checksum the C++ dump records beside each shape. The messages are proto3
+//! (absent fields read as zero), so walking every accessor equals walking the present fields. The
+//! real-world datasets use the C++ walks, ported, too. `records sparse (dropped)` sums the three
+//! fields its drop profile keeps, as C++ does; the dump records no checksum for it.
 
 // RapidProto's cold and warm arms for message type `$ty`, `$ck` walking the decoded tree; the warm
 // arm owns its arena. Defined ahead of the modules using it.
@@ -193,18 +193,24 @@ pub fn recordset_sparse_arms() -> Vec<Arm> {
     ours::recordset_sparse()
 }
 
-/// Whether `arm`'s decode of `scenario` reads a packed fixed-width float field as an UNALIGNED
-/// borrowed slice -- undefined behaviour. Only quick-protobuf's zero-copy `read_packed_fixed` does
-/// this (see [`competitors::quick_protobuf`]), and only on the `Big`-shaped scenarios whose `reals`
-/// field is `repeated double`: it hands back a `&[f64]` pointing straight into the (align-1) input.
-/// Correct on x86 in a release build where the check is compiled out, but a misaligned reference --
-/// it aborts under debug UB-checks / Miri, and would misread on a big-endian host. (Our own arena
-/// decoder instead memcpy's packed fixed data into an aligned arena array, so it is sound.) The runner
-/// uses this to drop the arm from these scenarios in a debug build and to flag the measurement in the
-/// release table / ndjson, so the generated benchmark tables can mark it. The varint sweeps carry no
-/// `reals`, so they never take that path.
+/// Whether `arm`'s decoder for `scenario`'s message is unsound: it reads a packed fixed-width field as
+/// an UNALIGNED borrowed slice -- undefined behaviour whenever the input leaves the field's data
+/// misaligned.
+/// Only quick-protobuf's zero-copy `read_packed_fixed` does this (see [`competitors::quick_protobuf`]),
+/// and the schema's only packed fixed-width field is `Big.reals` (`repeated double`), so the unsound
+/// decoders are quick-protobuf's for `BigSet` (the `big*` shapes) and `Big` (the varint sweeps). It
+/// hands back a `&[f64]` pointing straight into the (align-1) input. Correct on x86 in a release build
+/// where the check is compiled out, but a misaligned reference -- it aborts under debug UB-checks /
+/// Miri, and would misread on a big-endian host. (Our own arena decoder instead memcpy's packed fixed
+/// data into an aligned arena array, so it is sound.) Only `big` and `big_fixed` fill `reals`
+/// (tests/bench_arena.cpp), so only their runs execute the misaligned read, but a decoder that is
+/// unsound for its message is flagged on every payload of it. The runner uses this to drop the arm
+/// from these scenarios in a debug build and to flag the measurement in the release table / ndjson,
+/// so the generated benchmark tables can mark it.
 pub fn has_unaligned_fixed_slice_ub(scenario: &str, arm: &str) -> bool {
-    arm == "quick-protobuf" && matches!(scenario, "big" | "big_varint" | "big_fixed" | "big_osm")
+    let decodes_big = matches!(scenario, "big" | "big_varint" | "big_fixed" | "big_osm")
+        || scenario.starts_with("rv");
+    arm == "quick-protobuf" && decodes_big
 }
 
 /// The arena scenarios, in the C++ bench's order: `dataset` (with the arena memory report), the
@@ -222,6 +228,7 @@ pub fn scenario_specs() -> Vec<Scenario> {
         source: Source::Arena(name),
         arms,
         mem: None,
+        cpp_sum: true,
     };
     let mut out = vec![Scenario {
         mem: Some(ours::dataset_memory),
@@ -239,9 +246,11 @@ pub fn scenario_specs() -> Vec<Scenario> {
             Some("scalar records (dispatch-bound)"),
             recordset_arms,
         ),
+        // `records`' input, but the drop profile keeps three fields, so `records.sum` is not its sum.
         Scenario {
             name: "records sparse (dropped)".to_string(),
             cpp_name: Some("records sparse (dropped)".to_string()),
+            cpp_sum: false,
             ..shape("records", None, recordset_sparse_arms)
         },
         shape("particles", None, particleset_arms),
@@ -252,6 +261,7 @@ pub fn scenario_specs() -> Vec<Scenario> {
         name,
         arms,
         mem: None,
+        cpp_sum: false,
     };
     for dist in payloads::varint_dists() {
         for count in payloads::VARINT_LENGTHS {

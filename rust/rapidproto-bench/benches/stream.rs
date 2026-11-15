@@ -8,8 +8,9 @@
 //!
 //! ```text
 //! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_bench
-//! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6" \
-//!     taskset -c 0 cargo bench -p rapidproto-bench --bench stream
+//! RAPIDPROTO_BENCH_DIR=<dir> \
+//!     RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
+//!     taskset -c 2 cargo bench -p rapidproto-bench --bench stream
 //! ```
 //!
 //! Run discipline and units as the arena bench (`benches/decode.rs`). The 90 varint-sweep scenarios

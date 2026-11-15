@@ -9,17 +9,20 @@
 //! Decode entry is `M::from_reader(&mut BytesReader, bytes)` -- the top-level (non-length-delimited)
 //! read; `deserialize_from_slice` is NOT used, it reads a length prefix our bare payloads don't have.
 //!
-//! SOUNDNESS (UB): the zero-copy win on packed fixed-width floats is unsound. For `Big.reals`
-//! (`repeated double`) pb-rs emits a `Cow<'a, [f64]>` filled by `BytesReader::read_packed_fixed`,
-//! which does `slice::from_raw_parts(input_ptr as *const f64, n)` with NO alignment handling -- a
-//! misaligned `&[f64]` into the align-1 input. It is correct on x86 in a release build (the alignment
-//! UB-check is compiled out) but genuine UB: it aborts under debug UB-checks / Miri and would misread
-//! on a big-endian host. (Our arena decoder instead memcpy's packed fixed data into an aligned arena
-//! array -- sound, and the per-field `reals` checksum still agrees on x86.) So this arm is measured in
-//! RELEASE ONLY: the runner drops it from the packed-double scenarios in a debug build and flags its
-//! rows there in release (`has_unaligned_fixed_slice_ub`), and the `bigset` agreement test is
-//! release-only. Only packed fixed-width floats hit this; strings (`Cow<str>`, align 1) and
-//! varint-packed ints (`Vec`, decoded) are fine.
+//! SOUNDNESS (UB): the zero-copy win on packed fixed-width fields is unsound. For every packed
+//! fixed-width field (wire types 1 and 5; in bench.proto only `Big.reals`, `repeated double`) pb-rs
+//! emits a `Cow<'a, [T]>` filled by `BytesReader::read_packed_fixed`, which does
+//! `slice::from_raw_parts(input_ptr as *const T, n)` with NO alignment handling -- a `&[f64]` into the
+//! align-1 input, misaligned whenever the input puts the data off an 8-byte boundary. It is correct on
+//! x86 in a release build (the alignment UB-check is compiled out) but genuine UB: it aborts under
+//! debug UB-checks and would misread on a big-endian host. Miri rejects it twice over: the default
+//! Stacked Borrows model on any input where the field is non-empty (the slice is cast from a one-byte
+//! `&u8`, so its provenance covers one byte), and Tree Borrows on the unaligned `&[f64]`. (Our arena
+//! decoder instead memcpy's packed fixed data into an aligned arena array -- sound, and the per-field
+//! `reals` checksum still agrees on x86.) So this arm's decoders for `BigSet` and `Big` are unsound,
+//! and the runner treats every scenario that decodes them as UB (`has_unaligned_fixed_slice_ub`): it
+//! drops the arm there in a debug build and flags its rows in release; the `bigset` agreement test is
+//! release-only. Strings (`Cow<str>`, align 1) and varint-packed ints (`Vec`, decoded) are fine.
 //!
 //! FEATURE GAP: pb-rs generates CLOSED enums -- `From<i32>` maps any unknown value to the default
 //! (`_ => Self::default()`), so an out-of-range proto3 open-enum value is silently lost. The shared
@@ -79,7 +82,7 @@ pub fn particleset() -> Arm {
 }
 
 fn checksum_dataset(ds: &pb::Dataset) -> u64 {
-    let mut sum = ds.name.len() as u64 ^ (ds.version as u64);
+    let mut sum = (ds.version as u64).wrapping_add(ds.name.len() as u64);
     for p in &ds.people {
         sum = sum
             .wrapping_add(p.id as u64)
@@ -87,15 +90,28 @@ fn checksum_dataset(ds: &pb::Dataset) -> u64 {
             .wrapping_add(p.email.len() as u64)
             .wrapping_add(u64::from(p.active))
             .wrapping_add(p.score.to_bits())
-            .wrapping_add(p.created)
-            .wrapping_add(p.tags.len() as u64)
-            .wrapping_add(p.attributes.len() as u64)
-            .wrapping_add(p.counters.len() as u64);
+            .wrapping_add(p.created);
         if let Some(a) = &p.address {
-            sum = sum.wrapping_add(u64::from(a.zip));
+            sum = sum
+                .wrapping_add(a.street.len() as u64)
+                .wrapping_add(a.city.len() as u64)
+                .wrapping_add(u64::from(a.zip));
+        }
+        for t in &p.tags {
+            sum = sum.wrapping_add(t.len() as u64);
         }
         for &h in &p.history {
-            sum = sum.wrapping_add(h as u64);
+            sum = sum.wrapping_add(u64::from(h as u32));
+        }
+        for a in &p.attributes {
+            sum = sum
+                .wrapping_add(a.key.len() as u64)
+                .wrapping_add(a.value.len() as u64);
+        }
+        for (k, &v) in &p.counters {
+            sum = sum
+                .wrapping_add(k.len() as u64)
+                .wrapping_add(u64::from(v as u32));
         }
     }
     sum
@@ -128,16 +144,16 @@ fn checksum_wideset(ws: &pb::WideSet) -> u64 {
     let mut sum = 0u64;
     for it in &ws.items {
         for &v in &it.a {
-            sum = sum.wrapping_add(v as u64);
+            sum = sum.wrapping_add(u64::from(v as u32));
         }
         for &v in &it.b {
-            sum = sum.wrapping_add(v as u64);
+            sum = sum.wrapping_add(u64::from(v as u32));
         }
         for &v in &it.c {
-            sum = sum.wrapping_add(v as u64);
+            sum = sum.wrapping_add(u64::from(v as u32));
         }
         for &v in &it.d {
-            sum = sum.wrapping_add(v as u64);
+            sum = sum.wrapping_add(u64::from(v as u32));
         }
         for x in &it.s {
             sum = sum.wrapping_add(x.len() as u64);

@@ -22,8 +22,9 @@
 //!
 //! ```text
 //! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_arena_bench
-//! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6" \
-//!     taskset -c 0 cargo bench -p rapidproto-bench --bench decode
+//! RAPIDPROTO_BENCH_DIR=<dir> \
+//!     RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
+//!     taskset -c 2 cargo bench -p rapidproto-bench --bench decode
 //! ```
 //!
 //! Run discipline as the runners' (`src/runner.rs`). Criterion does not report instructions/byte, the

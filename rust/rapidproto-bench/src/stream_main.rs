@@ -6,8 +6,8 @@
 //! ```text
 //! # produce the shared payloads once (from the C++ bench; ~1.2 GB, keep it on disk):
 //! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_bench
-//! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6" \
-//!     taskset -c 0 cargo run -p rapidproto-bench --release --bin stream
+//! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
+//!     taskset -c 2 cargo run -p rapidproto-bench --release --bin stream
 //! ```
 
 use rapidproto_bench::runner::{self, Report};
