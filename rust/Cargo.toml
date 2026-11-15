@@ -8,6 +8,11 @@ members = ["rapidproto", "rapidproto-build", "rapidproto-diff", "rustgen-golden"
 # `rapidproto-bench --features google-upb` opts in. See rapidproto-bench-upb/Cargo.toml.
 exclude = ["rapidproto-bench-upb"]
 
+# The published crates' minimum Rust version, inherited by both. CI's `msrv` job builds with it and
+# checks that the root README's quick start names it.
+[workspace.package]
+rust-version = "1.91"
+
 # rapidproto-build's tests run the wasm generator in wasmi, which unoptimized takes minutes for the
 # goldens: optimize the interpreter in this workspace's debug builds. Cargo reads profiles from the
 # root manifest of the workspace being built, so a consumer's own workspace is unaffected.

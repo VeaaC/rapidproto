@@ -1,8 +1,8 @@
 # Rust support CI — runs only on the `rust` feature branch and PRs targeting it, so `main`'s C++
-# gate is untouched. Lint, tests and the ecosystem bench's tests run as parallel jobs, beside the
-# minimum supported Rust version, the docs.rs build, the wasm-blob staleness gate, both generators
-# on macOS and Windows, Miri (arena provenance/borrows), and a libFuzzer+ASan smoke over the arena
-# decoder.
+# gate is untouched. Lint, tests and the ecosystem bench's tests run as parallel jobs, beside a
+# build at the minimum supported Rust version, the docs.rs build, the wasm-blob staleness gate, both
+# generators on macOS and Windows, Miri (arena provenance/borrows), and a libFuzzer+ASan smoke over
+# the arena decoder.
 #
 # The `rapidproto` runtime crate's no-alloc tier is tested and linted on its own (`-p rapidproto`),
 # and also runs under Miri: in a workspace command that builds tests, rustgen-golden's
@@ -72,8 +72,10 @@ jobs:
           cargo doc -p rustgen-golden --no-deps --no-default-features
 
   docs-rs:
-    # The published crates' docs as docs.rs builds them: on nightly, from each crate's
-    # `[package.metadata.docs.rs]`.
+    # The published crates as docs.rs gets them: packaged, so a file the package leaves out fails here
+    # instead of on docs.rs. The docs build on nightly from each crate's `[package.metadata.docs.rs]`,
+    # which gives rapidproto-build only the wasm generator. Its native generator is built from the
+    # package separately, alone: with both generators, a missing C++ file falls back to wasm unnoticed.
     runs-on: ubuntu-latest
     env:
       RUSTDOCFLAGS: -D warnings
@@ -81,18 +83,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
       - uses: dtolnay/install@cargo-docs-rs
-      - name: Docs
+      - name: Package the crates
+        run: cargo package -p rapidproto -p rapidproto-build --no-verify
+      # `-D warnings` lets links to `#[doc(hidden)]` items through, so the rendered links are checked
+      # too.
+      - name: Docs from the packages
         run: |
-          cargo docs-rs -p rapidproto
-          cargo docs-rs -p rapidproto-build
-      # `-D warnings` lets links to `#[doc(hidden)]` items through.
-      - name: Rendered doc links
-        run: python3 ../tests/rustdoc_check.py target/x86_64-unknown-linux-gnu/doc rapidproto rapidproto_build
-      # The same from the packaged crates, which is what docs.rs builds: a file the package leaves out
-      # fails here instead of on docs.rs.
-      - name: Docs from the packaged crates
-        run: |
-          cargo package -p rapidproto -p rapidproto-build --no-verify
           for crate in rapidproto rapidproto-build; do
             dir="$RUNNER_TEMP/$crate"
             mkdir -p "$dir"
@@ -100,6 +96,9 @@ jobs:
             (cd "$dir" && cargo docs-rs &&
               python3 "$GITHUB_WORKSPACE/tests/rustdoc_check.py" target/x86_64-unknown-linux-gnu/doc "${crate//-/_}")
           done
+      - name: Build the packaged native generator
+        working-directory: ${{ runner.temp }}/rapidproto-build
+        run: cargo build --no-default-features --features native
 
   test:
     runs-on: ubuntu-latest
@@ -162,17 +161,19 @@ jobs:
         run: cargo test -p rapidproto-bench --release
 
   msrv:
-    # The `rust-version` both published crates declare: the runtime at both tiers, then the consumer
-    # example, which builds rapidproto-build with both generators and decodes through generated code.
+    # The `rust-version` both published crates inherit from the workspace: the runtime at both tiers,
+    # the generated code of every golden at both tiers (with its serde impls), the `rapidproto-rust`
+    # tool, and the consumer example, which decodes through generated code. Generated modules allow
+    # all lints, so clippy's `incompatible_msrv` cannot see them, and only this build checks them.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Read the MSRV
         id: msrv
         run: |
-          version=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' rapidproto/Cargo.toml)
+          version=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
           test -n "$version"
-          grep -qx "rust-version = \"$version\"" rapidproto-build/Cargo.toml
+          grep -qF "You need Rust $version or newer" ../README.md
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: dtolnay/rust-toolchain@master
         with:
@@ -185,6 +186,11 @@ jobs:
         run: |
           cargo test -p rapidproto
           cargo test -p rapidproto --no-default-features
+      - name: Build the generated goldens and the CLI
+        run: |
+          cargo build -p rustgen-golden
+          cargo build -p rustgen-golden --no-default-features
+          cargo build -p rapidproto-build
       - name: Run the consumer example
         run: cargo run -p consumer-example
 

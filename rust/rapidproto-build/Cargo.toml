@@ -2,8 +2,7 @@
 name = "rapidproto-build"
 version = "0.1.0-alpha.1"
 edition = "2021"
-# Kept equal in both published crates; CI's `msrv` job builds and tests with it.
-rust-version = "1.91"
+rust-version.workspace = true
 license = "Apache-2.0"
 description = "Generates RapidProto's Rust decoders for Protobuf schemas in a build script, without protoc."
 repository = "https://github.com/VeaaC/rapidproto/tree/rust"
