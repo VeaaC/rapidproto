@@ -20,8 +20,9 @@ reserved wire types, and group nesting are all detected and depth-capped.
 
 Note on memory bounds: the arena model materializes the decoded tree, which can legitimately be
 larger than the wire bytes; `Arena::set_capacity_limit()` is the lever that bounds it (a decode
-that would exceed the cap fails cleanly with `OutOfMemory`). A way to allocate unboundedly *past a
-configured cap* is in scope; unbounded growth with no cap configured is working as documented.
+that would exceed the cap fails cleanly with `OutOfMemory`, or `ErrorKind::ArenaExhausted` in
+Rust). A way to allocate unboundedly *past a configured cap* is in scope; unbounded growth with no
+cap configured is working as documented.
 
 ## Out of scope
 
@@ -38,7 +39,7 @@ Memory safety on untrusted input is exercised by libFuzzer harnesses over the wi
 and both decode models, run under AddressSanitizer + UndefinedBehaviorSanitizer (`./check.sh deep`,
 which CI runs on every pull request). A fourth harness covers the schema front-end under the same
 sanitizers: a malformed schema must diagnose, not crash. On the Rust side, a libFuzzer harness runs
-over the generated arena decoder under AddressSanitizer, and the runtime's and the generated code's
+over generated arena decoders under AddressSanitizer, and the runtime's and the generated code's
 tests also run under Miri. Rust CI runs both on every pull request.
 
 ## Reporting a vulnerability

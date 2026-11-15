@@ -1,9 +1,9 @@
 # Contributing to RapidProto
 
-RapidProto is a **decode-only** Protobuf decoder + code generator for
-C++17 and Rust (see [Rust](#rust)). Before changing anything, skim [architecture.md](architecture.md); Part I is a ~10-minute
-tour of the pipeline, the two decode models (arena + streaming), and the invariants a change must
-not break.
+RapidProto is a **decode-only** Protobuf decoder + code generator for C++17 and Rust (see
+[Rust](#rust)). Before changing anything, skim [architecture.md](architecture.md); Part I is a
+~10-minute tour of the pipeline, the two decode models (arena + streaming), and the invariants a
+change must not break.
 
 ## Toolchain
 
@@ -100,7 +100,9 @@ behind an unrelated failure.
 `tests/differential.py` builds random messages with protobuf's own reflection, serializes them,
 decodes the same bytes with the generated arena decoder, and compares **every field**. Goldens pin
 what the generator emits; this pins what the generated code *means*, against an independent
-implementation.
+implementation. When `cargo` and `rustc` are installed, it also decodes every payload with the
+generated Rust arena decoder and compares that too. If the Rust side fails to build, the stage
+fails.
 
 ```bash
 python3 tests/differential.py                      # every tests/corpus schema (a check.sh stage)
@@ -187,21 +189,28 @@ is silently unpinned, since a package/namespace shape can fail in ways no compil
 ## Rust
 
 The Rust crates are a Cargo workspace under `rust/`, which [rust/README.md](rust/README.md)
-describes. `./check.sh` does not build them. Rust CI (`.github/workflows/rust-ci.yml`) runs on every
-pull request, including one that changes only C++, because the Rust generator in `src/rustgen/` is
-C++ and shares the front-end with `rapidprotoc`. From `rust/`,
-`cargo test --workspace --exclude rapidproto-bench --all-features` runs most of its tests.
+describes. `./check.sh` does not test or lint them. Its differential stage builds two of them when
+`cargo` is installed (see [the differential](#the-differential-against-protobuf)).
 
-`rapidproto-build` ships the generator twice: as a copy of its sources and headers in
+Rust CI (`.github/workflows/rust-ci.yml`) runs on every pull request. A change to C++ alone can
+break it, because the Rust generator in `src/rustgen/` is C++ and shares the front-end with
+`rapidprotoc`. From `rust/`, `cargo test --workspace --exclude rapidproto-bench --all-features` runs
+most of the Rust tests. Rust CI also fails on `cargo fmt --all --check` and on clippy warnings, and
+`rust-ci.yml` has the exact commands.
+
+`rapidproto-build` ships the generator twice: as a copy of its sources in
 `rust/rapidproto-build/cpp/`, and as a WebAssembly build in `rust/rapidproto-build/wasm/`. The copy
-includes the front-end, the codegen layer and the runtime headers, and its `version.hpp` comes from
-`project(VERSION)`. After changing a copied file or the version, run
+is the generator's translation units and every project header they include. That takes in the
+front-end, the codegen layer, the arena layout planner, and `runtime.hpp` and `arena_runtime.hpp`
+with the headers they include. Its `version.hpp` comes from `project(VERSION)`. After changing one
+of those files, `src/rustgen/wasm_entry.cpp` or the version, run
 `rust/rapidproto-build/wasm/build-wasm.sh` and commit what it writes. It needs wasi-sdk 34.0.
 `rust/rapidproto-build/wasm/check-wasm.sh` tells you whether both are up to date, and Rust CI fails
 when they are not.
 
 `tests/regen_goldens.sh` also rewrites the Rust goldens in `rust/rustgen-golden/` and the runtime's
-documentation example in `rust/rapidproto/src/example/`.
+documentation example in `rust/rapidproto/src/example/`. `./check.sh` does not compile them, so run
+the cargo command above after regenerating.
 
 ## Pull requests
 

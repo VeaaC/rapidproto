@@ -9,22 +9,21 @@ not a reachability probe."""
 import glob
 import os
 import re
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def doc_files():
-    # The Rust READMEs link into the C++ docs, so a renamed heading there breaks them too. Cargo's
-    # target/ directories are build output.
-    rust = [p for p in glob.glob(os.path.join(ROOT, "rust", "**", "*.md"), recursive=True)
-            if "target" not in os.path.relpath(p, ROOT).split(os.sep)]
-    return sorted(
-        glob.glob(os.path.join(ROOT, "*.md"))
-        + glob.glob(os.path.join(ROOT, "docs", "*.md"))
-        + glob.glob(os.path.join(ROOT, "examples", "**", "*.md"), recursive=True)
-        + rust
-    )
+    # The file list comes from git, as in check.sh's stale-spellings scan. A filesystem walk also
+    # reads untracked trees, such as a scratch worktree or Cargo's target/, so the verdict would
+    # depend on files outside the commit. The rust/ READMEs link into the root README and docs/.
+    listed = subprocess.run(
+        ["git", "-C", ROOT, "ls-files", "-z", "--", ":(glob)*.md", ":(glob)docs/*.md",
+         ":(glob)examples/**/*.md", ":(glob)rust/**/*.md"],
+        check=True, capture_output=True).stdout.decode("utf-8")
+    return sorted(os.path.join(ROOT, p) for p in listed.split("\0") if p)
 
 
 def strip_fenced(text):
