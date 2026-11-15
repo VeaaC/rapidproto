@@ -207,8 +207,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Smoke-test the native generator
         run: cargo test -p rapidproto-build --no-default-features --features native --test smoke
+      # In release on Windows: this workspace's debug builds crash wasmi there (see the profile
+      # overrides in rust/Cargo.toml).
       - name: Smoke-test both generators
-        run: cargo test -p rapidproto-build --test smoke
+        run: cargo test -p rapidproto-build --test smoke ${{ runner.os == 'Windows' && '--release' || '' }}
 
   wasm-blob:
     # The rapidproto-build crate ships the generator committed in two forms: a wasm blob and a copy

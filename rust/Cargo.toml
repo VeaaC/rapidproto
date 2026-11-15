@@ -16,6 +16,9 @@ rust-version = "1.91"
 # rapidproto-build's tests run the wasm generator in wasmi, which unoptimized takes minutes for the
 # goldens: optimize the interpreter in this workspace's debug builds. Cargo reads profiles from the
 # root manifest of the workspace being built, so a consumer's own workspace is unaffected.
+# On x86_64 Windows, wasmi 2.0.0 crashes on its first host call when it is optimized and the crate
+# embedding it is not (https://github.com/wasmi-labs/wasmi/issues/2061), so on Windows the wasm
+# generator works here only in release builds, and CI tests it that way.
 [profile.dev.package.wasmi]
 opt-level = 3
 [profile.dev.package.wasmi_core]
