@@ -255,18 +255,17 @@ int main(int argc, char** argv) {
             rapidproto::codegen::effective_ns_prefix(opts->namespace_prefix),
             std::string(rapidproto::codegen::kStreamRoot));
     }
-    // One resolved profile drives both the arena and the Rust generators (whichever is requested).
-    rapidproto::arenagen::FieldModes modes;  // inactive unless a selection resolved
-    if (modes_requested) {
-        auto resolved = rapidproto::arenagen::resolve_field_modes(modes_spec, set, symbols);
-        if (resolved.is_err()) {
-            std::cerr << "error: " << resolved.error().message << '\n';
-            return 1;
-        }
-        modes = std::move(resolved).value();
-    }
     std::optional<rapidproto::arenagen::LayoutSet> layouts;
-    if (arena) {  // the arena model (and --dump, which implies it) plans storage layout
+    rapidproto::arenagen::FieldModes modes;  // inactive unless a selection resolved
+    if (arena) {
+        if (modes_requested) {
+            auto resolved = rapidproto::arenagen::resolve_field_modes(modes_spec, set, symbols);
+            if (resolved.is_err()) {
+                std::cerr << "error: " << resolved.error().message << '\n';
+                return 1;
+            }
+            modes = std::move(resolved).value();
+        }
         rapidproto::arenagen::LayoutOptions options;
         options.modes = &modes;
         layouts = rapidproto::arenagen::plan_layouts(set, symbols, options);

@@ -1,5 +1,6 @@
-# Rust support CI — runs only on the `rust` feature branch and PRs targeting it, so `main`'s C++
-# gate is untouched. Lint, tests and the ecosystem bench's tests run as parallel jobs, beside a
+# Rust CI, beside the C++ one (ci.yml) on every push to main and every pull request. A C++ change
+# can break the Rust side too: the generator is C++, and rapidproto-build ships a copy of its sources
+# and a wasm build of it. Lint, tests and the ecosystem bench's tests run as parallel jobs, beside a
 # build at the minimum supported Rust version, the docs.rs build, the wasm-blob staleness gate, both
 # generators on macOS and Windows, Miri (arena provenance/borrows), and a libFuzzer+ASan smoke over
 # the arena decoder.
@@ -11,9 +12,8 @@ name: Rust CI
 
 on:
   push:
-    branches: [rust]
+    branches: [main]  # feature-branch pushes are gated by their PR run, not double-run
   pull_request:
-    branches: [rust]
 
 concurrency:
   group: rust-ci-${{ github.ref }}
@@ -41,12 +41,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      # Dependencies only (the workspace's own crates always rebuild), saved from `rust` pushes so
+      # Dependencies only (the workspace's own crates always rebuild), saved from `main` pushes so
       # a PR starts from its base branch's cache.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-          save-if: ${{ github.ref == 'refs/heads/rust' }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Format
         run: cargo fmt --all --check
       - name: Clippy
@@ -110,7 +110,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-          save-if: ${{ github.ref == 'refs/heads/rust' }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Test
         run: cargo test --workspace --exclude rapidproto-bench --all-features
       # Selected alone, so neither the generated code nor rapidproto has serde here. In a workspace
@@ -149,7 +149,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-          save-if: ${{ github.ref == 'refs/heads/rust' }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Test the ecosystem bench (debug, default features)
         run: cargo test -p rapidproto-bench
       # rapidproto-bench's quick-protobuf arm decodes `Big.reals` (repeated double) by borrowing the
@@ -181,7 +181,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-          save-if: ${{ github.ref == 'refs/heads/rust' }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Test the runtime
         run: |
           cargo test -p rapidproto

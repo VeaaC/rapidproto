@@ -222,23 +222,11 @@ target_link_libraries(rapidproto_dumpgen_lib PUBLIC rapidproto_lib rapidproto_co
                                                     rapidproto_arenagen_lib
                                              PRIVATE rapidproto_strict)
 
-# Native Rust code generator: emits Rust decoders (the counterpart to arenagen/streamgen). Generated
-# Rust depends only on the `rapidproto` runtime crate, never on this generator. Built on the shared
-# front-end + codegen layer; its own Rust naming lives in include/rapidproto/rustgen/names.hpp.
-add_library(rapidproto_rustgen_lib STATIC src/rustgen/generator.cpp
-  # The request frame the rapidproto-build crate drives the generator with (built here so the C++
-  # tests and strict flags cover it).
-  src/rustgen/frame.cpp)
-target_link_libraries(rapidproto_rustgen_lib PUBLIC rapidproto_lib rapidproto_codegen_lib
-                                                    rapidproto_arenagen_lib
-                                             PRIVATE rapidproto_strict)
-
 # The unified code-generator CLI: one tool emitting the arena and/or streaming decoder (+ the shared
-# common header) from a single parse. Built on ALL emitter libraries; replaces the old per-model CLIs.
+# common header) from a single parse, built on all three C++ emitter libraries.
 add_executable(rapidprotoc src/rapidprotoc/main.cpp)
 target_link_libraries(rapidprotoc
-  PRIVATE rapidproto_arenagen_lib rapidproto_streamgen_lib rapidproto_dumpgen_lib
-          rapidproto_rustgen_lib rapidproto_strict)
+  PRIVATE rapidproto_arenagen_lib rapidproto_streamgen_lib rapidproto_dumpgen_lib rapidproto_strict)
 
 # Stable, source-agnostic handle: find_package(rapidproto) exposes the same name, so a downstream
 # rapidproto_generate() works whether the CLI is installed or built in-tree.
@@ -312,6 +300,14 @@ if(RAPIDPROTO_BUILD_TESTS)
   add_library(catch2_vendored STATIC tests/catch_amalgamated.cpp)
   target_include_directories(catch2_vendored SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/tests)
   target_compile_features(catch2_vendored PUBLIC cxx_std_17)
+
+  # The Rust code generator. The rapidproto-build crate compiles its own copy of these sources (its
+  # cpp/ directory, written by rust/rapidproto-build/wasm/build-wasm.sh), so only the tests build it
+  # here, under the strict flags. Its Rust naming lives in include/rapidproto/rustgen/names.hpp.
+  add_library(rapidproto_rustgen_lib STATIC src/rustgen/generator.cpp src/rustgen/frame.cpp)
+  target_link_libraries(rapidproto_rustgen_lib PUBLIC rapidproto_lib rapidproto_codegen_lib
+                                                      rapidproto_arenagen_lib
+                                               PRIVATE rapidproto_strict)
 
   add_executable(rapidproto_tests
     src/header_self_contained.cpp  # headers compile standalone under strict flags

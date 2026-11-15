@@ -397,11 +397,7 @@ inline std::vector<PlannedOutput> plan_outputs(const Options& opts, const Resolv
         if (models.dump) {
             plan.push_back({header_path("", file, ".rp.dump.hpp"), &file, OutputKind::Dump, entry});
         }
-        // The common header (the schema's enums) serves every model.
-        if (models.arena || models.stream || models.dump) {
-            plan.push_back(
-                {header_path("", file, ".rp.common.hpp"), &file, OutputKind::Common, entry});
-        }
+        plan.push_back({header_path("", file, ".rp.common.hpp"), &file, OutputKind::Common, entry});
     };
     std::vector<const FileNode*> entry_files;
     for (const std::string& entry : opts.entries) {
@@ -422,11 +418,8 @@ inline std::vector<PlannedOutput> plan_outputs(const Options& opts, const Resolv
             plan_file(file, /*entry=*/false);
         }
     }
-    // The self-contained runtime copies.
-    if (models.arena || models.stream || models.dump) {
-        plan.push_back({std::filesystem::path("rapidproto") / "runtime.hpp", nullptr,
-                        OutputKind::Runtime, false});
-    }
+    plan.push_back(
+        {std::filesystem::path("rapidproto") / "runtime.hpp", nullptr, OutputKind::Runtime, false});
     if (models.arena) {
         plan.push_back({std::filesystem::path("rapidproto") / "arena_runtime.hpp", nullptr,
                         OutputKind::ArenaRuntime, false});
