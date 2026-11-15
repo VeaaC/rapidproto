@@ -3542,7 +3542,7 @@ std::string file_checks(const std::string& module_path) {
         "const _: () = $p$::rp_check::C; // This path must be where this file is included.\n",
         {{"p", module_path}});
     printer.print(
-        "const _: () = assert!(::rapidproto::GENERATED_ABI == $abi$, \"rapidproto and "
+        "const _: () = ::core::assert!(::rapidproto::GENERATED_ABI == $abi$, \"rapidproto and "
         "rapidproto-build must be the same version\");\n",
         {{"abi", std::to_string(kGeneratedAbi)}});
     printer.outdent();

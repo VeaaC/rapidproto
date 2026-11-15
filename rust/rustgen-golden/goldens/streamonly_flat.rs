@@ -5,7 +5,7 @@
 mod rp_check {
   const C: () = ();
   const _: () = crate::streamonly_flat::rp_check::C; // This path must be where this file is included.
-  const _: () = assert!(::rapidproto::GENERATED_ABI == 1, "rapidproto and rapidproto-build must be the same version");
+  const _: () = ::core::assert!(::rapidproto::GENERATED_ABI == 1, "rapidproto and rapidproto-build must be the same version");
 }
 
 #[allow(warnings, dead_code, unused_imports, unused_macros, unused_mut, unused_variables, nonstandard_style, unreachable_pub, single_use_lifetimes, unused_qualifications, clippy::all, clippy::pedantic, clippy::nursery, clippy::restriction)]

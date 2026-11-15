@@ -5,7 +5,7 @@
 mod rp_check {
   const C: () = ();
   const _: () = crate::expanded::rp_check::C; // This path must be where this file is included.
-  const _: () = assert!(::rapidproto::GENERATED_ABI == 1, "rapidproto and rapidproto-build must be the same version");
+  const _: () = ::core::assert!(::rapidproto::GENERATED_ABI == 1, "rapidproto and rapidproto-build must be the same version");
 }
 
 /// The schema's enums.
