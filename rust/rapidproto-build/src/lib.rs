@@ -59,6 +59,19 @@
 //! opt-level = 3
 //! ```
 //!
+//! # Deeply nested schemas
+//!
+//! rustc stops instantiating generic code that nests too deeply, at 128 levels by default. The
+//! generated code nests one level for each message type in a chain of message fields. A schema with
+//! a chain of more than about 128 different message types, each a field of the one before, can stop
+//! the build with `reached the recursion limit while instantiating`. A large schema whose messages
+//! refer to each other can contain such a chain. Raise the limit at the root of the crate that
+//! includes the generated code:
+//!
+//! ```
+//! #![recursion_limit = "256"]
+//! ```
+//!
 //! [`rapidproto`]: https://docs.rs/rapidproto/latest/rapidproto/
 //! [`example`]: https://docs.rs/rapidproto/latest/rapidproto/example/index.html
 //! [stream decoders]: Config::stream
