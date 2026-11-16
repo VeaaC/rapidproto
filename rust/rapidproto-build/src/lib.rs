@@ -59,6 +59,23 @@
 //! opt-level = 3
 //! ```
 //!
+//! # Deeply nested schemas
+//!
+//! The Rust compiler stops instantiating generic code that nests too deeply, at 128 levels by
+//! default. The generated code nests one level for each message type in a chain of message fields,
+//! and two levels for a `repeated` field. A chain of more than about 128 different message types,
+//! each a field of the one before, can stop the build with `reached the recursion limit while
+//! instantiating`. A chain of more than about 64 `repeated` fields can stop it too. A large schema
+//! whose messages refer to each other can contain such a chain. Raise the limit at the root of each
+//! crate that fails to build:
+//!
+//! ```
+//! #![recursion_limit = "256"]
+//! ```
+//!
+//! With [`serde::Serialize`] impls, a crate that serializes the messages can fail as well. It needs
+//! the attribute too, even when the error points into the generated file of another crate.
+//!
 //! [`rapidproto`]: https://docs.rs/rapidproto/latest/rapidproto/
 //! [`example`]: https://docs.rs/rapidproto/latest/rapidproto/example/index.html
 //! [stream decoders]: Config::stream
