@@ -85,8 +85,9 @@ inline std::string length_tag(int count) {
 
 // `count` int64 element values under `dist`, deterministic (seeded from the mode and `seed`). `seed`
 // selects an independent buffer with the SAME distribution but a different width/value SEQUENCE -- the
-// bench rotates over many seeds so the branch predictor can't memorize one sequence (which would make a
-// replayed byte loop look artificially fast, since production decodes each buffer once on fresh data).
+// bench decodes a pool of many seeds so the branch predictor can't memorize one sequence (which would
+// make a replayed byte loop look artificially fast, since production decodes each buffer once on fresh
+// data).
 inline std::vector<std::int64_t> varint_values(const VarintDist& dist, int count,
                                                std::uint64_t seed = 0) {
     std::vector<std::int64_t> out;
@@ -126,6 +127,19 @@ inline std::string rv_scenario_name(const VarintDist& dist, int count) {
     return "rv " + dist.label + " " + length_tag(count);
 }
 
+// The arena bench's per-type sweep (`rv-zz <dist> 1M`, `rv-enum <dist> 1M`): the same packed varints
+// carried by the sint64 / enum field, so only the per-element conversion differs.
+inline std::string rv_type_scenario_name(const char* tag, const VarintDist& dist, int count) {
+    return std::string("rv-") + tag + " " + dist.label + " " + length_tag(count);
+}
+
+// A scenario name as a file-name stem: spaces become `-` ("rv fx1 10" -> "rv-fx1-10"). Names the
+// pool's file in the shared payload layout (bench_payloads.hpp), which the Rust bench mirrors.
+inline std::string payload_stem(std::string name) {
+    std::replace(name.begin(), name.end(), ' ', '-');
+    return name;
+}
+
 // The wire bytes of a message carrying one packed varint field (`field_number`, wire type 2) with these
 // values as raw varints -- field 1 is bench.Big.numbers (int64); passing field 3 (sint64 `zz`) or 4
 // (enum `kinds`) reuses the IDENTICAL payload bytes to measure the zigzag / enum-cast conversion cost
@@ -150,29 +164,35 @@ inline std::string make_packed_i64(const std::vector<std::int64_t>& values, int 
     return buf;
 }
 
-// A pool of distinct-seed packed-varint buffers with one shape, plus their mean size -- the
-// build every sweep rotates over so no arm replays a single memorized width sequence. Pool size:
-// ~64 MB budget, >= 8 buffers (defeat the predictor at small counts), <= 64 (bound setup). Each
-// element is <= 10 bytes, so count*10 over-estimates a buffer; that only makes the pool smaller,
-// never unsafe. Returns the strings ONLY -- the caller builds its ByteView vector over them
-// after the vector is fully populated (a returned view container would dangle on SSO buffers).
+// The fewest elements a pool holds, so the branch predictor cannot learn its width sequence. On 64
+// buffers of 10 elements, the streaming bench's `rv mix13 10` read 4x faster than on unseen data;
+// pools of 2^17 elements and more read within ~1% of each other.
+constexpr long kPoolElements = 1L << 17;
+
+// A pool of distinct-seed packed-varint buffers with one shape, plus their total size -- what every
+// sweep decodes, a whole pass per sample (rpbench::pool_pass), so no arm replays a single memorized
+// width sequence. Pool size: enough buffers for kPoolElements, within a ~64 MB budget; the floors of
+// 64 and 8 buffers keep the pools of 10k elements and more as they were (8 buffers of 1M 10-byte
+// elements are 80 MB). Each element is <= 10 bytes, so count*10 over-estimates a buffer; that only
+// makes the pool smaller, never unsafe. Returns the strings ONLY -- the caller builds its ByteView
+// vector over them after the vector is fully populated (a returned view container would dangle on SSO
+// buffers).
 // This arithmetic existed in three copies across the two benches before it lived here.
 struct VarintPool {
     std::vector<std::string> buffers;
-    double avg_bytes = 0;
+    double total_bytes = 0;
 };
 inline VarintPool build_varint_pool(const VarintDist& dist, int count, int field_number = 1) {
     const long est = static_cast<long>(count) * 10 + 16;
-    const int pool_n = static_cast<int>(std::min<long>(64, std::max<long>(8, (64L << 20) / est)));
+    const long wanted = std::max<long>(64, (kPoolElements + count - 1) / count);
+    const int pool_n = static_cast<int>(std::max<long>(8, std::min(wanted, (64L << 20) / est)));
     VarintPool pool;
     pool.buffers.reserve(static_cast<std::size_t>(pool_n));
-    double total_bytes = 0;
     for (int s = 0; s < pool_n; ++s) {
         pool.buffers.push_back(make_packed_i64(
             varint_values(dist, count, static_cast<std::uint64_t>(s) + 1), field_number));
-        total_bytes += static_cast<double>(pool.buffers.back().size());
+        pool.total_bytes += static_cast<double>(pool.buffers.back().size());
     }
-    pool.avg_bytes = total_bytes / static_cast<double>(pool_n);
     return pool;
 }
 

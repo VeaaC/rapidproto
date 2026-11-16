@@ -1,0 +1,210 @@
+//! A borrowed view over a `map` field.
+
+use core::fmt;
+
+use crate::PackedSlice;
+
+/// The entries of a Protobuf `map` field.
+///
+/// The entries keep their wire order, so a key repeated on the wire appears more than once.
+/// [`get`](MapView::get) searches the entries one by one, so for many lookups in a large map, build
+/// your own index from [`iter`](MapView::iter).
+///
+/// A `string` key or value is a [`ProtoStr`](crate::ProtoStr), and a `bytes` value a
+/// [`ProtoBytes`](crate::ProtoBytes). Look up a `string` key with a `&str`, as in `get("key")`.
+pub struct MapView<'a, K, V> {
+    entries: PackedSlice<'a, (K, V)>,
+}
+
+// Manual `Copy`/`Clone` so the impls don't spuriously require `K: Copy` / `V: Copy` (the view only
+// holds a shared slice reference).
+impl<K, V> Clone for MapView<'_, K, V> {
+    #[inline]
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<K, V> Copy for MapView<'_, K, V> {}
+
+/// Prints the entries in wire order, so a key repeated on the wire appears more than once.
+impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for MapView<'_, K, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
+    }
+}
+
+impl<'a, K, V> MapView<'a, K, V> {
+    /// Wrap a slice of decoded entries. The count truncates to 32 bits, as in [`PackedSlice`].
+    #[doc(hidden)]
+    #[inline]
+    pub fn new(entries: &'a [(K, V)]) -> Self {
+        Self {
+            entries: PackedSlice::new(entries),
+        }
+    }
+
+    /// Returns the number of entries, counting a repeated key each time.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.entries.as_slice().len()
+    }
+
+    /// Returns `true` if the map has no entries.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.entries.as_slice().is_empty()
+    }
+
+    /// Returns the entries in wire order.
+    #[inline]
+    pub fn entries(&self) -> &'a [(K, V)] {
+        self.entries.as_slice()
+    }
+
+    /// Returns an iterator over the `(key, value)` pairs in wire order.
+    #[inline]
+    pub fn iter(&self) -> MapIter<'a, K, V> {
+        MapIter {
+            entries: self.entries.as_slice().iter(),
+        }
+    }
+
+    /// Returns the value for `key`, or `None`.
+    ///
+    /// A key repeated on the wire gives its last value.
+    #[inline]
+    pub fn get<Q>(&self, key: &Q) -> Option<&'a V>
+    where
+        K: PartialEq<Q>,
+        Q: ?Sized,
+    {
+        let entries = self.entries.as_slice();
+        entries.iter().rev().find(|e| e.0.eq(key)).map(|e| &e.1)
+    }
+}
+
+/// Iterates the `(key, value)` pairs in wire order, as [`iter`](MapView::iter) does.
+impl<'a, K, V> IntoIterator for MapView<'a, K, V> {
+    type Item = (&'a K, &'a V);
+    type IntoIter = MapIter<'a, K, V>;
+
+    #[inline]
+    fn into_iter(self) -> MapIter<'a, K, V> {
+        self.iter()
+    }
+}
+
+/// Iterates the `(key, value)` pairs in wire order, as [`iter`](MapView::iter) does.
+impl<'a, K, V> IntoIterator for &MapView<'a, K, V> {
+    type Item = (&'a K, &'a V);
+    type IntoIter = MapIter<'a, K, V>;
+
+    #[inline]
+    fn into_iter(self) -> MapIter<'a, K, V> {
+        self.iter()
+    }
+}
+
+/// An iterator over a [`MapView`]'s `(key, value)` pairs in wire order, from
+/// [`MapView::iter`].
+pub struct MapIter<'a, K, V> {
+    entries: core::slice::Iter<'a, (K, V)>,
+}
+
+impl<K, V> Clone for MapIter<'_, K, V> {
+    #[inline]
+    fn clone(&self) -> Self {
+        MapIter {
+            entries: self.entries.clone(),
+        }
+    }
+}
+
+/// Prints the entries left, in wire order.
+impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for MapIter<'_, K, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_map().entries(self.clone()).finish()
+    }
+}
+
+impl<'a, K, V> Iterator for MapIter<'a, K, V> {
+    type Item = (&'a K, &'a V);
+
+    #[inline]
+    fn next(&mut self) -> Option<(&'a K, &'a V)> {
+        self.entries.next().map(|(k, v)| (k, v))
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.entries.size_hint()
+    }
+}
+
+impl<K, V> DoubleEndedIterator for MapIter<'_, K, V> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.entries.next_back().map(|(k, v)| (k, v))
+    }
+}
+
+impl<K, V> ExactSizeIterator for MapIter<'_, K, V> {}
+
+impl<K, V> core::iter::FusedIterator for MapIter<'_, K, V> {}
+
+#[cfg(test)]
+mod tests {
+    extern crate alloc;
+    use super::*;
+
+    #[test]
+    fn lookup_len_and_iter() {
+        let entries = [(1i32, "a"), (2, "b"), (3, "c")];
+        let m = MapView::new(&entries);
+        assert_eq!(m.len(), 3);
+        assert!(!m.is_empty());
+        assert_eq!(m.get(&2), Some(&"b"));
+        assert_eq!(m.get(&9), None);
+        let collected: alloc::vec::Vec<_> = m.iter().map(|(k, v)| (*k, *v)).collect();
+        assert_eq!(collected, [(1, "a"), (2, "b"), (3, "c")]);
+    }
+
+    #[test]
+    fn a_for_loop_iterates_in_wire_order() {
+        let entries = [(1i32, "a"), (2, "b")];
+        let m = MapView::new(&entries);
+        let mut seen = alloc::vec::Vec::new();
+        for (k, v) in m {
+            seen.push((*k, *v));
+        }
+        for (k, v) in &m {
+            seen.push((*k, *v));
+        }
+        assert_eq!(seen, [(1, "a"), (2, "b"), (1, "a"), (2, "b")]);
+        let mut iter = m.iter();
+        assert_eq!(iter.len(), 2);
+        assert_eq!(iter.next_back(), Some((&2, &"b")));
+        assert_eq!(alloc::format!("{iter:?}"), r#"{1: "a"}"#);
+    }
+
+    #[test]
+    fn duplicate_key_is_last_wins() {
+        let entries = [(1i32, "first"), (1, "second")];
+        let m = MapView::new(&entries);
+        assert_eq!(m.get(&1), Some(&"second"));
+    }
+
+    #[test]
+    fn debug_prints_entries_in_wire_order() {
+        let entries = [(1i32, "a"), (2, "b"), (1, "c")];
+        let m = MapView::new(&entries);
+        assert_eq!(alloc::format!("{m:?}"), r#"{1: "a", 2: "b", 1: "c"}"#);
+    }
+
+    #[test]
+    fn empty() {
+        let m: MapView<i32, i32> = MapView::new(&[]);
+        assert!(m.is_empty());
+        assert_eq!(m.get(&0), None);
+    }
+}

@@ -369,7 +369,7 @@ Result<std::monostate> parse_modes_file(std::string_view text, const std::string
         if (directive == "name") {
             if (!is_identifier(arg)) {
                 return Error{0, origin + ": profile name '" + std::string(arg) +
-                                    "' must be a C++ identifier (it becomes part of a namespace)"};
+                                    "' must be letters, digits and '_', not starting with a digit"};
             }
             if (!spec.profile_name.empty() && spec.profile_name != arg) {
                 return Error{0, origin + ": profile already named '" + spec.profile_name + "'"};

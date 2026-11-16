@@ -9,6 +9,7 @@
 #include "usewkt.rp.common.hpp"  // IWYU pragma: export
 #include "google/protobuf/timestamp.rp.stream.hpp"
 #include "google/protobuf/duration.rp.stream.hpp"
+#include "google/protobuf/type.rp.stream.hpp"
 
 namespace rp::stream::uw {
 
@@ -20,6 +21,7 @@ struct Event {
 
   struct at { using Value = ::rp::stream::google::protobuf::Timestamp; static constexpr std::uint32_t kNumber = 1; static constexpr std::string_view kName = "at"; };
   struct took { using Value = ::rp::stream::google::protobuf::Duration; static constexpr std::uint32_t kNumber = 2; static constexpr std::string_view kName = "took"; };
+  struct shape { using Value = ::rp::stream::google::protobuf::Type; static constexpr std::uint32_t kNumber = 3; static constexpr std::string_view kName = "shape"; };
 
   template <class... rp_Callbacks>
   [[nodiscard]] ::rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
@@ -29,7 +31,7 @@ struct Event {
 
 template <class... rp_Callbacks>
 RP_FLATTEN ::rapidproto::DecodeStatus Event::decode(rp_Callbacks&&... rp_callbacks) const {
-  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, at, took>), "a callback matches no field of '::rp::stream::uw::Event' (and is not a catch-all or unknown-field handler)");
+  static_assert((true && ... && !::rapidproto::is_stray_callback<rp_Callbacks, at, took, shape>), "a callback matches no field of '::rp::stream::uw::Event' (and is not a catch-all or unknown-field handler)");
   [[maybe_unused]] auto rp_dispatch = ::rapidproto::combine(static_cast<rp_Callbacks&&>(rp_callbacks)...);
   const std::uint8_t* rp_c = ::rapidproto::wire::byte_ptr(rp_span);
   const std::uint8_t* const rp_cend = rp_c + rp_span.size();
@@ -40,6 +42,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Event::decode(rp_Callbacks&&... rp_callbac
     switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label
       case ::rapidproto::raw_tag(1, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_1;
       case ::rapidproto::raw_tag(2, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_2;
+      case ::rapidproto::raw_tag(3, ::rapidproto::WireType::Len): ++rp_c; goto rp_do_3;
       default: break;
     }
     goto rp_field_general;
@@ -63,6 +66,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Event::decode(rp_Callbacks&&... rp_callbac
         rp_c = rp_sp;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_2; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(3, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_3; }
       continue;
     }
     rp_do_2: {
@@ -84,6 +88,28 @@ RP_FLATTEN ::rapidproto::DecodeStatus Event::decode(rp_Callbacks&&... rp_callbac
         if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_sp;
       }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(3, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_3; }
+      continue;
+    }
+    rp_do_3: {
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::specifically_handles<rp_Callbacks, shape, shape::Value>)) <= 1U, "field 'Event::shape' is handled by more than one callback");
+      static_assert((0U + ... + static_cast<unsigned>(::rapidproto::is_catch_all<rp_Callbacks, shape, shape::Value>)) <= 1U, "field 'Event::shape' is matched by more than one catch-all callback");
+      static_assert((true && ... && !::rapidproto::is_partial_generic<rp_Callbacks, shape, shape::Value>), "a callback for field 'Event::shape' is partially generic; use a concrete (Tag, Value) callback or a fully generic (auto, auto) catch-all");
+      static_assert((true && ... && !(::rapidproto::targets<rp_Callbacks, shape, shape::Value> && !::rapidproto::specifically_handles<rp_Callbacks, shape, shape::Value>)), "a callback for field 'Event::shape' has the wrong value type (expected shape::Value)");
+      if constexpr ((false || ... || ::rapidproto::handles_one<rp_Callbacks, shape, shape::Value>)) {
+        ::rapidproto::ByteView rp_val;
+        const std::uint8_t* const rp_np = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_val, &rp_we);
+        if (rp_np == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
+        rp_c = rp_np;
+        if (const auto rp_status = ::rapidproto::invoke_field(rp_dispatch, shape{}, ::rp::stream::google::protobuf::Type{rp_val}); !rp_status.ok()) {
+          return rp_status;
+        }
+      } else {  // no callback for this field -> skip its value (compile-time wire)
+        ::rapidproto::ByteView rp_skipview;
+        const std::uint8_t* const rp_sp = ::rapidproto::wire::read_length_delimited(rp_c, rp_cend, &rp_skipview, &rp_we);
+        if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
+        rp_c = rp_sp;
+      }
       continue;
     }
     rp_field_general:;
@@ -95,6 +121,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Event::decode(rp_Callbacks&&... rp_callbac
     switch (rp_tag.field_number) {
       case 1: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_1; } break; }
       case 2: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_2; } break; }
+      case 3: { if (rp_tag.wire_type == ::rapidproto::WireType::Len) { goto rp_do_3; } break; }
       default:
         if constexpr ((false || ... || ::rapidproto::specifically_handles_unknown<rp_Callbacks>)) {
           const std::size_t rp_value_start = static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span));

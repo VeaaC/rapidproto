@@ -1,0 +1,560 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Christian Vetter
+#pragma once
+
+// Shared C++ emission helpers used by both decoder emitters (streamgen + arenagen), so a construct emitted
+// the same way by each lives in one place.
+
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <string>
+#include <string_view>
+#include <unordered_set>
+#include <vector>
+
+#include "rapidproto/ast.hpp"
+#include "rapidproto/codegen/naming.hpp"
+#include "rapidproto/codegen/printer.hpp"
+#include "rapidproto/codegen/wire.hpp"
+#include "rapidproto/runtime.hpp"  // WireType, for composing 2-byte tag bytes at codegen time
+#include "rapidproto/version.hpp"
+
+namespace rapidproto::codegen {
+
+// The conventional SCREAMING_SNAKE_CASE prefix that proto enum values carry by Google/buf style: the
+// enum name in SCREAMING_SNAKE plus '_' (e.g. enum `HttpStatus` -> "HTTP_STATUS_"). PascalCase/camelCase
+// is split on case boundaries, acronym-aware. A name that doesn't match this convention simply won't
+// prefix the values, so the strip below is a no-op (safe).
+inline std::string enum_value_prefix(std::string_view name) {
+    std::string out;
+    for (std::size_t i = 0; i < name.size(); ++i) {
+        const char c = name[i];
+        if (c >= 'A' && c <= 'Z' && !out.empty()) {
+            const char prev = name[i - 1];
+            const bool after_lower_or_digit =
+                (prev >= 'a' && prev <= 'z') || (prev >= '0' && prev <= '9');
+            const bool acronym_boundary = prev >= 'A' && prev <= 'Z' && i + 1 < name.size() &&
+                                          name[i + 1] >= 'a' && name[i + 1] <= 'z';
+            if (after_lower_or_digit || acronym_boundary) {
+                out += '_';
+            }
+        }
+        out += (c >= 'a' && c <= 'z') ? static_cast<char>(c - ('a' - 'A')) : c;
+    }
+    out += '_';
+    return out;
+}
+
+// True iff EVERY value carries `prefix` and its bare remainder is a *clean* identifier: a valid
+// identifier head (non-empty, not a digit) that sanitize() leaves unchanged -- i.e. not a keyword, a
+// reserved/generated name, an `rp_` name, or a guarded macro. That last guard matters because stripping
+// yields a BARE name: `STATUS_EOF`/`STATUS_OR` compile, but bare `EOF` (a macro) / `or` (a keyword) do
+// not. If any value fails, the whole enum keeps its (always-safe) full prefixed names.
+inline bool enum_prefix_strippable(const EnumNode& node, std::string_view prefix) {
+    if (node.values.empty()) {
+        return false;
+    }
+    return std::all_of(node.values.begin(), node.values.end(), [&](const EnumValueNode& value) {
+        const std::string_view name = value.name;
+        if (name.size() <= prefix.size() || name.compare(0, prefix.size(), prefix) != 0) {
+            return false;
+        }
+        const std::string_view rest = name.substr(prefix.size());
+        if (rest.front() >= '0' && rest.front() <= '9') {
+            return false;  // a leading-digit remainder is not a valid identifier
+        }
+        return sanitize(rest) ==
+               rest;  // clean: sanitize would not escape it (no keyword/reserved/macro)
+    });
+}
+
+// The C++ enumerator name for each value of `node`, in declaration order. Three steps:
+//
+//  1. Strip the enum's conventional `<ENUMNAME>_` prefix, all-or-nothing per enum, so a
+//     conventionally-named enum reads `Status::OK` rather than the redundant `Status::STATUS_OK`.
+//     A value missing the prefix, a numeric remainder (`VERSION_2` -> `2`), or one that would
+//     macro-expand or hit a keyword (`STATUS_EOF` -> `EOF`) disables stripping for the whole enum
+//     -- see enum_prefix_strippable, which decides that.
+//  2. sanitize(), escaping whatever the strip left exposed.
+//  3. Dedup WITHIN the enum: two proto names that sanitize alike (`decode` and `decode_` both reach
+//     `decode_`, since `decode` is reserved) must not declare the same enumerator twice.
+//
+// Shared so the debug dumper's value-name table prints exactly the enumerators emit_enum declares:
+// deriving those names again without step 3 makes two distinct values render identically.
+inline std::vector<std::string> enum_value_names(const EnumNode& node) {
+    const std::string prefix = enum_value_prefix(node.name);
+    const bool strip = enum_prefix_strippable(node, prefix);
+    // No sentinel seeding: every name below is sanitize() output, and sanitize() escapes anything
+    // spelled rp_*, so no produced name (nor any of its `_`-escalations) can land on the
+    // rp_known_min/rp_known_max/rp_non_exhaustive_* sentinels emit_enum appends.
+    std::unordered_set<std::string> taken;
+    std::vector<std::string> out;
+    out.reserve(node.values.size());
+    for (const auto& value : node.values) {
+        std::string_view raw = value.name;
+        if (strip) {
+            raw.remove_prefix(prefix.size());
+        }
+        out.push_back(dedup_suffix(taken, sanitize(raw)));
+    }
+    return out;
+}
+
+// Emit `enum class <Name> : std::int32_t { <values>; rp_known_{min,max};
+// rp_non_exhaustive_{min,max} };` for `node`. Enumerators are named by enum_value_names above
+// (prefix stripped where the enum allows it, then deduped); the naming touches only this C++
+// identifier, since the wire is by number and an enum default resolves to its number.
+//
+// The full int32 range is reserved via the rp_non_exhaustive_{min,max} sentinels, so a switch over
+// the enum must carry a `default:` -- enums are OPEN, and an unknown wire value is representable.
+// `trailing_blank` appends the blank line streamgen places between declarations (arenagen does not),
+// keeping each generator's output byte-identical.
+inline void emit_enum(Printer& printer, const CppNameTable& names, const EnumNode& node,
+                      bool trailing_blank) {
+    printer.print("enum class $E$ : std::int32_t {\n", {{"E", names.local.at(&node)}});
+    printer.indent();
+    const std::vector<std::string> value_names = enum_value_names(node);
+    for (std::size_t i = 0; i < node.values.size(); ++i) {
+        printer.print("$name$ = $n$,\n",
+                      {{"name", value_names[i]}, {"n", std::to_string(node.values[i].number)}});
+    }
+    // The DECLARED value range (aliases collapse; unrelated to the INT32 sentinels below): the
+    // schema-known bounds a consumer can range-check or size against without hand-tracking the
+    // schema. Emitted only when the enum has values (an empty enum is invalid input anyway).
+    if (!node.values.empty()) {
+        const auto [lo, hi] = std::minmax_element(
+            node.values.begin(), node.values.end(),
+            [](const EnumValueNode& a, const EnumValueNode& b) { return a.number < b.number; });
+        printer.print("rp_known_min = $n$,\n", {{"n", std::to_string(lo->number)}});
+        printer.print("rp_known_max = $n$,\n", {{"n", std::to_string(hi->number)}});
+    }
+    printer.print("rp_non_exhaustive_min = INT32_MIN,\n");
+    printer.print("rp_non_exhaustive_max = INT32_MAX,\n");
+    printer.outdent();
+    printer.print(trailing_blank ? "};\n\n" : "};\n");
+}
+
+// Does `message` hold an enum anywhere beneath it? Decides whether the mirror opens a namespace for
+// it: a message with no enum in its whole subtree contributes nothing to share.
+inline bool holds_enum(const MessageNode& message) {
+    if (!message.enums.empty()) {
+        return true;
+    }
+    return std::any_of(message.nested_messages.begin(), message.nested_messages.end(),
+                       [](const MessageNode& nested) { return holds_enum(nested); });
+}
+
+// Mirror `message`'s nesting as NAMESPACES so its nested enums have one canonical home both models
+// alias. Namespaces rather than scope structs: a namespace cannot be named as a type, so nothing
+// here can be mistaken for the message. The ids are the MODEL's, verbatim -- including any escape
+// the model applied (`message Outer { message Outer {} }` mirrors to `Outer::Outer_`), which is
+// what makes the mirror path the model path with the root swapped, and needs no second dedup.
+inline void emit_enum_mirror(Printer& printer, const CppNameTable& names,
+                             const MessageNode& message) {
+    if (!holds_enum(message)) {
+        return;
+    }
+    printer.print("namespace $id$ {\n", {{"id", names.local.at(&message)}});
+    for (const auto& nested_enum : message.enums) {
+        emit_enum(printer, names, nested_enum, /*trailing_blank=*/false);
+    }
+    for (const auto& nested : message.nested_messages) {
+        emit_enum_mirror(printer, names, nested);
+    }
+    printer.print("}  // namespace $id$\n\n", {{"id", names.local.at(&message)}});
+}
+
+// One include line per direct import, filtered the way the resolver resolves: every import's
+// symbols are visible as field types EXCEPT option-only imports (a weak import's types are still
+// usable, so its header is still needed). All four generated-header emitters route through this
+// so the filter rule lives once; only the extension differs.
+inline void emit_import_includes(Printer& printer, const FileNode& file,
+                                 std::string_view extension) {
+    for (const auto& import : file.imports) {
+        if (import.kind != ImportKind::Option) {
+            printer.print("#include \"$h$\"\n", {{"h", import_header(import.path, extension)}});
+        }
+    }
+}
+
+// Emit the shared "common header" for `file`: `#pragma once`, `<cstdint>`, an include of each
+// (non-option) import's common header, the package namespace, and one `enum class` per TOP-LEVEL enum
+// (via emit_enum), plus a NAMESPACE MIRROR of the message nesting carrying the nested ones
+// (emit_enum_mirror). This is the single home for the schema's enums: both decoder headers
+// `#include` it and alias every enum back into their own scope, so one proto enum is ONE C++ type
+// across both models rather than a copy per model. The import includes use the fixed ".rp.common.hpp"
+// suffix (the common header's own name).
+inline std::string emit_common_header(const FileNode& file, const CppNameTable& names) {
+    Printer printer;
+    printer.print("// Generated by rapidprotoc $v$. DO NOT EDIT.\n", {{"v", kVersion}});
+    printer.print("// Shared schema types (enums) for the generated decoders (Apache-2.0).\n");
+    printer.print("#pragma once\n\n");
+    printer.print("#include <cstdint>\n");
+    emit_import_includes(printer, file, ".rp.common.hpp");
+    printer.print("\n");
+    const std::string ns = enum_namespace(names, file);
+    printer.print("namespace $ns$ {\n\n", {{"ns", ns}});
+    for (const auto& node : file.enums) {
+        emit_enum(printer, names, node, /*trailing_blank=*/true);
+    }
+    for (const auto& message : file.messages) {
+        emit_enum_mirror(printer, names, message);
+    }
+    printer.print("}  // namespace $ns$\n", {{"ns", ns}});
+    return printer.str();
+}
+
+// The compile-time dispatch misuse guards both emitters generate, identical up to the name of the
+// callback template-parameter pack (`pack`: streamgen's decode() uses "rp_Callbacks", the arena
+// oneof reader "rp_Fs" -- both `rp_`-prefixed, so no proto name can collide with them). `args` is
+// the trait argument list after the pack ("$f$, $f$::Value" for a field,
+// with Key inserted for a map); `what` names the case for diagnostics; `expected` describes the
+// expected value type(s). Four guards: at most one specific handler (duplicates are an error); at
+// most one catch-all; no partially-generic callback; and a callback that NAMES this case must
+// handle it exactly (per-callback, so a catch-all sibling cannot mask a mistyped callback).
+inline void emit_dispatch_guards(Printer& printer, const std::string& pack, const std::string& args,
+                                 const std::string& what, const std::string& expected) {
+    printer.print(
+        "static_assert((0U + ... + static_cast<unsigned>("
+        "::rapidproto::specifically_handles<$P$, $A$>)) <= 1U,"
+        " \"$what$ is handled by more than one callback\");\n",
+        {{"P", pack}, {"A", args}, {"what", what}});
+    printer.print(
+        "static_assert((0U + ... + static_cast<unsigned>("
+        "::rapidproto::is_catch_all<$P$, $A$>)) <= 1U,"
+        " \"$what$ is matched by more than one catch-all callback\");\n",
+        {{"P", pack}, {"A", args}, {"what", what}});
+    if (expected.empty()) {
+        // A VALUELESS case (the oneof unset state, args = just the tag): no partially-generic /
+        // wrong-value-type notion, but a callback naming the tag with extra parameters would
+        // silently never fire -- the same names-it-must-handle-it rule, phrased for the bare tag.
+        printer.print(
+            "static_assert((true && ... && !(::rapidproto::targets<$P$, $A$>"
+            " && !::rapidproto::specifically_handles<$P$, $A$>)),"
+            " \"a callback for $what$ must take exactly ($A$)\");\n",
+            {{"P", pack}, {"A", args}, {"what", what}});
+        return;
+    }
+    printer.print(
+        "static_assert((true && ... && !::rapidproto::is_partial_generic<$P$, $A$>),"
+        " \"a callback for $what$ is partially generic; use a concrete (Tag, Value) callback or a"
+        " fully generic (auto, auto) catch-all\");\n",
+        {{"P", pack}, {"A", args}, {"what", what}});
+    printer.print(
+        "static_assert((true && ... && !(::rapidproto::targets<$P$, $A$>"
+        " && !::rapidproto::specifically_handles<$P$, $A$>)),"
+        " \"a callback for $what$ has the wrong value type (expected $expected$)\");\n",
+        {{"P", pack}, {"A", args}, {"what", what}, {"expected", expected}});
+}
+
+// Order sibling messages so every type that must be visible before a sibling's definition is
+// emitted first: post-order DFS over the "B must precede A" edges `depends_on(a, b)` answers.
+// Acyclic for valid schemas; the active-set guard breaks any cycle, which only an
+// inherently-uncompilable schema can form (two siblings each naming a type nested in the other).
+// Iterative (a frame is {node, next candidate to scan}): the dependency-chain length is unbounded
+// in a protoc-valid schema, so recursing per edge could overflow the native stack.
+template <class DependsOn>
+std::vector<const MessageNode*> topo_order_siblings(const std::vector<MessageNode>& siblings,
+                                                    const DependsOn& depends_on) {
+    std::vector<const MessageNode*> order;
+    std::vector<bool> done(siblings.size(), false);
+    std::vector<bool> active(siblings.size(), false);
+    struct Frame {
+        std::size_t node;
+        std::size_t next;
+    };
+    std::vector<Frame> stack;
+    for (std::size_t root = 0; root < siblings.size(); ++root) {
+        if (done[root]) {
+            continue;
+        }
+        active[root] = true;
+        stack.push_back({root, 0});
+        while (!stack.empty()) {
+            const std::size_t i = stack.back().node;
+            std::size_t child = siblings.size();
+            while (stack.back().next < siblings.size()) {
+                const std::size_t j = stack.back().next++;
+                if (j != i && !done[j] && !active[j] && depends_on(i, j)) {
+                    child = j;
+                    break;
+                }
+            }
+            if (child != siblings.size()) {
+                active[child] = true;
+                stack.push_back({child, 0});
+            } else {
+                active[i] = false;
+                done[i] = true;
+                order.push_back(&siblings[i]);
+                stack.pop_back();
+            }
+        }
+    }
+    return order;
+}
+
+// ---------------------------------------------------------------------------
+// Field-order threading: the shared decode-loop SHAPE.
+//
+// Both decoder emitters (arenagen + streamgen) build the same threaded wire loop: a hub `switch(*rp_c)`
+// that peeks the 1-byte tag and jumps to a tag-consumed label `rp_do_<n>`, one label per threaded
+// field (each decoding one value, then a depth-2 constant-tag successor probe / repeated self-loop),
+// and a wire-guarded `goto` from the general `switch(field_number)` for non-minimal / 2-byte tags.
+// Only the per-field label BODY and the loop scaffolding (return type, maps/oneofs, setup/finalize)
+// differ between the two -- the SHAPE (hub, labels, probes, general-case routing) is identical. That
+// identical part lives here; the caller supplies the body via hooks and drives its own general switch.
+// This layer has NO knowledge of arena vs streaming, MemberPlan vs FieldGen, or return types.
+// ---------------------------------------------------------------------------
+
+// A field number whose whole tag fits in a single varint byte -- number 1..15 ((15 << 3) | 7 == 127 <
+// 128). These appear in the 1-byte-peek hub.
+inline constexpr std::int32_t kMaxOneByteTagField = 15;
+// Field numbers 16..2047 carry a 2-byte tag (read_tag_or_end's fused 2-byte path). Above that, 3+
+// bytes -- never threaded.
+inline constexpr std::int32_t kMaxTwoByteTagField = 2047;
+
+// Wire-tag varint encoding constants (see raw_tag / the base-128 varint format), for composing a
+// 2-byte tag's two bytes at codegen time: tag = (field_number << kTagFieldShift) | wire.
+inline constexpr int kTagFieldShift = 3;      // low 3 bits of a tag are the wire type
+inline constexpr int kVarintShift = 7;        // each varint byte carries 7 payload bits
+inline constexpr int kVarintPayload = 0x7F;   // low 7 bits of a varint byte
+inline constexpr int kVarintContinue = 0x80;  // high bit set == "more bytes follow"
+
+// The numeric WireType value for a wire enumerator name (to compose a raw 2-byte tag's bytes). Uses
+// the runtime enum's own values, so it can never drift from WireType.
+inline int wire_enum_num(const std::string& w) {
+    if (w == "I64") {
+        return static_cast<int>(::rapidproto::WireType::I64);
+    }
+    if (w == "Len") {
+        return static_cast<int>(::rapidproto::WireType::Len);
+    }
+    if (w == "I32") {
+        return static_cast<int>(::rapidproto::WireType::I32);
+    }
+    // Varint (and any non-2-byte-threaded wire, unused here)
+    return static_cast<int>(::rapidproto::WireType::Varint);
+}
+
+// A singular field (oneof members included) that can take a tag-consumed rp_do_<n> label: a
+// positive number fitting a 1- or 2-byte tag, and not a delimited (group) field. The delimited
+// exclusion is CORRECTNESS, not tuning: a group's decode reads `rp_tag.field_number` to match its
+// EGROUP, and a threaded label is entered with rp_tag unset -- a group that threaded would scan
+// for the wrong end tag. Shared so the two generators cannot drift on what threads.
+inline bool is_threadable_singular(const FieldNode& field) {
+    assert(!field.is_repeated && "is_threadable_singular: callers gate repeated fields themselves");
+    if (field.number < 1 || field.number > kMaxTwoByteTagField) {
+        return false;
+    }
+    return !field.is_message_type || field.message_encoding != MessageEncoding::Delimited;
+}
+
+// A threaded field, generator-agnostic: the shape generator needs only the routing facts (number,
+// repeated-ness, whether a packed LEN label is also emitted, and the tag it threads on). All value
+// emission is the caller's, via ThreadedLoopHooks.
+struct ThreadField {
+    int number;
+    bool repeated;
+    bool packable;            // repeated packable => also a rp_do_<n>_p packed label
+    std::string thread_wire;  // WireType enumerator: singular field's canonical wire, or repeated
+                              // element wire
+    // The oneof this field is a member of, if any (plain fields keep the default nullptr). The
+    // probe walk needs only the grouping: a sibling can never follow its own member on a
+    // conformant wire (at most one member per oneof, ascending), so siblings are skipped as
+    // successors.
+    const OneofNode* oneof = nullptr;
+};
+
+// Hooks the caller supplies for the per-field label bodies. Each emits at the current indent,
+// TAG-CONSUMED (the tag has already been consumed on entry to the label), with NO `case`, NO probe,
+// NO `continue` -- the shape generator wraps those around the body.
+struct ThreadedLoopHooks {
+    std::function<void(const ThreadField&)>
+        emit_body;  // rp_do_<n>: singular value / repeated native element
+    std::function<void(const ThreadField&)>
+        emit_packed_body;  // rp_do_<n>_p: packed fill (only called if packable)
+};
+
+namespace detail {
+
+// One constant-tag successor probe, consuming the tag bytes before the goto (labels are
+// tag-consumed). 1-byte successor: compare the single tag byte, `++rp_c`. 2-byte successor:
+// compare both tag bytes, `rp_c += 2`.
+inline void emit_one_probe(Printer& p, const ThreadField& s) {
+    const std::string n = std::to_string(s.number);
+    if (s.number <= kMaxOneByteTagField) {
+        p.print(
+            "if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag($n$,"
+            " ::rapidproto::WireType::$w$)) { ++rp_c; goto rp_do_$n$; }\n",
+            {{"n", n}, {"w", s.thread_wire}});
+    } else {
+        const int v = (s.number << kTagFieldShift) | wire_enum_num(s.thread_wire);
+        p.print(
+            "if (rp_cend - rp_c > 1 && rp_c[0] == $b0$ && rp_c[1] == $b1$)"
+            " { rp_c += 2; goto rp_do_$n$; }\n",
+            {{"n", n},
+             {"b0", std::to_string((v & kVarintPayload) | kVarintContinue)},
+             {"b1", std::to_string(v >> kVarintShift)}});
+    }
+}
+
+// The constant-tag successor probes at the tail of a threaded label: from the field at `pos`,
+// probe the next ascending successors, filling a 2-probe budget. The probes are ALTERNATIVES at
+// one cursor position -- each tests the same next-tag bytes for a different candidate -- so a
+// possibly-absent candidate costs one compare on a miss and `continue` falls to the hub, exactly
+// like any other probe; the walk therefore treats every successor alike, with one exception:
+// the probing field's own oneof siblings are skipped -- a conformant wire holds at most one
+// member per oneof, ascending, so a sibling can never follow. A multi-member oneof can thus
+// absorb both probes although at most one can hit -- a deliberate trade, measured as a net win
+// on the suite, and a missed chain still lands in the hub. Unthreadable fields (groups,
+// repeated fields past the 1-byte tag range, numbers past the 2-byte range) are absent from
+// `threaded` and are stepped over like any possibly-absent field: a lower hit rate on wires
+// that carry them, never a wrong decode.
+// Ascending order puts the 1-byte fields first, so the cheaper 1-byte probes carry the hot run.
+// `threaded` is sorted ascending by field number (emit_hub_and_labels' order), so successors are
+// simply the entries past `pos` -- conformant serialization order.
+inline void emit_thread_probes(Printer& p, const std::vector<ThreadField>& threaded,
+                               std::size_t pos) {
+    const OneofNode* const own = threaded[pos].oneof;
+    int budget = 2;
+    for (std::size_t j = pos + 1; j < threaded.size() && budget > 0; ++j) {
+        const ThreadField& s = threaded[j];
+        if (own != nullptr && s.oneof == own) {
+            continue;  // own sibling: cannot follow
+        }
+        emit_one_probe(p, s);
+        --budget;
+    }
+}
+
+}  // namespace detail
+
+// Emit the hub `switch(*rp_c)` and the tag-consumed labels for `threaded`, in ascending
+// field-number order -- conformant serialization order, which declaration order is not (a schema
+// may declare out of order, and oneof members interleave numerically with plain fields); callers
+// pass any order. Emits, at the current indent:
+//   * `if (rp_c >= rp_cend) { <on_end> }`  -- the caller's end action (arena: "break;");
+//   * the hub `switch(*rp_c)`: each 1-byte-tag threaded field -> `case raw_tag(n,W): ++rp_c; goto
+//     rp_do_n;` (a repeated packable field also gets a Len case -> rp_do_n_p); `default: break;`;
+//   * `goto rp_field_general;`;
+//   * one tag-consumed label per threaded field: singular -> body + probes + continue; repeated
+//     native -> body + element self-loop + probes + continue; packed (rp_do_n_p) -> packed body +
+//     probes + continue;
+//   * `rp_field_general:;`.
+// When `threaded` is empty, emits nothing (the caller's general path stands alone).
+inline void emit_hub_and_labels(Printer& p, std::vector<ThreadField> threaded,
+                                const ThreadedLoopHooks& hooks, const std::string& on_end) {
+    if (threaded.empty()) {
+        return;
+    }
+    std::stable_sort(
+        threaded.begin(), threaded.end(),
+        [](const ThreadField& a, const ThreadField& b) { return a.number < b.number; });
+    // No threaded field carries a group wire (is_threadable_singular and both generators'
+    // repeated filters exclude them). Pinned here because the hub and probes match raw tag
+    // bytes: group handling relies on SGROUP/EGROUP tags always reaching the general path,
+    // whose group arms read rp_tag. Documentation more than trap: an EGROUP byte can never
+    // equal a hub/probe byte for the wires actually emitted (8n+4 vs 8n+{0,1,2,5}), and
+    // arenagen's singular route spells its wire "Len" before this point regardless (its guard
+    // is the assert in primary_fast_wire).
+    for ([[maybe_unused]] const ThreadField& tf : threaded) {
+        assert(tf.thread_wire != "SGroup" && tf.thread_wire != "EGroup" &&
+               "emit_hub_and_labels: group wires must never thread");
+    }
+    // Hub: a 1-byte peek switch. Only 1-byte-tag threaded fields appear (a 2-byte-tag field enters
+    // via the general path). Each case consumes the peeked byte, then jumps to the tag-consumed
+    // label. A miss (multi-byte tag, unknown field, wrong wire type, or a non-minimal encoding of a
+    // threaded field's tag) falls to the general path.
+    p.print("if (rp_c >= rp_cend) { $e$ }\n", {{"e", on_end}});
+    p.print("switch (*rp_c) {  // peek the 1-byte tag; threaded fields jump to their label\n");
+    p.indent();
+    for (const ThreadField& tf : threaded) {
+        if (tf.number > kMaxOneByteTagField) {
+            continue;  // 2-byte tag: entered via the general path / a 2-byte probe, not the hub
+        }
+        const std::string n = std::to_string(tf.number);
+        p.print(
+            "case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::$w$): ++rp_c; goto "
+            "rp_do_$n$;\n",
+            {{"n", n}, {"w", tf.thread_wire}});
+        if (tf.repeated && tf.packable) {
+            p.print(
+                "case ::rapidproto::raw_tag($n$, ::rapidproto::WireType::Len): ++rp_c; "
+                "goto "
+                "rp_do_$n$_p;\n",
+                {{"n", n}});
+        }
+    }
+    p.print("default: break;\n");
+    p.outdent();
+    p.print("}\n");
+    p.print("goto rp_field_general;\n");
+    // Tag-consumed labels, one per threaded field. Each decodes its value, then runs the
+    // successor probe (and, for repeated, a self-loop) before falling to `continue`.
+    for (std::size_t i = 0; i < threaded.size(); ++i) {
+        const ThreadField& tf = threaded[i];
+        const std::string n = std::to_string(tf.number);
+        if (!tf.repeated) {
+            p.print("rp_do_$n$: {\n", {{"n", n}});
+            p.indent();
+            hooks.emit_body(tf);
+            detail::emit_thread_probes(p, threaded, i);
+            p.print("continue;\n");
+            p.outdent();
+            p.print("}\n");
+            continue;
+        }
+        // Repeated: the native-element label self-loops on its own element tag (consuming it), then
+        // probes successors. The packed form gets its own tag-consumed label rp_do_<n>_p.
+        p.print("rp_do_$n$: {\n", {{"n", n}});
+        p.indent();
+        hooks.emit_body(tf);
+        p.print(
+            "if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag($n$, "
+            "::rapidproto::WireType::$w$"
+            ")) { ++rp_c; goto rp_do_$n$; }  // another element of the same field\n",
+            {{"n", n}, {"w", tf.thread_wire}});
+        detail::emit_thread_probes(p, threaded, i);
+        p.print("continue;\n");
+        p.outdent();
+        p.print("}\n");
+        if (tf.packable) {
+            p.print("rp_do_$n$_p: {\n", {{"n", n}});
+            p.indent();
+            hooks.emit_packed_body(tf);
+            detail::emit_thread_probes(p, threaded, i);
+            p.print("continue;\n");
+            p.outdent();
+            p.print("}\n");
+        }
+    }
+    p.print("rp_field_general:;\n");
+}
+
+// Emit the general-switch routing case for ONE threaded field: a wire-guarded goto into its (shared)
+// tag-consumed label, NOT a full arm and NOT a bare skip. read_tag_or_end has already consumed the
+// tag (possibly a multi-byte / non-minimal encoding that missed the 1-byte hub), so on the expected
+// wire type jump straight to the label; a wrong wire type `break`s to the shared skip. Carries both
+// 2-byte-tag threaded fields (never in the hub) and the rare non-minimally-encoded tag of a 1-byte
+// threaded field -- with zero body duplication, and no silent drop.
+inline void emit_threaded_general_case(Printer& p, const ThreadField& tf) {
+    const std::string n = std::to_string(tf.number);
+    if (tf.repeated && tf.packable) {
+        p.print(
+            "case $n$: { if (rp_tag.wire_type == ::rapidproto::WireType::$w$)"
+            " { goto rp_do_$n$; } if (rp_tag.wire_type == ::rapidproto::WireType::Len)"
+            " { goto rp_do_$n$_p; } break; }\n",
+            {{"n", n}, {"w", tf.thread_wire}});
+    } else {
+        p.print(
+            "case $n$: { if (rp_tag.wire_type == ::rapidproto::WireType::$w$)"
+            " { goto rp_do_$n$; } break; }\n",
+            {{"n", n}, {"w", tf.thread_wire}});
+    }
+}
+
+}  // namespace rapidproto::codegen

@@ -1,0 +1,9 @@
+RapidProto
+Copyright 2026 Christian Vetter
+
+Licensed under the Apache License, Version 2.0 (the "License"); see the LICENSE
+file. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This crate (the decode-only runtime) bundles no third-party material.

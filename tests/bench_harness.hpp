@@ -18,8 +18,9 @@
 //     comparison falsely reads ~0.3% "significant").
 //   * Sampling is ADAPTIVE: rounds accumulate until every ratio's verdict is confident -- the effect
 //     is clearly non-zero, or its CI is tight enough to call it a wash -- or a wall-time budget
-//     elapses (then it warns that a ratio stayed ambiguous). The verdict is three-way: noise (CI
-//     spans zero) / flat (real but < 0.5%) / SIG (real and meaningful).
+//     elapses (then it warns that a ratio stayed ambiguous). The budget never stops a run before its
+//     first convergence check, within a cap. The verdict is three-way: noise (CI spans zero) / flat
+//     (real but < 0.5%) / SIG (real and meaningful).
 //   * Where the kernel permits unprivileged self-monitoring (perf_event_paranoid <= 2) we count CPU
 //     cycles and report frequency-invariant cycles/byte; otherwise we fall back to wall time.
 //   * We pin to the fastest allowed core -- on a hybrid P/E-core CPU this avoids an efficiency core,
@@ -250,9 +251,9 @@ inline bool json_mode() {
     return on;
 }
 
-// RAPIDPROTO_BENCH_ONLY=<substring> runs only the scenarios whose name contains it. A full suite is
-// 30-60s per bench, and a five-repeat snapshot of both is minutes, which makes investigating ONE
-// scenario over many repetitions impractical. Unset (the default) runs everything.
+// RAPIDPROTO_BENCH_ONLY=<substring> runs only the scenarios whose name contains it. A full suite takes
+// minutes per bench, which makes investigating ONE scenario over many repetitions impractical. Unset
+// (the default) runs everything.
 inline bool scenario_selected(const char* scenario) {
     static const char* only = std::getenv("RAPIDPROTO_BENCH_ONLY");
     return only == nullptr || *only == '\0' ||
@@ -302,6 +303,24 @@ inline Cost sample(Counters cnt, const Work& f, std::uint64_t& out) {
     return {ns_since(t0), -1.0, -1.0, -1.0};
 }
 
+// An arm over a POOL of buffers: each call decodes the whole pool once and sums the checksums. run()
+// reports the median sample, which only means something when every sample is the same workload; one
+// buffer per sample from a pool whose buffers differ in cost would report its most common buffer, not
+// the pool. Pass the pool's total size as run()'s `byte_size`. `pool` must outlive the arm.
+template <class Buffer, class Decode>
+Work pool_pass(const std::vector<Buffer>& pool, Decode decode) {
+    return [&pool, decode]() mutable {
+        std::uint64_t sum = 0;
+        for (const Buffer& b : pool) {
+            sum += decode(b);
+        }
+        return sum;
+    };
+}
+// A temporary pool would dangle inside the returned arm.
+template <class Buffer, class Decode>
+Work pool_pass(const std::vector<Buffer>&& pool, Decode decode) = delete;
+
 struct Stat {
     double mean;
     double median;
@@ -329,9 +348,9 @@ inline Stat stat(std::vector<double> v) {
 // [[nodiscard]]: a silently dropped verdict is exactly how the arena bench's cross-check claim once
 // went false -- make the next dropped one a warning, which the gate's build-output check fails on
 // (the benches are not -Werror builds).
-// `budget_ns` / `min_rounds` widen the defaults for scenarios whose single round is expensive
-// (the OSM file pass costs seconds): the defaults would terminate them after ~2 rounds with a
-// CI computed from nothing.
+// `budget_ns` / `min_rounds` widen the defaults for a scenario whose single round costs seconds (the
+// OSM file pass): it gets more than one convergence check within its budget. The budget never stops
+// a run before its first check (up to 20 s), and a long round lowers the minimum (see below).
 [[nodiscard]] inline int run(const char* scenario, double byte_size, const std::vector<Arm>& arms,
                              double budget_ns = 3.0e9, std::size_t min_rounds = 30) {
     if (!scenario_selected(scenario)) {
@@ -341,9 +360,6 @@ inline Stat stat(std::vector<double> v) {
     const Counters cnt = metric_fds();
     const bool cyc = cnt.cyc >= 0;
     const bool ins = cnt.instr >= 0;
-    const std::size_t kMinRounds =
-        min_rounds;  // floor; a null (wash) result self-extends for tighter CI
-    const double kBudgetNs = budget_ns;
     // A ratio's verdict is CONFIDENT once the effect is clearly non-zero (|mean-1| > 3 CI, so the
     // sign and rough size are settled) OR the CI is tight enough to confidently call it a wash. We
     // sample until every arm is confident, then stop; we only warn "noisy" if the budget runs out
@@ -358,11 +374,26 @@ inline Stat stat(std::vector<double> v) {
     std::vector<std::uint64_t> sums(n, 0);
 
     std::uint64_t junk = 0;
-    for (int w = 0; w < 5; ++w) {  // warm caches / predictors for every arm
+    // Warm caches / predictors for every arm: 5 rounds, or 2 when a round is long (over 10 ms: a
+    // whole pool pass, a large buffer, a file), which one round already warms.
+    constexpr double kLongRoundNs = 10.0e6;
+    double round_ns = 0;
+    for (int w = 0; w < 5 && !(w >= 2 && round_ns > kLongRoundNs); ++w) {
+        const auto t = Clock::now();
         for (const auto& a : arms) {
             sample(cnt, a.fn, junk);
         }
+        round_ns = ns_since(t);
     }
+    // The floor before the first convergence check; a null (wash) result self-extends for a tighter
+    // CI. A long round's samples are each many decodes, steady enough that 17 rounds settle a ratio
+    // (the default's first check comes at 33), which halves the cost of those long rounds.
+    const std::size_t kMinRounds =
+        round_ns > kLongRoundNs ? std::min<std::size_t>(min_rounds, 17) : min_rounds;
+    // Until the first check the budget stretches up to kMaxBudgetNs: a scenario with long rounds
+    // would otherwise stop on it with a CI from a handful of samples and no check at all.
+    constexpr double kMaxBudgetNs = 20.0e9;
+    bool checked = false;
 
     const auto start = Clock::now();
     bool converged = false;
@@ -408,15 +439,17 @@ inline Stat stat(std::vector<double> v) {
             }
         }
         if (round + 1 >= kMinRounds && round % 8 == 0) {
+            checked = true;
             converged = true;
             for (std::size_t k = 1; k < n; ++k) {
                 converged = converged && confident(stat(ratio[k]));
             }
         }
-        if (ns_since(start) > kBudgetNs) {
+        if (ns_since(start) > (checked ? budget_ns : std::max(budget_ns, kMaxBudgetNs))) {
             break;
         }
     }
+    const double elapsed_ns = ns_since(start);
 
     int bad = 0;
     bool ambiguous = false;
@@ -503,7 +536,7 @@ inline Stat stat(std::vector<double> v) {
             "  %-16s (!) noisy: a ratio stayed ambiguous after %.0fs. Close background load;"
             " on a laptop use AC power + let it cool; optionally pin governor=performance /"
             " disable turbo (root).\n",
-            scenario, kBudgetNs / 1e9);
+            scenario, elapsed_ns / 1e9);
     }
     return bad;
 }

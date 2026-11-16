@@ -34,6 +34,8 @@
 #include "streamgen_golden/proto2.rp.stream.hpp"  // checked-in generated headers
 #include "streamgen_golden/proto3.rp.stream.hpp"
 // IWYU pragma: begin_keep
+#include "streamgen_golden/collide.rp.stream.hpp"  // Rust-collision-shaped names (pulls collide_*)
+#include "streamgen_golden/gluenames.rp.stream.hpp"  // `rp_`-glue-shaped names (pulls gluenames_sub)
 #include "streamgen_golden/main.rp.stream.hpp"    // cross-file: pulls dep/forward/pub via #include
 #include "streamgen_golden/naming.rp.stream.hpp"  // identifier dedup + absolute names: must compile
 #include "streamgen_golden/nopkg.rp.stream.hpp"   // NO package: types directly under rp::stream
@@ -135,18 +137,23 @@ TEST_CASE("streamgen: generated headers match the goldens", "[streamgen]") {
     // (the root, never global scope), xpkg -> a cross-file reference INTO a dotted package.
     const std::string nsedge = corpus + "/nsedge";
     const std::vector<Case> cases = {
-        {"proto2", corpus},       {"proto3", corpus},     {"xref", corpus},
-        {"naming", corpus},       {"dep", imports},  // cross-file: dependency, re-export, entry
-        {"pub", imports},         {"forward", imports},   {"main", imports},
+        {"proto2", corpus},         {"proto3", corpus},     {"xref", corpus},
+        {"naming", corpus},         {"dep", imports},  // cross-file: dependency, re-export, entry
+        {"pub", imports},           {"forward", imports},   {"main", imports},
         {"weakdep", imports},  // weak import: type still usable, header still included
-        {"weakmain", imports},    {"wire_all", fixtures}, {"packed", corpus},
+        {"weakmain", imports},      {"wire_all", fixtures}, {"packed", corpus},
         {"editions2023", corpus},  // packed fixed-width; editions features
         {"editions2024", corpus},  // 2024 defaults (EXPLICIT presence, PACKED repeated)
         {"deep", nsedge},          // dotted package
         {"nopkg", nsedge},         // no package at all
         {"xpkg", nsedge},          // cross-file reference into a dotted package
         {"stdpkg", nsedge},        // package `std` -> namespace std_, never namespace std
-        {"rppkg", nsedge}};        // package `rapidproto`, below the runtime's own namespace
+        {"rppkg", nsedge},         // package `rapidproto`, below the runtime's own namespace
+        {"gluenames", nsedge},     // names shaped like the Rust stream glue (`rp_rt`, `Sized`, ...)
+        {"gluenames_sub", nsedge},  // its sub-package `gluenames.rp_rt`
+        {"collide", nsedge},  // names Rust output refers to or derives (`Option`, `u8`, `type`, ...)
+        {"collide_option", nsedge},    // its sub-package `collide.Option`
+        {"collide_visitor", nsedge}};  // its sub-package `collide.NodeVisitor`
 
     for (const Case& test : cases) {
         const std::string actual =

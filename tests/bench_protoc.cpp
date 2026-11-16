@@ -123,6 +123,17 @@ std::uint64_t checksum_protoc_record(const bench::RecordSet& d) {
     return s;
 }
 
+// The fields `records sparse (dropped)` keeps (tests/bench/records_sparse.modes). protoc parses every
+// field regardless.
+std::uint64_t checksum_protoc_record_sparse(const bench::RecordSet& d) {
+    std::uint64_t s = 0;
+    for (const bench::Record& r : d.records()) {
+        s += static_cast<std::uint64_t>(r.f1()) + static_cast<std::uint64_t>(r.f10()) +
+             static_cast<std::uint64_t>(r.f20());
+    }
+    return s;
+}
+
 std::uint64_t checksum_big_protoc(const bench::Big& b) {
     std::uint64_t s = 0;
     for (const std::int64_t v : b.numbers()) {
@@ -169,6 +180,9 @@ std::uint64_t protoc_wide(const std::string& buf) {
 }
 std::uint64_t protoc_record(const std::string& buf) {
     return parse_and_sum<bench::RecordSet>(buf, checksum_protoc_record);
+}
+std::uint64_t protoc_record_sparse(const std::string& buf) {
+    return parse_and_sum<bench::RecordSet>(buf, checksum_protoc_record_sparse);
 }
 std::uint64_t protoc_big(const std::string& buf) {
     return parse_and_sum<bench::Big>(buf, checksum_big_protoc);

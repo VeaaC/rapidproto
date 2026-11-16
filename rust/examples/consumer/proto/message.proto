@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package demo;
+
+import "types.proto";
+
+enum Kind {
+  KIND_UNKNOWN = 0;
+  KIND_CIRCLE = 1;
+  KIND_SQUARE = 2;
+}
+
+message Shape {
+  string name = 1;
+  Point origin = 2;  // from types.proto
+  Kind kind = 3;
+  repeated int32 sides = 4;
+}

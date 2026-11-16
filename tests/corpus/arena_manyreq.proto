@@ -1,8 +1,22 @@
 // Fixture for arenagen parse emission: >64 required fields, so the transient required-presence bitmask
 // (rp_req) must be a multi-word uint64[] -- a single uint64 would shift by >=64 (UB) on field 65+.
+// Also carries the `required <small fixed-size message>` shape (ReqInline below): such a field inlines
+// BY VALUE with NO resting presence bit (required is always-present), which the Rust generator must
+// emit without a `1 << -1` mask access -- a shape otherwise absent from the corpus.
 syntax = "proto2";
 
 package mr;
+
+message Small {
+  optional int32 x = 1;
+  optional int32 y = 2;
+}
+
+// `required <small fixed-size message>`: inlined by value (<= the 16B cutoff) with no presence bit.
+message ReqInline {
+  required Small s = 1;
+  optional int32 tag = 2;
+}
 
 message ManyRequired {
   required int32 f1 = 1;

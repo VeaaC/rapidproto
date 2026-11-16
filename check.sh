@@ -1142,7 +1142,8 @@ job_corpus() {
 # Randomized differential against protobuf: build random messages with protobuf, decode the same
 # bytes both ways, compare every field (tests/differential.py). Needs protoc + the protobuf Python
 # bindings and skips itself when either is absent -- they are dev-only, like protozero and Catch2 --
-# so this must not be the only thing standing between a change and the gate.
+# so this must not be the only thing standing between a change and the gate. With rustc + cargo
+# installed it checks the generated Rust decoders too, and a failed Rust build fails the stage.
 job_differential() {
   if [[ ! -x ./build/gcc/rapidprotoc || ! -x ./build/gcc/rapidproto_diffgen ]]; then
     echo ">> build/gcc missing: the differential stage needs the gcc stage's binaries"

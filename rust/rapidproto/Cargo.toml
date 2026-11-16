@@ -1,0 +1,41 @@
+[package]
+name = "rapidproto"
+version = "0.1.0-alpha.2"
+edition = "2021"
+rust-version.workspace = true
+license = "Apache-2.0"
+description = "Runtime for the Protobuf decoders that rapidproto-build generates."
+repository = "https://github.com/VeaaC/rapidproto"
+readme = "README.md"
+keywords = ["protobuf", "protocol-buffers", "decode", "zero-copy", "no-std"]
+categories = ["encoding", "parser-implementations", "no-std", "no-std::no-alloc"]
+
+[features]
+default = ["alloc"]
+# The crate is always no_std. `alloc` lets the arena grow on the heap; without it the arena uses only
+# a caller's buffer. No 3rd-party runtime deps in the default build.
+alloc = []
+# Optional, off by default. Code generated with `Config::serde` (rapidproto-build) needs it, and
+# reaches serde through the `::rapidproto::serde` re-export, so a consumer does not depend on serde
+# itself. A default build stays dependency-free.
+serde = ["dep:serde"]
+
+[dependencies]
+# Optional (see the `serde` feature). default-features = false keeps it no_std-compatible; the
+# `Serialize` impls are hand-written in generated code, so no `derive`.
+serde = { version = "1", default-features = false, optional = true }
+
+# Dev-only: criterion drives the wire-layer micro-benchmarks (not a runtime dependency). Default
+# features off -- the benches want timings, not its HTML/plotting stack.
+[dev-dependencies]
+criterion = { version = "0.3", default-features = false }
+
+# Shows the `serde` items too.
+[package.metadata.docs.rs]
+features = ["serde"]
+targets = ["x86_64-unknown-linux-gnu"]
+
+# Run it with `cargo bench -p rapidproto`.
+[[bench]]
+name = "wire"
+harness = false

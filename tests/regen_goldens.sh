@@ -53,6 +53,12 @@ trap 'rm -rf "$T"' EXIT
 # A package named `rapidproto` keeps its spelling: under the roots it sits three levels below
 # the runtime's own namespace and cannot merge into it.
 "$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rppkg.proto >/dev/null
+# Names shaped like the Rust stream glue (`rp_rt`, `Sized`, `Foo` beside `FooStream`);
+# pulls gluenames_sub (package `gluenames.rp_rt`).
+"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/gluenames.proto >/dev/null
+# Names the Rust output refers to or derives from (`Option`, `u8`, `NodeVisitor`, `type`, ...); pulls
+# collide_option / collide_visitor (packages `collide.Option`, `collide.NodeVisitor`).
+"$BIN" --stream -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/collide.proto >/dev/null
 "$BIN" --stream -Itests/wire_fixtures --out-dir="$T" tests/wire_fixtures/wire_all.proto >/dev/null
 # xref under a namespace prefix -> its own subdir golden, isolating its prefixed common header (rp::xr
 # enums) from the un-prefixed xref's common of the same stem (see regen_arenagen_goldens.sh).
@@ -105,7 +111,7 @@ echo "[5/5] regenerating AST + wire + arena-layout + common goldens via the test
 # at a failing assignment, so the separate-statement form made the branch below unreachable.
 regen_rc=0
 regen_out=$(RAPIDPROTO_REGEN_GOLDEN=1 ./build/gcc/rapidproto_tests \
-  "[golden],[wire-golden],[arena-layout],[common]" 2>&1) || regen_rc=$?
+  "[golden],[wire-golden],[arena-layout],[common],[rustgen-golden]" 2>&1) || regen_rc=$?
 grep -i "regenerated" <<<"$regen_out" || true
 if [[ $regen_rc -ne 0 ]]; then
   echo ">> golden regeneration failed (exit $regen_rc) -- goldens are incomplete:"

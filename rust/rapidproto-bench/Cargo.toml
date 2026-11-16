@@ -1,0 +1,95 @@
+# Rust decode benchmarks mirroring the C++ benches scenario for scenario, over the payload files the
+# C++ benches dump (see src/lib.rs). Bench-only: the competitor crates and their codegen are
+# dependencies of this crate alone, so they never reach the runtime, the generated code, or the
+# no_std tiers.
+[package]
+name = "rapidproto-bench"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+# Baseline: our runtime + the generated `bench` decoders (reused from the golden crate, so the
+# comparison runs the decoders a consumer compiles).
+rapidproto = { path = "../rapidproto" }
+rustgen-golden = { path = "../rustgen-golden" }
+# Competitor: prost (materializes into owned Vec/String; the checksum walk reads every field so the
+# owned allocation is paid for, not elided).
+prost = "0.14"
+# Competitor: rust-protobuf, the 2nd most-used Rust protobuf crate. Also an owned model
+# (`parse_from_bytes` -> owned structs, UTF-8-validated); same read-every-field treatment.
+protobuf = "3"
+# Competitor: quick-protobuf, the first NON-owned competitor. Generated types borrow strings/bytes
+# (`Cow<'a, _>`) from the input and nest sub-messages inline, but repeated fields still materialize to
+# heap `Vec`s -- "borrowed-string, allocating-tree," decoded via `from_reader`.
+quick-protobuf = "0.8"
+# Competitor: femtopb, the no-alloc borrowed peer. `#![no_std]`, borrows `&'a str`, and decodes
+# repeated fields LAZILY (no `Vec`) -- the every-field checksum walk forces that work so it is not
+# flattered. The nearest ecosystem analog to our arena-of-borrowed-views allocation profile.
+femtopb = "0.9"
+# Capstone: Google's official upb-backed `protobuf` v4 (the true arena-vs-arena peer), isolated in its
+# own crate because its `::protobuf::` is v4 while the rust-protobuf arm above needs v3. OPTIONAL +
+# OFF BY DEFAULT (the `google-upb` feature): building it needs an exact-version protoc, so the default
+# build and CI never pull it. Excluded from the workspace (see ../Cargo.toml).
+rapidproto-bench-upb = { path = "../rapidproto-bench-upb", optional = true }
+# zlib for the `osm_file` scenario, whose arms inflate the PBF blobs with `uncompress` as the C++ arms
+# do: the system zlib where installed (the C++ arms' library, so both inflate with the same code), a
+# bundled build elsewhere. Its build script needs a C compiler either way.
+libz-sys = "1"
+
+[features]
+# Add the google-upb capstone arm. Off by default; enabling it requires `protoc` 36.2 at build time
+# (point `RAPIDPROTO_UPB_PROTOC` at one -- see this crate's src/main.rs header). Run with:
+#   RAPIDPROTO_UPB_PROTOC=/path/to/protoc RAPIDPROTO_BENCH_DIR=<payloads> \
+#       cargo run -p rapidproto-bench --release --bin bench --features google-upb
+google-upb = ["dep:rapidproto-bench-upb"]
+# Add the `compute Instance` scenario (googleapis compute.proto, from the fetched corpus). Off by
+# default: its generated decoder is slow to compile, as its C++ counterpart is.
+compute = []
+
+[build-dependencies]
+# RapidProto's own codegen, the consumer path: renders the real-world datasets' schemas (see build.rs).
+rapidproto-build = { path = "../rapidproto-build" }
+# Pure-Rust protobuf compiler (no `protoc`): compiles bench.proto to a descriptor set that
+# prost-build turns into Rust.
+protox = "0.10"
+prost-build = "0.14"
+# rust-protobuf's codegen, driven with its pure-Rust parser (`.pure()`, no `protoc`).
+protobuf-codegen = "3"
+# quick-protobuf's codegen (also pure Rust, no `protoc`): renders bench.proto to its borrowed-view
+# decoders.
+pb-rs = "0.10"
+# femtopb's codegen (pure Rust, no `protoc`): renders bench.proto to its lazy/borrowed decoders.
+femtopb-build = "0.9"
+
+[dev-dependencies]
+# Drives the Rust-vs-Rust A/B benches (benches/decode.rs, benches/stream.rs); default features off --
+# they want timings, not the HTML/plotting stack. Matches the rapidproto wire bench.
+criterion = { version = "0.3", default-features = false }
+
+# The ecosystem runner: decode each scenario with every (runtime-selected) arm over shared payloads.
+[[bin]]
+name = "bench"
+path = "src/main.rs"
+
+# The streaming runner: the streaming decoder vs a hand-written wire loop, over the C++ streaming
+# bench's shared payloads.
+[[bin]]
+name = "stream"
+path = "src/stream_main.rs"
+
+# The Rust-vs-Rust A/B bench for the generated `bench` decoder across the C++ arena bench's scenarios
+# (the 8 shapes, cold and warm, and the repeated-varint sweeps), over the shared payloads. Run it
+# PINNED and ALIGNED (see the bench header for the directory):
+#   RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
+#       taskset -c 2 cargo bench -p rapidproto-bench --bench decode
+[[bench]]
+name = "decode"
+harness = false
+
+# The Rust-vs-Rust A/B bench for the generated streaming decoder across the C++ streaming bench's
+# scenarios, over the shared payloads (see the bench header).
+[[bench]]
+name = "stream"
+harness = false

@@ -66,6 +66,12 @@ done
 # A package named `rapidproto` keeps its spelling: under the roots it cannot merge the schema's
 # types into the runtime's own namespace.
 "$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/rppkg.proto >/dev/null
+# Names shaped like the Rust stream glue (`rp_rt`, `Sized`, `Foo` beside `FooStream`);
+# pulls gluenames_sub (package `gluenames.rp_rt`).
+"$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/gluenames.proto >/dev/null
+# Names the Rust output refers to or derives from (`Option`, `u8`, `NodeVisitor`, `type`, ...); pulls
+# collide_option / collide_visitor (packages `collide.Option`, `collide.NodeVisitor`).
+"$BIN" --arena -Itests/corpus/nsedge --out-dir="$T" tests/corpus/nsedge/collide.proto >/dev/null
 # --namespace-prefix + imports: the prefixed closure into a subdir, so its relative #includes resolve
 # to the prefixed siblings (not the unprefixed ones, which share the same filenames).
 "$BIN" --arena --namespace-prefix=pfx -Itests/corpus/imports --out-dir="$T/prefixed" tests/corpus/imports/main.proto >/dev/null

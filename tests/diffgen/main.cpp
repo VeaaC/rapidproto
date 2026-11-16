@@ -35,6 +35,8 @@
 #include "rapidproto/codegen/naming.hpp"
 #include "rapidproto/resolve.hpp"
 #include "rapidproto/resolver.hpp"
+#include "rapidproto/rustgen/generator.hpp"  // arena_type_paths: FQN -> Rust type path (the dispatch)
+#include "rapidproto/rustgen/pipeline.hpp"  // generate_rust: the Rust side's generated decoders
 
 namespace {
 
@@ -80,6 +82,9 @@ std::string json_escaped(std::string_view text) {
     return out;
 }
 
+// Where tests/differential.py includes the generated Rust.
+constexpr const char* kRustModulePath = "crate::schema";
+
 // The schema's file stem ("dir/proto3.proto" -> "proto3"), which names its generated headers.
 std::string stem_of(const std::string& filename) {
     std::string stem = filename;
@@ -101,6 +106,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> includes;
     std::string out_path;
     std::string meta_path;
+    std::string rust_out_path;  // optional: where to write the generated Rust decoders
     std::string entry;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -110,6 +116,8 @@ int main(int argc, char** argv) {
             out_path = argv[++i];
         } else if (arg == "--meta" && i + 1 < argc) {
             meta_path = argv[++i];
+        } else if (arg == "--rust-out" && i + 1 < argc) {
+            rust_out_path = argv[++i];
         } else if (arg.rfind('-', 0) == 0) {
             std::cerr << "error: unknown flag '" << arg << "'\n";
             return 2;
@@ -119,7 +127,7 @@ int main(int argc, char** argv) {
     }
     if (entry.empty() || out_path.empty() || meta_path.empty()) {
         std::cerr << "usage: rapidproto_diffgen -I<dir> --out <harness.cpp> --meta <meta.json>"
-                     " <schema.proto>\n";
+                     " [--rust-out <schema.rs>] <schema.proto>\n";
         return 2;
     }
 
@@ -239,6 +247,16 @@ int main(int argc, char** argv) {
         }
     }
 
+    // The Rust type path for each message (the Rust arm's dispatch: FQN -> its path), from rustgen's
+    // own naming. Covers every file in the set, so an imported message resolves too.
+    std::vector<const rapidproto::FileNode*> rust_files;
+    rust_files.reserve(set.files.size());
+    for (const rapidproto::FileNode& each : set.files) {
+        rust_files.push_back(&each);
+    }
+    const std::vector<std::pair<std::string, std::string>> rust_paths =
+        rapidproto::rustgen::arena_type_paths(rust_files, kRustModulePath);
+
     // The dumper prints the C++ enumerator name, which codegen::enum_value_names computes -- the
     // same call the enum and the dumper's own table make, so this table is what a dump contains.
     std::string meta = "{\n  \"messages\": [";
@@ -267,6 +285,12 @@ int main(int argc, char** argv) {
         meta += "}";
         sep = ",\n";
     }
+    meta += "\n  },\n  \"rust\": {";
+    std::string rust_sep;
+    for (const auto& [fqn, path] : rust_paths) {
+        meta += rust_sep + "\n    \"" + json_escaped(fqn) + "\": \"" + json_escaped(path) + "\"";
+        rust_sep = ",";
+    }
     meta += "\n  }\n}\n";
     std::ofstream meta_out(meta_path, std::ios::binary);
     if (!meta_out) {
@@ -281,5 +305,27 @@ int main(int argc, char** argv) {
         return 1;
     }
     file_out << out;
-    return file_out.good() ? 0 : 1;
+    if (!file_out.good()) {
+        return 1;
+    }
+
+    // The Rust decoders (one merged module tree for the whole closure), under the default profile, with
+    // the `Serialize` impls the Rust harness prints through. Only when --rust-out set.
+    if (!rust_out_path.empty()) {
+        rapidproto::rustgen::RustOptions rust_options;
+        rust_options.serde = true;
+        rust_options.module_path = kRustModulePath;
+        const std::string rust =
+            rapidproto::rustgen::generate_rust(set, analyzed->second, {}, rust_options);
+        std::ofstream rust_out(rust_out_path, std::ios::binary);
+        if (!rust_out) {
+            std::cerr << "error: cannot write " << rust_out_path << '\n';
+            return 1;
+        }
+        rust_out << rust;
+        if (!rust_out.good()) {
+            return 1;
+        }
+    }
+    return 0;
 }

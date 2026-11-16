@@ -1,0 +1,59 @@
+// Names shaped like what a Rust stream macro relies on: the runtime re-export `rp_rt`, and the bare
+// names an expansion must not capture. Each name below is protoc-valid; the Rust golden compiling (and
+// the golden crate's tests driving `Holder`'s macros) is the check.
+syntax = "proto3";
+
+package gluenames;
+
+import "gluenames_sub.proto";
+
+// Nested types -> a message submodule `rp_rt`, which a sub-package of the same name (`gluenames.rp_rt`,
+// imported) competes for too.
+message RpRt {
+  message X {
+    int32 v = 1;
+  }
+  X x = 1;
+}
+
+// The shared-state expansion's `?Sized` bound must not resolve to this.
+message Sized {
+  int32 v = 1;
+}
+
+// `Foo`'s macro `foo_stream` and `FooStream`'s nested-type submodule `foo_stream` share a name.
+message Foo {
+  int32 v = 1;
+}
+message FooStream {
+  message In {
+    int32 v = 1;
+  }
+  In inner = 1;
+}
+
+// Named like generated bindings: a `Serialize` parameter, a macro expansion's local, and decode locals.
+// An enum's tuple constructor would break a binding of that name in its scope, so its Rust name changes.
+// A message has named fields only, so it keeps its name.
+enum rp_ser {
+  RP_SER_ZERO = 0;
+}
+enum rp_state {
+  RP_STATE_ZERO = 0;
+  RP_STATE_ONE = 1;
+}
+message rp_v {}
+message rp_rest {
+  fixed32 v = 1;
+}
+
+message Holder {
+  RpRt nested = 1;
+  gluenames.rp_rt.Sub sub = 2;  // a child in the `rp_rt` sub-package
+  Sized sized = 3;
+  Foo foo = 4;
+  rp_ser ser = 5;
+  rp_state state = 6;
+  rp_v empty = 7;
+  rp_rest rest = 8;
+}

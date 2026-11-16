@@ -1,14 +1,18 @@
 // Cross-file with well-known types: fields whose type is a google.protobuf WKT. The CLI generates
 // the whole resolved closure (this file plus the embedded WKT sources it imports), so the emitted
-// includes point at headers that are also produced -- the output compiles standalone.
+// includes point at headers that are also produced -- the output compiles standalone. type.proto
+// (pulling any.proto and source_context.proto) declares a message named `Option`, which generated
+// code must not mistake for the language's own.
 syntax = "proto3";
 
 package uw;
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/type.proto";
 
 message Event {
   google.protobuf.Timestamp at = 1;
   google.protobuf.Duration took = 2;
+  google.protobuf.Type shape = 3;
 }

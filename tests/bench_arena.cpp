@@ -51,21 +51,26 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "bench.pb.h"              // protoc: bench::Dataset / WideSet / BigSet
-#include "bench.rp.hpp"            // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
-#include "bench.rp.stream.hpp"     // streamgen: rp::stream::bench::Dataset
-#include "bench_arm_messages.hpp"  // google_message1/2 scenarios (declaration only; own TU)
-#include "bench_arm_osm.hpp"       // OSM PBF scenarios (declaration only; own TU)
-#include "bench_baselines.hpp"     // third-party baselines, in their own TUs (see that header)
+#include "bench.pb.h"                    // protoc: bench::Dataset / WideSet / BigSet
+#include "bench.rp.hpp"                  // arenagen: rp::arena::bench::Dataset / WideSet / BigSet
+#include "bench.rp.stream.hpp"           // streamgen: rp::stream::bench::Dataset
+#include "bench_arm_messages.hpp"        // google_message1/2 scenarios (declaration only; own TU)
+#include "bench_arm_osm.hpp"             // OSM PBF scenarios (declaration only; own TU)
+#include "bench_arm_records_sparse.hpp"  // records under a drop profile (declaration only; own TU)
+#include "bench_baselines.hpp"  // third-party baselines, in their own TUs (see that header)
 #include "bench_harness.hpp"  // rpbench: the shared measurement harness (also used by rapidproto_bench)
-#include "bench_records.hpp"  // the hand-built RecordSet wire, asserted against protoc below
-#include "bench_upb.hpp"      // upb baseline arm (whole header no-ops without RAPIDPROTO_HAVE_UPB)
-#include "bench_varint.hpp"   // repeated-varint sweep builders (shared with the streaming bench)
+#include "bench_payloads.hpp"  // the shared payload directory (RAPIDPROTO_BENCH_DIR / _DUMP_DIR)
+#include "bench_records.hpp"   // the hand-built RecordSet wire, asserted against protoc below
+#include "bench_upb.hpp"       // upb baseline arm (whole header no-ops without RAPIDPROTO_HAVE_UPB)
+#include "bench_varint.hpp"    // repeated-varint sweep builders (shared with the streaming bench)
 #include "rapidproto/arena_runtime.hpp"
 #include "rapidproto/runtime.hpp"
 
@@ -280,7 +285,57 @@ std::string make_records(int count) {
     return out;
 }
 
+// ── shared scenario payloads ───────────────────────────────────────────────────────────────────────
+// Every benched shape, keyed by the file stem both this bench and the Rust decode bench use under
+// RAPIDPROTO_BENCH_DIR. The make_* params here are the single source of truth: the dump
+// (RAPIDPROTO_BENCH_DUMP_DIR) writes make_scenario() for each name, and load_scenario() reads that same
+// file back, so both benches decode byte-identical, protoc-canonical input. Rust cannot produce these
+// bytes itself (it is decode-only), which is why the canonical payload is generated here and shared as
+// a file rather than built independently on each side.
+constexpr std::string_view kScenarios[] = {"dataset", "big_varint", "big_fixed", "big_osm",
+                                           "big",     "wide",       "records",   "particles"};
+
+std::string make_scenario(std::string_view name) {
+    if (name == "dataset") {
+        return make_dataset(kPeople);
+    }
+    if (name == "big_varint") {
+        return make_big_varint(200, 1000);
+    }
+    if (name == "big_fixed") {
+        return make_big_fixed(200, 1000);
+    }
+    if (name == "big_osm") {
+        return make_big_osm(200, 1000);
+    }
+    if (name == "big") {
+        return make_big(30, 10000);
+    }
+    if (name == "wide") {
+        return make_wide(50000);
+    }
+    if (name == "records") {
+        return make_records(20000);
+    }
+    if (name == "particles") {
+        return make_particles(50000);
+    }
+    std::fprintf(stderr, "bench: unknown scenario '%.*s'\n", static_cast<int>(name.size()),
+                 name.data());
+    std::exit(1);
+}
+
+// The payload for `name`: the shared file under RAPIDPROTO_BENCH_DIR when set (both benches then decode
+// the SAME bytes), else built in-process for a standalone C++ run.
+std::string load_scenario(std::string_view name) {
+    if (const char* const dir = rpbench::payload_dir()) {
+        return rpbench::read_payload(std::string(dir) + "/" + std::string(name) + ".bin");
+    }
+    return make_scenario(name);
+}
+
 // ── checksums (must agree across decoders for Dataset; guard optimize-away for the sweep shapes) ───
+// The arena walks are also the Rust bench's reference: the dump records them (shape_checksum).
 
 std::uint64_t checksum_arena_dataset(const rp::arena::bench::Dataset* d) {
     std::uint64_t s = static_cast<std::uint64_t>(d->version()) + d->name().size();
@@ -389,6 +444,37 @@ std::uint64_t checksum_arena_record(const rp::arena::bench::RecordSet* d) {
         sample(r.s2());
     }
     return s;
+}
+
+// The arena walk's checksum over shape `name`'s payload, or nullopt when it does not decode. The dump
+// records it beside the payload (<name>.sum), and the Rust runner holds its arms to it.
+std::optional<std::uint64_t> shape_checksum(std::string_view name, const std::string& payload) {
+    rapidproto::Arena arena;
+    const rapidproto::ByteView view(payload);
+    const auto walk = [](const auto* msg, auto sum) -> std::optional<std::uint64_t> {
+        if (msg == nullptr) {
+            return std::nullopt;
+        }
+        return sum(msg);
+    };
+    if (name == "dataset") {
+        return walk(rp::arena::bench::Dataset::decode(view, arena), checksum_arena_dataset);
+    }
+    if (name == "wide") {
+        return walk(rp::arena::bench::WideSet::decode(view, arena), checksum_arena_wide);
+    }
+    if (name == "records") {
+        return walk(rp::arena::bench::RecordSet::decode(view, arena), checksum_arena_record);
+    }
+    if (name == "particles") {
+        return walk(rp::arena::bench::ParticleSet::decode(view, arena), checksum_arena_particle);
+    }
+    if (name == "big_varint" || name == "big_fixed" || name == "big_osm" || name == "big") {
+        return walk(rp::arena::bench::BigSet::decode(view, arena), checksum_arena_big);
+    }
+    std::fprintf(stderr, "bench: no checksum walk for scenario '%.*s'\n",
+                 static_cast<int>(name.size()), name.data());
+    std::exit(1);
 }
 
 std::uint64_t checksum_stream(rapidproto::ByteView buf) {
@@ -531,50 +617,48 @@ int sweep_repeated_varint() {
     for (const auto& dist : rpbench::varint_dists()) {
         for (const int count : rpbench::varint_lengths()) {
             // Name first, so a scenario filter can skip the POOL BUILD below, not merely the
-            // measurement -- the pool is up to 64 MB and dominates a filtered run otherwise.
+            // measurement -- the pool is up to 80 MB and dominates a filtered run otherwise.
             const std::string name = rpbench::rv_scenario_name(dist, count);
             if (!rpbench::scenario_selected(name.c_str())) {
                 continue;
             }
-            // Distinct-seed pool, rotated so no arm replays one memorized width sequence
-            // (arithmetic + rationale: bench_varint.hpp).
-            const rpbench::VarintPool built = rpbench::build_varint_pool(dist, count);
+            // Distinct-seed pool, decoded whole per sample so no arm replays one memorized width
+            // sequence (arithmetic + rationale: bench_varint.hpp).
+            const rpbench::VarintPool built =
+                rpbench::load_varint_pool(rpbench::payload_stem(name), dist, count);
             const std::vector<std::string>& pool = built.buffers;
-            const double avg_bytes = built.avg_bytes;
             std::vector<rapidproto::ByteView> views;
             views.reserve(pool.size());
             for (const auto& b : pool) {
                 views.emplace_back(b);  // pool strings are stable (fully built, no realloc)
             }
             rapidproto::Arena warm;
-            // Each arm keeps its own rotation index; the harness calls every arm the same number of
-            // times, so all indices stay in lockstep and the per-round checksum cross-check still holds.
             std::vector<rpbench::Arm> arms = {
+                // Lambdas, not function pointers: every arm calls its decode directly.
                 {"protoc",
-                 [&, i = 0]() mutable {
-                     return rpbaseline::protoc_big(
-                         pool[static_cast<std::size_t>(i++) % pool.size()]);
-                 }},
-                {"arena-warm",
-                 [&, i = 0]() mutable {
-                     const rapidproto::ByteView& view =
-                         views[static_cast<std::size_t>(i++) % views.size()];
-                     warm.reset();
-                     return checksum_big_arena(rp::arena::bench::Big::decode(view, warm));
-                 }},
+                 rpbench::pool_pass(
+                     pool, [](const std::string& b) { return rpbaseline::protoc_big(b); })},
+                {"arena-warm", rpbench::pool_pass(views,
+                                                  [&](rapidproto::ByteView view) {
+                                                      warm.reset();
+                                                      return checksum_big_arena(
+                                                          rp::arena::bench::Big::decode(view,
+                                                                                        warm));
+                                                  })},
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
                 {"protozero",
-                 [&, i = 0]() mutable {
-                     return rpbaseline::protozero_big(
-                         views[static_cast<std::size_t>(i++) % views.size()]);
-                 }},
+                 rpbench::pool_pass(
+                     views, [](rapidproto::ByteView b) { return rpbaseline::protozero_big(b); })},
 #endif
             };
-            bad += rpbench::run(name.c_str(), avg_bytes, arms);
+            bad += rpbench::run(name.c_str(), built.total_bytes, arms);
         }
     }
     return bad;
 }
+
+// The element count of the per-type sweep below (and of its pools in the dump).
+constexpr int kTypeCount = 1'000'000;
 
 // Packed sint64 (`zz`, field 3) and packed enum (`kinds`, field 4) carry the SAME packed-varint wire as
 // `numbers`, so they run the SAME classifier + kernels; only the per-element conversion differs (zigzag
@@ -584,18 +668,17 @@ int sweep_repeated_varint() {
 // vs our decoders could then disagree -- and real enums are small anyway). Returns the count of
 // arms whose checksum disagreed.
 int sweep_repeated_varint_types() {
-    constexpr int kCount = 1'000'000;
     const auto run_type = [&](const rpbench::VarintDist& dist, int field_number, const char* tag,
                               auto arena_sum, auto protoc_sum, auto protozero_sum) {
         // Name first, so a scenario filter skips the ~80 MB pool build below, not just the
         // measurement (same reason as sweep_repeated_varint).
-        const std::string name = std::string("rv-") + tag + " " + dist.label + " 1M";
+        const std::string name = rpbench::rv_type_scenario_name(tag, dist, kTypeCount);
         if (!rpbench::scenario_selected(name.c_str())) {
             return 0;
         }
-        const rpbench::VarintPool built = rpbench::build_varint_pool(dist, kCount, field_number);
+        const rpbench::VarintPool built =
+            rpbench::load_varint_pool(rpbench::payload_stem(name), dist, kTypeCount, field_number);
         const std::vector<std::string>& pool = built.buffers;
-        const double avg_bytes = built.avg_bytes;
         std::vector<rapidproto::ByteView> views;
         views.reserve(pool.size());
         for (const auto& b : pool) {
@@ -604,24 +687,19 @@ int sweep_repeated_varint_types() {
         rapidproto::Arena warm;
         std::vector<rpbench::Arm> arms = {
             {"protoc",
-             [&, i = 0]() mutable {
-                 return protoc_sum(pool[static_cast<std::size_t>(i++) % pool.size()]);
-             }},
-            {"arena-warm",
-             [&, i = 0]() mutable {
-                 const rapidproto::ByteView& view =
-                     views[static_cast<std::size_t>(i++) % views.size()];
-                 warm.reset();
-                 return arena_sum(rp::arena::bench::Big::decode(view, warm));
-             }},
+             rpbench::pool_pass(pool, [&](const std::string& b) { return protoc_sum(b); })},
+            {"arena-warm", rpbench::pool_pass(views,
+                                              [&](rapidproto::ByteView view) {
+                                                  warm.reset();
+                                                  return arena_sum(
+                                                      rp::arena::bench::Big::decode(view, warm));
+                                              })},
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
             {"protozero",
-             [&, i = 0]() mutable {
-                 return protozero_sum(views[static_cast<std::size_t>(i++) % views.size()]);
-             }},
+             rpbench::pool_pass(views, [&](rapidproto::ByteView b) { return protozero_sum(b); })},
 #endif
         };
-        return rpbench::run(name.c_str(), avg_bytes, arms);
+        return rpbench::run(name.c_str(), built.total_bytes, arms);
     };
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
     const auto zz_pz = rpbaseline::protozero_big_zz;
@@ -644,9 +722,69 @@ int sweep_repeated_varint_types() {
 }  // namespace
 
 int main() {
+    // Dump mode: write the input of every scenario this bench compares (layout: bench_payloads.hpp)
+    // to RAPIDPROTO_BENCH_DUMP_DIR and exit without benching. Shapes are written as protoc serializes
+    // them; real-world datasets only when this build has them.
+    if (const char* const dir = std::getenv("RAPIDPROTO_BENCH_DUMP_DIR")) {
+        for (const std::string_view name : kScenarios) {
+            const std::string payload = make_scenario(name);
+            const std::optional<std::uint64_t> sum = shape_checksum(name, payload);
+            if (!sum) {
+                std::fprintf(stderr, "bench: the arena decoder rejects the '%.*s' payload\n",
+                             static_cast<int>(name.size()), name.data());
+                return 1;
+            }
+            const std::filesystem::path base = std::filesystem::path(dir) / std::string(name);
+            if (!rpbench::write_payload(base.string() + ".bin", payload) ||
+                !rpbench::write_sum(base.string() + ".sum", *sum)) {
+                return 1;
+            }
+        }
+        // The repeated-varint sweeps' pools (rv/<stem>.pool), the same set the sweeps measure.
+        for (const auto& dist : rpbench::varint_dists()) {
+            for (const int count : rpbench::varint_lengths()) {
+                if (!rpbench::dump_varint_pool(
+                        dir, rpbench::payload_stem(rpbench::rv_scenario_name(dist, count)), dist,
+                        count)) {
+                    return 1;
+                }
+            }
+            if (!rpbench::dump_varint_pool(
+                    dir,
+                    rpbench::payload_stem(rpbench::rv_type_scenario_name("zz", dist, kTypeCount)),
+                    dist, kTypeCount, 3)) {
+                return 1;
+            }
+            if (dist.enum_narrow &&
+                !rpbench::dump_varint_pool(
+                    dir,
+                    rpbench::payload_stem(rpbench::rv_type_scenario_name("enum", dist, kTypeCount)),
+                    dist, kTypeCount, 4)) {
+                return 1;
+            }
+        }
+        // The real-world datasets' inputs (external/), each when this build has its scenarios.
+#ifdef RAPIDPROTO_BENCH_MESSAGES
+        if (!rpmessages::dump(dir)) {
+            return 1;
+        }
+#endif
+#ifdef RAPIDPROTO_BENCH_OSM
+        if (!rposm::dump(dir)) {
+            return 1;
+        }
+#endif
+#ifdef RAPIDPROTO_BENCH_COMPUTE
+        if (!rpcompute::dump(dir)) {
+            return 1;
+        }
+#endif
+        return 0;
+    }
+
     // The baseline's version is half a headline ratio's meaning; report it so a number is never
     // separated from the libprotobuf it was measured against. (The macro encodes MMmmmppp.)
-    const std::string buf = make_dataset(kPeople);
+    const std::string buf = load_scenario("dataset");
     const rapidproto::ByteView view(buf);
     if (rpbench::json_mode()) {
         std::printf(
@@ -820,12 +958,12 @@ int main() {
         };
         return rpbench::run(name, static_cast<double>(b.size()), a);
     };
-    bad += bench_bigset("packed int64(varint)", make_big_varint(200, 1000));    // 200k varint elems
-    bad += bench_bigset("packed double(fixed)", make_big_fixed(200, 1000));     // 200k fixed elems
-    bad += bench_bigset("osm: sint64 deltas + enum", make_big_osm(200, 1000));  // packed witness
-    bad += bench_bigset("few msgs, big arrays", make_big(30, 10000));  // 30 msgs x 20k elements
+    bad += bench_bigset("packed int64(varint)", load_scenario("big_varint"));  // 200k varint elems
+    bad += bench_bigset("packed double(fixed)", load_scenario("big_fixed"));   // 200k fixed elems
+    bad += bench_bigset("osm: sint64 deltas + enum", load_scenario("big_osm"));  // packed witness
+    bad += bench_bigset("few msgs, big arrays", load_scenario("big"));  // 30 msgs x 20k elements
     {
-        const std::string wbuf = make_wide(50000);  // 50k msgs x tiny arrays -- same ~600k elements
+        const std::string wbuf = load_scenario("wide");  // 50k msgs x tiny arrays -- ~600k elements
         rapidproto::ByteView v(wbuf);
         rapidproto::Arena w;
         std::vector<rpbench::Arm> a = {
@@ -842,7 +980,7 @@ int main() {
         // Scalar-heavy records (no strings/packed/maps): decode time is dominated by per-field tag
         // dispatch, so this is the shape that isolates dispatch-shape wins (unlike the string/array-bound
         // shapes above). 20k records x ~34 bytes.
-        const std::string rbuf = make_records(20000);
+        const std::string rbuf = load_scenario("records");
         // The streaming bench decodes the SAME scenario from bench_records.hpp's hand-built
         // wire. The two are NOT byte-identical -- proto3's serializer omits zero-valued implicit
         // fields the hand-builder writes explicitly (adding this check exposed that the old
@@ -871,6 +1009,8 @@ int main() {
              }},
         };
         bad += rpbench::run("scalar records (dispatch-bound)", static_cast<double>(rbuf.size()), a);
+        // The same payload with 17 of each Record's 20 fields dropped (own TU, see the header).
+        bad += rprecords_sparse::run_arm(rbuf);
     }
 
     // Repeated-varint sweep: the packed int64 decode surface across element byte width x count. Part of

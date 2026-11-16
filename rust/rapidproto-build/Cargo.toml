@@ -1,0 +1,57 @@
+[package]
+name = "rapidproto-build"
+version = "0.1.0-alpha.2"
+edition = "2021"
+rust-version.workspace = true
+license = "Apache-2.0"
+description = "Generates RapidProto's Rust decoders for Protobuf schemas in a build script, without protoc."
+repository = "https://github.com/VeaaC/rapidproto"
+readme = "README.md"
+keywords = ["protobuf", "protocol-buffers", "codegen", "build-dependencies", "wasm"]
+categories = ["development-tools::build-utils", "encoding"]
+# The integration tests are workspace-only dogfood gates (they regenerate the sibling
+# `rustgen-golden` goldens and drive the `examples/consumer` schema), so they cannot run from a
+# published tarball -- keep them out of the package rather than ship tests that can't build.
+exclude = ["tests"]
+
+# Two ways to run the generator (see the crate docs): natively, compiled from its C++ by build.rs, or
+# as the embedded WebAssembly module in the wasmi interpreter. With both (the default), the native
+# one is used when it builds.
+[features]
+default = ["native", "wasm"]
+# Compile the generator natively (needs a C++17 compiler at build time).
+native = ["dep:cc"]
+# The embedded wasm generator in the wasmi interpreter (pure Rust, no C++ compiler).
+wasm = ["dep:wasmi", "dep:wasmi_wasi"]
+
+[dependencies]
+# The blob is loaded as binary and validated; we never parse the WebAssembly text format, so drop
+# wasmi's default `wat` feature (and its text-parser subtree: wat/wast/wasm-encoder/bumpalo/...).
+# `portable-dispatch` instead of wasmi's automatic choice: that picks tail-call dispatch for any
+# optimized build of wasmi, and with debug assertions on (an optimized dev-profile build script) the
+# tail calls are not eliminated, so the stack overflows. The generator uses only the minimal WASI
+# surface (stdin/stdout), so wasmi_wasi's preview-1 shim is all that is needed.
+wasmi = { version = "2.0.0", optional = true, default-features = false, features = [
+    "stable",
+    "std",
+    "validate",
+    "memory64",
+    "portable-dispatch",
+] }
+wasmi_wasi = { version = "2.0.0", optional = true }
+
+[build-dependencies]
+# Compiles the generator's C++ for the `native` feature, its translation units in parallel.
+cc = { version = "1", optional = true, features = ["parallel"] }
+
+# The public API is the same with either generator, so docs.rs builds the one that needs no C++
+# compile. A DOCS_RS check in build.rs would not do: docs.rs also builds this crate for crates that
+# depend on it, and their build scripts do run the generator.
+[package.metadata.docs.rs]
+no-default-features = true
+features = ["wasm"]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[[bin]]
+name = "rapidproto-rust"
+path = "src/main.rs"

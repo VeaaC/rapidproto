@@ -143,6 +143,18 @@ inline void rp_dump_write(const ::rp::arena::p3::Msg& m, ::rapidproto::dump_deta
         ::rapidproto::dump_detail::write_float(w.os(), rp_v);
       }
     }
+    if (const auto& rp_r = m.chunks(); !rp_r.empty()) {
+      if (w.begin_field(rp_first, "chunks")) {
+        w.group('[', ']', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_el : rp_r) {
+            w.entry_sep(rp_efirst);
+            w.os() << '"'; ::rapidproto::dump_detail::write_hex(w.os(), rp_el); w.os() << '"';
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
+    }
     if (const auto& rp_mp = m.counts(); !rp_mp.empty()) {
       if (w.begin_field(rp_first, "counts")) {
         w.group('{', '}', [&] {
@@ -195,6 +207,19 @@ inline void rp_dump_write(const ::rp::arena::p3::Msg& m, ::rapidproto::dump_deta
         });
       }
     }
+    if (const auto& rp_mp = m.blobs(); !rp_mp.empty()) {
+      if (w.begin_field(rp_first, "blobs")) {
+        w.group('{', '}', [&] {
+          bool rp_efirst = true;
+          for (const auto& rp_ent : rp_mp) {
+            w.entry_sep(rp_efirst);
+            w.os() << '"'; ::rapidproto::dump_detail::write_json_escaped(w.os(), rp_ent.key()); w.os() << "\": ";
+            w.os() << '"'; ::rapidproto::dump_detail::write_hex(w.os(), rp_ent.value()); w.os() << '"';
+            if (w.overflowed()) { break; }
+          }
+        });
+      }
+    }
     m.pick([&](auto rp_tag, const auto& rp_v) {
       using rp_Tag = std::decay_t<decltype(rp_tag)>;
       if constexpr (std::is_same_v<rp_Tag, ::rp::arena::p3::Msg::Pick::a>) {
@@ -215,6 +240,11 @@ inline void rp_dump_write(const ::rp::arena::p3::Msg& m, ::rapidproto::dump_deta
       if constexpr (std::is_same_v<rp_Tag, ::rp::arena::p3::Msg::Pick::d>) {
         if (w.begin_field(rp_first, "d")) {
           ::rapidproto::dump_detail::write_float(w.os(), rp_v);
+        }
+      }
+      if constexpr (std::is_same_v<rp_Tag, ::rp::arena::p3::Msg::Pick::e>) {
+        if (w.begin_field(rp_first, "e")) {
+          w.os() << '"'; ::rapidproto::dump_detail::write_hex(w.os(), rp_v); w.os() << '"';
         }
       }
     });

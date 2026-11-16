@@ -40,6 +40,7 @@ std::uint64_t protoc_dataset(const std::string& buf);
 std::uint64_t protoc_big_set(const std::string& buf);
 std::uint64_t protoc_wide(const std::string& buf);
 std::uint64_t protoc_record(const std::string& buf);
+std::uint64_t protoc_record_sparse(const std::string& buf);
 std::uint64_t protoc_big(const std::string& buf);
 std::uint64_t protoc_big_zz(const std::string& buf);
 std::uint64_t protoc_big_kinds(const std::string& buf);

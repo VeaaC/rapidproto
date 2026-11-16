@@ -5,6 +5,7 @@
 #include <cstdint>
 #include "google/protobuf/timestamp.rp.common.hpp"
 #include "google/protobuf/duration.rp.common.hpp"
+#include "google/protobuf/type.rp.common.hpp"
 
 namespace rp::common::uw {
 

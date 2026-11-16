@@ -12,7 +12,47 @@ namespace rp::arena::mr {
 
 namespace rp_dump_detail {
 
+inline void rp_dump_write(const ::rp::arena::mr::Small& m, ::rapidproto::dump_detail::Writer& w);
+inline void rp_dump_write(const ::rp::arena::mr::ReqInline& m, ::rapidproto::dump_detail::Writer& w);
 inline void rp_dump_write(const ::rp::arena::mr::ManyRequired& m, ::rapidproto::dump_detail::Writer& w);
+
+inline void rp_dump_write(const ::rp::arena::mr::Small& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto rp_v = m.x()) {
+      if (w.begin_field(rp_first, "x")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    if (const auto rp_v = m.y()) {
+      if (w.begin_field(rp_first, "y")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
+
+inline void rp_dump_write(const ::rp::arena::mr::ReqInline& m, ::rapidproto::dump_detail::Writer& w) {
+  (void)m;
+  w.group('{', '}', [&] {
+    bool rp_first = true;
+    if (const auto* rp_p = m.s()) {
+      if (w.begin_field(rp_first, "s")) {
+        w.push_path("s");
+        ::rp::arena::mr::rp_dump_detail::rp_dump_write(*rp_p, w);
+        w.pop_path();
+      }
+    }
+    if (const auto rp_v = m.tag()) {
+      if (w.begin_field(rp_first, "tag")) {
+        ::rapidproto::dump_detail::write_int(w.os(), *rp_v);
+      }
+    }
+    (void)rp_first;
+  });
+}
 
 inline void rp_dump_write(const ::rp::arena::mr::ManyRequired& m, ::rapidproto::dump_detail::Writer& w) {
   (void)m;
@@ -222,6 +262,16 @@ inline void rp_dump_write(const ::rp::arena::mr::ManyRequired& m, ::rapidproto::
 }  // namespace rp::arena::mr
 
 namespace rapidproto::dump_detail {
+
+template <>
+struct dumper<::rp::arena::mr::Small> {
+  static void write(const ::rp::arena::mr::Small& m, Writer& w) { ::rp::arena::mr::rp_dump_detail::rp_dump_write(m, w); }
+};
+
+template <>
+struct dumper<::rp::arena::mr::ReqInline> {
+  static void write(const ::rp::arena::mr::ReqInline& m, Writer& w) { ::rp::arena::mr::rp_dump_detail::rp_dump_write(m, w); }
+};
 
 template <>
 struct dumper<::rp::arena::mr::ManyRequired> {

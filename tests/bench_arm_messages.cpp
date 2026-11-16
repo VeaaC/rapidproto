@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -24,6 +25,7 @@
 #include "benchmark_message2.rp.stream.hpp"
 
 #include "bench_harness.hpp"
+#include "bench_payloads.hpp"
 #include "bench_upb.hpp"
 #include "rapidproto/arena_runtime.hpp"
 
@@ -1799,6 +1801,36 @@ int run_arm() {
     }
     bad += r2;
     return bad;
+}
+
+namespace {
+
+// One scenario's dump: its wire bytes as <name>.bin and the arena walk's checksum as <name>.sum
+// (startup validation pins every arm to that one value).
+template <class ArenaMsg, class ArenaWalk>
+bool dump_scenario(const std::filesystem::path& out, const std::string& name, const char* dataset,
+                   ArenaWalk arena_walk) {
+    const std::string payload = load_payload(dataset);
+    if (payload.empty()) {
+        // Degrade, as run_arm() does: the scenario is skipped, not the rest of the dump.
+        std::fprintf(stderr, "note: %s not dumped -- '%s' is not readable\n", name.c_str(),
+                     dataset);
+        return true;
+    }
+    rapidproto::Arena arena;
+    const std::uint64_t sum = arena_walk(ArenaMsg::decode(rapidproto::ByteView(payload), arena));
+    return rpbench::write_payload(out / (name + ".bin"), payload) &&
+           rpbench::write_sum(out / (name + ".sum"), sum);
+}
+
+}  // namespace
+
+bool dump(const char* dir) {
+    const std::filesystem::path out = std::filesystem::path(dir) / "external";
+    return dump_scenario<am::GoogleMessage1>(out, "google_message1", RAPIDPROTO_GM1_DATASET,
+                                             gm1_arena_walk<am::GoogleMessage1>) &&
+           dump_scenario<am::GoogleMessage2>(out, "google_message2", RAPIDPROTO_GM2_DATASET,
+                                             gm2_arena_walk<am::GoogleMessage2>);
 }
 
 }  // namespace rpmessages

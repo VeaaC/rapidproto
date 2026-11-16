@@ -1,0 +1,27 @@
+# The Cargo workspace of RapidProto's Rust decoders (see README.md).
+[workspace]
+resolver = "2"
+members = ["rapidproto", "rapidproto-build", "rapidproto-diff", "rustgen-golden", "rustgen-golden/macro-check", "examples/consumer", "examples/osm-pbf", "rapidproto-bench"]
+# The google-upb capstone arm lives in its own crate (it needs Google's `protobuf` v4, incompatible
+# with the v3 the rust-protobuf arm uses) and is EXCLUDED here so no workspace-wide command builds it:
+# it requires an exact-version `protoc` (36.2) + a C toolchain, and is compiled only when
+# `rapidproto-bench --features google-upb` opts in. See rapidproto-bench-upb/Cargo.toml.
+exclude = ["rapidproto-bench-upb"]
+
+# The published crates' minimum Rust version, inherited by both. CI's `msrv` job builds with it and
+# checks that the root README's quick start names it.
+[workspace.package]
+rust-version = "1.91"
+
+# rapidproto-build's tests run the wasm generator in wasmi, which unoptimized takes minutes for the
+# goldens: optimize the interpreter in this workspace's debug builds. Cargo reads profiles from the
+# root manifest of the workspace being built, so a consumer's own workspace is unaffected.
+# On x86_64 Windows, wasmi 2.0.0 crashes on its first host call when it is optimized and the crate
+# embedding it is not (https://github.com/wasmi-labs/wasmi/issues/2061), so on Windows the wasm
+# generator works here only in release builds, and CI tests it that way.
+[profile.dev.package.wasmi]
+opt-level = 3
+[profile.dev.package.wasmi_core]
+opt-level = 3
+[profile.dev.package.wasmi_ir]
+opt-level = 3
