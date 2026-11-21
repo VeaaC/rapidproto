@@ -645,35 +645,29 @@ job_format() {
 # renamed heading or a moved page rots silently; validate every relative link (file + anchor).
 job_doc_links() {
   python3 tests/check_doc_links.py || return 1
-  # Nothing compiles the code in the docs, so a namespace change rots it silently.
-  # Grep for FAMILIES of spelling this generator cannot emit, not for the individual strings a past
-  # cleanup happened to delete: a blocklist of literals only guards against re-introducing those
-  # exact seven, which is not the failure being prevented. CHANGELOG.md is exempt -- its older
-  # entries describe the layout as it was, which is the point of a changelog.
+  # Nothing compiles the code in the docs, so a rename rots it silently. CHANGELOG.md is exempt
+  # because its older entries describe the code as it was.
   #
   # The file list comes from git, not from walking the filesystem. A recursive scan reads whatever
   # else happens to sit in the tree -- a git worktree under .claude/, a second checkout under a
   # build dir -- so the stage's verdict depended on files that are not part of this commit, and an
   # agent's scratch worktree turned it red.
   local stale=0 hit rc
-  local -a doc_files code_files
-  mapfile -d '' -t doc_files < <(git ls-files -z -- '*.md' '*.cmake' 'CMakeLists.txt' \
-    ':!:CHANGELOG.md' ':!:*golden*')
+  local -a scan_files
   # `.proto` carries prose too: a fixture's comment explains WHY the fixture exists, and those
   # justifications rot exactly like docs do.
-  mapfile -d '' -t code_files < <(git ls-files -z -- '*.md' '*.cmake' '*.cpp' '*.hpp' '*.proto' \
+  mapfile -d '' -t scan_files < <(git ls-files -z -- '*.md' '*.cmake' '*.cpp' '*.hpp' '*.proto' \
     ':!:CHANGELOG.md' ':!:*golden*')
-  if [[ ${#doc_files[@]} -eq 0 || ${#code_files[@]} -eq 0 ]]; then
+  if [[ ${#scan_files[@]} -eq 0 ]]; then
     echo ">> no files to scan: git ls-files returned nothing (not a repository?)"
     return 1
   fi
 
   # grep exits 1 for "no match" and >=2 for an ERROR. Collapsing those makes a scan that cannot run
   # look like a scan that found nothing, which is the failure this gate exists to prevent.
-  # One stderr spool for every rot_scan, CHECKED: an unchecked per-call mktemp meant a full or
-  # unwritable TMPDIR made the redirect fail with grep's own rc=1 -- which reads as "no match", so
-  # a broken /tmp silently disarmed all three scan families. That is the exact silent-pass class
-  # this helper exists to close, so a failed mktemp is a red stage, not a quiet green.
+  # One stderr spool for every rot_scan, and its mktemp is checked. With a full or unwritable TMPDIR
+  # the redirect fails with status 1, which reads as grep's "no match", so a failed mktemp is a red
+  # stage.
   local rot_err
   if ! rot_err=$(mktemp); then
     echo ">> cannot create a temp file for the doc scans -- they would misreport failure as 'no match'"
@@ -693,59 +687,22 @@ job_doc_links() {
     [[ $rc -eq 0 ]]
   }
 
-  # <pkg>::stream:: -- the pre-roots streaming spelling, for ANY package. `rp::stream::` is the
-  # live one; `rapidproto::` is the runtime's own namespace and never a schema package.
-  # Prose only. In C++ the same shape is ambiguous -- `pfx::stream::xr` is the LIVE spelling under
-  # `--namespace-prefix=pfx`, and `sib::stream::logging` is a real package with a `stream` component
-  # -- and stale generated spellings there cannot compile anyway; only comments can rot, and those
-  # need a human. Prose has no such excuse.
-  # `(ident::)+stream::`, not one component: `com::example::deep::stream::Msg` is the same defect
-  # and was invisible. The exclusion is ANCHORED -- an unanchored `rp::stream::` matched any package
-  # ending in `rp` (`corp`, `erp`).
-  # The match starts at an identifier and grep prints `file:line:match`, so the live spellings are
-  # excluded by anchoring on the WHOLE `file:line:` head and the end of the fragment. Testing the
-  # character BEFORE the match cannot work here: at column 0 the preceding character is grep's own
-  # `:`, so a doc line that STARTS with a live `rp::stream::` was reported as stale. Nor can a bare
-  # `:` before the allowed root: that also matches the second colon of any interior `::`, so the
-  # STALE `com::example::rp::stream::` was excluded as if it were live. The head is spelled out --
-  # path (colon-free), line number, separator -- so only a fragment that IS a live spelling passes.
-  if rot_scan "pre-roots streaming" grep -noE '([A-Za-z_][A-Za-z0-9_]*::)+stream::' \
-       "${doc_files[@]}"; then
-    if hit=$(grep -vE '^([^:]*:)?[0-9]+:(rp|rapidproto)::stream::$' <<<"$hit"); then
-      echo ">> a pre-roots streaming spelling (<pkg>::stream::) -- the model root goes BEFORE the package:"
-      sed 's/^/   /' <<<"$hit" | head -5
-      stale=1
-    fi
-  fi
-  # The PRE-roots prefixed layout, `rp::<pkg>::Msg`. The CHANGELOG explicitly migrates users off it
-  # (they had passed --namespace-prefix=rp for protoc coexistence), so it is a live rot target: it
-  # looks current, and every root spelling shares its first component. `rp::enums::` is caught here
-  # too: it is the pre-rename spelling of the shared root, which is now `common`.
-  if rot_scan "pre-roots prefixed" grep -noE '(^|[^:[:alnum:]_])rp::[A-Za-z_][A-Za-z0-9_]*::' \
-       "${doc_files[@]}"; then
-    if hit=$(grep -vE 'rp::(arena|stream|common)::' <<<"$hit"); then
-      echo ">> the pre-roots prefixed layout (rp::<pkg>::) -- a model root goes between them:"
-      sed 's/^/   /' <<<"$hit" | head -5
-      stale=1
-    fi
-  fi
-
   # `rp_dump_write` is deliberately NOT here: it is still the name of the per-message core, and
   # dumpgen emits the call through a `$ns$` placeholder, so its own source contains the string
   # legitimately. `rp_dump_string` was removed outright, and the two only ever appeared as a pair,
   # so prose naming the old API is caught by the half that is unambiguous.
   for pat in 'rp_dump_string' 'rapidproto::dump::'; do
-    if rot_scan "removed-spelling ($pat)" grep -nF "$pat" "${code_files[@]}"; then
+    if rot_scan "removed-spelling ($pat)" grep -nF "$pat" "${scan_files[@]}"; then
       echo ">> a spelling this generator no longer emits: '$pat'"
       sed 's/^/   /' <<<"$hit" | head -5
       stale=1
     fi
   done
 
-  # A blocklist cannot see the ARENA half of the rename: the pre-roots arena spelling was a bare
-  # `pkg::Msg`, which is also how every unrelated C++ snippet in the docs looks. So assert the live
-  # spelling is PRESENT instead -- reverting one of these pages to its pre-roots wording deletes the
-  # root, and a positive check notices what no pattern of "what must not appear" can.
+  # Before the per-model roots, the arena spelling was a bare `pkg::Msg`, which is also how any C++
+  # snippet looks, and the streaming spelling `pkg::stream::Msg` has the shape of Rust's live
+  # `schema::stream::example`. A pattern can't tell either from current code, so check that each
+  # page still contains its live root: a page reverted to the old wording loses it.
   # Each page is listed with the root spellings it must contain: the single-model pages teach one,
   # and README must at least teach the arena root its quick start is built on.
   local required doc roots root

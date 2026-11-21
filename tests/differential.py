@@ -638,7 +638,40 @@ fn main() {
 """
 
 
-def build_rust_harness(work: Path, meta: dict, tools: dict[str, Path]) -> Path | None:
+def rust_link_args(cargo_json: str) -> list[str]:
+    """rustc flags linking a harness against the libraries in cargo's JSON build messages: --extern
+    to the .rlib and .rmeta of rapidproto and rapidproto_diff, and -L dependency= to every library's
+    directory, so rustc finds serde and the rest. Newer cargo gives each library its own
+    build/<pkg>/<hash>/out/ and keeps the full metadata only in the .rmeta, so none of these paths
+    is fixed."""
+    externs: dict[str, list[str]] = {"rapidproto": [], "rapidproto_diff": []}
+    dirs: set[str] = set()
+    for line in cargo_json.splitlines():
+        # rustc's own stdout, a RUSTC_WRAPPER's or a proc-macro's, reaches cargo's stdout as is.
+        if not line.startswith("{"):
+            continue
+        message = json.loads(line)
+        if (message.get("reason") != "compiler-artifact"
+                or "custom-build" in message["target"]["kind"]):
+            continue
+        # Every file's directory, not just .rlib/.rmeta ones: rustc also needs a proc-macro's .so.
+        dirs.update(str(Path(f).parent) for f in message["filenames"])
+        if message["target"]["name"] in externs:
+            externs[message["target"]["name"]] += [
+                f for f in message["filenames"] if f.endswith((".rlib", ".rmeta"))]
+    missing = [name for name, files in externs.items() if not files]
+    if missing:
+        raise SystemExit("differential: cargo reported no library for %s" % ", ".join(missing))
+    args = []
+    for name, files in externs.items():
+        for f in files:
+            args += ["--extern", f"{name}={f}"]
+    for d in sorted(dirs):
+        args += ["-L", f"dependency={d}"]
+    return args
+
+
+def build_rust_harness(work: Path, meta: dict, tools: dict) -> Path | None:
     """Assemble a Rust harness from meta["rust"] (one inline decode+serialize arm per FQN) and
     rustc-compile it against the prebuilt rlibs. Mirrors the C++ harness build; returns the binary,
     or None when there is nothing to decode."""
@@ -656,19 +689,16 @@ def build_rust_harness(work: Path, meta: dict, tools: dict[str, Path]) -> Path |
             "        })," % (json.dumps(fqn), path))
     (work / "harness.rs").write_text(RUST_HARNESS_TEMPLATE % {"arms": "\n".join(arms)})
 
-    lib_dir = tools["rust_lib_dir"]
     rust_harness = work / "rust_harness"
     compiled = run([str(tools["rustc"]), "--edition", "2021", "-C", "opt-level=0",
-                    "--extern", f"rapidproto={lib_dir / 'librapidproto.rlib'}",
-                    "--extern", f"rapidproto_diff={lib_dir / 'librapidproto_diff.rlib'}",
-                    "-L", f"dependency={lib_dir / 'deps'}",
+                    *tools["rust_link_args"],
                     str(work / "harness.rs"), "-o", str(rust_harness)])
     if compiled.returncode != 0:
         raise HarnessError("Rust harness does not compile:\n%s" % compiled.stderr[:2000])
     return rust_harness
 
 
-def build_schema(schema: Path, work: Path, tools: dict[str, Path], cxx: str):
+def build_schema(schema: Path, work: Path, tools: dict, cxx: str):
     """Generate + compile everything one schema needs. Returns (harness, rust_harness, pool, meta)."""
     from google.protobuf import descriptor_pb2, descriptor_pool
 
@@ -857,7 +887,7 @@ def describe_difference(wanted, got, path: str = "") -> str:
     return f"{path or '<root>'}: protobuf={wanted!r} rapidproto={got!r}"
 
 
-def check_schema(schema: Path, tools: dict[str, Path], cxx: str, seed: int, messages: int,
+def check_schema(schema: Path, tools: dict, cxx: str, seed: int, messages: int,
                  seed_dir: Path | None) -> SchemaResult:
     """One schema end to end: (messages checked, skip reason or None, (category, text) failures,
     shuffled-variant count, Rust-arm comparison count). A "build" failure aborts the whole schema --
@@ -954,11 +984,13 @@ def main() -> int:
     if rustc and cargo and (rust_dir / "Cargo.toml").is_file():
         # ONE invocation so feature unification builds a single serde both rlibs share -- else the
         # harness links two serde_core versions and `Msg: Serialize` won't match `to_line`'s bound.
+        # The JSON lists where each library landed; the diagnostics still go to stderr as text.
         built = run([cargo, "build", "--manifest-path", str(rust_dir / "Cargo.toml"),
-                     "-p", "rapidproto", "-p", "rapidproto-diff", "--features", "rapidproto/serde"])
+                     "-p", "rapidproto", "-p", "rapidproto-diff", "--features", "rapidproto/serde",
+                     "--message-format=json-render-diagnostics"])
         if built.returncode == 0:
             tools["rustc"] = Path(rustc)
-            tools["rust_lib_dir"] = rust_dir / "target" / "debug"
+            tools["rust_link_args"] = rust_link_args(built.stdout)
         else:
             # The toolchain IS present, so a prebuild failure is a real Rust-side regression (a broken
             # serde impl / rapidproto-diff), not a reason to skip -- fail, don't quietly drop the arm.
