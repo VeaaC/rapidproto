@@ -7,24 +7,24 @@ root README and the crate documentation for [`rapidproto`](https://docs.rs/rapid
 [`rapidproto-build`](https://docs.rs/rapidproto-build). The two examples in this directory are
 written for you too.
 
-CMake doesn't build any of this; every `cargo` command below runs from `rust/`.
-[CONTRIBUTING.md](../CONTRIBUTING.md#rust) has the test commands and what to regenerate when the
-generator changes. The generator itself is C++ (it lives in [`src/rustgen/`](../src/rustgen/) and
-shares its schema reader with `rapidprotoc`), so a pull request that touches only C++ can still
-break [Rust CI](../.github/workflows/rust-ci.yml).
+CMake doesn't build any of this; every `cargo` command below runs from `rust/`. The Rust generator
+isn't here either. It's C++, in [`src/rustgen/`](../src/rustgen/).
+[CONTRIBUTING.md](../CONTRIBUTING.md#rust) has the test commands, what to regenerate when the
+generator changes, and the ways a pull request that touches only C++ can still break Rust CI.
 
 ## Crates
 
 - [`rapidproto/`](rapidproto/) is the runtime.
 - [`rapidproto-build/`](rapidproto-build/) runs the generator from a build script or as the
   `rapidproto-rust` command, either
-  [compiled from C++ or as WebAssembly](https://docs.rs/rapidproto-build/latest/rapidproto_build/#how-the-generator-runs).
+  [built natively or as prebuilt WebAssembly](https://docs.rs/rapidproto-build/latest/rapidproto_build/#how-the-generator-runs).
 - [`rustgen-golden/`](rustgen-golden/) compiles the Rust generator's
   [goldens](../CONTRIBUTING.md#goldens) for the test schemas and a few others, and runs the decode,
   `Debug`, serde and streaming tests against them.
-- [`rustgen-golden/macro-check/`](rustgen-golden/macro-check/) calls every generated `*_stream!`
-  macro with all fields selected, because a macro checks a field's path only when a call selects
-  that field. With the golden crate as its only dependency, it also catches a macro that names
+- [`rustgen-golden/macro-check/`](rustgen-golden/macro-check/) (package
+  `rustgen-golden-macro-check`) calls every generated `*_stream!` macro with all fields selected,
+  because the compiler checks the code a macro expands to for a field only when a call selects that
+  field. With the golden crate as its only dependency, it also catches a macro that names
   `rapidproto` directly.
 - [`rustgen-golden/fuzz/`](rustgen-golden/fuzz/README.md) (package `rapidproto-fuzz`) fuzzes the
   arena decoders. It has its own workspace and isn't built by commands run here.
@@ -32,7 +32,7 @@ break [Rust CI](../.github/workflows/rust-ci.yml).
   [differential test](../CONTRIBUTING.md#the-differential-against-protobuf) and for
   `rustgen-golden`'s serde tests.
 - [`examples/consumer/`](examples/consumer/README.md) (package `consumer-example`) generates one
-  schema's decoders in a small `build.rs` and uses both.
+  schema's decoders in a small `build.rs` and uses both decoders.
 - [`examples/osm-pbf/`](examples/osm-pbf/README.md) (package `osm-pbf-example`) prints statistics
   about an OpenStreetMap PBF file, using either decoder.
 - [`rapidproto-bench/`](rapidproto-bench/) is the benchmark crate. Its optional google-protobuf
@@ -43,14 +43,14 @@ break [Rust CI](../.github/workflows/rust-ci.yml).
 `rapidproto-bench` decodes the payloads that the C++ benchmarks write. `dataset`, for one, is 2,000
 `Person` messages in one `Dataset` from the [benchmark schema](../tests/bench/bench.proto). Each
 scenario covers one payload or a pool of them, and every scenario but `particles` decodes the same
-bytes as a row of the C++ benches. The [benchmark page](../docs/benchmarks.md#rust) compares the
-Rust crates with prost and RapidProto's Rust numbers with its C++ ones, and its
+bytes as a row of the C++ benches. The [benchmark page](../docs/benchmarks.md#rust) sets each Rust
+decoder beside prost and RapidProto's Rust numbers beside its C++ ones. Its
 [recipe](../docs/benchmarks.md#reproducing-the-rust-numbers) shows how both were measured.
 
-Two runners do the work, [`bench`](rapidproto-bench/src/main.rs) for the payloads of the C++
-[arena bench](../tests/bench_arena.cpp) and [`stream`](rapidproto-bench/src/stream_main.rs) for
-those of the [streaming bench](../tests/bench_streamgen.cpp). Both check every decoder's output
-before timing it. After a change to the runtime or to generated code, that check is usually all you
+The [`bench`](rapidproto-bench/src/main.rs) runner decodes the payloads of the C++
+[arena bench](../tests/bench_arena.cpp), and [`stream`](rapidproto-bench/src/stream_main.rs) those
+of the [streaming bench](../tests/bench_streamgen.cpp). Both check every decoder's output before
+timing it. After a change to the runtime or to generated code, that check is usually all you
 need, and a check-only run gives it to you without any machine setup.
 
 ### Running the bench
@@ -59,14 +59,15 @@ need, and a check-only run gives it to you without any machine setup.
 # from the repository root
 cmake --preset clang
 cmake --build build/clang --target rapidproto_arena_bench rapidproto_bench
-RAPIDPROTO_BENCH_DUMP_DIR=$PWD/payloads build/clang/rapidproto_arena_bench
-RAPIDPROTO_BENCH_DUMP_DIR=$PWD/payloads build/clang/rapidproto_bench
+RAPIDPROTO_BENCH_DUMP_DIR=$PWD/build/payloads build/clang/rapidproto_arena_bench
+RAPIDPROTO_BENCH_DUMP_DIR=$PWD/build/payloads build/clang/rapidproto_bench
 
 cd rust
-export RAPIDPROTO_BENCH_DIR=$PWD/../payloads
+export RAPIDPROTO_BENCH_DIR=$PWD/../build/payloads
 export RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64"
 cargo build --release -p rapidproto-bench --bins --examples
-RAPIDPROTO_BENCH_CHECK_ONLY=1 target/release/bench   # checksums only, no timing
+RAPIDPROTO_BENCH_CHECK_ONLY=1 target/release/bench    # checksums only, no timing
+RAPIDPROTO_BENCH_CHECK_ONLY=1 target/release/stream
 
 ../tests/bench_box.sh setup                           # uses sudo
 taskset -c 2 target/release/bench                     # or target/release/stream
@@ -78,8 +79,8 @@ corpus change. It needs:
 
 - Linux, the only platform the C++ benches build on
 - protobuf, for the arena bench
-- the [fetched corpus](../CONTRIBUTING.md#the-real-world-schema-corpus) and an OSM extract, for the
-  real-world datasets `google_message1`, `google_message2`, `osm_blocks`, `osm_file` and
+- the [fetched corpus](../CONTRIBUTING.md#the-real-world-schema-corpus) and the pinned OSM extract,
+  for the real-world datasets `google_message1`, `google_message2`, `osm_blocks`, `osm_file` and
   `compute Instance`
 
 Fetch those two before `cmake --preset`, which is when the build looks for them.
@@ -108,10 +109,11 @@ all arms agree on 123 scenario(s), 1 skipped (checksum-only run; no timing).
 
 A scenario's arms are the decoders run on it. On `dataset` six arms agreed. The seventh, femtopb,
 can't decode the map field in `Dataset`'s `Person` messages and is listed as unsupported, not run.
+
 `= C++` means the sum also matched the C++ dump's checksum. The dump has checksums for the
 real-world datasets and for the eight scenarios named after their payload files: `dataset`,
 `big_varint`, `big_fixed`, `big_osm`, `big`, `wide`, `records` and `particles`. The C++ bench writes
-the one for `particles` without timing that payload. `records sparse (dropped)` decodes the
+the checksum for `particles` without timing that payload. `records sparse (dropped)` decodes the
 `records` payload under a [decode profile](../docs/profiles.md) that keeps three of each record's
 20 fields, and it has no C++ checksum to match.
 
@@ -122,11 +124,12 @@ payload-named scenarios the other crates decode the same bytes independently. Th
 arms agree with each other but not with C++, rule out a stale dump first by writing the payloads
 again from a C++ build of your checkout. On the real-world datasets every Rust arm is RapidProto's,
 so the same pattern there can also be a bug in the Rust generator or runtime. A sum of zero fails
-too, since it means the payload decoded to nothing.
+too, since it means the payload decoded to nothing. A decoder that rejects a valid payload doesn't
+get that far: its arm panics, and the run ends with exit code 101.
 
 ### Arms
 
-Arm 0 is the baseline, and the streaming decoder has an arm in each runner:
+Each runner's arm 0 is its baseline:
 
 | Arm | Runner | Decodes with | C++ arm |
 |---|---|---|---|
@@ -138,6 +141,11 @@ Arm 0 is the baseline, and the streaming decoder has an arm in each runner:
 | `generated` (arm 0) | `stream` | The generated streaming decoder | `generated` |
 | `wire` | `stream` | A hand-written loop over the runtime's wire readers | `wire` |
 
+The C++ arm is the counterpart's name, not a promise that C++ ran it on every scenario. On the C++
+bench's shape rows, the varint sweeps and `records sparse (dropped)`, C++ runs only protoc and
+`arena-warm`, so compare `rapidproto-warm` there. `google-upb` and the C++ `upb` arm meet only on
+`dataset`.
+
 After adding an arm, run the [agreement tests](rapidproto-bench/tests/agreement.rs) in a debug and
 a release build:
 
@@ -148,10 +156,10 @@ cargo test -p rapidproto-bench --release
 
 They need no payload directory. The arms decode messages encoded by prost, hand-built streaming
 inputs and a [small OSM file](../examples/osm-pbf/testdata/mini.osm.pbf), and every arm of a
-scenario has to agree. `bigset_arms_agree` checks the `BigSet` message of the `big*` payloads and
-runs only in release, because quick-protobuf's `BigSet` decoder reads an unaligned slice and a debug
-build aborts on that. For `wide` and `particles`, which no test covers, the check-only run is the
-first to compare a new arm.
+scenario has to agree. `bigset_arms_agree` checks `BigSet`, the message type of the `big*`
+payloads, and runs only in release, because quick-protobuf's `BigSet` decoder reads an unaligned
+slice and a debug build aborts on that. For `wide` and `particles`, which no test covers, the
+check-only run is the first to compare a new arm.
 
 ### Timing
 
@@ -180,40 +188,42 @@ taskset -c 2 cargo bench -p rapidproto --bench wire
 SCENARIO=records perf stat -e instructions:u target/release/examples/perf_bench
 ```
 
-Run the criterion benches on two builds of a change and compare. `decode` and `stream` time
-RapidProto's generated decoders without competitors. `wire` times the runtime's wire readers alone,
+Criterion compares each run with the previous one, so run the benches on the old build first and
+then on the new one. The `decode` and `stream` benches time RapidProto's generated decoders without
+competitors. `wire` times the runtime's wire readers alone,
 on its own copies of six payloads from the C++ streaming bench. Criterion reports binary units
 (MiB/s, GiB/s).
 
 The perf examples ([`perf_bench.rs`](rapidproto-bench/examples/perf_bench.rs) and
 [`perf_stream.rs`](rapidproto-bench/examples/perf_stream.rs)) decode one scenario until they've
-covered about 2 GB, then print the byte total to divide the instruction count by. Run them while
-`bench_box.sh setup` is in effect, because `perf stat` needs `kernel.perf_event_paranoid` at 2 or
-lower and the script sets it. Code layout barely moves instructions per byte
+covered about 2 GB, then print the byte total to divide the instruction count by. `perf stat`
+needs `kernel.perf_event_paranoid` at 2 or lower. `bench_box.sh setup` sets it, so run them between
+`setup` and `restore`. Code layout barely moves instructions per byte
 ([measured on the C++ benches](../docs/benchmarks.md#appendix-measurement-noise)). If two builds
-differ by a few percent in throughput but run the same number of instructions, the work didn't
-change and the gap is layout or run noise.
+differ by a few percent in throughput but run the same number of instructions, suspect layout or
+run noise first, and time one build against itself to see how large that noise is.
 
 ### Optional scenarios and settings
 
 You need these mostly to reproduce the published comparison:
 
 - The build script generates the `google_message1` and `google_message2` decoders only if it finds
-  the fetched corpus. It looks in `build/corpus`, or in `RAPIDPROTO_FETCHED_CORPUS` relative to the
-  repository root. If the fetched corpus arrives after the crate's first build, run
-  `cargo clean -p rapidproto-bench`, because Cargo won't rerun the build script on its own.
+  the fetched corpus. It uses `RAPIDPROTO_FETCHED_CORPUS` when that's set (a relative path is taken
+  from the repository root) and `build/corpus` otherwise. Cargo doesn't rerun the build script when
+  the fetched corpus arrives after the crate's first build. Run `cargo clean -p rapidproto-bench`
+  after fetching it.
 - `--features compute` adds `compute Instance`, a message from the fetched corpus's
   `compute.proto`. Its decoder takes several minutes to compile in a release build.
 - `--features google-upb` adds the `google-upb` arm. It needs a C compiler for upb and protoc 36.2.
-  Point `RAPIDPROTO_UPB_PROTOC` at that protoc or put it first on `PATH`; the top of `src/main.rs`
-  explains how to build it from source.
+  Point `RAPIDPROTO_UPB_PROTOC` at that protoc or put it first on `PATH`. The top of
+  `rapidproto-bench/src/main.rs` explains how to build it from source.
 
 Both runners also read these variables, documented in
 [`runner.rs`](rapidproto-bench/src/runner.rs):
 
 | Variable | Effect |
 |---|---|
-| `RAPIDPROTO_BENCH_JSON` | Also print an NDJSON record per result, whose `cpp_scenario` and `cpp_arm` name its C++ row and arm (null if none) |
+| `RAPIDPROTO_BENCH_JSON` | Also print an NDJSON record per result. `cpp_scenario` names its C++ row, or is null if it has none; `cpp_arm` is the arm's C++ name from the table above, or null for the other crates |
 | `RAPIDPROTO_BENCH_ONLY=<text>` | Run only the scenarios whose Rust or C++ name contains `<text>` |
 | `ARMS=<arm>,<arm>` | Run only these arms and arm 0 |
 | `ITERS=<n>` | Decode calls per sample, instead of about 10 ms of the baseline |
