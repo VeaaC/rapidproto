@@ -704,7 +704,7 @@ job_doc_links() {
   # `schema::stream::example`. A pattern can't tell either from current code, so check that each
   # page still contains its live root: a page reverted to the old wording loses it.
   # Each page is listed with the root spellings it must contain: the single-model pages teach one,
-  # and README teaches the arena example and links out for streaming rather than spelling it.
+  # and README must at least teach the arena root its quick start is built on.
   local required doc roots root
   for required in \
       'docs/arena.md:rp::arena::' \

@@ -182,9 +182,9 @@ is silently unpinned, since a package/namespace shape can fail in ways no compil
   and non-goals" in architecture.md before proposing a feature.
 - A change that breaks the generated API or the CLI contract bumps `project(VERSION)` (the minor,
   pre-1.0) **in the same PR**, with a CHANGELOG.md entry - `find_package` consumers pin against
-  that version, so it must never lag the surface it describes. From 1.0 on, minors never break
-  or remove anything on the stable surface - deprecate in the CHANGELOG and remove in the next
-  major (see the README's Compatibility section).
+  that version, so it must never lag the surface it describes. From 1.0 on, only a major
+  release breaks or removes anything on the stable surface (see the policy at the top of
+  [CHANGELOG.md](CHANGELOG.md)).
 
 ## Rust
 
