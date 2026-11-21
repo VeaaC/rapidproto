@@ -639,21 +639,26 @@ fn main() {
 
 
 def rust_link_args(cargo_json: str) -> list[str]:
-    """The rustc flags that link a harness against what `cargo build --message-format=json` built:
-    an --extern for each file of rapidproto and rapidproto_diff, and -L dependency= for each
-    directory holding a library of the build, so rustc finds serde and the rest. Newer cargo keeps
-    a library's full metadata in a separate .rmeta under target/debug/build/<pkg>/<hash>/out/,
-    leaving only a stub in the .rlib, so neither the files nor the directories are fixed paths."""
+    """rustc flags linking a harness against the libraries in cargo's JSON build messages: --extern
+    to the .rlib and .rmeta of rapidproto and rapidproto_diff, and -L dependency= to every library's
+    directory, so rustc finds serde and the rest. Newer cargo gives each library its own
+    build/<pkg>/<hash>/out/ and keeps the full metadata only in the .rmeta, so none of these paths
+    is fixed."""
     externs: dict[str, list[str]] = {"rapidproto": [], "rapidproto_diff": []}
     dirs: set[str] = set()
     for line in cargo_json.splitlines():
-        message = json.loads(line)
-        if message.get("reason") != "compiler-artifact":
+        # rustc's own stdout, a RUSTC_WRAPPER's or a proc-macro's, reaches cargo's stdout as is.
+        if not line.startswith("{"):
             continue
-        libs = [f for f in message["filenames"] if f.endswith((".rlib", ".rmeta"))]
-        dirs.update(str(Path(f).parent) for f in libs)
+        message = json.loads(line)
+        if (message.get("reason") != "compiler-artifact"
+                or "custom-build" in message["target"]["kind"]):
+            continue
+        # Every file's directory, not just .rlib/.rmeta ones: rustc also needs a proc-macro's .so.
+        dirs.update(str(Path(f).parent) for f in message["filenames"])
         if message["target"]["name"] in externs:
-            externs[message["target"]["name"]] += libs
+            externs[message["target"]["name"]] += [
+                f for f in message["filenames"] if f.endswith((".rlib", ".rmeta"))]
     missing = [name for name, files in externs.items() if not files]
     if missing:
         raise SystemExit("differential: cargo reported no library for %s" % ", ".join(missing))
@@ -666,7 +671,7 @@ def rust_link_args(cargo_json: str) -> list[str]:
     return args
 
 
-def build_rust_harness(work: Path, meta: dict, tools: dict[str, Path]) -> Path | None:
+def build_rust_harness(work: Path, meta: dict, tools: dict) -> Path | None:
     """Assemble a Rust harness from meta["rust"] (one inline decode+serialize arm per FQN) and
     rustc-compile it against the prebuilt rlibs. Mirrors the C++ harness build; returns the binary,
     or None when there is nothing to decode."""
@@ -693,7 +698,7 @@ def build_rust_harness(work: Path, meta: dict, tools: dict[str, Path]) -> Path |
     return rust_harness
 
 
-def build_schema(schema: Path, work: Path, tools: dict[str, Path], cxx: str):
+def build_schema(schema: Path, work: Path, tools: dict, cxx: str):
     """Generate + compile everything one schema needs. Returns (harness, rust_harness, pool, meta)."""
     from google.protobuf import descriptor_pb2, descriptor_pool
 
@@ -882,7 +887,7 @@ def describe_difference(wanted, got, path: str = "") -> str:
     return f"{path or '<root>'}: protobuf={wanted!r} rapidproto={got!r}"
 
 
-def check_schema(schema: Path, tools: dict[str, Path], cxx: str, seed: int, messages: int,
+def check_schema(schema: Path, tools: dict, cxx: str, seed: int, messages: int,
                  seed_dir: Path | None) -> SchemaResult:
     """One schema end to end: (messages checked, skip reason or None, (category, text) failures,
     shuffled-variant count, Rust-arm comparison count). A "build" failure aborts the whole schema --
