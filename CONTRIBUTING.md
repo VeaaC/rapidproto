@@ -184,7 +184,7 @@ is silently unpinned, since a package/namespace shape can fail in ways no compil
   pre-1.0) **in the same PR**, with a CHANGELOG.md entry - `find_package` consumers pin against
   that version, so it must never lag the surface it describes. From 1.0 on, minors never break
   or remove anything on the stable surface - deprecate in the CHANGELOG and remove in the next
-  major (see the README's Compatibility section).
+  major (see the policy at the top of [CHANGELOG.md](CHANGELOG.md)).
 
 ## Rust
 

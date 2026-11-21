@@ -1,9 +1,15 @@
 # Changelog
 
-Notable, user-visible changes per release. Pre-1.0, the MINOR version is the breaking axis (the
-SemVer-0 convention): expect breaking changes between 0.x and 0.(x+1), never within a patch.
-From 1.0 on, removals happen only in a major release, announced beforehand under a
-**Deprecated** heading (the README's Compatibility section states the policy).
+Notable, user-visible changes in each C++ release: `rapidprotoc`, the CMake package and the runtime
+headers. The Rust crates have their own version numbers, so their releases aren't listed here.
+
+Before 1.0, a minor release may break compatibility, but a patch release never does. Every break is
+listed under its release.
+
+From 1.0 on, only a major release may break or remove anything in the generated API, the decode
+profile format, the command-line flags, the `rapidproto_generate()` contract or the shape of the
+runtime headers. A minor release may deprecate something first. It is then listed under a
+Deprecated heading, and the old spelling keeps working until the next major release.
 
 ## Unreleased
 
