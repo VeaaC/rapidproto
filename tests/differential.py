@@ -640,13 +640,15 @@ fn main() {
 
 def rust_link_args(cargo_json: str) -> list[str]:
     """rustc flags linking a harness against the libraries in cargo's JSON build messages: --extern
-    to the .rlib and .rmeta of rapidproto and rapidproto_diff, -L dependency= to every library's
-    directory. Newer cargo gives each library its own build/<pkg>/<hash>/out/ and keeps the full
-    metadata only in the .rmeta, so none of these paths is fixed."""
+    to the .rlib and .rmeta of rapidproto and rapidproto_diff, and -L dependency= to every library's
+    directory, so rustc finds serde and the rest. Newer cargo gives each library its own
+    build/<pkg>/<hash>/out/ and keeps the full metadata only in the .rmeta, so none of these paths
+    is fixed."""
     externs: dict[str, list[str]] = {"rapidproto": [], "rapidproto_diff": []}
     dirs: set[str] = set()
     for line in cargo_json.splitlines():
-        if not line.startswith("{"):  # a RUSTC_WRAPPER's own output reaches cargo's stdout as is
+        # rustc's own stdout, a RUSTC_WRAPPER's or a proc-macro's, reaches cargo's stdout as is.
+        if not line.startswith("{"):
             continue
         message = json.loads(line)
         if (message.get("reason") != "compiler-artifact"
