@@ -14,21 +14,21 @@ at work. The decoders from Google's protobuf library and from Rust crates such a
 [prost](https://docs.rs/prost) were too slow for that.
 
 On `Dataset`, a [benchmark](docs/benchmarks.md) payload of 2000 mixed records, the C++ arena
-decoder has
-about 7 times the throughput of protoc's generated C++ code allocating from a
+decoder has about 7 times the throughput of protoc's generated C++ code allocating from a
 [`google::protobuf::Arena`](https://protobuf.dev/reference/cpp/arenas/). The Rust arena decoder
-has about 12 times the throughput of prost. It's fast because the generator writes a separate
-decode loop for each message type, and because strings and bytes borrow from the input instead of
-being copied.
+has about 12 times the throughput of prost. The speed comes from a decode loop generated for each
+message type and from seven optimizations on top of it, which the
+[optimizations article](docs/optimizations.md) measures one at a time. One of them is that strings
+and bytes borrow from the input instead of being copied.
 
 Schemas can be proto2, proto3, or editions 2023 and 2024, with groups, maps and oneofs. The
 generator parses them itself and carries its own copy of the well-known types, so you don't need
 protoc.
 
-The decoders return an error on malformed input instead of crashing. On every pull request, the
+On malformed input, a decode fails with an error instead of crashing. On every pull request, the
 C++ wire reader and both C++ decoders are fuzzed under ASan and UBSan, and the Rust arena decoders
 under ASan. [SECURITY.md](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md) has the
-details. For untrusted input, also cap how much memory the
+details. For untrusted input, also limit how much memory the
 [arena](docs/arena.md#memory--lifetimes) may take with `Arena::set_capacity_limit`. The Rust crate
 documents it under [untrusted input](https://docs.rs/rapidproto/latest/rapidproto/#untrusted-input).
 
@@ -55,16 +55,18 @@ also hand its bytes to the arena decoder. In C++ it gets them from `rp_bytes()`,
 
 ## When not to use RapidProto
 
-RapidProto can't build or change messages. It has no encoder, no reflection and no way to change a
-decoded message, so a program that does either needs another Protobuf library for that part.
+RapidProto can't build or change messages. It has no encoder and decoded messages are read-only, so
+a program that does either needs another Protobuf library for that part. There's no reflection
+either.
 
-Unlike protoc and prost, RapidProto doesn't check strings for valid UTF-8 while decoding. Skipping
+RapidProto doesn't check strings for valid UTF-8 while decoding, where prost and protoc's proto3
+code do. Skipping
 the check accounts for part of the speed difference. The [benchmark page](docs/benchmarks.md)
 measures its cost for Rust. In Rust you can check one string when you need to, with
 [`ProtoStr::to_str`](https://docs.rs/rapidproto/latest/rapidproto/struct.ProtoStr.html#method.to_str).
 In C++ the check is yours to do.
 
-A few protobuf [behaviors differ](docs/semantics.md). Every enum is open: a value the schema
+A few Protobuf [behaviors differ](docs/semantics.md). Every enum is open: a value the schema
 doesn't list comes through as its number, even in an enum declared closed. Extensions aren't
 decoded; they arrive as unknown fields. A proto2 `[default = X]` isn't applied. A singular
 sub-message that appears twice fails the arena decode instead of being merged. gRPC is
@@ -213,7 +215,7 @@ rapidproto-build = "=0.1.0-alpha.2"
 Generated code works only with the runtime from the same release. When the two differ, the build
 usually fails with an error asking you to match them.
 
-Put `person.proto` next to `Cargo.toml`.
+Put `person.proto` and `person.bin` next to `Cargo.toml`.
 [`Config`](https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html) resolves
 schema paths against the package root, where build scripts run.
 
@@ -230,7 +232,7 @@ fn main() {
 `rapidproto-build` compiles the generator with your C++ compiler. Without one it warns and falls
 back to a slower WebAssembly build. The crate's notes on
 [how the generator runs](https://docs.rs/rapidproto-build/latest/rapidproto_build/#how-the-generator-runs)
-show the profile setting that speeds that build up.
+show the profile setting that makes the WebAssembly generator fast.
 
 Then decode the test message:
 
@@ -286,25 +288,27 @@ rest.
 The [manual](docs/) is written for C++ and is also on
 [the project site](https://veaac.github.io/rapidproto/). Only its benchmarks page covers Rust.
 
-- [Arena decoder](docs/arena.md): accessors, the `Arena` and `reset`, `decode_owned`, errors
-- [Streaming decoder](docs/streaming.md): handlers and field kinds, errors, stopping a decode early
-- [Debug dumper](docs/dumper.md): an optional `--dump` header that prints decoded messages as
+- [The arena decoder](docs/arena.md): accessors, the `Arena` and `reset`, `decode_owned`, errors
+- [The streaming decoder](docs/streaming.md): handlers and field kinds, errors, stopping a decode
+  early
+- [The debug dumper](docs/dumper.md): an optional `--dump` header that prints decoded messages as
   JSON-like text
-- [Semantics](docs/semantics.md): the rules both decoders share, from lifetimes to presence and
-  duplicate fields
-- [Using both decoders](docs/using-both-models.md) in one program, next to protoc-generated code
-- [Decode profiles](docs/profiles.md) drop fields, keep sub-messages as raw bytes or track unknown
-  fields; Rust sets them with
-  [`Config::field_modes`](https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.field_modes)
-- [Integration](docs/integration.md): generator flags, CMake, package managers, cross-compiling
-- [OpenStreetMap](docs/osm-pbf.md): one small program per decoder reading OSM planet files
-- [Optimizations](docs/optimizations.md): the seven changes behind the speed, re-enabled one at a
-  time and measured
+- [Shared semantics](docs/semantics.md): the rules both decoders share, from lifetimes to presence
+  and duplicate fields
+- [Using both models](docs/using-both-models.md): both decoders in one program, and living next to
+  protoc-generated code
+- [Decode profiles](docs/profiles.md): dropping fields, keeping sub-messages as raw bytes and
+  tracking unknown fields. Rust sets them with
+  [`Config::field_modes`](https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.field_modes).
+- [CLI & CMake](docs/integration.md): generator flags, CMake, package managers, cross-compiling
+- [OSM PBF walkthrough](docs/osm-pbf.md): one small program per decoder reading OSM planet files
+- [One optimization at a time](docs/optimizations.md): how the C++ decoders got fast, each step
+  measured
 - [Benchmarks](docs/benchmarks.md): the current numbers for both languages and how to reproduce
   them, with prost, rust-protobuf, quick-protobuf, femtopb and google-protobuf in the
   [Rust comparison](docs/benchmarks.md#other-rust-decoders)
 
-The Rust manual is on docs.rs. [`rapidproto`](https://docs.rs/rapidproto) documents decoding,
+The Rust guide is on docs.rs. [`rapidproto`](https://docs.rs/rapidproto) documents decoding,
 including [`Debug`](https://docs.rs/rapidproto/latest/rapidproto/#debug-output) output, opt-in
 [`serde::Serialize`](https://docs.rs/rapidproto/latest/rapidproto/#serde) (there's no
 `Deserialize`), and
@@ -339,17 +343,17 @@ the generator and runs it in a smoke test.
 
 ## Contributing and security
 
-[CONTRIBUTING.md](https://github.com/VeaaC/rapidproto/blob/main/CONTRIBUTING.md) explains how to
-build RapidProto, run the gate (`./check.sh`) and update the golden files.
-[architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md) describes the
-internals and the invariants a change must keep.
-[rust/README.md](https://github.com/VeaaC/rapidproto/blob/main/rust/README.md) has notes on the
-Cargo workspace and the Rust benchmarks.
+- [CONTRIBUTING.md](https://github.com/VeaaC/rapidproto/blob/main/CONTRIBUTING.md): building
+  RapidProto, running the gate (`./check.sh`) and updating the golden files
+- [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md): the internals
+  and the invariants a change must keep
+- [rust/README.md](https://github.com/VeaaC/rapidproto/blob/main/rust/README.md): the Cargo
+  workspace and the Rust benchmarks
+- [SECURITY.md](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md): the threat model and
+  which releases get fixes
 
 Please report vulnerabilities through GitHub's private vulnerability reporting, not in a public
-issue. Only the latest release is supported, on a best-effort basis.
-[SECURITY.md](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md) also describes the threat
-model.
+issue.
 
 ## License
 

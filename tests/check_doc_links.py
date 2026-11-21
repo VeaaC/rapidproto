@@ -63,7 +63,7 @@ def anchors_of(path, cache={}):
 
 
 def check_index_coverage():
-    """Both manual indexes -- README.md's Documentation table and docs/README.md's list -- must
+    """Both manual indexes -- README.md's Documentation list and docs/README.md's list -- must
     link every docs/*.md page. The two carry independently-phrased descriptions on purpose (each
     serves its own reader), so wording is free; what must not drift is COVERAGE: a new page
     forgotten in either index is unreachable from that entry point, silently."""

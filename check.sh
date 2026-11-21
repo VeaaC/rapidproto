@@ -747,7 +747,7 @@ job_doc_links() {
   # spelling is PRESENT instead -- reverting one of these pages to its pre-roots wording deletes the
   # root, and a positive check notices what no pattern of "what must not appear" can.
   # Each page is listed with the root spellings it must contain: the single-model pages teach one,
-  # and README teaches the arena example and links out for streaming rather than spelling it.
+  # and README must at least teach the arena root its quick start is built on.
   local required doc roots root
   for required in \
       'docs/arena.md:rp::arena::' \
