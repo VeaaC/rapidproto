@@ -8,8 +8,7 @@ listed under its release.
 
 From 1.0 on, only a major release may break or remove anything in the generated API, the decode
 profile format, the command-line flags, the `rapidproto_generate()` contract or the shape of the
-runtime headers. A minor release may deprecate something first. It is then listed under a
-Deprecated heading, and the old spelling keeps working until the next major release.
+runtime headers.
 
 ## Unreleased
 
