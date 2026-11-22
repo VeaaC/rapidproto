@@ -32,8 +32,9 @@ fn describe(input: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
 This is the [arena decoder][root]. `decode` stores the message in the arena, and strings and bytes
 borrow from the input. The arena is often several times larger than the input. Each small `int64`
 in `quantities` takes one byte of input and eight in the arena, and a crafted input can push the
-ratio much further. The capacity limit counts arena bytes, so size it for the arena your largest
-accepted message needs ([untrusted input][untrusted]).
+ratio much further. The capacity limit counts arena bytes, so size it by the arena your accepted
+messages need, which depends more on their shape than on their size
+([untrusted input][untrusted]).
 
 The generator writes the [streaming decoder][stream] too if you ask for it, with `.stream(true)` in
 the build script. Instead of building a message, it calls one of your handlers for each field you

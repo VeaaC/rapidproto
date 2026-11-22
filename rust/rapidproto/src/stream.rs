@@ -208,8 +208,8 @@ pub fn typed2<S: ?Sized, V, R, F: FnMut(&mut S, V) -> R>(_state_hint: &S, f: F) 
 /// gets a local alias named after its const, so the constructor can name it at `'_` and pin the
 /// closure's parameter types. `[]` starts the plain form, `[state]` the shared-state one.
 ///
-/// It expands at the call site, where the caller's names are in scope, so it names every outside
-/// item by an absolute path.
+/// It expands at the call site, where names resolve as in the caller's code, so it names every
+/// outside item by an absolute path.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! stream_visitor {
@@ -279,8 +279,9 @@ impl fmt::Debug for UnknownField<'_> {
 }
 
 impl<'a> UnknownField<'a> {
-    /// Builds the value from a tag key (`field << 3 | wire`) and the value's bytes. Its only
-    /// callers, generated decoders, reject wire types 6 and 7 first; `wire_type` relies on that.
+    /// Builds the value from a tag key (`field << 3 | wire`) and the value's bytes. Generated
+    /// decoders, its only callers outside the tests, reject wire types 6 and 7 first; `wire_type`
+    /// relies on that.
     #[doc(hidden)]
     #[inline(always)]
     pub fn new(key: u32, bytes: &'a [u8]) -> Self {

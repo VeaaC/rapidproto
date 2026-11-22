@@ -1,12 +1,11 @@
 //! The runtime that RapidProto's generated Protobuf decoders call.
 //!
 //! [`rapidproto-build`] generates the decoders from your schemas at build time. Decoded messages
-//! are read-only; RapidProto has no encoder and no reflection. Your crate lists `rapidproto` as a
-//! dependency and `rapidproto-build` as a build dependency, and its build script is written as
-//! `rapidproto-build`'s docs show. Generated code calls the runtime of its own release, so pin both
-//! crates to one version with `=`. Both are test releases, and the API can change from one to the
-//! next. For a complete case, the [`example`] module has a schema, its `build.rs` and everything
-//! generated from it.
+//! are read-only; RapidProto has no encoder and no reflection. Depend on `rapidproto`, add
+//! `rapidproto-build` as a build dependency, and set up `build.rs` as its docs show. Generated code
+//! is meant for the runtime of its own release, so pin both crates to one version with `=`. Expect
+//! breaking changes between releases while both are test releases. For a complete case, the
+//! [`example`] module has a schema, its `build.rs` and everything generated from it.
 //!
 //! # Arena and streaming decoders
 //!
@@ -34,46 +33,44 @@
 //!
 //! `report` borrows from the input as well as the arena. Its `string` and `bytes` fields point into
 //! `input`, and so does any sub-message field that a [decode profile] keeps `raw`. Everything else
-//! lives in `arena`. The compiler won't let `report` outlive either of them. If you need a message
-//! that stands on its own, `Report::decode_owned(input)` returns an [`Owned`], which keeps the
-//! input and the arena together with the message.
+//! lives in `arena`. The compiler won't let `report` outlive either of them. If the message has to
+//! outlive your input buffer, `Report::decode_owned(input)` returns an [`Owned`], which owns the
+//! input and the arena and has no lifetime parameter.
 //!
-//! The [streaming decoder](stream) calls your handler for each field you select, in the order the
-//! fields appear in the input, and skips the rest without building a message. Use it when you need
-//! a few fields of a large message. The arena decoder would decode all of it. `rapidproto-build`
-//! generates arena decoders by default and adds streaming ones when you turn on
-//! [`Config::stream`].
+//! The [streaming decoder](stream) hands each selected field to its handler as it reads the input,
+//! in wire order, and skips the rest without building a message. Use it when you need a few fields
+//! of a large message. The arena decoder would decode all of it. `rapidproto-build` generates arena
+//! decoders by default and adds streaming ones when you turn on [`Config::stream`].
 //!
 //! # Decoding rules
 //!
-//! Both decoders skip unknown fields, and declared fields that arrive with the wrong wire type. A
-//! streaming decoder can hand unknown fields to an `unknown` handler instead, and
+//! Both decoders skip unknown fields and any declared field that arrives with the wrong wire type.
+//! A streaming decoder can hand unknown fields to an `unknown` handler instead, and
 //! [`Config::unknown_present`] lets an arena message record that it had some. Neither decoder
 //! checks that a `string` is valid UTF-8; [`ProtoStr::to_str`] does when you read it.
 //!
 //! A missing `required` field fails an arena decode with [`ErrorKind::MissingRequired`]. A singular
 //! message or group field that appears twice fails it with [`ErrorKind::RepeatedSingularMessage`],
 //! where Protobuf would merge the two. Either way, [`DecodeError::field_number`] names the field. A
-//! singular field of any other type just keeps its last value. The streaming decoder checks neither
-//! rule and calls the field's handler once per occurrence.
+//! singular field of any other type keeps its last value. The streaming decoder checks neither rule
+//! and calls the field's handler once per occurrence.
 //!
-//! The rest of the rules both decoders follow are in [docs/semantics.md]. Read them if a producer
-//! may concatenate messages, or if your schema uses extensions or closed enums, since RapidProto
-//! decodes each of those differently from Protobuf.
+//! Concatenated messages, extensions and closed enums each decode differently from Protobuf.
+//! [docs/semantics.md] has those rules and the rest that both decoders follow.
 //!
 //! # Untrusted input
 //!
-//! On malformed input, `decode` returns a `DecodeError` instead of panicking. CI fuzzes the arena
+//! Malformed input gets a `DecodeError` back from `decode`, never a panic. CI fuzzes the arena
 //! decoders under AddressSanitizer on every pull request. An arena decode fails with
 //! [`ErrorKind::DepthLimitExceeded`] when sub-messages or groups nest deeper than
 //! [`MAX_DECODE_DEPTH`].
 //!
-//! A decoded message can take many times its input size in the arena. With `alloc`, the arena keeps
-//! growing unless you set a limit. An empty [`Station`](example::arena::weather::Station) in a
-//! `Report` takes two bytes of input and at least a whole `Station` struct in the arena, more while
-//! the array of stations grows. Decode untrusted input with `decode` into an arena you create and
-//! limit with [`Arena::set_capacity_limit`]. You can't limit the arena that `decode_owned` makes
-//! for itself.
+//! A decoded message can take many times its input size in the arena. With `alloc`, the arena grows
+//! without bound unless you give it a capacity limit. An empty
+//! [`Station`](example::arena::weather::Station) in a `Report` takes two bytes of input and up to
+//! four `Station` structs in the arena, counting the copies the array of stations leaves behind as
+//! it grows. Decode untrusted input with `decode` into an arena you create and limit with
+//! [`Arena::set_capacity_limit`]. You can't limit the arena that `decode_owned` makes for itself.
 //!
 //! The limit counts the bytes the arena holds, not the input's. To pick one, decode the inputs you
 //! accept that need the most arena, read the arena's [`bytes_reserved`](Arena::bytes_reserved), and
@@ -123,8 +120,8 @@
 //!
 //! With [`Config::serde`] in your build script and this crate's `serde` feature on, the arena
 //! messages and the schema's enums implement `serde::Serialize`. Stream structs don't, and nothing
-//! implements `Deserialize`. You add the format crate, such as `serde_json`, but not `serde`
-//! itself.
+//! implements `Deserialize`. Your crate needs only the format crate, such as `serde_json`; the
+//! generated impls reach `serde` through this crate.
 //!
 //! A message serializes as a map from field name to value, holding the fields
 //! [`Debug` prints](#debug-output). An enum serializes as its `i32`. `bytes` and `raw` fields, and
