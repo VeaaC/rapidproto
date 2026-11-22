@@ -218,8 +218,7 @@ You need these mostly to reproduce the published comparison:
   Point `RAPIDPROTO_UPB_PROTOC` at that protoc or put it first on `PATH`. The top of
   `rapidproto-bench/src/main.rs` explains how to build it from source.
 
-Both runners also read these variables, documented in
-[`runner.rs`](rapidproto-bench/src/runner.rs):
+Both runners also read these variables:
 
 | Variable | Effect |
 |---|---|

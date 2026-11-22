@@ -1,14 +1,8 @@
 //! Streaming-decoder runner: the scenarios of the C++ streaming bench (`rapidproto_bench`) over the same
 //! bytes, the generated streaming decoder (the baseline) against a hand-written wire loop -- see
-//! `stream.rs` for the arms. The loop, options and output are the shared runner's (`runner.rs`, env
-//! vars and run discipline documented there); build profile as the arena runner's (`main.rs`).
-//!
-//! ```text
-//! # produce the shared payloads once (from the C++ bench; ~1.2 GB, keep it on disk):
-//! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_bench
-//! RAPIDPROTO_BENCH_DIR=<dir> RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
-//!     taskset -c 2 cargo run -p rapidproto-bench --release --bin stream
-//! ```
+//! `stream.rs` for the arms. The loop, options and output are the shared runner's (`runner.rs`); build
+//! profile as the arena runner's (`main.rs`). rust/README.md shows how to write the payloads and run
+//! the bench.
 
 use rapidproto_bench::runner::{self, Report};
 use rapidproto_bench::stream;

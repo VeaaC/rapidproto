@@ -4,18 +4,11 @@
 //! runner (`src/stream_main.rs`) is the arm comparison; this is the A/B.
 //!
 //! Input: the shared payload directory, produced by the C++ bench's generator mode -- there is no Rust
-//! builder, so without `RAPIDPROTO_BENCH_DIR` the bench is skipped:
+//! builder, so without `RAPIDPROTO_BENCH_DIR` the bench is skipped. rust/README.md shows how to write
+//! the payloads and run it.
 //!
-//! ```text
-//! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_bench
-//! RAPIDPROTO_BENCH_DIR=<dir> \
-//!     RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
-//!     taskset -c 2 cargo bench -p rapidproto-bench --bench stream
-//! ```
-//!
-//! Run discipline and units as the arena bench (`benches/decode.rs`). The 90 varint-sweep scenarios
-//! (group `stream_rv`) use shortened sample settings; select a subset with criterion's name filter
-//! (`cargo bench .. -- "rv fx3"`).
+//! The 90 varint-sweep scenarios (group `stream_rv`) use shortened sample settings; select a subset
+//! with criterion's name filter (`cargo bench .. -- "rv fx3"`).
 #![allow(clippy::all)]
 
 use std::cell::OnceCell;

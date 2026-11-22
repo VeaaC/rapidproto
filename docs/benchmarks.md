@@ -227,31 +227,14 @@ one arena for every decode.
 
 ### Reproducing the Rust numbers
 
-Build the C++ benches, write the payloads, build the Rust bench, and run it on a quiesced box (see
-[Reproducing](#reproducing) for the box setup):
-
-```sh
-cmake --preset clang
-cmake --build build/clang --target rapidproto_arena_bench rapidproto_bench
-RAPIDPROTO_BENCH_DUMP_DIR=$PWD/payloads build/clang/rapidproto_arena_bench
-RAPIDPROTO_BENCH_DUMP_DIR=$PWD/payloads build/clang/rapidproto_bench
-cd rust
-RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
-    cargo build --release -p rapidproto-bench --bins
-export RAPIDPROTO_BENCH_DIR=$PWD/../payloads
-taskset -c 2 target/release/bench   # the crate comparison and the arena decoder
-taskset -c 2 target/release/stream  # the streaming decoder
-```
-
-The `RUSTFLAGS` pin the Rust code's alignment, as the C++ bench builds do. The published numbers
-come from five runs of each binary, alternating between the two. The google-protobuf column needs
-`--features google-upb` and a `protoc` of exactly version 36.2 in `RAPIDPROTO_UPB_PROTOC`.
-`rust/rapidproto-bench/src/main.rs` shows how to build one.
+[rust/README.md](https://github.com/VeaaC/rapidproto/blob/main/rust/README.md#running-the-bench)
+shows how to write the payloads, then build and run `rapidproto-bench`. The five runs behind each
+published number alternate between its two runners, `bench` and `stream`. The google-protobuf column
+needs `--features google-upb`.
 
 For the comparison with C++, also run `python3 tests/bench.py run --build-dir build/clang`, and set
-`RAPIDPROTO_BENCH_JSON=1` for the Rust runs. Each Rust record then names the C++ row it matches. The
-real-world datasets need the fetched corpus and dataset (see [Reproducing](#reproducing)), and
-`compute Instance` also needs `--features compute`.
+`RAPIDPROTO_BENCH_JSON=1` for the Rust runs. Each Rust record then names the C++ row it matches.
+The `compute Instance` row needs the Rust bench built with `--features compute`.
 
 ## Reproducing
 

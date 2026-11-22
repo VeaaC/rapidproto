@@ -2,24 +2,7 @@
 //! (tests/bench_streamgen.cpp) scenario-for-scenario -- same encodings, same fused field-loop driver,
 //! same names -- so the Rust `wire` layer can be compared directly against the mature C++ one.
 //!
-//! RUN IT PINNED AND ALIGNED, or the numbers lie:
-//!
-//! ```text
-//! RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
-//!     taskset -c 2 cargo bench -p rapidproto --bench wire
-//! ```
-//!
-//! - `taskset -c 2` pins the thread: unpinned, criterion migrates across cores and run-to-run swings
-//!   up to ~15% (worst on the memory-bound `string` arm) -- it is NOT the code changing. The C++ bench
-//!   is pinned the same way.
-//! - `-align-all-functions=6` and `-align-loops=64` pin 64-byte function entries and loop tops (the
-//!   C++ bench build does this via `-falign-functions=64 -falign-loops=64`). Without them, an unrelated edit relays out the binary and shifts each
-//!   arm's throughput by ~10-40% purely from code placement -- a swing on an arm whose code did not
-//!   change is layout, not signal. The placement-invariant signal is instructions/byte, which the C++
-//!   harness reports and criterion does not.
-//!
-//! Also: `performance` governor, turbo off, one run at a time, a quiesced box -- a verdict needs that
-//! box, not a loaded laptop. See the project's bench-placement notes.
+//! rust/README.md shows how to run it.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use rapidproto::wire::{self, Tag, WireType};

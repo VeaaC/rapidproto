@@ -21,18 +21,9 @@
 //! The NDJSON `cpp_scenario` and `cpp_arm` name the C++ row a record corresponds to (null where C++
 //! has none); `vs_base_pct` compares arms within this runner only.
 //!
-//! Run discipline, or the numbers lie: pinned (`taskset -c N`), aligned (`RUSTFLAGS=
-//! "-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64"`, so an unrelated edit relaying
-//! the binary does not move throughput by code placement alone), `performance` governor, turbo/SMT
-//! off, one run at a time on a quiesced box.
-//!
-//! Env: `RAPIDPROTO_BENCH_DIR` (required) the payload directory; `RAPIDPROTO_BENCH_CHECK_ONLY` run only
-//! the agreement gate (no timing -- valid on any box); `RAPIDPROTO_BENCH_JSON` also emit one `rec:"arm"`
-//! NDJSON line per measurement (`cyc_b`/`ins_b` are null) and one `rec:"mem"` line per memory report;
-//! `RAPIDPROTO_BENCH_ONLY=<substring>` run only the scenarios whose Rust or C++ name contains it;
-//! `ARMS` a comma-separated arm allowlist (arm 0, the baseline, is always kept); `ITERS` decode calls
-//! per sample, rounded up to whole pool passes (default: calibrated); `ROUNDS` samples per arm
-//! (default 20).
+//! rust/README.md shows how to run both runners and lists the environment variables they read. With
+//! `RAPIDPROTO_BENCH_JSON`, each measurement is one `rec:"arm"` NDJSON line (`cyc_b`/`ins_b` are null)
+//! and each memory report one `rec:"mem"` line.
 
 use std::hint::black_box;
 use std::path::PathBuf;
