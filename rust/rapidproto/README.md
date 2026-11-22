@@ -1,26 +1,65 @@
 # rapidproto
 
-Runtime for the Protobuf decoders that [`rapidproto-build`] generates.
+`rapidproto` is the runtime for RapidProto's Rust decoders. The code that
+[`rapidproto-build`][build] generates from your Protobuf schemas calls into it, so you add this
+crate next to `rapidproto-build`. You can read a decoded message but not change or encode it, and
+there's no reflection. The [benchmark page][bench] compares RapidProto's speed with prost,
+rust-protobuf, quick-protobuf, femtopb and google-protobuf.
 
-> This is a test release. The API and the generated code will change.
+`rapidproto-build` runs in your build script without protoc. Its page has the setup, with the `=`
+pins that keep the two crates on one release. These are test releases, and the API may change from
+one version to the next.
 
-RapidProto only decodes. `rapidproto-build` generates decoders from your schema at build time,
-without `protoc`, and the generated code uses this crate. Add `rapidproto` to your dependencies and
-`rapidproto-build` to your build dependencies, both pinned to the same version with `=`.
+## Reading a message
 
-An arena decoder decodes the whole message into an [`Arena`]. `string` and `bytes` values borrow
-from the input, and a repeated scalar field is a slice such as `&[i64]`. A stream decoder builds no
-message. It passes the fields you select to your handlers and skips the rest.
+The example on `rapidproto-build`'s page puts the generated code in a module named `schema`, with a
+decoder for a `shop.Order` message. Reading an order with it looks like this:
 
-The crate is `no_std`. The default `alloc` feature lets the arena grow on the heap. Without it, the
-arena uses only a buffer you provide. With the optional `serde` feature and `rapidproto-build`'s
-`Config::serde`, decoded messages implement `Serialize`. Without `serde`, the crate has no
-dependencies.
+```rust
+use schema::arena::shop::Order;
 
-The [documentation] has examples.
+fn describe(input: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+    let arena = rapidproto::Arena::new();
+    arena.set_capacity_limit(1 << 20); // 1 MiB, for untrusted input
+    let order = Order::decode(input, &arena)?; // borrows input and arena
 
-Licensed under Apache-2.0 (see `LICENSE` and `NOTICE`).
+    let id: &str = order.id().to_str()?; // checks UTF-8
+    let quantities: &[i64] = order.quantities();
+    Ok(format!("order {id}: {} items", quantities.iter().sum::<i64>()))
+}
+```
 
-[`Arena`]: https://docs.rs/rapidproto/latest/rapidproto/struct.Arena.html
-[`rapidproto-build`]: https://crates.io/crates/rapidproto-build
-[documentation]: https://docs.rs/rapidproto
+The example uses the [arena decoder][root]. `decode` stores the message in the arena, and strings
+and bytes borrow from the input. A crafted input can make the arena many times larger than itself.
+The capacity limit is a fixed ceiling, not a multiple of the input, so leave room for the largest
+message you mean to accept ([untrusted input][untrusted]).
+
+The generator writes the [streaming decoder][stream] too if you ask for it, with `.stream(true)` in
+the build script. Instead of building a message, it hands each field you selected to your handlers
+and skips over the others.
+
+## `no_std` and features
+
+The crate is `no_std`. Its default `alloc` feature adds `Arena::new`, whose arena takes memory from
+the heap as it fills. It also adds `Order::decode_owned`. The `Owned` it returns holds the message
+with its own input and arena, so you can keep it as long as you like. That arena has no capacity
+limit, so decode untrusted input into an arena of your own, as in the example.
+
+Turn `alloc` off and you make an arena with [`Arena::with_buffer`][with-buffer] over memory you
+provide. A decode fails once that memory runs out.
+
+The [`serde`][serde] feature, together with `.serde(true)` in the build script, gives the generated
+messages and enums `serde::Serialize` impls, but no `Deserialize`. Unless you turn `serde` on,
+`rapidproto` doesn't depend on any other crate.
+
+`rapidproto` is under the Apache-2.0 license ([LICENSE][license], [NOTICE][notice]).
+
+[build]: https://crates.io/crates/rapidproto-build
+[root]: https://docs.rs/rapidproto
+[untrusted]: https://docs.rs/rapidproto/latest/rapidproto/#untrusted-input
+[bench]: https://github.com/VeaaC/rapidproto/blob/main/docs/benchmarks.md#rust
+[stream]: https://docs.rs/rapidproto/latest/rapidproto/stream/index.html
+[with-buffer]: https://docs.rs/rapidproto/latest/rapidproto/struct.Arena.html#method.with_buffer
+[serde]: https://docs.rs/rapidproto/latest/rapidproto/#serde
+[license]: https://github.com/VeaaC/rapidproto/blob/main/rust/rapidproto/LICENSE
+[notice]: https://github.com/VeaaC/rapidproto/blob/main/rust/rapidproto/NOTICE
