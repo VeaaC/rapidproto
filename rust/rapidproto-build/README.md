@@ -1,11 +1,16 @@
 # rapidproto-build
 
-Generates [`rapidproto`] Rust decoders for Protobuf schemas in a build script, without `protoc`.
+`rapidproto-build` generates Rust decoders from Protobuf schemas while your crate builds, without
+protoc. You call it from `build.rs`, and your crate includes the Rust file it writes. The decoders
+in that file run on the [`rapidproto`][runtime] runtime.
 
-> This is a test release. The API and the generated code will change.
+It accepts proto2, proto3, and editions 2023 and 2024. The well-known types are built in, so
+`import "google/protobuf/timestamp.proto";` works with no such file on disk.
 
-Pin both crates to the same version with `=`, because the generated code targets the matching
-runtime:
+This version is a test release, and the next one may change the [`Config`][config] API or the
+generated code.
+
+## Setup
 
 ```toml
 # Cargo.toml
@@ -16,7 +21,20 @@ rapidproto = "=0.1.0-alpha.2"
 rapidproto-build = "=0.1.0-alpha.2"
 ```
 
-Generate the decoders from a build script:
+Both lines pin with `=` because generated code needs the runtime from its own release. A mismatched
+pair usually fails to build, with `use the same version of rapidproto and rapidproto-build` as the
+first error.
+
+```proto
+// proto/my_schema.proto
+syntax = "proto3";
+package shop;
+
+message Order {
+  string id = 1;
+  repeated int64 quantities = 2;
+}
+```
 
 ```rust
 // build.rs
@@ -28,47 +46,102 @@ fn main() {
 }
 ```
 
-`compile` writes `my_schema.rs` to `OUT_DIR`, named after the first entry. Include it at the path
-you passed to `Config::new`, and decode with it:
+`compile` writes the generated code to `OUT_DIR` as `my_schema.rs`, named after the first schema in
+the list. The schema path is relative to the package root. Imports resolve against the `include`
+directories instead.
 
 ```rust
+// src/main.rs
 mod schema {
     include!(concat!(env!("OUT_DIR"), "/my_schema.rs"));
 }
 
-// For `package shop;` and `message Order` in my_schema.proto:
-let arena = rapidproto::Arena::new();
-let order = schema::arena::shop::Order::decode(&input, &arena)?;
+fn main() -> Result<(), rapidproto::DecodeError> {
+    let input = b"\x0a\x02A7\x12\x02\x03\x04"; // encodes id "A7" and quantities [3, 4]
+    let arena = rapidproto::Arena::new();
+    let order = schema::arena::shop::Order::decode(input, &arena)?;
+    println!("{order:?}");
+    Ok(())
+}
 ```
 
-The [documentation] covers stream decoders, decode profiles and `serde`. The `rapidproto-rust`
-command-line tool generates the same code, for projects that commit it.
+The `include!` has to sit at the [module path][new] you gave `Config::new`, here `crate::schema`, or
+the generated code fails to compile. For `package shop;` the [arena decoders][arena] are in
+`schema::arena::shop`. `cargo run` prints:
 
-## How the generator runs
+```text
+Order { id: "A7", quantities: [3, 4] }
+```
 
-The generator is written in C++. The crate's build script compiles it, which needs a C++17
-compiler. Without one, the crate uses a copy of the generator built as WebAssembly and run in the
-`wasmi` interpreter, and `Config::compile` warns. Both produce the same output.
+If you'd rather commit the generated code to your repository, install the
+[`rapidproto-rust`][docs] command from this crate. It generates what `compile` would, outside the
+build.
 
-The `native` and `wasm` features choose between them, and both are on by default. If you have a
-C++ compiler, `default-features = false, features = ["native"]` avoids building the interpreter.
-To use the wasm generator on purpose, without the warning, enable only `wasm`.
+## Streaming, decode profiles and serde
 
-Cargo builds build-time code without optimization, which makes the interpreter slow. It takes
-seconds for a small schema and minutes for a very large one. If you use the wasm generator,
-optimize build-time code in your workspace:
+- [`.stream(true)`][stream] generates the streaming decoders as well.
+- [`.field_modes(...)`][field-modes] applies a decode profile, which can drop fields, keep
+  sub-messages as raw bytes or flag messages that had unknown fields.
+- [`.serde(true)`][serde] adds `serde::Serialize` impls. They need `rapidproto`'s `serde` feature.
+
+## Native and wasm generators
+
+The generator is a C++ program. By default, this crate's build script compiles it with your C++17
+compiler, a step that takes ten seconds or more on a clean build. If there's no compiler, or the C++
+build fails, the build script falls back to the [wasm generator][how], a prebuilt WebAssembly copy
+that runs in the wasmi interpreter. Either way, the generated code is identical.
+
+A fallback shows up as a warning, `rapidproto-build uses the slower wasm generator`, followed by
+the reason the C++ build failed.
+
+With a working compiler you can drop the fallback. Setting
+`default-features = false, features = ["native"]` leaves out the wasm generator's roughly 60
+dependency crates, but then a machine without a compiler can't build your crate. With only `wasm`
+enabled, the build never tries the C++ compiler and doesn't warn.
+
+Cargo compiles the interpreter at opt-level 0, even for a release build. That accounts for most of
+the wasm generator's slowness. These lines turn optimization on for
+it. They belong in the workspace root's `Cargo.toml`, since Cargo ignores profiles in any other
+manifest.
 
 ```toml
+# Cargo.toml at the workspace root
 [profile.dev.build-override]
 opt-level = 3
+
 [profile.release.build-override]
 opt-level = 3
 ```
 
-Licensed under Apache-2.0 (see `LICENSE` and `NOTICE`). The crate ships the prebuilt wasm
-generator, which statically links wasi-libc and the LLVM C++ runtime. The crate also contains the
-Protobuf well-known type definitions. `THIRD_PARTY_NOTICES.md` has their license notices and the
-build provenance.
+Timed on one machine, generating each schema took:
 
-[`rapidproto`]: https://crates.io/crates/rapidproto
-[documentation]: https://docs.rs/rapidproto-build
+| Schema | Wasm, as Cargo builds it | Wasm, with the setting | Native |
+|---|---|---|---|
+| `my_schema.proto` above | 0.5 s | 0.04 s | 0.001 s |
+| OpenStreetMap's `osmformat.proto`, 9 KB | 4.5 s | 0.2 s | 0.005 s |
+| Google's `pubsub.proto`, 114 KB plus imports | 50 s | 1.9 s | 0.04 s |
+| Google's `compute.proto`, 4.3 MB plus imports | 13 min | 28 s | 0.6 s |
+
+The setting also optimizes build scripts, proc macros and everything they depend on. For the example
+above, that made a clean build about twice as long. The native generator doesn't need it.
+
+## License
+
+The license is Apache-2.0 ([LICENSE][license], [NOTICE][notice]). The package also contains Google's
+well-known type definitions and the wasm generator, which has wasi-libc and the LLVM C++ runtime
+linked in. The licenses of those third-party parts are in [THIRD_PARTY_NOTICES.md][third-party].
+RapidProto claims no rights
+in the code generated from your schemas.
+
+[runtime]: https://crates.io/crates/rapidproto
+[arena]: https://docs.rs/rapidproto
+[config]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html
+[new]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.new
+[docs]: https://docs.rs/rapidproto-build
+[stream]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.stream
+[field-modes]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.field_modes
+[serde]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.serde
+[how]: https://docs.rs/rapidproto-build/latest/rapidproto_build/#how-the-generator-runs
+[license]: https://github.com/VeaaC/rapidproto/blob/main/rust/rapidproto-build/LICENSE
+[notice]: https://github.com/VeaaC/rapidproto/blob/main/rust/rapidproto-build/NOTICE
+[third-party]: https://github.com/VeaaC/rapidproto/blob/main/rust/rapidproto-build/THIRD_PARTY_NOTICES.md
