@@ -62,9 +62,9 @@ pb-rs = "0.10"
 femtopb-build = "0.9"
 
 [dev-dependencies]
-# Drives the Rust-vs-Rust A/B benches (benches/decode.rs, benches/stream.rs); default features off --
-# they want timings, not the HTML/plotting stack. Matches the rapidproto wire bench.
-criterion = { version = "0.3", default-features = false }
+# Drives the Rust-vs-Rust A/B benches, benches/decode.rs and benches/stream.rs. `html_reports`
+# changes nothing in 0.3 but silences its warning that HTML reports will become optional.
+criterion = { version = "0.3", features = ["html_reports"] }
 
 # The ecosystem runner: decode each scenario with every (runtime-selected) arm over shared payloads.
 [[bin]]

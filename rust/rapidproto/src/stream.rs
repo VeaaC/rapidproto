@@ -1,8 +1,8 @@
-//! Types for stream decoders.
+//! Types for streaming decoders.
 //!
-//! A stream decoder reads a message's fields in wire order and passes the ones you select to your
-//! handlers. It builds no message and does not allocate. `rapidproto-build` generates stream decoders
-//! when you turn on its [`Config::stream`]. The [`example`](crate::example) module shows the generated
+//! A streaming decoder reads a message's fields in wire order and passes the ones you select to your
+//! handlers. It builds no message and does not allocate. `rapidproto-build` generates streaming
+//! decoders when you turn on its [`Config::stream`]. The [`example`](crate::example) module shows the generated
 //! code.
 //!
 //! For each message `Msg`, the generator emits a stream struct `Msg<'a>`, a visitor trait
@@ -40,7 +40,7 @@
 //! `oneof` has its own handler, and a later member does not replace an earlier one.
 //!
 //! A declared field that arrives with the wrong wire type is skipped, and does not reach `unknown`. A
-//! stream decoder does not check `required` fields.
+//! streaming decoder does not check `required` fields.
 //!
 //! # Untrusted input
 //!
@@ -111,7 +111,7 @@ use core::fmt;
 use crate::error::DecodeError;
 pub use crate::wire::WireType;
 
-/// Whether a stream decode continues or stops.
+/// Whether a streaming decode continues or stops.
 ///
 /// A handler returns it to choose, and `decode` returns it to say which happened.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -124,13 +124,10 @@ pub enum Flow {
     Stop,
 }
 
-/// What a field-handler closure may return, normalized to the driver's `Result<Flow, DecodeError>`:
-/// `()` continues, a [`Flow`] continues or stops, and a `Result<_, DecodeError>` lets a handler
-/// propagate a failure (e.g. `child.decode(..)?` on a malformed sub-message) out of the outer
-/// `decode`. Implemented for `()`, `Flow`, `Result<(), DecodeError>`, and `Result<Flow, DecodeError>`.
+/// What a handler closure may return. Its four impls are the returns the module docs allow, which
+/// rustc lists when a handler returns another type.
 #[doc(hidden)]
 pub trait HandlerRet {
-    /// Normalize this return value into the driver's outcome.
     fn into_outcome(self) -> Result<Flow, DecodeError>;
 }
 
@@ -162,13 +159,10 @@ impl HandlerRet for Result<Flow, DecodeError> {
     }
 }
 
-/// The glue that lets a field handler be any `FnMut(V)` returning a [`HandlerRet`]. The generated
-/// `msg_stream!` macro bounds each selected field's closure as `Handler<V>` and calls
-/// [`call`](Handler::call); not implemented by consumers (the blanket impl covers every suitable
-/// closure).
+/// A field's handler, called once per occurrence: any `FnMut(V)` returning a [`HandlerRet`],
+/// through the blanket impl. `stream_visitor!` bounds each plain-form closure by it.
 #[doc(hidden)]
 pub trait Handler<V> {
-    /// Deliver one occurrence of the field's value, returning the driver's outcome.
     fn call(&mut self, value: V) -> Result<Flow, DecodeError>;
 }
 
@@ -179,25 +173,18 @@ impl<V, R: HandlerRet, F: FnMut(V) -> R> Handler<V> for F {
     }
 }
 
-/// Fix a field handler's closure parameter to the field's value type `V`, so the consumer need not
-/// annotate it even when the body alone does not pin the type (e.g. `|s| s.0`, `|sub| sub.decode(..)`).
-/// The generated `msg_stream!` macro wraps each closure with the field's `V` in the turbofish; the
-/// returned closure is unchanged. Internal to the generated glue, not called by consumers directly.
+/// Fixes a handler's parameter type to `V`, so `|s| s.0` needs no annotation. Only
+/// `stream_visitor!` calls it.
 #[doc(hidden)]
 #[inline(always)]
 pub fn typed<V, R, F: FnMut(V) -> R>(f: F) -> F {
     f
 }
 
-/// The glue for the shared-state macro form: a field handler that takes the lent `&mut S` as its first
-/// argument and the field's value as its second. The generated `msg_stream!(&mut state; { .. })` form
-/// bounds each selected field's closure as `Handler2<S, V>` and calls [`call`](Handler2::call),
-/// passing one reborrow of the visitor's `&mut state` per occurrence; because the state is passed, not
-/// captured, every field's handler can touch it without the aliasing an `FnMut(V)` capture would need.
-/// Not implemented by consumers (the blanket impl covers every suitable closure).
+/// The shared-state form of [`Handler`]: the closure takes the lent `&mut S`, then the value. The
+/// state stays a parameter because two closures capturing one `&mut` would not compile.
 #[doc(hidden)]
 pub trait Handler2<S: ?Sized, V> {
-    /// Deliver one occurrence of the field's value together with the lent state, returning the outcome.
     fn call(&mut self, state: &mut S, value: V) -> Result<Flow, DecodeError>;
 }
 
@@ -208,25 +195,21 @@ impl<S: ?Sized, V, R: HandlerRet, F: FnMut(&mut S, V) -> R> Handler2<S, V> for F
     }
 }
 
-/// Pin a shared-state handler's two parameter types so the consumer annotates neither: the state type
-/// `S` is fixed from the `&*state` hint the generated macro passes, and the value type `V` from the
-/// turbofish. The `_state_hint` reference is a transient borrow only used to infer `S`; the returned
-/// closure is unchanged. Internal to the generated glue, not called by consumers directly.
+/// [`typed`] for [`Handler2`]. `_state_hint` is borrowed only to infer `S`.
 #[doc(hidden)]
 #[inline(always)]
 pub fn typed2<S: ?Sized, V, R, F: FnMut(&mut S, V) -> R>(_state_hint: &S, f: F) -> F {
     f
 }
 
-/// Builds the anonymous visitor a generated `<msg>_stream!` macro expands to, from the per-field rows
-/// that macro collected: `$Tr` is the message's visitor trait at the impl lifetime `'rp_a`. A row is
-/// `WANT_<f> on_<f>: V = closure;` -- the trait's const and method names and the field's value type at
-/// that lifetime. `on_<f>` doubles as the struct field and its closure's type parameter (separate
-/// namespaces), and each `V` gets a
-/// block-local alias named by its const (`type WANT_<f><'rp_a> = V`) so the constructor can name it at
-/// `'_` to pin the closure's parameter types. A leading `[]` selects the plain form, `[state]` the
-/// shared-state form that lends one `&mut state` to every handler. Internal to the generated glue.
-/// It expands at the caller's call site, so it names every outside item by an absolute path.
+/// Builds the visitor a generated `<msg>_stream!` expands to, implementing its visitor trait `$Tr`
+/// at `'rp_a`. A row `WANT_<f> on_<f>: V = closure;` gives the trait's const and method and the
+/// field's value type, and `on_<f>` also names the struct field and its type parameter. Each `V`
+/// gets a local alias named after its const, so the constructor can name it at `'_` and pin the
+/// closure's parameter types. `[]` starts the plain form, `[state]` the shared-state one.
+///
+/// It expands at the call site, where the caller's names are in scope, so it names every outside
+/// item by an absolute path.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! stream_visitor {
@@ -296,8 +279,8 @@ impl fmt::Debug for UnknownField<'_> {
 }
 
 impl<'a> UnknownField<'a> {
-    /// Construct from a raw tag key (`field << 3 | wire`) and the field's value bytes. Called by
-    /// generated decoders, which reject the reserved wire types 6 and 7 before they get here.
+    /// Builds the value from a tag key (`field << 3 | wire`) and the value's bytes. Its only
+    /// callers, generated decoders, reject wire types 6 and 7 first; `wire_type` relies on that.
     #[doc(hidden)]
     #[inline(always)]
     pub fn new(key: u32, bytes: &'a [u8]) -> Self {
