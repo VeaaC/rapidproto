@@ -73,8 +73,9 @@ the generated code fails to compile. For `package shop;` the [arena decoders][ar
 Order { id: "A7", quantities: [3, 4] }
 ```
 
-To commit the generated code to your repository instead, install the [`rapidproto-rust`][docs]
-command from this crate. It generates what `compile` would, outside the build.
+If you'd rather commit the generated code to your repository, install the
+[`rapidproto-rust`][docs] command from this crate. It generates what `compile` would, outside the
+build.
 
 ## Streaming, decode profiles and serde
 
@@ -85,8 +86,8 @@ command from this crate. It generates what `compile` would, outside the build.
 
 ## Native and wasm generators
 
-The generator is a C++ program. By default, the build script of this crate builds it with your
-C++17 compiler, which adds ten seconds or more to a clean build. If there's no compiler, or the C++
+The generator is a C++ program. By default, this crate's build script compiles it with your C++17
+compiler, a step that takes ten seconds or more on a clean build. If there's no compiler, or the C++
 build fails, the build script falls back to the [wasm generator][how], a prebuilt WebAssembly copy
 that runs in the wasmi interpreter. Either way, the generated code is identical.
 
@@ -98,8 +99,8 @@ With a working compiler you can drop the fallback. Setting
 dependency crates, but then a machine without a compiler can't build your crate. With only `wasm`
 enabled, the build never tries the C++ compiler and doesn't warn.
 
-Cargo compiles the interpreter at opt-level 0, as it does all build-time code, even for a release
-build. That accounts for most of the wasm generator's slowness. These lines turn optimization on for
+Cargo compiles the interpreter at opt-level 0, even for a release build. That accounts for most of
+the wasm generator's slowness. These lines turn optimization on for
 it. They belong in the workspace root's `Cargo.toml`, since Cargo ignores profiles in any other
 manifest.
 
@@ -121,15 +122,15 @@ Timed on one machine, generating each schema took:
 | Google's `pubsub.proto`, 114 KB plus imports | 50 s | 1.9 s | 0.04 s |
 | Google's `compute.proto`, 4.3 MB plus imports | 13 min | 28 s | 0.6 s |
 
-With the setting, build scripts, proc macros and everything they depend on are compiled with
-optimizations, which made a clean build more than twice as long. The native generator doesn't need
-it.
+The setting also optimizes build scripts, proc macros and everything they depend on. For the example
+above, that made a clean build about twice as long. The native generator doesn't need it.
 
 ## License
 
 The license is Apache-2.0 ([LICENSE][license], [NOTICE][notice]). The package also contains Google's
 well-known type definitions and the wasm generator, which has wasi-libc and the LLVM C++ runtime
-linked in. Their licenses are in [THIRD_PARTY_NOTICES.md][third-party]. RapidProto claims no rights
+linked in. The licenses of those third-party parts are in [THIRD_PARTY_NOTICES.md][third-party].
+RapidProto claims no rights
 in the code generated from your schemas.
 
 [runtime]: https://crates.io/crates/rapidproto
