@@ -1,9 +1,9 @@
 //! Types for streaming decoders.
 //!
-//! A streaming decoder reads a message's fields in wire order and passes the ones you select to your
-//! handlers. It builds no message and does not allocate. `rapidproto-build` generates streaming
-//! decoders when you turn on its [`Config::stream`]. The [`example`](crate::example) module shows the generated
-//! code.
+//! A streaming decoder reads a message's fields in wire order and passes the ones you select to
+//! your handlers. It builds no message and does not allocate. `rapidproto-build` generates
+//! streaming decoders when you turn on its [`Config::stream`]. The [`example`](crate::example)
+//! module shows the generated code.
 //!
 //! For each message `Msg`, the generator emits a stream struct `Msg<'a>`, a visitor trait
 //! `MsgVisitor<'a>`, and a macro `msg_stream!` that builds a visitor from handlers. Decode with

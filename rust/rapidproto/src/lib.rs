@@ -35,8 +35,8 @@
 //! `report` borrows from the input as well as the arena. Its `string` and `bytes` fields point into
 //! `input`, and so does any sub-message field that a [decode profile] keeps `raw`. Everything else
 //! lives in `arena`. The compiler won't let `report` outlive either of them. If you need a message
-//! that stands on its own, `Report::decode_owned(input)` returns an [`Owned`], which keeps the input
-//! and the arena together with the message.
+//! that stands on its own, `Report::decode_owned(input)` returns an [`Owned`], which keeps the
+//! input and the arena together with the message.
 //!
 //! The [streaming decoder](stream) calls your handler for each field you select, in the order the
 //! fields appear in the input, and skips the rest without building a message. Use it when you need
@@ -123,7 +123,8 @@
 //!
 //! With [`Config::serde`] in your build script and this crate's `serde` feature on, the arena
 //! messages and the schema's enums implement `serde::Serialize`. Stream structs don't, and nothing
-//! implements `Deserialize`. You add the format crate, such as `serde_json`, but not `serde` itself.
+//! implements `Deserialize`. You add the format crate, such as `serde_json`, but not `serde`
+//! itself.
 //!
 //! A message serializes as a map from field name to value, holding the fields
 //! [`Debug` prints](#debug-output). An enum serializes as its `i32`. `bytes` and `raw` fields, and
