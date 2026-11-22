@@ -85,7 +85,7 @@ name = "decode"
 harness = false
 
 # The Rust-vs-Rust A/B bench for the generated streaming decoder across the C++ streaming bench's
-# scenarios, over the shared payloads (see the bench header).
+# scenarios, over the shared payloads. rust/README.md shows how to run it.
 [[bench]]
 name = "stream"
 harness = false

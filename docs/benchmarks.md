@@ -158,8 +158,8 @@ The Rust crate has its own bench in `rust/rapidproto-bench`. It decodes the payl
 benches write. Each decoder decodes a payload and then reads every field, as in the C++ benches. On
 the eight payloads in the table below and on the real-world datasets, each decoder also has to
 produce the checksum that the C++ bench computes. The numbers were measured with rustc 1.91.1 and a
-release build without LTO. In the table and in the comparison with C++, each number is the median of
-five runs.
+release build without LTO that aligns functions and loops to 64 bytes, as the C++ builds do. In the
+table and in the comparison with C++, each number is the median of five runs.
 
 ### Other Rust decoders
 
@@ -228,13 +228,13 @@ one arena for every decode.
 ### Reproducing the Rust numbers
 
 [rust/README.md](https://github.com/VeaaC/rapidproto/blob/main/rust/README.md#running-the-bench)
-shows how to write the payloads, then build and run `rapidproto-bench`. The five runs behind each
-published number alternate between its two runners, `bench` and `stream`. The google-protobuf column
-needs `--features google-upb`.
+shows how to write the payloads, then build and run `rapidproto-bench`. The published numbers come
+from a build with `--features compute,google-upb`, which adds the `compute Instance` scenario and
+the google-protobuf column and needs protoc 36.2. The runs alternated the two runners, `bench` then
+`stream`, five times over.
 
 For the comparison with C++, also run `python3 tests/bench.py run --build-dir build/clang`, and set
 `RAPIDPROTO_BENCH_JSON=1` for the Rust runs. Each Rust record then names the C++ row it matches.
-The `compute Instance` row needs the Rust bench built with `--features compute`.
 
 ## Reproducing
 

@@ -18,12 +18,12 @@
 //! `std::function` call, ~20 ns), a pool's call being one pass over all its buffers, and adds rounds
 //! until its ratios are significant; this runner times batches of at least ~10 ms over a fixed number
 //! of rounds. On a small single buffer the C++ per-call overhead still weighs on its GB/s and ins/B.
-//! The NDJSON `cpp_scenario` and `cpp_arm` name the C++ row a record corresponds to (null where C++
-//! has none); `vs_base_pct` compares arms within this runner only.
 //!
-//! rust/README.md shows how to run both runners and lists the environment variables they read. With
-//! `RAPIDPROTO_BENCH_JSON`, each measurement is one `rec:"arm"` NDJSON line (`cyc_b`/`ins_b` are null)
-//! and each memory report one `rec:"mem"` line.
+//! rust/README.md shows how to run both runners and lists the environment variables they read.
+//! With `RAPIDPROTO_BENCH_JSON`, each arm of a scenario is one `rec:"arm"` NDJSON line
+//! (`cyc_b`/`ins_b` are null) and each memory report one `rec:"mem"` line. `cpp_scenario` and
+//! `cpp_arm` name the C++ row a record corresponds to (null where C++ has none); `vs_base_pct`
+//! compares arms within this runner only.
 
 use std::hint::black_box;
 use std::path::PathBuf;

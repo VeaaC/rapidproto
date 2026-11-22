@@ -45,7 +45,8 @@ generator changes, and the ways a pull request that touches only C++ can still b
 scenario covers one payload or a pool of them, and every scenario but `particles` decodes the same
 bytes as a row of the C++ benches. The [benchmark page](../docs/benchmarks.md#rust) sets each Rust
 decoder beside prost and RapidProto's Rust numbers beside its C++ ones. Its
-[recipe](../docs/benchmarks.md#reproducing-the-rust-numbers) shows how both were measured.
+[reproduction notes](../docs/benchmarks.md#reproducing-the-rust-numbers) give the build features and
+the C++ run behind those numbers.
 
 The [`bench`](rapidproto-bench/src/main.rs) runner decodes the payloads of the C++
 [arena bench](../tests/bench_arena.cpp), and [`stream`](rapidproto-bench/src/stream_main.rs) those
@@ -175,7 +176,8 @@ does some of its decoding, since it decodes repeated fields only when they're re
 
 ### Other tools
 
-Unless you're working on decoder performance, you can skip these tools.
+Unless you're working on decoder performance, you can skip these tools. Run them between `setup`
+and `restore`, as you would a timed run.
 
 ```sh
 # criterion: build each package's benches, then run them pinned
@@ -197,8 +199,8 @@ on its own copies of six payloads from the C++ streaming bench. Criterion report
 The perf examples ([`perf_bench.rs`](rapidproto-bench/examples/perf_bench.rs) and
 [`perf_stream.rs`](rapidproto-bench/examples/perf_stream.rs)) decode one scenario until they've
 covered about 2 GB, then print the byte total to divide the instruction count by. `perf stat`
-needs `kernel.perf_event_paranoid` at 2 or lower. `bench_box.sh setup` sets it, so run them between
-`setup` and `restore`. Code layout barely moves instructions per byte
+needs `kernel.perf_event_paranoid` at 2 or lower, which `setup` also sets. Code layout barely moves
+instructions per byte
 ([measured on the C++ benches](../docs/benchmarks.md#appendix-measurement-noise)). If two builds
 differ by a few percent in throughput but run the same number of instructions, suspect layout or
 run noise first, and time one build against itself to see how large that noise is.

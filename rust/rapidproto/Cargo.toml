@@ -35,7 +35,7 @@ criterion = { version = "0.3", default-features = false }
 features = ["serde"]
 targets = ["x86_64-unknown-linux-gnu"]
 
-# Run it with `cargo bench -p rapidproto`.
+# rust/README.md shows how to run it.
 [[bench]]
 name = "wire"
 harness = false
