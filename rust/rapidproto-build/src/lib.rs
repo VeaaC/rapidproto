@@ -1,13 +1,12 @@
 //! Runs RapidProto's generator in `build.rs` to write Rust decoders for your Protobuf schemas.
 //!
-//! The generator parses the schemas itself, without protoc, whether they use proto2, proto3, or
-//! editions 2023 or 2024. They can import `google/protobuf/timestamp.proto` and the other
-//! well-known types with no copy of the files on disk.
+//! The generator reads proto2, proto3 and editions 2023 and 2024 schemas without protoc. Imports
+//! of the well-known types, such as `google/protobuf/timestamp.proto`, need no file on disk.
 //!
 //! Your crate needs the [`rapidproto`] runtime as a dependency and this crate as a build
 //! dependency. Write both requirements with `=` and the same version number. Mixed versions usually
 //! fail to compile, starting with the error
-//! `use the same version of rapidproto and rapidproto-build`. Both crates are test releases, so
+//! `use the same version of rapidproto and rapidproto-build`. Both are test releases, so
 //! upgrading can break your build script or the code that reads the messages.
 //!
 //! Here is a schema in `proto/message.proto` and the build script that generates its decoders:
@@ -32,9 +31,8 @@
 //! }
 //! ```
 //!
-//! [`Config::compile`] names its file after the first schema you pass it, here `message.rs` in
-//! `OUT_DIR`. Put the `include!` in the module whose path you gave [`Config::new`], here
-//! `crate::schema`:
+//! [`Config::compile`] writes `message.rs` to `OUT_DIR`, taking the stem of the first path. The
+//! `include!` goes in the module named by the path passed to [`Config::new`], `crate::schema`:
 //!
 //! ```ignore
 //! // src/main.rs
@@ -53,15 +51,15 @@
 //! }
 //! ```
 //!
-//! By default `Config` generates only [arena decoders], and for `package shop` they land in
+//! By default `Config` generates only [arena decoders]. For `package shop` they land in
 //! `schema::arena::shop`. To see what a schema's messages, enums and fields turn into, browse the
 //! runtime's [`example`] module, which also explains [how names are formed][names].
 //!
 //! Some other methods change the output:
 //!
 //! - [`Config::stream`] adds streaming decoders.
-//! - [`Config::field_modes`] applies a decode profile.
-//! - [`Config::serde`] adds `serde::Serialize` impls.
+//! - [`Config::field_modes`] sets a decode profile.
+//! - [`Config::serde`] makes the arena messages and enums serializable with serde.
 //!
 //! [`Config::generate`] hands you the code as a `String` and writes nothing.
 //!
@@ -72,8 +70,8 @@
 //!
 //! # How the generator runs
 //!
-//! RapidProto's generator is implemented in C++. The native generator is that C++ code compiled by
-//! this crate's build script, with your C++17 compiler. The wasm generator is the same code
+//! RapidProto's generator is implemented in C++. The native generator is that C++ code built from
+//! source during your build, which takes a C++17 compiler. The wasm generator is the same code
 //! compiled ahead of time to WebAssembly, shipped in this crate and run in the [`wasmi`]
 //! interpreter. Both produce the same generated code.
 //!
@@ -83,15 +81,15 @@
 //! `rapidproto-build uses the slower wasm generator` and gives the reason. To build one generator
 //! only, set `default-features = false` and pick its feature:
 //!
-//! - `native` leaves out the interpreter and its dependencies. Without a C++ compiler there's then
-//!   nothing to fall back to, and your crate doesn't build.
-//! - `wasm` skips the C++ build, and with it the warning. Pick it when your machines have no C++
-//!   compiler, as on a slim CI image.
+//! - `native` leaves out the interpreter and its dependencies. Without a C++ compiler your crate
+//!   then fails to build, with no generator to fall back to.
+//! - `wasm` doesn't attempt the C++ build, so there's no warning. Pick it when your machines have
+//!   no C++ compiler, as on a slim CI image.
 //!
 //! Cargo [compiles build scripts and their dependencies without optimization][build-override], in
-//! release builds too, which leaves the wasm generator slow. It can take minutes on a large schema,
-//! and [the crate's README][times] has times for a few sizes. To optimize build-time code, add this
-//! to your workspace root's `Cargo.toml`:
+//! release builds too, which leaves the wasm generator slow. It can take minutes on a large schema.
+//! [The crate's README][times] has times for a few sizes. To optimize build-time code, add this to
+//! your workspace root's `Cargo.toml`:
 //!
 //! ```toml
 //! [profile.dev.build-override]
@@ -102,10 +100,10 @@
 //! ```
 //!
 //! A workspace member's profiles are ignored, with a warning, and a dependency can't set them for
-//! you. It applies to every proc macro and build script in the build and all their dependencies, so
-//! a clean build gets slower. That's worth it only when the wasm generator does the work, and more
-//! so the larger your schemas are. The native generator is compiled optimized in every profile and
-//! gains nothing from it.
+//! you. The override also covers every other proc macro and build script in the build, with their
+//! dependencies, so those take longer to compile. Turn it on only when the wasm generator does the
+//! work; the larger your schemas, the more it saves. The native generator is compiled optimized in
+//! every profile and gains nothing from it.
 //!
 //! # Recursion limit
 //!
@@ -485,16 +483,17 @@ impl Config {
     /// The module path names the module that will hold the `include!`, written from the crate root:
     /// `crate` for the root itself, or a path such as `crate::schema`. Each segment after `crate`
     /// is an ASCII identifier, with keywords written raw, as in `crate::r#type`. `new` accepts any
-    /// string; a malformed one makes [`generate`](Config::generate) and
-    /// [`compile`](Config::compile) return a [`GenError`].
+    /// string. [`generate`](Config::generate) and [`compile`](Config::compile) return a
+    /// [`GenError`] for most malformed paths, but a bare keyword, as in `crate::type`, gets past
+    /// them and fails to compile in the generated file.
     ///
     /// The generated code refers to its own items by absolute paths that start with the module
-    /// path, so it compiles only in the module that path names. Included anywhere else, it fails
-    /// with E0433 errors, reported in the generated file, saying a module on that path can't be
-    /// found. The module can't be inside a function body, whose items have
-    /// no `crate::` path; in a doctest, that means declaring `fn main` yourself. Include each file
-    /// once per crate. A package's library, binaries and `tests/` files are separate crates,
-    /// though, and each can include it at the same path.
+    /// path, so it compiles only in the module that path names. Anywhere else, rustc rejects it
+    /// with E0433 errors in the generated file, each saying it can't find a module on that path.
+    /// The module can't be inside a function body, whose items have no `crate::` path; in a
+    /// doctest, that means declaring `fn main` yourself. Include each file once per crate. A
+    /// package's library, binaries and `tests/` files are separate crates, though, and each can
+    /// include it at the same path.
     ///
     /// Two generated files need two module paths, and two `Config`s with them, as in the example
     /// below. A schema that both files import is then generated into each, as separate types. To
