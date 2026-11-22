@@ -24,7 +24,7 @@ usage: rapidproto-rust --module-path <path> [options] <entry.proto>...
   --raw <name>          keep a message field encoded, or every field of type <name> (repeatable)
   --unknown <message>   add has_unknown_fields() to one message (repeatable)
   --unknown-present     add has_unknown_fields() to every message
-  --stream              also generate stream decoders
+  --stream              also generate streaming decoders
   --no-arena            do not generate arena decoders (use with --stream)
   --serde               implement serde::Serialize (needs rapidproto's serde feature)
   -h, --help            show this help";

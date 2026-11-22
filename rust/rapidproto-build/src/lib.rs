@@ -1,86 +1,137 @@
-//! Generates Rust decoders for Protobuf schemas in a build script, without `protoc`.
+//! Runs RapidProto's generator in `build.rs` to write Rust decoders for your Protobuf schemas.
 //!
-//! The decoders use the [`rapidproto`] runtime. Add `rapidproto` to your dependencies and
-//! `rapidproto-build` to your build dependencies, both pinned to the same version with `=`. The
-//! runtime's [`example`] module shows a schema and the code generated for it.
+//! The generator parses the schemas itself, without protoc, whether they use proto2, proto3, or
+//! editions 2023 or 2024. They can import `google/protobuf/timestamp.proto` and the other
+//! well-known types with no copy of the files on disk.
 //!
-//! Use [`Config`] in `build.rs`:
+//! Your crate needs the [`rapidproto`] runtime as a dependency and this crate as a build
+//! dependency. Write both requirements with `=` and the same version number. Mixed versions usually
+//! fail to compile, starting with the error
+//! `use the same version of rapidproto and rapidproto-build`. Both crates are test releases, so
+//! upgrading can break your build script or the code that reads the messages.
+//!
+//! Here is a schema in `proto/message.proto` and the build script that generates its decoders:
+//!
+//! ```proto
+//! syntax = "proto3";
+//! package shop;
+//!
+//! message Order {
+//!   string id = 1;
+//!   repeated int64 quantities = 2;
+//! }
+//! ```
 //!
 //! ```no_run
 //! // build.rs
-//! rapidproto_build::Config::new("crate::schema")
-//!     .include("proto")
-//!     .compile(&["proto/message.proto"])
-//!     .expect("generate decoders");
+//! fn main() -> Result<(), rapidproto_build::GenError> {
+//!     rapidproto_build::Config::new("crate::schema")
+//!         .include("proto")
+//!         .compile(&["proto/message.proto"])?;
+//!     Ok(())
+//! }
 //! ```
 //!
-//! [`Config::compile`] writes `message.rs` to `OUT_DIR`, named after the first entry. Include it at the
-//! path you passed to [`Config::new`], and decode with it:
+//! [`Config::compile`] names its file after the first schema you pass it, here `message.rs` in
+//! `OUT_DIR`. Put the `include!` in the module whose path you gave [`Config::new`], here
+//! `crate::schema`:
 //!
 //! ```ignore
+//! // src/main.rs
 //! mod schema {
 //!     include!(concat!(env!("OUT_DIR"), "/message.rs"));
 //! }
 //!
-//! // For `package shop;` and `message Order` in message.proto:
-//! let arena = rapidproto::Arena::new();
-//! let order = schema::arena::shop::Order::decode(&input, &arena)?;
+//! use schema::arena::shop::Order;
+//!
+//! fn main() -> Result<(), rapidproto::DecodeError> {
+//!     let input = b"\x0a\x03B12";
+//!     let arena = rapidproto::Arena::new();
+//!     let order = Order::decode(input, &arena)?;
+//!     assert_eq!(order.id(), "B12");
+//!     Ok(())
+//! }
 //! ```
 //!
-//! `Config` generates arena decoders by default. It can also generate [stream decoders], apply a
-//! [decode profile], and implement [`serde::Serialize`]. To get the code as a string instead of a
-//! file, use [`Config::generate`]. Imports of the well-known types, such as
-//! `google/protobuf/timestamp.proto`, resolve without the files.
+//! By default `Config` generates only [arena decoders], and for `package shop` they land in
+//! `schema::arena::shop`. To see what a schema's messages, enums and fields turn into, browse the
+//! runtime's [`example`] module, which also explains [how names are formed][names].
 //!
-//! The command-line tool `rapidproto-rust` generates the same code, for projects that commit it.
-//! Install it with `cargo install rapidproto-build --version 0.1.0-alpha.2`, and see
-//! `rapidproto-rust --help` for its options.
+//! Some other methods change the output:
+//!
+//! - [`Config::stream`] adds streaming decoders.
+//! - [`Config::field_modes`] applies a decode profile.
+//! - [`Config::serde`] adds `serde::Serialize` impls.
+//!
+//! [`Config::generate`] hands you the code as a `String` and writes nothing.
+//!
+//! To keep the generated code under version control and review its diffs like any other source,
+//! generate it with the `rapidproto-rust` command instead of a build script.
+//! `cargo install rapidproto-build --version 0.1.0-alpha.2` installs it. Its flags set the same
+//! options as `Config`'s methods, and `rapidproto-rust --help` lists them.
 //!
 //! # How the generator runs
 //!
-//! The generator is written in C++, and two features choose how it runs. With `native`, this crate's
-//! build script compiles it, which needs a C++17 compiler. With `wasm`, it runs as an embedded
-//! WebAssembly module in the `wasmi` interpreter, which needs no compiler. Both produce the same
-//! output.
+//! RapidProto's generator is implemented in C++. The native generator is that C++ code compiled by
+//! this crate's build script, with your C++17 compiler. The wasm generator is the same code
+//! compiled ahead of time to WebAssembly, shipped in this crate and run in the [`wasmi`]
+//! interpreter. Both produce the same generated code.
 //!
-//! Both features are on by default. The native generator is used when it builds, and the wasm one
-//! otherwise, which [`Config::compile`] then warns about. If you have a C++ compiler,
-//! `default-features = false, features = ["native"]` avoids building the interpreter. To use the wasm
-//! generator on purpose, without the warning, enable only `wasm`.
+//! The `native` and `wasm` features choose which of them your build has, and the default has both.
+//! `Config` then uses the native generator if it built and the wasm generator if it didn't. When it
+//! falls back, the first `compile` call prints a warning that begins
+//! `rapidproto-build uses the slower wasm generator` and gives the reason. To build one generator
+//! only, set `default-features = false` and pick its feature:
 //!
-//! Cargo builds build-time code without optimization, so the interpreter is slow by default. It takes
-//! seconds for a small schema and minutes for a very large one. If you use the wasm generator,
-//! optimize build-time code in your workspace:
+//! - `native` leaves out the interpreter and its dependencies. Without a C++ compiler there's then
+//!   nothing to fall back to, and your crate doesn't build.
+//! - `wasm` skips the C++ build, and with it the warning. Pick it when your machines have no C++
+//!   compiler, as on a slim CI image.
+//!
+//! Cargo [compiles build scripts and their dependencies without optimization][build-override], in
+//! release builds too, which leaves the wasm generator slow. It can take minutes on a large schema,
+//! and [the crate's README][times] has times for a few sizes. To optimize build-time code, add this
+//! to your workspace root's `Cargo.toml`:
 //!
 //! ```toml
 //! [profile.dev.build-override]
 //! opt-level = 3
+//!
 //! [profile.release.build-override]
 //! opt-level = 3
 //! ```
 //!
-//! # Deeply nested schemas
+//! A workspace member's profiles are ignored, with a warning, and a dependency can't set them for
+//! you. It applies to every proc macro and build script in the build and all their dependencies, so
+//! a clean build gets slower. That's worth it only when the wasm generator does the work, and more
+//! so the larger your schemas are. The native generator is compiled optimized in every profile and
+//! gains nothing from it.
 //!
-//! The Rust compiler stops instantiating generic code that nests too deeply, at 128 levels by
-//! default. The generated code nests one level for each message type in a chain of message fields,
-//! and two levels for a `repeated` field. A chain of more than about 128 different message types,
-//! each a field of the one before, can stop the build with `reached the recursion limit while
-//! instantiating`. A chain of more than about 64 `repeated` fields can stop it too. A large schema
-//! whose messages refer to each other can contain such a chain. Raise the limit at the root of each
-//! crate that fails to build:
+//! # Recursion limit
+//!
+//! rustc gives up instantiating generic code once it nests deeper than its recursion limit, which
+//! defaults to 128. Generated code can reach it through a chain of message types in which each
+//! holds the next as a field. Each message in the chain costs one level, and each `repeated` field
+//! two. So a chain longer than about 128 messages, or about 64 joined by `repeated` fields, stops
+//! the build, and rustc reports `reached the recursion limit while instantiating`. Few schemas have
+//! chains that long. If yours does, set a higher limit at the top of the failing crate's root file,
+//! such as `lib.rs` or `main.rs`:
 //!
 //! ```
 //! #![recursion_limit = "256"]
 //! ```
 //!
-//! With [`serde::Serialize`] impls, a crate that serializes the messages can fail as well. It needs
-//! the attribute too, even when the error points into the generated file of another crate.
+//! With [`Config::serde`], serializing the messages can hit the limit as well, in whichever crate
+//! calls the serializer. When the messages come from another crate, the error points into that
+//! crate's generated file, but the attribute belongs in the one doing the serializing.
 //!
 //! [`rapidproto`]: https://docs.rs/rapidproto/latest/rapidproto/
+//! [arena decoders]: https://docs.rs/rapidproto/latest/rapidproto/#arena-and-streaming-decoders
 //! [`example`]: https://docs.rs/rapidproto/latest/rapidproto/example/index.html
-//! [stream decoders]: Config::stream
-//! [decode profile]: Config::field_modes
-//! [`serde::Serialize`]: Config::serde
+//! [names]: https://docs.rs/rapidproto/latest/rapidproto/example/index.html#names
+//! [`wasmi`]: https://docs.rs/wasmi/latest/wasmi/
+//! [build-override]: https://doc.rust-lang.org/cargo/reference/profiles.html#build-dependencies
+//! [times]: https://github.com/VeaaC/rapidproto/blob/main/rust/rapidproto-build/README.md#native-and-wasm-generators
 #![warn(missing_docs)]
 
 use std::collections::btree_map::Entry;
@@ -120,7 +171,7 @@ pub struct Request {
     pub unknown_present: bool,
     /// Emit the random-access `arena` decoder model (default on; see [`Config::arena`]).
     pub arena: bool,
-    /// Emit the `stream` visitor model (default off; see [`Config::stream`]).
+    /// Emit the `stream` decoder model (default off; see [`Config::stream`]).
     pub stream: bool,
     /// Implement `serde::Serialize` (default off; see [`Config::serde`]).
     pub serde: bool,
@@ -424,21 +475,60 @@ pub struct Config {
 }
 
 impl Config {
-    /// Creates a config for code included at `module_path`.
+    /// Creates a config whose output you include at `module_path`.
     ///
-    /// The config generates arena decoders with no decode profile, and resolves imports in the current
-    /// directory, which is the package root in a build script.
+    /// A new config generates only arena decoders and applies no
+    /// [decode profile](Config::field_modes). Until you add directories with
+    /// [`include`](Config::include), an import can name any `.proto` file under the current
+    /// directory, by its path relative to it. A build script runs in the package root.
     ///
-    /// `module_path` is `crate` for the crate root, or a path from it such as `crate::schema`. Its
-    /// segments are ASCII identifiers. Write a keyword as a raw identifier, such as `r#type`.
+    /// The module path names the module that will hold the `include!`, written from the crate root:
+    /// `crate` for the root itself, or a path such as `crate::schema`. Each segment after `crate`
+    /// is an ASCII identifier, with keywords written raw, as in `crate::r#type`. `new` accepts any
+    /// string; a malformed one makes [`generate`](Config::generate) and
+    /// [`compile`](Config::compile) return a [`GenError`].
     ///
-    /// The generated code names its own types through this path, so it must lead to where you
-    /// `include!` the file. A wrong path fails to compile.
+    /// The generated code refers to its own items by absolute paths that start with the module
+    /// path, so it compiles only in the module that path names. Included anywhere else, it fails
+    /// with E0433 errors, reported in the generated file, saying a module on that path can't be
+    /// found. The module can't be inside a function body, whose items have
+    /// no `crate::` path; in a doctest, that means declaring `fn main` yourself. Include each file
+    /// once per crate. A package's library, binaries and `tests/` files are separate crates,
+    /// though, and each can include it at the same path.
     ///
-    /// Include a file once per crate, and not inside a function. A doctest counts as a function unless
-    /// it declares `fn main`. Each generated file needs its own path, so two files in one crate need
-    /// two `Config`s. A lib, a bin and each file in `tests/` are separate crates, so each can include
-    /// the same file at the same path.
+    /// Two generated files need two module paths, and two `Config`s with them, as in the example
+    /// below. A schema that both files import is then generated into each, as separate types. To
+    /// share them, pass both schemas to one `compile`, which writes a single file.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// // build.rs
+    /// use rapidproto_build::{Config, GenError};
+    ///
+    /// fn main() -> Result<(), GenError> {
+    ///     Config::new("crate::proto::orders")
+    ///         .include("proto")
+    ///         .compile(&["proto/orders.proto"])?;
+    ///     Config::new("crate::proto::users")
+    ///         .include("proto")
+    ///         .stream(true)
+    ///         .compile(&["proto/users.proto"])?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// ```ignore
+    /// // src/lib.rs
+    /// pub mod proto {
+    ///     pub mod orders {
+    ///         include!(concat!(env!("OUT_DIR"), "/orders.rs"));
+    ///     }
+    ///     pub mod users {
+    ///         include!(concat!(env!("OUT_DIR"), "/users.rs"));
+    ///     }
+    /// }
+    /// ```
     pub fn new(module_path: impl Into<String>) -> Self {
         Config {
             module_path: module_path.into(),
@@ -475,7 +565,7 @@ impl Config {
     /// `drop` takes an enum type the same way. A directive for a field wins over one for its type.
     /// Neither applies to a `oneof` member, `raw` does not apply to a `map` field, and `drop` does
     /// not apply to a `required` field. Naming such a field fails, and a directive for its type
-    /// leaves it as it is. Stream decoders ignore the profile.
+    /// leaves it as it is. Streaming decoders ignore the profile.
     ///
     /// ```no_run
     /// // build.rs
@@ -510,7 +600,7 @@ impl Config {
         self
     }
 
-    /// Generates stream decoders, which pass the fields you select to your handlers.
+    /// Generates streaming decoders, which pass the fields you select to your handlers.
     ///
     /// They are off by default. The [`rapidproto::stream`] docs show how to use them.
     ///
@@ -520,8 +610,8 @@ impl Config {
     /// modules `pub` to call it from `tests/` or another crate. To call it from elsewhere in the
     /// crate, a module nested below the crate root needs `pub(crate)`.
     ///
-    /// A `proc-macro` crate cannot export macros, so stream decoders do not compile there. Put the
-    /// generated code in a separate crate instead.
+    /// A `proc-macro` crate cannot export macros, so streaming decoders do not compile there. Put
+    /// the generated code in a separate crate instead.
     ///
     /// [`rapidproto::stream`]: https://docs.rs/rapidproto/latest/rapidproto/stream/index.html
     pub fn stream(mut self, yes: bool) -> Self {
@@ -616,8 +706,10 @@ impl Config {
     /// call whose first entry has the same name, such as `other/message.proto`, fails. Use
     /// [`Config::generate`] to write such files under names of your own.
     ///
-    /// Cargo re-runs the build script when an entry or a `.proto` file under the include directories
-    /// changes.
+    /// Cargo re-runs the build script when an entry or a `.proto` file under the include
+    /// directories changes. `compile` arranges this with `cargo:rerun-if-changed` lines, which stop
+    /// Cargo from watching the rest of the package; if the build script reads another file, such as
+    /// a [decode profile](Config::field_modes), print a `cargo:rerun-if-changed` line for it too.
     pub fn compile(&self, entries: &[impl AsRef<Path>]) -> Result<PathBuf, GenError> {
         // Warned from here, the consumer's own build script, because cargo hides the warnings of a
         // dependency's build script.
