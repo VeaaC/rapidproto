@@ -14,14 +14,12 @@ categories = ["development-tools::build-utils", "encoding"]
 # published tarball -- keep them out of the package rather than ship tests that can't build.
 exclude = ["tests"]
 
-# Two ways to run the generator (see the crate docs): natively, compiled from its C++ by build.rs, or
-# as the embedded WebAssembly module in the wasmi interpreter. With both (the default), the native
-# one is used when it builds.
 [features]
+# Both generators; Config uses the native one when it builds (see the crate docs).
 default = ["native", "wasm"]
-# Compile the generator natively (needs a C++17 compiler at build time).
+# The native generator, compiled by build.rs with a C++17 compiler.
 native = ["dep:cc"]
-# The embedded wasm generator in the wasmi interpreter (pure Rust, no C++ compiler).
+# The wasm generator: prebuilt WebAssembly, run in the wasmi interpreter.
 wasm = ["dep:wasmi", "dep:wasmi_wasi"]
 
 [dependencies]
