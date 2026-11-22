@@ -1,15 +1,17 @@
-//! Runtime for the Protobuf decoders that [`rapidproto-build`] generates.
+//! The runtime that RapidProto's generated Protobuf decoders call.
 //!
-//! RapidProto only decodes. `rapidproto-build` generates decoders from your schema at build time, and
-//! the generated code uses this crate. Add `rapidproto` to your dependencies and `rapidproto-build` to
-//! your build dependencies, both pinned to the same version with `=`. The [`example`] module shows a
-//! schema, the build script and the generated code.
+//! [`rapidproto-build`] generates the decoders from your schemas at build time. Decoded messages
+//! are read-only; RapidProto has no encoder and no reflection. Depend on `rapidproto`, add
+//! `rapidproto-build` as a build dependency, and set up `build.rs` as its docs show. Generated code
+//! is meant for the runtime of its own release, so pin both crates to one version with `=`. Expect
+//! breaking changes between releases while both are test releases. For a complete case, the
+//! [`example`] module has a schema, its `build.rs` and everything generated from it.
 //!
-//! # Arena and stream decoders
+//! # Arena and streaming decoders
 //!
-//! An arena decoder decodes the whole message. `Msg::decode(input, &arena)` returns a `&Msg` with an
-//! accessor for each field. `string` and `bytes` values borrow from `input`, and everything else is
-//! stored in the [`Arena`].
+//! An arena decoder decodes the whole message into an [`Arena`]. `Msg::decode(input, &arena)`
+//! returns a `&Msg` with an [accessor](example#accessors) for each field, or fails with a
+//! [`DecodeError`]:
 //!
 //! ```
 //! # mod example { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/example/weather.rs")); }
@@ -19,6 +21,7 @@
 //! use example::arena::weather::Report;
 //! use rapidproto::Arena;
 //!
+//! // `input` holds an encoded `Report` of the example schema.
 //! let arena = Arena::new();
 //! let report = Report::decode(input, &arena)?;
 //! assert_eq!(report.stations()[0].name(), "Zurich");
@@ -28,72 +31,114 @@
 //! # fn main() {}
 //! ```
 //!
-//! `Msg::decode_owned(input)` returns an [`Owned`], which holds the input and the arena, so you do not
-//! have to keep them alive yourself.
+//! `report` borrows from the input as well as the arena. Its `string` and `bytes` fields point into
+//! `input`, and so does any sub-message field that a [decode profile] keeps `raw`. Everything else
+//! lives in `arena`. The compiler won't let `report` outlive either of them. If the message has to
+//! outlive your input buffer, `Report::decode_owned(input)` returns an [`Owned`], which owns the
+//! input and the arena and has no lifetime parameter.
 //!
-//! A stream decoder builds no message. It passes the fields you select to your handlers and skips the
-//! rest, so it suits reading a few fields of a large message. `rapidproto-build` generates arena
-//! decoders by default, and stream decoders when you turn on [`Config::stream`]. See [`stream`].
+//! The [streaming decoder](stream) hands each selected field to its handler as it reads the input,
+//! in wire order, and skips the rest without building a message. Use it when you need a few fields
+//! of a large message. The arena decoder would decode all of it. `rapidproto-build` generates arena
+//! decoders by default and adds streaming ones when you turn on [`Config::stream`].
 //!
 //! # Decoding rules
 //!
-//! A decoder skips unknown fields, which the schema does not declare, and declared fields that arrive
-//! with the wrong wire type. It does not check that strings are valid UTF-8. [`ProtoStr::to_str`] does
-//! that when you read one.
+//! Both decoders skip unknown fields and any declared field that arrives with the wrong wire type.
+//! A streaming decoder can hand unknown fields to an `unknown` handler instead, and
+//! [`Config::unknown_present`] lets an arena message record that it had some. Neither decoder
+//! checks that a `string` is valid UTF-8; [`ProtoStr::to_str`] does when you read it.
 //!
-//! An arena decoder fails if a `required` field is missing, or if a singular message or group field
-//! appears twice, where Protobuf would merge the two. A stream decoder checks neither.
+//! A missing `required` field fails an arena decode with [`ErrorKind::MissingRequired`]. A singular
+//! message or group field that appears twice fails it with [`ErrorKind::RepeatedSingularMessage`],
+//! where Protobuf would merge the two. Either way, [`DecodeError::field_number`] names the field. A
+//! singular field of any other type keeps its last value. The streaming decoder checks neither rule
+//! and calls the field's handler once per occurrence.
+//!
+//! Concatenated messages, extensions and closed enums each decode differently from Protobuf.
+//! [docs/semantics.md] has those rules and the rest that both decoders follow.
 //!
 //! # Untrusted input
 //!
-//! An arena decoder fails if sub-messages or groups nest deeper than [`MAX_DECODE_DEPTH`]. Its arena
-//! can grow to many times the size of the input, so decode into your own arena and limit it with
-//! [`Arena::set_capacity_limit`]. A stream decoder does not allocate, and it decodes a sub-message
-//! only when your handler calls `decode` on it.
+//! Malformed input gets a `DecodeError` back from `decode`, never a panic. CI fuzzes the arena
+//! decoders under AddressSanitizer on every pull request. An arena decode fails with
+//! [`ErrorKind::DepthLimitExceeded`] when sub-messages or groups nest deeper than
+//! [`MAX_DECODE_DEPTH`].
+//!
+//! A decoded message can take many times its input size in the arena. With `alloc`, the arena grows
+//! without bound unless you give it a capacity limit. An empty
+//! [`Station`](example::arena::weather::Station) in a `Report` takes two bytes of input and up to
+//! four `Station` structs in the arena, counting the copies the array of stations leaves behind as
+//! it grows. Decode untrusted input with `decode` into an arena you create and limit with
+//! [`Arena::set_capacity_limit`]. You can't limit the arena that `decode_owned` makes for itself.
+//!
+//! The limit counts the bytes the arena holds, not the input's. To pick one, decode the inputs you
+//! accept that need the most arena, read the arena's [`bytes_reserved`](Arena::bytes_reserved), and
+//! allow a few times the most you see. Those are the inputs with many small sub-messages or
+//! repeated values; long strings cost little, since they borrow from the input. Past the limit, the
+//! decode fails with [`ErrorKind::ArenaExhausted`].
+//!
+//! The streaming decoder allocates nothing, though your handlers may. It decodes a sub-message only
+//! when a handler calls `decode` on it, so a handler that follows a recursive schema has to
+//! [limit the depth itself](stream#untrusted-input).
 //!
 //! # Features
 //!
-//! - `alloc`, on by default, lets an [`Arena`] grow on the heap and adds [`Owned`]. Without it, give
-//!   the arena a buffer with [`Arena::with_buffer`].
-//! - `serde` adds `serde::Serialize` impls. See [Serde](#serde).
+//! - `alloc`, on by default, lets the arena grow on the heap and adds `Arena::new`, `decode_owned`
+//!   and `Owned`. Without it, the arena lives in a buffer you pass to [`Arena::with_buffer`], and a
+//!   decode that needs more space fails.
+//! - `serde` lets the decoded messages implement `serde::Serialize`. See [Serde](#serde).
 //!
-//! The crate is `no_std`, and without `serde` it has no dependencies.
+//! The crate is always `no_std`, and without `serde` it has no dependencies.
 //!
 //! # Debug output
 //!
-//! Decoded messages implement `Debug`, which prints the fields that are set under their names in the
-//! schema, such as `Station { name: "Zurich", unit: Celsius, temperatures: [12.5, 13.0] }`. A field
-//! with presence appears when it is set, even at its default value. That covers `optional` fields,
-//! message fields and groups, and editions fields with explicit presence. A field without presence,
-//! such as a proto3 scalar with no `optional`, appears when its value is not the default. `required`
-//! fields always appear. `repeated` and `map` fields appear when they are not empty, and a `oneof`
-//! appears as its set member. A field a decode profile drops does not appear, and a `raw` field shows
-//! its bytes.
+//! Every decoded message implements `Debug` and prints its fields under their names in the schema.
+//! The first station in the example's `report` prints as:
 //!
-//! An enum prints its `classify()` variant, such as `Celsius`, or `Unknown(7)` for a number the schema
-//! does not name. `bytes` print as a byte string, such as `b"\xff"`, and a `string` with invalid UTF-8
-//! as `ProtoStr(b"\xff")`. A stream struct prints the length of its encoded message, such as
-//! `Station { len: 20 }`.
+//! ```text
+//! Station { name: "Zurich", unit: Celsius, temperatures: [12.5, 13.0] }
+//! ```
+//!
+//! Which fields it prints depends on their kind:
+//!
+//! | Field | Printed |
+//! |---|---|
+//! | With presence, such as `optional`, a message or a group | When set, even to its default |
+//! | Without presence, such as a plain proto3 scalar | When it differs from the default (`-0.0` counts as different) |
+//! | `required` | Always |
+//! | `repeated` or `map` | When not empty |
+//! | `oneof` | Its set member, under the member's name |
+//! | Dropped by a decode profile | Never |
+//!
+//! An enum prints as its `classify()` variant, such as `Celsius`, or as `Unknown(7)` for a number
+//! the schema doesn't name. `bytes` and `raw` fields print as byte strings like `b"\xff"`, and a
+//! `string` that isn't valid UTF-8 as `ProtoStr(b"\xff")`. A [stream struct](stream) prints only
+//! the length of its encoded message, as in `Station { len: 20 }`.
 //!
 //! # Serde
 //!
-//! With `rapidproto-build`'s [`Config::serde`] and this crate's `serde` feature, decoded messages
-//! implement `serde::Serialize`. There is no `Deserialize`.
+//! With [`Config::serde`] in your build script and this crate's `serde` feature on, the arena
+//! messages and the schema's enums implement `serde::Serialize`. Stream structs don't, and nothing
+//! implements `Deserialize`. Your crate needs only the format crate, such as `serde_json`; the
+//! generated impls reach `serde` through this crate.
 //!
-//! A message serializes as a map from field name to value, with the fields `Debug` prints. An enum
-//! serializes as its `i32`, and a `raw` field as bytes.
+//! A message serializes as a map from field name to value, holding the fields
+//! [`Debug` prints](#debug-output). An enum serializes as its `i32`. `bytes` and `raw` fields, and
+//! any `string` that isn't valid UTF-8, go through `serialize_bytes`, which `serde_json` writes as
+//! an array of numbers. A `map` key that appears twice on the wire appears twice in the output.
+//! A message doesn't tell `serialize_map` its length up front, so a format that needs the length
+//! can't serialize it.
 //!
-//! `bytes` goes through `serialize_bytes`, so the format decides how it looks. `serde_json` writes an
-//! array of numbers. A `string` with invalid UTF-8 serializes as bytes too. A `map` key repeated on the
-//! wire appears more than once. A message gives the serializer no length up front, so a format that
-//! needs one cannot serialize it.
-//!
-//! With `serde_json`, a non-finite `float` or `double` becomes `null`, and a `map` fails if a `string`
-//! key has invalid UTF-8.
+//! With `serde_json`, a `float` or `double` that is NaN or infinite becomes `null`, and a `map`
+//! whose `string` key isn't valid UTF-8 fails to serialize.
 //!
 //! [`rapidproto-build`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/
+//! [decode profile]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.field_modes
 //! [`Config::stream`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.stream
+//! [`Config::unknown_present`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.unknown_present
 //! [`Config::serde`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.serde
+//! [docs/semantics.md]: https://github.com/VeaaC/rapidproto/blob/main/docs/semantics.md
 // Without `alloc` there is no `Owned`, so its links go to the feature list, which says why.
 #![cfg_attr(not(feature = "alloc"), doc = "[`Owned`]: #features")]
 // The test harness needs `std`, which also lets the no-allocator path be unit-tested with

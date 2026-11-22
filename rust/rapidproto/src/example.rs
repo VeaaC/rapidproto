@@ -28,9 +28,9 @@
 //! The generated code has three modules:
 //!
 //! - [`arena`] holds the arena decoders, such as [`arena::weather::Report`].
-//! - [`stream`] holds the stream decoders, such as [`stream::weather::Report`] and its
+//! - [`stream`] holds the streaming decoders, such as [`stream::weather::Report`] and its
 //!   [`report_stream!`](stream::weather::report_stream) macro.
-//! - [`common`] holds the enums, which both kinds of decoder use.
+//! - [`common`] holds the enums, which both decoders use.
 //!
 //! # Names
 //!

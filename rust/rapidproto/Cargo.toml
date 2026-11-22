@@ -12,23 +12,21 @@ categories = ["encoding", "parser-implementations", "no-std", "no-std::no-alloc"
 
 [features]
 default = ["alloc"]
-# The crate is always no_std. `alloc` lets the arena grow on the heap; without it the arena uses only
-# a caller's buffer. No 3rd-party runtime deps in the default build.
+# Lets the arena grow on the heap and adds `Arena::new`, `decode_owned` and `Owned`.
 alloc = []
-# Optional, off by default. Code generated with `Config::serde` (rapidproto-build) needs it, and
-# reaches serde through the `::rapidproto::serde` re-export, so a consumer does not depend on serde
-# itself. A default build stays dependency-free.
+# `Serialize` for the runtime's types, and the `serde` re-export that code generated with
+# `Config::serde` names.
 serde = ["dep:serde"]
 
 [dependencies]
-# Optional (see the `serde` feature). default-features = false keeps it no_std-compatible; the
-# `Serialize` impls are hand-written in generated code, so no `derive`.
+# The only dependency, and optional. `no_std` without its default features; no `derive`, because
+# every impl is written out.
 serde = { version = "1", default-features = false, optional = true }
 
-# Dev-only: criterion drives the wire-layer micro-benchmarks (not a runtime dependency). Default
-# features off -- the benches want timings, not its HTML/plotting stack.
+# criterion runs the wire benchmark, benches/wire.rs. In 0.3 its default features and
+# `html_reports` change nothing but silence its warnings that they will become optional.
 [dev-dependencies]
-criterion = { version = "0.3", default-features = false }
+criterion = { version = "0.3", features = ["html_reports"] }
 
 # Shows the `serde` items too.
 [package.metadata.docs.rs]
