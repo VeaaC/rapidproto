@@ -20,16 +20,7 @@
 //! the same bytes. Without it the 8 shapes use built-in payloads (fine for a Rust A/B; not comparable
 //! to C++, since they are not protoc-canonical) and the other groups are skipped.
 //!
-//! ```text
-//! RAPIDPROTO_BENCH_DUMP_DIR=<dir> ./build/<cfg>/rapidproto_arena_bench
-//! RAPIDPROTO_BENCH_DIR=<dir> \
-//!     RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
-//!     taskset -c 2 cargo bench -p rapidproto-bench --bench decode
-//! ```
-//!
-//! Run discipline as the runners' (`src/runner.rs`). Criterion does not report instructions/byte, the
-//! placement-invariant signal -- read it with `perf stat` alongside the time. UNITS: criterion prints
-//! binary MiB/s, the C++ harness decimal GB/s.
+//! rust/README.md shows how to run it and how to read its numbers.
 #![allow(clippy::all)]
 
 use std::cell::OnceCell;

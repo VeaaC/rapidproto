@@ -40,9 +40,7 @@ libz-sys = "1"
 
 [features]
 # Add the google-upb capstone arm. Off by default; enabling it requires `protoc` 36.2 at build time
-# (point `RAPIDPROTO_UPB_PROTOC` at one -- see this crate's src/main.rs header). Run with:
-#   RAPIDPROTO_UPB_PROTOC=/path/to/protoc RAPIDPROTO_BENCH_DIR=<payloads> \
-#       cargo run -p rapidproto-bench --release --bin bench --features google-upb
+# (point `RAPIDPROTO_UPB_PROTOC` at one -- see this crate's src/main.rs header).
 google-upb = ["dep:rapidproto-bench-upb"]
 # Add the `compute Instance` scenario (googleapis compute.proto, from the fetched corpus). Off by
 # default: its generated decoder is slow to compile, as its C++ counterpart is.
@@ -80,16 +78,14 @@ name = "stream"
 path = "src/stream_main.rs"
 
 # The Rust-vs-Rust A/B bench for the generated `bench` decoder across the C++ arena bench's scenarios
-# (the 8 shapes, cold and warm, and the repeated-varint sweeps), over the shared payloads. Run it
-# PINNED and ALIGNED (see the bench header for the directory):
-#   RUSTFLAGS="-Cllvm-args=-align-all-functions=6 -Cllvm-args=-align-loops=64" \
-#       taskset -c 2 cargo bench -p rapidproto-bench --bench decode
+# (the 8 shapes, cold and warm, and the repeated-varint sweeps), over the shared payloads.
+# rust/README.md shows how to run it.
 [[bench]]
 name = "decode"
 harness = false
 
 # The Rust-vs-Rust A/B bench for the generated streaming decoder across the C++ streaming bench's
-# scenarios, over the shared payloads (see the bench header).
+# scenarios, over the shared payloads. rust/README.md shows how to run it.
 [[bench]]
 name = "stream"
 harness = false

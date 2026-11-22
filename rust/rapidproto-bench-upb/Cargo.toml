@@ -9,7 +9,7 @@
 #
 # This crate is EXCLUDED from the workspace (see ../Cargo.toml) so no workspace-wide command builds it;
 # it is compiled only when `rapidproto-bench --features google-upb` pulls it in, which also requires a
-# `protoc` whose version EXACTLY matches the crate (36.2). See build.rs and docs/benchmarks.md.
+# `protoc` whose version EXACTLY matches the crate (36.2). See build.rs and rust/README.md.
 [package]
 name = "rapidproto-bench-upb"
 version = "0.0.0"
