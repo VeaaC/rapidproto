@@ -1,11 +1,11 @@
 # OSM PBF statistics
 
-`osmstat` reads an OpenStreetMap [PBF file](../../../docs/osm-pbf.md#the-format) and prints
-statistics about it: how many nodes, ways, relations and tags it holds, its bounding box and its
-ten most-used tag keys. By default it decodes each block with the
-[arena decoder](https://docs.rs/rapidproto), and `--stream` switches to the
-[streaming decoder](https://docs.rs/rapidproto/latest/rapidproto/stream/index.html). Blocks decode
-in parallel unless you pass `--sequential`.
+This example runs RapidProto's two decoders on a real format. `osmstat` reads an OpenStreetMap
+[PBF file](../../../docs/osm-pbf.md#the-format) and prints statistics about it: how many nodes,
+ways, relations and tags it holds, its bounding box and its ten most-used tag keys. By default it
+decodes each block with the [arena decoder](https://docs.rs/rapidproto), and `--stream` switches to
+the [streaming decoder](https://docs.rs/rapidproto/latest/rapidproto/stream/index.html). Blocks
+decode in parallel unless you pass `--sequential`.
 
 Run the commands on this page from `rust/` or a directory below it, where Cargo finds the
 workspace. Start with the fixture that comes with the example:
@@ -30,9 +30,7 @@ distinct keys    3
 ```
 
 The path is relative to the directory you run Cargo in (from `rust/examples/osm-pbf/` it's
-`testdata/mini.osm.pbf`). Every combination of flags prints these lines for the fixture. The id sum
-is every id added into one 64-bit number, shown in hex. `metadata rows` counts the nodes, ways and
-relations that come with an `Info` or `DenseInfo` entry.
+`testdata/mini.osm.pbf`). Every combination of flags prints these lines for the fixture.
 
 ## Real extracts
 
@@ -46,63 +44,50 @@ cargo run -p osm-pbf-example --release -- --stream /tmp/bremen.osm.pbf
 cargo run -p osm-pbf-example --release -- --sequential /tmp/bremen.osm.pbf
 ```
 
-`--stream` applies to the header and data blocks; the `BlobHeader` and `Blob` around each block go
-through the arena decoder whatever the flags. A parallel run uses rayon's default number of
-threads. `RAYON_NUM_THREADS` overrides it. `osmstat` loads the whole file into memory before
-decoding, so the file has to fit in RAM.
+`--stream` switches the decoder for the header and data blocks only. The `BlobHeader` and `Blob`
+around each block always go through the arena decoder.
 
-Only the statistics go to stdout. On stderr, a `model` line names the decoder and the thread count.
-Below it, one line each for `read`, `frame` and `process` gives the time taken, and `read` and
-`process` add a byte count and a rate. When `osmstat` stops with an error message, nothing is
-printed to stdout and the exit status is 1. The errors go to stderr with an `osmstat:` prefix, as in
-`osmstat: no OSMHeader block -- not an .osm.pbf file?`. Blobs must be raw or zlib. Any other
-compression fails with `unsupported blob compression (only raw/zlib)`.
+The statistics go to stdout and the timings to stderr. When `osmstat` stops with an error, it
+reports it on stderr with an `osmstat:` prefix, prints nothing to stdout and exits with status 1.
 
 ## Source files
 
 The [`rapidproto-build`](https://docs.rs/rapidproto-build) call in [`build.rs`](build.rs)
 generates both decoders for the two schemas in [`proto/`](proto) into one file, `fileformat.rs`.
-[`src/osm.rs`](src/osm.rs) includes that file in a module named `generated`. The rest of the
-program uses the decoders through `osm::arena` and `osm::stream`.
+[`src/osm.rs`](src/osm.rs) includes that file and exposes the decoders as `osm::arena` and
+`osm::stream`.
 
-- [`src/main.rs`](src/main.rs) goes through the framing once, in order, and checks the header block
-  when it reaches it. Then it runs `process_block` on each data blob, in parallel through rayon or
-  one after another with `--sequential`.
+- [`src/main.rs`](src/main.rs) reads the blobs in order, checks the header block on the way, and
+  hands each data blob to `process_block`.
 - [`src/pbf_input.rs`](src/pbf_input.rs) splits the file into `BlobHeader` and `Blob` pairs and
-  inflates zlib blobs with `flate2`. Its default backend is pure Rust and needs no zlib on the
-  system.
-- [`src/stats.rs`](src/stats.rs) keeps the counters and merges the per-block results. Block order
-  makes no difference to the merge.
+  inflates zlib blobs with `flate2`.
+- [`src/stats.rs`](src/stats.rs) holds the counters, combines the per-block results and prints the
+  totals.
 
 ### The arena walk
 
 `process_block` gives each block a fresh
 [`Arena`](https://docs.rs/rapidproto/latest/rapidproto/struct.Arena.html) and decodes it there with
-one `decode` call. [`src/walk_arena.rs`](src/walk_arena.rs) then goes through the decoded block.
-The dense-node columns `id()`, `lat()` and `lon()` are `&[i64]` slices in the arena. The string
-table's `s()` returns
-[`ProtoBytes`](https://docs.rs/rapidproto/latest/rapidproto/struct.ProtoBytes.html) entries that
-point into the encoded block.
+one `decode` call. [`src/walk_arena.rs`](src/walk_arena.rs) then counts what the decoded block
+holds. The strings in its string table stay where they are, since each
+[`ProtoBytes`](https://docs.rs/rapidproto/latest/rapidproto/struct.ProtoBytes.html) entry points
+into the block's bytes.
 
 ### The streaming walk
 
 On real files a `--stream` run needs less memory, since no block is decoded into an arena. The
-cost is that [`src/walk_stream.rs`](src/walk_stream.rs) reads each block twice. Walking the groups
-(field 2) needs the string table and the coordinate scaling fields (`granularity`, `lat_offset`,
-`lon_offset`), but the handlers get fields in the order they were written. The string table is
-field 1, yet nothing obliges a writer to put it first. The scaling fields are numbered 17, 19 and
-20, which puts them after the groups when a writer goes in field-number order, as in the fixture's
-raw data block. The walk gathers those values in a first pass that skips the groups, then decodes
-only the groups in a second.
+cost is that [`src/walk_stream.rs`](src/walk_stream.rs) reads each block twice. A streaming decoder
+hands over fields in the order they were written. Walking a block's primitive groups needs its
+string table and its coordinate scaling fields, and a writer may put those after the groups, as the
+fixture's raw data block does with its scaling fields. So the first pass collects the string table
+and the scaling fields and skips the groups, and the second decodes only the groups.
 
-The first pass uses the plain
+The first pass, like the header check, uses the plain
 [macro form](https://docs.rs/rapidproto/latest/rapidproto/stream/index.html#handlers),
-`primitive_block_stream! { .. }` with a nested `string_table_stream! { .. }`, where no two closures
-touch the same variable. The header check's `header_block_stream! { .. }` works the same way. The
-second pass hands one accumulator, `agg`, down through its nested handlers with
-`primitive_block_stream!(&mut agg; { .. })`. For the fields of `DenseNodes`, it comes in a wrapper
-that also tracks that group's deltas. `agg` holds the statistics for the block and the scaling
-values from the first pass.
+`primitive_block_stream! { .. }` around a `string_table_stream! { .. }`, since each of its closures
+writes a variable of its own. Every handler in the second pass updates the same accumulator, `agg`,
+so that pass uses `primitive_block_stream!(&mut agg; { .. })` to hand it down through the nested
+handlers.
 
 ## Tests
 
@@ -110,65 +95,41 @@ values from the first pass.
 cargo test -p osm-pbf-example
 ```
 
-Both tests are in [`tests/fixture.rs`](tests/fixture.rs). `golden_and_modes_agree` runs `osmstat`
-on the fixture with no flags, `--sequential`, `--stream` and `--stream --sequential`. Every run has
-to succeed with the output shown at the top of this page. `truncated_file_is_rejected` cuts the
-last 20 bytes off the fixture and expects `osmstat` to fail on it with no flags, with
-`--sequential` and with `--stream`.
+[`tests/fixture.rs`](tests/fixture.rs) runs the fixture through all four flag combinations and
+expects each run to match the output at the top of this page. It also cuts 20 bytes off the end of
+the fixture and checks that `osmstat` rejects the result.
 
 ## Malformed input
 
-A bad file can't make `osmstat` panic. RapidProto's decoders return an error on malformed input
-(see the
-[`rapidproto` docs on untrusted input](https://docs.rs/rapidproto/latest/rapidproto/#untrusted-input)),
-and the example's own code checks the lengths it reads and wraps its sums, as described below. It
-has no `unsafe` code either. A `--stream` run can still finish without an error on a malformed
-file, because it decodes less of the file than an arena run does.
+RapidProto's decoders report
+[malformed input](https://docs.rs/rapidproto/latest/rapidproto/#untrusted-input) as an error
+instead of panicking, and the example needs no `unsafe` code to use them.
 
-An arena run decodes the header and data blocks in full and exits 1 at the first malformed field.
-A `--stream` run never looks inside a packed field or sub-message that no handler decodes. In this
-walk that includes `HeaderBBox`, the `Info` on each node, way and relation (counted, not decoded),
-and the packed columns it has no use for, such as `Node.vals`. Damage inside them leaves the exit
-status at 0. Damage in the
-fields around them, in a message the handlers decode, still fails the run. The streaming decoder
-also ignores `required`, and every occurrence of a singular field goes to its handler
+That doesn't mean every bad file fails. With `--stream`, nothing looks inside a sub-message that no
+handler decodes, such as a node's `Info`, or inside a packed field that has no handler. A `--stream`
+run also lets a missing `required` field through, and when a singular field occurs twice, its
+handler runs twice
 ([what a handler receives](https://docs.rs/rapidproto/latest/rapidproto/stream/index.html#what-a-handler-receives)).
-Either can make the two runs disagree.
-
-With `--stream` the handlers also decide how deep the decode goes. Here they go four levels deep at
-most, from `PrimitiveBlock` down to `DenseInfo`. The OSM schema has no groups, yet a file can hold
-unknown ones nested inside each other. Skipping them stops with an error at the
-[depth limit](https://docs.rs/rapidproto/latest/rapidproto/stream/index.html#untrusted-input).
-
-The framing code checks each length it reads from the file. A `BlobHeader` must be under 64 KiB.
-A `Blob` may be at most 32 MiB and must lie within the file. Before `osmstat` inflates a zlib blob,
-the declared `raw_size` must be from 1 byte to 64 MiB, and the inflated data must come out exactly
-that long. Even in a debug build, an overflowing delta, coordinate or id sum wraps instead of
-panicking.
+On such a file the two decoders can print different statistics.
 
 The example sets no
 [capacity limit](https://docs.rs/rapidproto/latest/rapidproto/struct.Arena.html#method.set_capacity_limit)
-on its arenas, and nothing limits what the `--stream` handlers keep. A block's arena can outgrow
-the inflated block many times over, and the first `--stream` pass stores an entry for every string
-in the block's string table. Each thread works on one block at a time, yet one crafted block is
-enough to run either mode out of memory. That's an accepted risk for this tool. If your version
-of this code reads files you don't trust, limit both.
+on its arenas. The first `--stream` pass stores a slice for each string-table entry, however long
+the table is. So a crafted file, with a large block for each thread, can use up all
+memory whether or not you pass `--stream`. For this tool that's an accepted risk. If your copy has
+to handle untrusted files, limit the arenas and the string table.
 
 ## Schema and fixture
 
 The two schemas come unmodified from [OSM-binary](https://github.com/openstreetmap/OSM-binary)
-v1.7.0 and match the copies in the [C++ example](../../../examples/osm-pbf). Each file carries
-Scott A. Crosby's 2010 copyright and the MIT license.
-[`THIRD_PARTY_NOTICES.md`](../../../THIRD_PARTY_NOTICES.md) lists the Rust and the C++ copies.
+v1.7.0 and are the same files the [C++ example](../../../examples/osm-pbf) uses. They're
+MIT-licensed, with Scott A. Crosby's 2010 copyright.
+[`THIRD_PARTY_NOTICES.md`](../../../THIRD_PARTY_NOTICES.md) lists the Rust and C++ copies.
 
-The fixture, [`testdata/mini.osm.pbf`](testdata/mini.osm.pbf), is a synthetic 377-byte file with
-the same bytes as the C++ example's. It has a zlib data block with dense nodes, a way and a
-relation, and a raw one with a single plain node.
-[`testdata/make_fixture.py`](testdata/make_fixture.py) writes it using only Python's standard
-library. From `rust/examples/osm-pbf/`:
+The fixture, [`testdata/mini.osm.pbf`](testdata/mini.osm.pbf), is a 377-byte file holding dense
+nodes, a way and a relation in a zlib block, and a plain node in a raw one. To rebuild it, run
+[`testdata/make_fixture.py`](testdata/make_fixture.py) from `rust/examples/osm-pbf/`:
 
 ```sh
 python3 testdata/make_fixture.py testdata/mini.osm.pbf
 ```
-
-With CPython 3.12 and zlib 1.3 the result matches the checked-in file byte for byte.
