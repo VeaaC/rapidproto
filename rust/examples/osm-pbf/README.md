@@ -54,8 +54,8 @@ generates both decoders for the two schemas in [`proto/`](proto) into one file, 
 [`src/osm.rs`](src/osm.rs) includes that file and exposes the decoders as `osm::arena` and
 `osm::stream`.
 
-- [`src/main.rs`](src/main.rs) checks the header block and runs its `process_block` on every data
-  block, which inflates, decodes and walks it.
+- [`src/main.rs`](src/main.rs) checks the header, then hands each data block to its
+  `process_block` function to decode and walk.
 - [`src/pbf_input.rs`](src/pbf_input.rs) splits the file into `BlobHeader` and `Blob` pairs and
   inflates zlib blobs with `flate2`.
 - [`src/stats.rs`](src/stats.rs) holds the counters, combines the per-block results and prints the
@@ -65,32 +65,34 @@ generates both decoders for the two schemas in [`proto/`](proto) into one file, 
 
 `process_block` gives each block a fresh
 [`Arena`](https://docs.rs/rapidproto/latest/rapidproto/struct.Arena.html) and decodes it there with
-one `decode` call, and [`src/walk_arena.rs`](src/walk_arena.rs) counts what the decoded block
-holds. The decoded block also borrows from the block's bytes. Its string-table entries are
-[`ProtoBytes`](https://docs.rs/rapidproto/latest/rapidproto/struct.ProtoBytes.html) that point
-into them, not copies in the arena, and `process_block` keeps the inflated buffer, like the arena,
-until the walk is done.
+one `decode` call. [`src/walk_arena.rs`](src/walk_arena.rs) counts what the decoded block holds.
+Not all of it lives in the arena. The string table's
+[`ProtoBytes`](https://docs.rs/rapidproto/latest/rapidproto/struct.ProtoBytes.html) entries point
+back into the bytes the block was decoded from, which `process_block` inflated or, for a raw block,
+took straight from the file. The borrow checker keeps those bytes alive for as long as the decoded
+block is in use.
 
 RapidProto doesn't fill in proto2 defaults.
-[`granularity()`](https://docs.rs/rapidproto/latest/rapidproto/example/index.html#accessors) returns
-an `Option`, and both walks use the schema's default of 100 when the field is absent.
+[`granularity()`](https://docs.rs/rapidproto/latest/rapidproto/example/index.html#accessors) is
+`None` when a block leaves the field out. Both walks then fall back to 100, the default the schema
+declares.
 
 ### The streaming walk
 
-A `--stream` run decodes no block into an arena, which saves memory on real files, but
-[`src/walk_stream.rs`](src/walk_stream.rs) reads each block twice. A streaming decoder hands over
-fields in the order they were written. Walking a block's primitive groups needs its string table
-and its coordinate scaling fields, and a writer may put those after the groups, as the fixture's
-raw data block does with its scaling fields. The walk gathers those values in a first pass that
-skips the groups, then decodes only the groups in a second.
+A `--stream` run decodes no block into an arena. On real files that saves memory. The price is
+that [`src/walk_stream.rs`](src/walk_stream.rs) reads each data block twice. A streaming decoder
+hands over fields in the order they were written. Walking a block's primitive groups needs its
+string table and its coordinate scaling fields, and a writer may put those after the groups, as
+the fixture's raw data block does with its scaling fields. The walk gathers those values in a
+first pass that skips the groups, then decodes only the groups in a second.
 
-The first pass and the header check use the plain
-[macro form](https://docs.rs/rapidproto/latest/rapidproto/stream/index.html#handlers),
-`primitive_block_stream! { .. }` with a `string_table_stream! { .. }` inside, and
-`header_block_stream! { .. }`. In the second pass, the node, way and relation handlers all count
-into the same `Stats`. That pass is written as `primitive_block_stream!(&mut agg; { .. })`, and
-`agg`, which holds the `Stats`, is passed down to each nested level. The handlers for the fields of
-`DenseNodes` get it inside a wrapper that also carries the group's running deltas.
+Both
+[forms of the stream macro](https://docs.rs/rapidproto/latest/rapidproto/stream/index.html#handlers)
+appear here. In the first pass and the header check, each closure has a local variable to itself:
+`primitive_block_stream! { .. }` with a `string_table_stream! { .. }` nested in it, and
+`header_block_stream! { .. }`. The second pass has many handlers feeding one set of totals. It
+opens with `primitive_block_stream!(&mut agg; { .. })` and passes `agg` down into the nested
+messages.
 
 ## Tests
 
@@ -98,9 +100,9 @@ into the same `Stats`. That pass is written as `primitive_block_stream!(&mut agg
 cargo test -p osm-pbf-example
 ```
 
-[`tests/fixture.rs`](tests/fixture.rs) runs the fixture through all four flag combinations, and
-each run has to print the lines shown above. A copy of the fixture with its last 20 bytes cut off
-has to make `osmstat` exit with an error.
+[`tests/fixture.rs`](tests/fixture.rs) runs the fixture with all four flag combinations and
+compares each output with the lines shown above. A second test drops the last 20 bytes of the
+fixture and looks for an error exit from `osmstat`.
 
 ## Untrusted input
 
@@ -116,9 +118,10 @@ ones in the two runs.
 
 The example sets no
 [capacity limit](https://docs.rs/rapidproto/latest/rapidproto/struct.Arena.html#method.set_capacity_limit)
-on its arenas, and the first `--stream` pass keeps a slice for every string-table entry, however
-long the table is. Given a file with one oversized block per thread, either kind of run can take
-all the machine's memory. For this tool that's an accepted risk. If your copy has to handle
+on its arenas. The first `--stream` pass also keeps a slice for every string-table entry, however
+long the table is. A block can pass the size checks in `src/pbf_input.rs` and still grow far larger
+once decoded, so a file with one such block per thread can take all the machine's memory in
+either kind of run. For this tool that's an accepted risk. If your copy has to handle
 untrusted files, set a capacity limit and give the first pass a maximum table size.
 
 ## Schema and fixture
