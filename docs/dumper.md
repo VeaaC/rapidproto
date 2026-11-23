@@ -93,13 +93,13 @@ either. Keys are the field names as the schema spells them, `bytes` are hex rath
 [shows up twice](semantics.md#fields-that-appear-more-than-once). A
 [well-known type](semantics.md#well-known-types) prints like any other message. A `Timestamp`
 shows `seconds` and `nanos` where protobuf's JSON writes a date string, and an `Any` shows
-`type_url` and its packed `value` in hex.
+`type_url` and its `value`, the encoded message, in hex.
 
 A [decode profile](profiles.md) changes what there is to print. Dropped fields never appear. The
 hex string a `raw` field prints is its payload, still encoded. A message with
 [unknown-field tracking](profiles.md#unknown-fields) gets a `"has_unknown_fields": true` entry
 first when its input had fields the schema doesn't declare, and no such entry when it had none.
-What those fields contained isn't printed in either case. With the header generated from the
+The dump never shows what those fields contained. With the header generated from the
 profiles page's `lean.modes`, `dump_person` prints this for Ada's message plus an undeclared
 field 10:
 
@@ -139,18 +139,18 @@ With the fuller `Person` from above, this prints:
 
 `indent` tells the dumper how deep it starts, at two spaces per level. The first brace goes
 wherever the stream is. The lines after it are indented to match, the closing brace included.
-Whatever you printed before the dump on that first line, like `"person":` here, doesn't count
-toward the width. `print_request` uses the overload that writes to a stream instead of returning a
-string. The stream's locale and flags such as `std::hex` have no effect on the text and are still
-set afterwards.
+`print_request` uses the overload that writes to a stream instead of returning a string. The
+stream's locale and flags such as `std::hex` have no effect on the text and are still set
+afterwards.
 
 The dumper puts an object or array on one line when it fits within `DumpOptions::width`, which is
-120 columns unless you change it. The indentation counts toward that. One that doesn't fit gets a
+120 columns unless you change it. The indentation counts toward that, but whatever you printed
+before the dump on its first line, like `"person":` above, doesn't. One that doesn't fit gets a
 line per entry, indented two more spaces, and each of those entries gets the same test. Before an
 array goes to one element per line, it tries rows of aligned columns, as many as fit. A width of 0
 breaks every object and array that isn't empty. A long string stays on its line even when it runs
 past the width. Where only the width matters, pass an integer in place of the options, as in
-`rapidproto::dump(*person, 60)`.
+`rapidproto::dump(person, 60)`.
 
 ## Leaving fields out
 

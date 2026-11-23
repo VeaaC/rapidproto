@@ -24,7 +24,7 @@ g++ it compiles only while the two copies have the same contents and timestamp.
 
 The arena decoder's `Person` is `rp::arena::example::Person`, and the streaming decoder's is
 `rp::stream::example::Person`. Each enum in the schema is defined once, under
-`rp::common::example`, and both decoders' headers only name that definition, whether the enum is
+`rp::common::example`. Both decoders' headers only name that definition, whether the enum is
 top-level or nested in a message. An enum value from an arena accessor and one a streaming
 handler receives have the same C++ type, and a function written for one takes the other. These
 definitions live in `<stem>.rp.common.hpp`, the common header. You don't include it yourself; both
@@ -61,7 +61,7 @@ bool print_city(rapidproto::ByteView input) {
 }
 ```
 
-Run on Ada's message from the arena decoder's page, `print_city` prints `lives in London`.
+Given protoc's encoding of the arena page's example input, `print_city` prints `lives in London`.
 
 The `address` handler receives `exs::Address`, the sub-message's decoder. Its
 [`rp_bytes()`](streaming.md#sub-messages) returns the address as encoded, which
@@ -74,8 +74,8 @@ All the streaming decoder checks about the address is that it fits in the input
 ([what a decode checks](streaming.md#what-a-decode-checks)). Everything inside it is left to
 `ex::Address::decode`. A failure there can end the outer decode only through what the handler
 returns. `print_city`'s handler returns
-[`DecodeStatus::abort()`](streaming.md#errors-and-stopping-early) for a null address, which ends the
-decode with `ok()` false. A handler that left out the check would let `decode` finish with `ok()`
+[`DecodeStatus::abort()`](streaming.md#errors-and-stopping-early) for a null address, which makes
+the outer decode fail. A handler that left out the check would let `decode` finish with `ok()`
 true, and `print_city` would return true for a broken address without printing anything.
 
 ## Resetting the arena between sub-messages
@@ -113,7 +113,7 @@ Without the `reset()`, every phone would stay in the arena until `print_phones` 
 can reset the arena while the outer decode is still running, because nothing in the streaming
 decoder touches the arena. Each [reset](arena.md#the-arena) invalidates every message the arena
 holds, the phone from the previous call included. Finish with each phone inside the call that
-decoded it. The arena then only has to grow as far as the largest phone needs. For now, a
+decoded it. With a reset per phone, the arena only has to grow as far as the largest phone needs. For now, a
 [bug in how a reset arena reuses its memory](arena.md#limiting-memory) can make it grow past that.
 
 ## Next to protoc-generated code
@@ -124,18 +124,20 @@ such as `google.protobuf.Timestamp`. Everything RapidProto generates sits under 
 runtime under `rapidproto`, away from protoc's classes in `example`. The two sides share no types,
 enums included. Messages pass between them as encoded bytes and enum values as plain numbers.
 
-The combination breaks only where protoc's header declares a name at a spot RapidProto needs for a
-namespace, which is `rp` at global scope or `arena`, `stream` or `common` inside it. In package
-`rp`, that happens when something at the schema's top level, whether a message, an enum, an enum's
-value or an extension, is called `arena`, `stream` or `common`. In a schema with no package, the
-name to avoid is `rp`. Your own `namespace rp { struct arena {}; }` breaks it the same way. For a
+The combination breaks where protoc's header declares a name at a spot RapidProto needs for a
+namespace: `rp` at global scope, `arena`, `stream` or `common` inside it, or the runtime's
+`rapidproto`. In package `rp`, that happens when a top-level message, enum, enum value or extension
+is called `arena`, `stream` or `common`. In a schema with no package, the names to avoid are `rp`
+and `rapidproto`, and a schema in package `rapidproto` can collide with runtime types such as
+`Arena`. Your own `namespace rp { struct arena {}; }` breaks it the same way. For a
 message `stream` in package `rp`, clang++ reports:
 
 ```text
 error: redefinition of 'stream' as different kind of symbol
 ```
 
-[`--namespace-prefix`](integration.md#the-rapidprotoc-cli) fixes every one of these cases by putting
-`arena`, `stream` and `common` under a root namespace you name (`NAMESPACE_PREFIX` in CMake). With
+[`--namespace-prefix`](integration.md#the-rapidprotoc-cli) fixes the `rp` cases by putting `arena`,
+`stream` and `common` under a root namespace you name (`NAMESPACE_PREFIX` in CMake). With
 `--namespace-prefix=myrp`, the arena decoder's `Person` is `myrp::arena::example::Person`, so
-aliases such as `ex` and `exs` have to name the new namespaces.
+aliases such as `ex` and `exs` have to name the new namespaces. The runtime stays in `rapidproto`
+whatever the prefix, so a clash with that name goes away only by renaming in the schema.

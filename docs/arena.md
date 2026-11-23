@@ -154,8 +154,8 @@ Entries keep the order they arrived in. Each one is an `ex::Person::LabelsEntry`
 `value()`. Structured bindings don't compile against an entry. Duplicate keys all stay in the map.
 `find` walks the entries one by one and returns the last match, or `end()`. For many lookups in a
 large map, build your own index once. When the values are messages, `value()` returns a pointer,
-null for an entry sent without a value. A known issue gives some small value types a pointer to an
-empty message there instead, so treat null and an empty message alike until it's fixed.
+null for an entry sent without a value. A known issue makes `value()` point to an empty message
+instead for some small value types, so treat null and an empty message alike until it's fixed.
 
 Oneofs have no accessor per member. You pass handlers to the oneof's own method, `workplace()` here,
 which calls the one for the member that's set:
