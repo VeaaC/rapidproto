@@ -3,14 +3,15 @@
 *The shared rules - they apply to both decode models ([arena](arena.md), [streaming](streaming.md))
 and affect how you write correct consumer code. This page is the single home for them.*
 
-- **Lifetimes.** Both models borrow the input. Streaming: see
-  [lifetimes and threads](streaming.md#lifetimes-and-threads). Arena: a decoded message needs both
+- **Lifetimes.** Both models borrow the input. Streaming: the views a handler gets point into it
+  ([lifetimes](streaming.md#lifetimes-and-threads)). Arena: a decoded message needs both
   [its `Arena`](arena.md#the-arena) and the input, and
   [`decode_owned`](arena.md#owned-messages) keeps the three together.
-- **Untrusted input is validated; values are not.** Wire input is fully checked for **wire-format
-  integrity** (structure, lengths, group nesting), so a malformed buffer fails the decode - the arena
-  `decode()` returns null with an `ArenaDecodeError`, the streaming one a non-`ok()` `DecodeStatus` -
-  and never triggers UB. The streaming decoder checks only the parts it reads; see
+- **Untrusted input is validated; values are not.** What a decoder reads is checked for
+  **wire-format integrity** (structure, lengths, group nesting), so a malformed buffer fails the
+  decode - the arena `decode()` returns null with an `ArenaDecodeError`, the streaming one a
+  non-`ok()` `DecodeStatus` - and never triggers UB. The streaming decoder checks only the parts it
+  reads; see
   [what a decode checks](streaming.md#what-a-decode-checks). Field *values* are not range-checked.
   A `string` in particular is handed back unvalidated, so it may carry bytes `protoc` would reject
   as invalid UTF-8.

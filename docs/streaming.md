@@ -96,15 +96,16 @@ struct name {
 ```
 
 A handler takes the field tag type and then a `Value` (for a map field, a `Key` and then a `Value`).
-Any of them may be a `const` reference. Field tag types keep their fields' names, case included. A
-name that would clash with C++ or with the generated code gets a trailing `_`, as in `decode_` for a
+Any of them may be a `const` reference. Besides lambdas, any function object with a single
+`operator()` works as a handler. Field tag types keep their fields' names, case included. A name
+that would clash with C++ or with the generated code gets a trailing `_`, as in `decode_` for a
 field called `decode`. `kNumber` holds the field number and `kName` the name as the schema spells
 it. They're there mostly for [catch-all handlers](#catch-all-handlers).
 
 Handlers are called in the order their fields appear in the input. Each element of a repeated field
 gets its own call, whether the elements came packed or one per tag. A field that's missing from the
-input doesn't reach its handler, not even with a default value. Give your variables their starting
-values before the decode. protoc never writes a proto3 `id` of 0 into the input.
+input doesn't reach its handler at all, not even with a default value. That includes a proto3 `id`
+of 0, which protoc doesn't write. Give your variables their starting values before the decode.
 
 ## Field kinds
 
@@ -116,9 +117,10 @@ values before the decode. protoc never writes a proto3 `id` of 0 into the input.
 | message, group | the sub-message's decoder, such as `ex::Address` |
 | `map<K, V>` | the key, then the value |
 
-A repeated field or a oneof member takes the same parameters as a single field of its type. The
-handler call for each element makes large packed fields of numbers
-[faster to read](benchmarks.md#arena-vs-streaming-the-two-rapidproto-models) with the arena decoder.
+A repeated field or a oneof member takes the same parameters as a single field of its type. On large
+packed fields of numbers the arena decoder is
+[faster](benchmarks.md#arena-vs-streaming-the-two-rapidproto-models), because the streaming decoder
+makes a handler call for every element.
 
 ```cpp
 rapidproto::DecodeStatus print_labels(rapidproto::ByteView input) {
@@ -145,21 +147,23 @@ doesn't define, or a string that isn't valid UTF-8.
 The `address` handler in the first example gets an `ex::Address`, the sub-message's decoder.
 `Person`'s decoder doesn't look inside the address unless that handler calls `address.decode`.
 Return the status of that call, as `print_person` does. A malformed address, or an abort from a
-handler inside it, then ends the outer decode as well. A handler that ignores the status lets the
-outer decode succeed.
+handler inside it, then ends the outer decode. If the handler ignores that status instead, a
+malformed address goes unnoticed and the outer decode carries on.
 
-Groups work differently. Whenever the decoder meets one, it first walks the group's fields to the
-end-group tag, validating each tag and length, and only then calls the group's handler if there is
-one. The decode fails with `WireError::GroupTooDeep` when more than `rapidproto::kMaxGroupDepth`
-(100) groups are stacked directly inside one another.
+Groups work differently. When the decoder meets a group, it first walks the group's fields until it
+reaches the end-group tag, validating each tag and length as it goes. It does this before any
+handler sees the group, and even when none will. Unlike `phones`, a group is never skipped in a
+single jump. If more than `rapidproto::kMaxGroupDepth` (100) groups are nested directly inside one
+another, the decode fails with `WireError::GroupTooDeep`.
 
-The [arena decoder's depth limit](arena.md#depth-limits) has no counterpart for sub-messages here.
-Each level is one of your handlers calling `decode`, with the stack growing as it goes. A recursive
+There's no depth limit for sub-messages, unlike in the [arena decoder](arena.md#depth-limits). Each
+level is one of your handlers calling `decode`, with the stack growing as it goes. A recursive
 handler that may see untrusted input should count levels and stop the decode past a limit you
 choose.
 
-`rp_bytes()` returns the bytes a sub-message's decoder would read. They start after the length
-prefix, or for a group they're its body, without the tags that open and close it. You can pass them
+Each decoder has an `rp_bytes()` method that returns the bytes it would read. In the `address`
+handler, `address.rp_bytes()` is the address as encoded, starting after the length prefix. A group's
+decoder returns the group's body, without the tags that open and close it. You can pass these bytes
 to the arena decoder's `decode` to [build a message](using-both-models.md) for just that part of the
 input.
 
@@ -180,13 +184,15 @@ values that come with it. Every declared field you wrote no handler for goes to 
 arguments its own handler would have had, while `name` still reaches the first lambda.
 
 Write the values as a `const auto&...` pack, as here, which also gives map fields their key and
-value. A catch-all written `[](auto field, auto value)` compiles but never receives map fields, and
-one written with `auto&&...` can take fields from handlers that use `const` references. A generic
-lambda with a single parameter receives only [unknown fields](#unknown-fields).
+value. A catch-all with exactly two parameters, such as `[](auto field, auto value)`, compiles but
+never receives map fields, whose handlers take three arguments. Written with `auto&&...`, the
+catch-all takes over every field whose own handler takes its value by `const` reference, and a
+`mutable` catch-all takes over even the fields of by-value handlers; the form shown avoids both. A
+generic lambda with a single parameter receives only [unknown fields](#unknown-fields).
 
-Keep the `-> void` as well. Without it, `decode` compiles the body with test arguments of its own
-while it sorts out which handler takes which field. A body that reads `kName`, or that passes a
-value to `<<` or another overloaded function, doesn't compile against those arguments.
+Write the `-> void` as the example does. Without it, `decode` compiles the body with test arguments
+of its own while it sorts out which handler takes which field. A body that reads `kName`, or that
+passes a value to `<<` or another overloaded function, doesn't compile against those arguments.
 
 ## Unknown fields
 
@@ -243,10 +249,11 @@ struct [[nodiscard]] DecodeStatus {
 };
 ```
 
-A handler returns `void` or a `DecodeStatus`, and `print_person` mixes the two. A handler that
+A handler returns `void` or a `DecodeStatus`. Both kinds can go to the same `decode` call, as in
+`print_person`. A handler that returns `DecodeStatus::success()` lets the decode carry on. One that
 returns a status whose `ok()` is false, usually `DecodeStatus::abort()`, ends the decode on the
-spot. `decode` then returns that same status. `first_email` stops at the first email this way.
-That's also why it checks `wire` rather than `ok()`.
+spot, and `decode` returns that same status. `first_email` stops at the first email this way. That's
+also why it checks `wire` rather than `ok()`.
 
 Malformed input ends the decode too, with `wire` set to what was wrong. `offset` gives the error's
 position in bytes. It counts from the beginning of the input, or of the sub-message, packed field or
@@ -259,11 +266,12 @@ Nothing a handler did before a failure is undone. Given only the first 20 bytes 
 
 At the level you call `decode` on, the decoder checks every tag, value and length. It looks inside a
 packed field or a map entry only when the field has a handler. Malformed bytes in anything it skips,
-such as a sub-message no handler decoded, don't fail the decode. To have them rejected, decode those
-parts too. With no handlers, `return address.decode();` checks the address's own fields without
-calling anything. Where the decoder does read, malformed input fails the decode and never crashes
-it. The streaming and arena decoders are both
-[fuzzed](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md) under AddressSanitizer.
+such as a sub-message no handler decoded, don't fail the decode. To have such bytes rejected, decode
+those parts yourself. With no handlers, `return address.decode();` checks the address's own fields
+without calling anything. Where the decoder does read, malformed input fails the decode and never
+crashes it. The streaming decoder's
+[fuzz tests](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md) run under AddressSanitizer
+and UndefinedBehaviorSanitizer.
 
 ## Compile errors
 
@@ -285,6 +293,6 @@ their views during the decode but mustn't keep any. `ex::Person person{load()};`
 whose string is gone by the next line, and compilers don't warn about it.
 
 `decode` keeps its own instance of each handler for the call, copied from a named lambda or moved
-from a temporary. State a handler should leave behind belongs in a reference capture, since a
-`mutable` lambda's by-value captures change only that instance. Several threads can decode the same
-input at the same time, provided nothing modifies it.
+from a temporary. Capture by reference anything you want to read after the call. A `mutable` lambda
+that changes a by-value capture changes only the instance `decode` holds. Several threads can decode
+the same input at the same time, provided nothing modifies it.

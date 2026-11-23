@@ -6,8 +6,8 @@ the [quick starts](../README.md#quick-start). The Rust guide is the documentatio
 crates on docs.rs. The benchmarks cover both languages.
 
 - [The arena decoder](arena.md) covers accessors, the `Arena`, `decode_owned` and error handling.
-- [The streaming decoder](streaming.md) covers handlers, sub-messages, catch-all and unknown-field
-  handlers, errors and stopping early, and what a decode checks.
+- [The streaming decoder](streaming.md) covers handlers, catch-alls, sub-messages, unknown fields,
+  errors and what a decode checks.
 - [The debug dumper](dumper.md) covers the `--dump` option, its JSON-like text and `DumpOptions`.
 - [Shared semantics](semantics.md) covers the rules both models follow, such as lifetimes,
   validation, presence, open enums and duplicate fields.
