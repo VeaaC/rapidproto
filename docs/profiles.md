@@ -124,10 +124,10 @@ accessor, `has_unknown_fields()`. It returns true when the input held at least o
 message doesn't declare, and that's all it records. For the field numbers and their bytes, use the
 streaming decoder's [unknown-field handler](streaming.md#unknown-fields).
 
-[Extensions](semantics.md) count as unknown fields. A field the schema declares never does, even
-when the profile drops it or it arrives with an unexpected wire type and gets skipped. Fields inside
-a sub-message are that sub-message's own business. If its type is tracked too, it reports them
-itself (for a raw field, once you decode the payload).
+[Extensions](semantics.md#unknown-fields) count as unknown fields. A field the schema declares
+never does, even when the profile drops it or it arrives with an unexpected wire type and gets
+skipped. Fields inside a sub-message are that sub-message's own business. If its type is tracked
+too, it reports them itself (for a raw field, once you decode the payload).
 
 Tracking costs one bit per message. In `Person` it shares a byte with the bit that records whether
 `nickname` is set. `Address` has no such byte. Tracking it adds one, and padding rounds the class up

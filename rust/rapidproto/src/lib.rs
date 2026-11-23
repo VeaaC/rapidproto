@@ -44,25 +44,18 @@
 //!
 //! # Decoding rules
 //!
-//! Both decoders skip unknown fields and any declared field that arrives with the wrong wire type.
-//! A streaming decoder can hand unknown fields to an `unknown` handler instead, and
-//! [`Config::unknown_present`] lets an arena message record that it had some. Neither decoder
-//! checks that a `string` is valid UTF-8; [`ProtoStr::to_str`] does when you read it.
-//!
-//! A missing `required` field fails an arena decode with [`ErrorKind::MissingRequired`]. A singular
-//! message or group field that appears twice fails it with [`ErrorKind::RepeatedSingularMessage`],
-//! where Protobuf would merge the two. Either way, [`DecodeError::field_number`] names the field. A
-//! singular field of any other type keeps its last value. The streaming decoder checks neither rule
-//! and calls the field's handler once per occurrence.
-//!
-//! Concatenated messages, extensions and closed enums each decode differently from Protobuf.
-//! [docs/semantics.md] has those rules and the rest that both decoders follow.
+//! Two schema rules can fail an arena decode. An absent `required` field gives
+//! [`ErrorKind::MissingRequired`], and a non-repeated message or group field sent twice gives
+//! [`ErrorKind::RepeatedSingularMessage`]. [`DecodeError::field_number`] says which field. The
+//! streaming decoder checks neither. How both decoders treat absent, repeated and unknown fields,
+//! enums and strings is on the [decoding rules] page, for Rust and C++ alike.
 //!
 //! # Untrusted input
 //!
-//! Malformed input gets a `DecodeError` back from `decode`, never a panic. CI fuzzes the arena
-//! decoders under AddressSanitizer on every pull request. An arena decode fails with
-//! [`ErrorKind::DepthLimitExceeded`] when sub-messages or groups nest deeper than
+//! Malformed input gets a `DecodeError` back from `decode`, never a panic, though a streaming
+//! decode checks only the parts its handlers read ([`stream`](crate::stream#untrusted-input)). CI
+//! fuzzes the arena decoders under AddressSanitizer on every pull request. An arena decode fails
+//! with [`ErrorKind::DepthLimitExceeded`] when sub-messages or groups nest deeper than
 //! [`MAX_DECODE_DEPTH`].
 //!
 //! A decoded message can take many times its input size in the arena. With `alloc`, the arena grows
@@ -136,9 +129,8 @@
 //! [`rapidproto-build`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/
 //! [decode profile]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.field_modes
 //! [`Config::stream`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.stream
-//! [`Config::unknown_present`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.unknown_present
 //! [`Config::serde`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.serde
-//! [docs/semantics.md]: https://github.com/VeaaC/rapidproto/blob/main/docs/semantics.md
+//! [decoding rules]: https://github.com/VeaaC/rapidproto/blob/main/docs/semantics.md
 // Without `alloc` there is no `Owned`, so its links go to the feature list, which says why.
 #![cfg_attr(not(feature = "alloc"), doc = "[`Owned`]: #features")]
 // The test harness needs `std`, which also lets the no-allocator path be unit-tested with

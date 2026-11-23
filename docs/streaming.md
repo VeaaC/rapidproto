@@ -139,8 +139,8 @@ own field tag type. The handler that runs tells you which one the sender chose. 
 in the input, both handlers run, in input order. Protobuf would keep the later one.
 
 Two `address` fields in one input mean two calls to its handler, where protobuf would
-[merge](semantics.md) them. Nothing checks for a missing `required` field, an enum value the schema
-doesn't define, or a string that isn't valid UTF-8.
+[merge](semantics.md#fields-that-appear-more-than-once) them. Nothing checks for a missing
+`required` field, an enum value the schema doesn't define, or a string that isn't valid UTF-8.
 
 ## Sub-messages
 

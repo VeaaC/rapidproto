@@ -22,7 +22,8 @@ Schemas can be proto2, proto3, or editions 2023 and 2024, with groups, maps and 
 generator parses them itself and carries its own copy of the well-known types, so you don't need
 protoc.
 
-On malformed input, a decode fails with an error instead of crashing. On every pull request, the
+On malformed input, a decode fails with an error instead of crashing, though a streaming decode
+checks only [the parts it reads](docs/streaming.md#what-a-decode-checks). On every pull request, the
 C++ wire reader and both C++ decoders are fuzzed under ASan and UBSan, and the Rust arena decoders
 under ASan. [SECURITY.md](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md) has the
 details. For untrusted input, also limit how much memory the
@@ -70,9 +71,9 @@ sub-message that appears twice fails the arena decode instead of being merged. g
 [out of scope](https://github.com/VeaaC/rapidproto/blob/main/architecture.md#known-limitations-and-non-goals)
 too: `service` and `rpc` definitions are skipped.
 
-Decoded strings and bytes point into the input, which has to [stay alive](docs/semantics.md) while
-you use them. With the arena decoder, so does the arena. If that's awkward,
-[`rapidproto::decode_owned<T>`](docs/arena.md#owned-messages) in C++ and
+Decoded strings and bytes point into the input, which has to
+[stay alive](docs/arena.md#the-arena) while you use them. With the arena decoder, so does the arena.
+If that's awkward, [`rapidproto::decode_owned<T>`](docs/arena.md#owned-messages) in C++ and
 [`Msg::decode_owned`](https://docs.rs/rapidproto/latest/rapidproto/struct.Owned.html) in Rust
 bundle the input and the arena with the message.
 
@@ -283,15 +284,16 @@ rest.
 ## Documentation
 
 The [manual](docs/) is written for C++ and is also on
-[the project site](https://veaac.github.io/rapidproto/). Only its benchmarks page covers Rust.
+[the project site](https://veaac.github.io/rapidproto/). Its decoding rules and benchmarks pages
+cover Rust as well.
 
 - [The arena decoder](docs/arena.md): accessors, the `Arena` and `reset`, `decode_owned`, errors
 - [The streaming decoder](docs/streaming.md): handlers and field kinds, errors, stopping a decode
   early
 - [The debug dumper](docs/dumper.md): an optional `--dump` header that prints decoded messages as
   JSON-like text
-- [Shared semantics](docs/semantics.md): the rules both decoders share, from lifetimes to presence
-  and duplicate fields
+- [Decoding rules](docs/semantics.md): what both decoders, in C++ and Rust, do with absent,
+  repeated or unknown fields, enums and malformed input
 - [Using both models](docs/using-both-models.md): both decoders in one program, and living next to
   protoc-generated code
 - [Decode profiles](docs/profiles.md): dropping fields, keeping sub-messages as raw bytes and

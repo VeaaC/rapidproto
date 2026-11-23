@@ -9,7 +9,7 @@
   url: /docs/streaming.html
 - title: The debug dumper
   url: /docs/dumper.html
-- title: Shared semantics
+- title: Decoding rules
   url: /docs/semantics.html
 - title: Using both models
   url: /docs/using-both-models.html
