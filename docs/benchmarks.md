@@ -30,9 +30,8 @@ structure - which is where most of the memory win comes from:
 
 That's the g++-13 figure; clang++-20 measures ~6×. (Both moved when the bench builds gained
 alignment pinning - see the appendix - which normalizes away the layout luck older figures
-implicitly carried.) The decoded tree borrows the input, so it stays valid
-only while both the input and the `Arena` outlive it (or use
-[`decode_owned`](arena.md#owned-messages) for a self-contained handle).
+implicitly carried.) Because the strings are borrowed, the input has to
+[outlive the message](arena.md#the-arena).
 
 ## Streaming vs `protozero`
 

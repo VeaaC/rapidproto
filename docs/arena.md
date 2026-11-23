@@ -95,12 +95,12 @@ class Person {
 `const std::uint8_t*` plus a length, `rapidproto::byte_view(ptr, size)` wraps it. On failure
 `decode` returns `nullptr`. The optional `err` [records why](#errors).
 
-Classes for `package a.b;` land in `rp::arena::a::b`. Without a package they go straight into
-`rp::arena`. [`--namespace-prefix`](integration.md#the-rapidprotoc-cli) replaces the `rp`. A message
-defined inside another one becomes a nested class of it. Accessor names match the field names, case
-included. The generator appends an underscore to a name that would collide with C++ or with its own
-code, such as a keyword, `std`, a macro like `EOF` or `linux`, or anything starting with `rp_`. A
-message named `class` becomes `class_`.
+Classes for `package a.b;` land in `rp::arena::a::b`, and a schema without a package puts them in
+`rp::arena` itself. [`--namespace-prefix`](integration.md#the-rapidprotoc-cli) replaces the `rp`.
+A message defined inside another one becomes a nested class of it. Accessor names match the field
+names, case included. The generator appends an underscore to a name that would collide with C++ or
+with its own code, such as a keyword, `std`, a macro like `EOF` or `linux`, or anything starting
+with `rp_`. A message named `class` becomes `class_`.
 
 ## What each field kind returns
 
@@ -118,20 +118,20 @@ message named `class` becomes `class_`.
 Enums are [open](semantics.md). A number the enum doesn't define comes through unchanged, and a
 `switch` without a `default:` misses it. Nothing checks that strings are valid UTF-8.
 
-Outside sub-messages, explicit presence shows up as `std::optional`, as in `nickname()`. Fields
-marked `optional` in proto2 or proto3 have explicit presence. In editions, fields have explicit
-presence unless `field_presence = IMPLICIT` is set on them or for the whole file. Without explicit
-presence, an absent `id` reads as 0, just like an `id` sent as 0. A `required` field
-(`LEGACY_REQUIRED` in editions) also returns the plain type, since a decode that's missing it fails.
-Defaults aren't applied either. A field declared with `[default = X]` reads as `std::nullopt` when
-absent, not as X.
+A number, enum, string or bytes field with explicit presence returns a `std::optional`, as
+`nickname()` does. Any field marked `optional` in proto2 or proto3 has explicit presence. An
+editions field has it too, unless its `field_presence` works out to `IMPLICIT`, whether from its own
+option or from the file's. Without explicit presence, an absent `id` reads as 0, just like an `id`
+sent as 0. A `required` field (`LEGACY_REQUIRED` in editions) also returns the plain type, since a
+decode that's missing it fails. `[default = X]` isn't applied: such a field reads as
+`std::nullopt` when it's absent, not as X.
 
 Sub-messages signal presence through the pointer alone. There are no `has_` accessors, and declaring
 a message field `optional` leaves its accessor as it is. A `required` message field is never null.
 
-String views cover their field and nothing more. The byte after one is whatever comes next in the
-input. `bytes` values can also contain zeros anywhere inside. Hand `.data()` to a C function and it
-may run off the end of the field or stop at one of those zeros.
+String views cover their field and nothing more. No NUL is promised after one, and a `string` or
+`bytes` value may hold zeros of its own. A C function given `.data()` can run off the end of the
+field or stop at an inner zero.
 
 `ArrayView` wraps a contiguous array and offers `size()`, `empty()`, `data()`, iterators and an
 unchecked `operator[]`. A repeated message stores its elements in place. The loop above binds each
@@ -172,13 +172,14 @@ person->workplace(
 
 A handler's first parameter is a member tag type such as `ex::Person::Workplace::office`, and its
 second is the member's value. For a message member that value comes as a reference, which can't be
-null. Members without a handler are ignored unless a `[](auto, auto)` handler picks them up, while
-the unset case only ever reaches a `std::monostate` handler. Handlers return `void`.
+null. Members without a handler are ignored unless a `[](auto, auto)` handler picks them up. The
+unset case only ever reaches a `std::monostate` handler. Handlers return `void`.
 
-Decode profiles change some of these types. With a [profile](profiles.md), a dropped field loses its
-accessor, and a `raw` sub-message comes back still encoded, as `std::optional<rapidproto::ByteView>`
-or, for a required field, a plain `rapidproto::ByteView`. The decoder skips unknown fields and keeps
-nothing of them, though a profile can also [flag messages that had any](profiles.md#unknown-fields).
+A [decode profile](profiles.md) changes some of these types. Dropping a field removes its accessor.
+A `raw` sub-message comes back still encoded: a `std::optional<rapidproto::ByteView>`, a plain
+`rapidproto::ByteView` when the field is required, or a `StringArrayView` when it's repeated. The
+decoder skips unknown fields and keeps nothing of them, but a profile can
+[flag messages that had any](profiles.md#unknown-fields).
 
 ## The arena
 
@@ -206,10 +207,10 @@ arena, though threads can share a decoded message for reading.
 `reset()` lets the arena reuse its chunks from the start without freeing any. After the arena has
 grown big enough for your largest message, the loop above stops allocating. A reset invalidates
 message pointers and every `ArrayView`, `StringArrayView` or `MapView` taken from them. Copying a
-message doesn't save it either. Messages copy like plain structs, but a copy shares the original's
-sub-messages, repeated fields and maps, which all live in the arena. String views you took out
-earlier point into the input and stay valid as long as it does. Reading through a stale pointer
-still shows the old data until a later decode lands on the same memory.
+message beforehand only goes so far. Messages copy like plain structs, but a copy shares the
+original's sub-messages, repeated fields and maps, which all live in the arena. String views you
+took out earlier point into the input and stay valid as long as it does. Reading through a stale
+pointer still shows the old data until a later decode lands on the same memory.
 
 The input can dangle too. A temporary `std::string` passed to `decode` compiles without a warning
 and is destroyed at the end of the statement, leaving every string in the message pointing into
@@ -263,17 +264,17 @@ std::shared_ptr<const ex::Person> load_person(std::string input) {
 }
 ```
 
-`rapidproto::decode_owned` takes your input, decodes it into a private arena and returns a
-`std::shared_ptr` to the message. Whoever holds a copy of that pointer keeps the input, the arena
-and the message alive. Use it when a message has to outlive the scope that decoded it. Move your
-input in, as the example does, because the parameter is a `std::string` taken by value. An optional
-second argument takes an `ArenaDecodeError*`. The private arena has no capacity limit. For untrusted
-input, use `decode` with an arena you've limited.
+With `rapidproto::decode_owned`, the message comes back in a `std::shared_ptr` that also owns the
+input and an arena of its own. Whoever holds a copy of that pointer keeps all three alive. Use it
+when a message has to outlive the scope that decoded it. Move your input in, as the example does,
+because the parameter is a `std::string` taken by value. An optional second argument takes an
+`ArenaDecodeError*`. The private arena has no capacity limit. For untrusted input, use `decode`
+with an arena you've limited.
 
 A loop over a field read straight from the returned pointer, such as
-`for (const auto& phone : rapidproto::decode_owned<ex::Person>(input)->phones())`, uses the message
-after it's freed. The temporary pointer dies, taking the message with it, before the loop body
-starts. Neither g++ nor clang warns. Bind the pointer to a variable first.
+`for (const auto& phone : rapidproto::decode_owned<ex::Person>(input)->phones())`, can use the
+message after it's freed. The temporary pointer dies, taking the message with it, before the loop
+body starts. Neither g++ nor clang warns. Bind the pointer to a variable first.
 
 ## Errors
 
