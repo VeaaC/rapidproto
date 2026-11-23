@@ -97,7 +97,9 @@ Shape::new(SHAPE_WIRE)
 Once a streaming decode returns there's no message left to read. The handlers copy what they need
 into `parts`, a `ShapeParts` declared in `main.rs` itself, with `kind` taking the plain `i32`
 inside the enum value (`k.0`). The `&mut parts;` form of the macro passes `parts` to every handler
-as `p`. Each of these handlers returns `()`, or `Result<(), DecodeError>` where it can fail
+as `p`. Each of these handlers returns `()`, or a `Result` with a
+[`DecodeError`](https://docs.rs/rapidproto/latest/rapidproto/struct.DecodeError.html) where it can
+fail
 ([what else a handler may return](https://docs.rs/rapidproto/latest/rapidproto/stream/index.html#handlers)).
 `Shape::new` returns a `Result` too, though it only rejects input longer than `u32::MAX` bytes.
 
@@ -106,8 +108,8 @@ In the `origin` handler, `pt` is a
 for the `Point`, and `pt.bytes()` returns the slice of `SHAPE_WIRE` that encodes it. The handler
 decodes that slice into a throwaway
 [arena](https://docs.rs/rapidproto/latest/rapidproto/struct.Arena.html) and keeps only `x` and
-`y`, so the arena can go when the handler returns. If that decode fails, the `?` passes its error
-out of the handler, and the streaming decode returns it.
+`y`, so the arena can go when the handler returns. If that decode fails, the `?` ends the streaming
+decode with its error.
 
 `main.rs` calls `expect` on both decodes because `SHAPE_WIRE` is a constant. With real input you'd
 return the error instead.

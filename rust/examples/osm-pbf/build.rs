@@ -1,6 +1,6 @@
 // Generates the OSM decoders from the two schemas in `proto/`. `compile` writes a single file,
-// `fileformat.rs` after the first schema listed, with every `OSMPBF` type from the listed schemas
-// and their imports. Editing a `.proto` under `proto/` re-runs this script.
+// named `fileformat.rs` after the first schema listed, with every `OSMPBF` type from the listed
+// schemas and their imports. Editing a `.proto` under `proto/` re-runs this script.
 
 fn main() {
     let proto = concat!(env!("CARGO_MANIFEST_DIR"), "/proto");

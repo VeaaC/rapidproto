@@ -53,8 +53,8 @@ decoding, so the file has to fit in RAM.
 
 Only the statistics go to stdout. On stderr, a `model` line names the decoder and the thread count.
 Below it, one line each for `read`, `frame` and `process` gives the time taken, and `read` and
-`process` add a byte count and a rate. If `osmstat` hits an error, nothing is printed to stdout and
-the exit status is 1. The errors go to stderr with an `osmstat:` prefix, as in
+`process` add a byte count and a rate. When `osmstat` stops with an error message, nothing is
+printed to stdout and the exit status is 1. The errors go to stderr with an `osmstat:` prefix, as in
 `osmstat: no OSMHeader block -- not an .osm.pbf file?`. Blobs must be raw or zlib. Any other
 compression fails with `unsupported blob compression (only raw/zlib)`.
 
@@ -67,7 +67,7 @@ program uses the decoders through `osm::arena` and `osm::stream`.
 
 - [`src/main.rs`](src/main.rs) goes through the framing once, in order, and checks the header block
   when it reaches it. Then it runs `process_block` on each data blob, in parallel through rayon or
-  one after another with `--sequential`. Any error ends the run there.
+  one after another with `--sequential`.
 - [`src/pbf_input.rs`](src/pbf_input.rs) splits the file into `BlobHeader` and `Blob` pairs and
   inflates zlib blobs with `flate2`. Its default backend is pure Rust and needs no zlib on the
   system.
@@ -100,9 +100,9 @@ The first pass uses the plain
 `primitive_block_stream! { .. }` with a nested `string_table_stream! { .. }`, where no two closures
 touch the same variable. The header check's `header_block_stream! { .. }` works the same way. The
 second pass hands one accumulator, `agg`, down through its nested handlers with
-`primitive_block_stream!(&mut agg; { .. })`. Inside `DenseNodes` it travels wrapped with that
-group's running state. `agg` holds the statistics for the block and the scaling values from the
-first pass.
+`primitive_block_stream!(&mut agg; { .. })`. For the fields of `DenseNodes`, it comes in a wrapper
+that also tracks that group's deltas. `agg` holds the statistics for the block and the scaling
+values from the first pass.
 
 ## Tests
 
@@ -120,37 +120,38 @@ last 20 bytes off the fixture and expects `osmstat` to fail on it with no flags,
 
 A bad file can't make `osmstat` panic. RapidProto's decoders return an error on malformed input
 (see the
-[`rapidproto` docs on untrusted input](https://docs.rs/rapidproto/latest/rapidproto/#untrusted-input)).
-The example itself has no `unsafe` code. A `--stream` run can still finish without an error on a
-malformed file, because it reads less of the file than an arena run does.
+[`rapidproto` docs on untrusted input](https://docs.rs/rapidproto/latest/rapidproto/#untrusted-input)),
+and the example's own code checks the lengths it reads and wraps its sums, as described below. It
+has no `unsafe` code either. A `--stream` run can still finish without an error on a malformed
+file, because it decodes less of the file than an arena run does.
 
 An arena run decodes the header and data blocks in full and exits 1 at the first malformed field.
-A `--stream` run checks the tag and the length of every field in the messages its handlers decode,
-but a sub-message or packed field it skips goes unread. This walk skips the header's `HeaderBBox`,
-the `Info` on each node, way and relation, and `Node.vals`. Damage inside any of them leaves the
-exit status at 0. The streaming decoder also ignores `required`, and every occurrence of a
-singular field goes to its handler
+A `--stream` run never looks inside a packed field or sub-message that no handler decodes. In this
+walk that includes `HeaderBBox`, the `Info` on each node, way and relation (counted, not decoded),
+and the packed columns it has no use for, such as `Node.vals`. Damage inside them leaves the exit
+status at 0. Damage in the
+fields around them, in a message the handlers decode, still fails the run. The streaming decoder
+also ignores `required`, and every occurrence of a singular field goes to its handler
 ([what a handler receives](https://docs.rs/rapidproto/latest/rapidproto/stream/index.html#what-a-handler-receives)).
 Either can make the two runs disagree.
 
 With `--stream` the handlers also decide how deep the decode goes. Here they go four levels deep at
-most, from `PrimitiveBlock` down to `DenseInfo`. The schema declares no groups, but a file can
-still contain unknown ones, one inside another. The decoder skips through them up to the
-[depth limit](https://docs.rs/rapidproto/latest/rapidproto/stream/index.html#untrusted-input) and
-returns an error for any nested deeper.
+most, from `PrimitiveBlock` down to `DenseInfo`. The OSM schema has no groups, yet a file can hold
+unknown ones nested inside each other. Skipping them stops with an error at the
+[depth limit](https://docs.rs/rapidproto/latest/rapidproto/stream/index.html#untrusted-input).
 
 The framing code checks each length it reads from the file. A `BlobHeader` must be under 64 KiB.
-A `Blob` may be at most 32 MiB and must lie within the file. Before inflating a zlib blob, it
-requires a declared `raw_size` from 1 byte to 64 MiB, and the inflated data must come out exactly
+A `Blob` may be at most 32 MiB and must lie within the file. Before `osmstat` inflates a zlib blob,
+the declared `raw_size` must be from 1 byte to 64 MiB, and the inflated data must come out exactly
 that long. Even in a debug build, an overflowing delta, coordinate or id sum wraps instead of
 panicking.
 
 The example sets no
 [capacity limit](https://docs.rs/rapidproto/latest/rapidproto/struct.Arena.html#method.set_capacity_limit)
-on its arenas, and nothing caps what the `--stream` handlers keep. A block's arena can outgrow the
-inflated block many times over, and the first `--stream` pass stores an entry for every string in
-the block's string table. Each thread works on one block at a time, but a crafted file can still
-exhaust memory with or without `--stream`. That's an accepted risk for this tool. If your version
+on its arenas, and nothing limits what the `--stream` handlers keep. A block's arena can outgrow
+the inflated block many times over, and the first `--stream` pass stores an entry for every string
+in the block's string table. Each thread works on one block at a time, yet one crafted block is
+enough to run either mode out of memory. That's an accepted risk for this tool. If your version
 of this code reads files you don't trust, limit both.
 
 ## Schema and fixture
