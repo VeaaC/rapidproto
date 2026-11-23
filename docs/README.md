@@ -3,14 +3,14 @@
 These pages are the C++ manual for RapidProto. The [README](../README.md) gives the overview and
 the [quick starts](../README.md#quick-start). The Rust guide is the documentation of the
 [`rapidproto`](https://docs.rs/rapidproto) and [`rapidproto-build`](https://docs.rs/rapidproto-build)
-crates on docs.rs. The benchmarks cover both languages.
+crates on docs.rs. The decoding rules and the benchmarks cover both languages.
 
 - [The arena decoder](arena.md) covers accessors, the `Arena`, `decode_owned` and error handling.
 - [The streaming decoder](streaming.md) covers handlers, catch-alls, sub-messages, unknown fields,
   errors and what a decode checks.
 - [The debug dumper](dumper.md) covers the `--dump` option, its JSON-like text and `DumpOptions`.
-- [Shared semantics](semantics.md) covers the rules both models follow, such as lifetimes,
-  validation, presence, open enums and duplicate fields.
+- [Decoding rules](semantics.md) covers what both decoders do with malformed input, absent and
+  required fields, enums, fields sent twice and unknown fields.
 - [Using both models](using-both-models.md) covers both models in one translation unit, streaming
   into the arena decoder, and coexisting with `protoc`.
 - [Decode profiles](profiles.md) covers dropping fields, keeping sub-messages as raw bytes, and

@@ -115,8 +115,8 @@ with `rp_`. A message named `class` becomes `class_`.
 | `map<K, V>` | `rapidproto::MapView<Entry>` |
 | `oneof` | one method that takes handlers |
 
-Enums are [open](semantics.md). A number the enum doesn't define comes through unchanged, and a
-`switch` without a `default:` misses it. Nothing checks that strings are valid UTF-8.
+Enums are [open](semantics.md#enums). A number the enum doesn't define comes through unchanged,
+and a `switch` without a `default:` misses it. Nothing checks that strings are valid UTF-8.
 
 A number, enum, string or bytes field with explicit presence returns a `std::optional`, as
 `nickname()` does. Any field marked `optional` in proto2 or proto3 has explicit presence. An
