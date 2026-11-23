@@ -23,7 +23,7 @@ generator parses them itself and carries its own copy of the well-known types, s
 protoc.
 
 On malformed input, a decode fails with an error instead of crashing, though a streaming decode
-checks only [the parts it reads](docs/streaming.md#what-a-decode-checks). On every pull request, the
+checks only [the parts it reads](docs/semantics.md#malformed-input). On every pull request, the
 C++ wire reader and both C++ decoders are fuzzed under ASan and UBSan, and the Rust arena decoders
 under ASan. [SECURITY.md](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md) has the
 details. For untrusted input, also limit how much memory the
@@ -292,8 +292,8 @@ cover Rust as well.
   early
 - [The debug dumper](docs/dumper.md): an optional `--dump` header that prints decoded messages as
   JSON-like text
-- [Decoding rules](docs/semantics.md): what both decoders, in C++ and Rust, do with absent,
-  repeated or unknown fields, enums and malformed input
+- [Decoding rules](docs/semantics.md): what both decoders do with absent fields, fields sent twice,
+  unknown fields, enums and malformed input
 - [Using both models](docs/using-both-models.md): both decoders in one program, and living next to
   protoc-generated code
 - [Decode profiles](docs/profiles.md): dropping fields, keeping sub-messages as raw bytes and

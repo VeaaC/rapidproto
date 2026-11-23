@@ -17,9 +17,9 @@ runtime headers.
 - Rust support. The `rapidproto` crate is the runtime, and `rapidproto-build` generates the decoders
   in a build script. The crates are test releases so far, with their documentation on docs.rs.
 - The README and the [benchmarks](docs/benchmarks.md) cover both languages.
-- [Decoding rules](docs/semantics.md), formerly "Shared semantics", covers Rust as well as C++, with
-  a section per rule. A known field with the wrong wire type is skipped, and it doesn't count as an
-  unknown field.
+- The [decoding rules](docs/semantics.md) page, formerly "Schema features & semantics", covers Rust
+  as well as C++. It also says that a known field with the wrong wire type is skipped without
+  counting as an unknown field.
 
 ### Changed
 

@@ -4,7 +4,7 @@ RapidProto's [arena decoder](arena.md) and [streaming decoder](streaming.md) fol
 the input doesn't line up with the schema. A field may be missing or arrive twice, a field number or
 an enum value may be one the schema doesn't declare, and the bytes may break the wire format. C++
 and Rust behave the same except where a section says otherwise. In several places the result differs
-from protobuf's own library, and code ported from protobuf may rely on protobuf's behavior there.
+from what Google's own library gives, which matters most for code ported from it.
 
 The examples use the schema of the Rust crate's
 [`example`](https://docs.rs/rapidproto/latest/rapidproto/example/index.html) module:
@@ -47,7 +47,7 @@ message Report {
 
 A decode fails on bytes that break the wire format, for example a tag with field number 0, a varint
 longer than ten bytes or a length that runs past the end of the input. The arena decoder reads the
-whole input and fails on malformed bytes anywhere in it, in nested messages, packed fields and map
+whole input and fails on malformed bytes anywhere in it, in sub-messages, packed fields and map
 entries as well. It only steps over the contents of fields that a
 [decode profile](profiles.md#dropping-fields) drops or keeps `raw`, though. Malformed bytes in those
 can go unnoticed.
@@ -60,12 +60,12 @@ everything else as it reads, every group included
 An arena decode fails once sub-messages and groups nest more than 100 levels deep, a limit named
 [`kMaxDecodeDepth`](arena.md#depth-limits) in C++ and
 [`MAX_DECODE_DEPTH`](https://docs.rs/rapidproto/latest/rapidproto/constant.MAX_DECODE_DEPTH.html) in
-Rust. Groups nested directly inside groups have the same limit in the streaming decoder. Its
+Rust. Groups nested directly inside groups stop at 100 in the streaming decoder too. Its
 sub-messages have none. A handler that recurses through untrusted input has to count the levels
 itself ([C++](streaming.md#sub-messages),
 [Rust](https://docs.rs/rapidproto/latest/rapidproto/stream/index.html#untrusted-input)).
 
-With enough stack for the depth limit, malformed input makes a decode fail and never crashes it. On
+With enough stack for the depth limit, malformed input never crashes a decode. On
 Windows a C++ program needs more than the default 1 MB for that. In an unoptimized Rust build, a
 spawned thread's 2 MiB may not be enough. The C++ decoders and the Rust arena decoders are
 [fuzzed](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md) in CI; the Rust streaming
@@ -140,13 +140,14 @@ Rust, null or `None` when the field is absent. Neither language generates a `has
 field.
 
 A `[default = X]` option in a proto2 or editions schema isn't applied. When the field is absent it
-reads `std::nullopt` or `None`, where protobuf's accessor would return X. `value_or(X)` in C++ and
-`unwrap_or(X)` in Rust put it back.
+reads `std::nullopt` or `None`, where protobuf's accessor would return X. `value_or` in C++ and
+`unwrap_or` in Rust put it back; for a Rust string field the fallback is a
+`ProtoStr::new(b"...")`.
 
-The streaming decoder calls no handler for a field that isn't in the input. The map handler is the
-exception. It runs for every entry, even one without its key or value. A missing key or value
-arrives as 0, as empty, or as a sub-message with nothing in it. The arena decoder fills the same
-gaps, but a missing message value reads as null in C++ and as an empty message in Rust.
+The streaming decoder calls no handler for a field that isn't in the input. A map entry that lacks
+its key or its value still reaches the map handler, with 0, an empty view or an empty sub-message in
+the missing place. The arena decoder fills the same gaps, except that a missing message value reads
+as null in C++ and as an empty message in Rust.
 
 ## Required fields
 
@@ -201,14 +202,15 @@ The C++ enum is an `enum class` over `std::int32_t`, one type that
 [both decoders share](using-both-models.md). Without the `default:`, `-Wall` warns that
 `rp_non_exhaustive_min` and `rp_non_exhaustive_max` aren't handled. The generator adds those two
 enumerators at `INT32_MIN` and `INT32_MAX` so that a `switch` over the schema's values alone draws
-the warning.
+the warning. `rp_known_min` and `rp_known_max` are the lowest and highest numbers the schema lists,
+useful for a range check, though a number between them may still be undeclared.
 
 In Rust,
 [`Unit`](https://docs.rs/rapidproto/latest/rapidproto/example/common/weather/struct.Unit.html) is a
 struct around an `i32`, kept in the `common` module that both decoders use. Each value is a constant
 such as `Unit::CELSIUS`, with the number in `.0`. `classify()` turns it into
 [`UnitClass`](https://docs.rs/rapidproto/latest/rapidproto/example/common/weather/enum.UnitClass.html),
-a Rust enum with a variant per value and `Unknown(i32)` for any other number.
+whose variants mirror the schema's values plus `Unknown(i32)` for every number it doesn't list.
 
 Closed enums, meaning proto2 enums and editions enums with `enum_type = CLOSED`, decode the same way
 and can hold any number. In protobuf, a number a closed enum doesn't list goes to the message's
@@ -244,7 +246,7 @@ RapidProto's decoders do depends on the kind of field:
 | map key, in two entries | both entries | a call per entry | later entry |
 | map key or scalar value, in one entry | last of each | one call, last of each | last of each |
 | singular message or group | fails | a call each time | merged |
-| oneof, the same message member | fails | a call each time | merged |
+| oneof, the same message member twice in a row | fails | a call each time | merged |
 | map message value, in one entry | fails | one call, last value | merged |
 
 A `string` sent as `"AAA"` and then as `"BBB"` reads `"BBB"`. A repeated field takes its elements
@@ -256,7 +258,7 @@ them in input order, and `find` returns the later one. Rust's
 `len()`, `iter()` and `get()`.
 
 For the cases that fail, the arena decoder's error is `RepeatedSingularMessage`. Concatenating two
-encodings that each set `location` is enough:
+encoded messages that each set `location` is enough:
 
 ```cpp
 bool decode_both(const std::string& a, const std::string& b) {
@@ -281,7 +283,7 @@ whole decode, with no partial message. As with `MissingRequired`, the number is 
 within its own message. The rule also covers a field that a profile keeps `raw`, but not one it
 drops.
 
-The arena decoder has no way to read such input. If you produce it, merge the messages before
+The arena decoder rejects such input. If you produce it, merge the messages before
 encoding them. If you only receive it, the streaming decoder can still read it, calling your handler
 for every occurrence.
 

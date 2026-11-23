@@ -9,8 +9,8 @@ crates on docs.rs. The decoding rules and the benchmarks cover both languages.
 - [The streaming decoder](streaming.md) covers handlers, catch-alls, sub-messages, unknown fields,
   errors and what a decode checks.
 - [The debug dumper](dumper.md) covers the `--dump` option, its JSON-like text and `DumpOptions`.
-- [Decoding rules](semantics.md) covers what both decoders, in C++ and Rust, do with malformed
-  input, absent and required fields, enums, repeated fields and unknown fields.
+- [Decoding rules](semantics.md) covers what both decoders do with malformed input, absent and
+  required fields, enums, fields sent twice and unknown fields.
 - [Using both models](using-both-models.md) covers both models in one translation unit, streaming
   into the arena decoder, and coexisting with `protoc`.
 - [Decode profiles](profiles.md) covers dropping fields, keeping sub-messages as raw bytes, and

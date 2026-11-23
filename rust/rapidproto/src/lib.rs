@@ -44,18 +44,19 @@
 //!
 //! # Decoding rules
 //!
-//! Two schema rules can fail an arena decode. An absent `required` field gives
-//! [`ErrorKind::MissingRequired`], and a non-repeated message or group field sent twice gives
-//! [`ErrorKind::RepeatedSingularMessage`]. [`DecodeError::field_number`] says which field. The
-//! streaming decoder checks neither. How both decoders treat absent, repeated and unknown fields,
-//! enums and strings is on the [decoding rules] page, for Rust and C++ alike.
+//! An arena decode fails with [`ErrorKind::MissingRequired`] when a `required` field is absent,
+//! and with [`ErrorKind::RepeatedSingularMessage`] when a non-repeated message or group field
+//! arrives twice. [`DecodeError::field_number`] gives the field's number within its own message.
+//! The streaming decoder checks neither. The [decoding rules] page covers how both decoders treat
+//! absent fields, fields sent twice, unknown fields, enums and strings.
 //!
 //! # Untrusted input
 //!
-//! Malformed input gets a `DecodeError` back from `decode`, never a panic, though a streaming
-//! decode checks only the parts its handlers read ([`stream`](crate::stream#untrusted-input)). CI
-//! fuzzes the arena decoders under AddressSanitizer on every pull request. An arena decode fails
-//! with [`ErrorKind::DepthLimitExceeded`] when sub-messages or groups nest deeper than
+//! Malformed input gets a `DecodeError` back from `decode`, never a panic. A streaming decode
+//! doesn't look inside a sub-message no handler decodes, or inside a packed field or map entry that
+//! has no handler, so damage there goes through ([malformed input]). CI fuzzes the arena decoders
+//! under AddressSanitizer on every pull request. An arena decode fails with
+//! [`ErrorKind::DepthLimitExceeded`] when sub-messages or groups nest deeper than
 //! [`MAX_DECODE_DEPTH`].
 //!
 //! A decoded message can take many times its input size in the arena. With `alloc`, the arena grows
@@ -131,6 +132,7 @@
 //! [`Config::stream`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.stream
 //! [`Config::serde`]: https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.serde
 //! [decoding rules]: https://github.com/VeaaC/rapidproto/blob/main/docs/semantics.md
+//! [malformed input]: https://github.com/VeaaC/rapidproto/blob/main/docs/semantics.md#malformed-input
 // Without `alloc` there is no `Owned`, so its links go to the feature list, which says why.
 #![cfg_attr(not(feature = "alloc"), doc = "[`Owned`]: #features")]
 // The test harness needs `std`, which also lets the no-allocator path be unit-tested with
