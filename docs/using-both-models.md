@@ -113,8 +113,9 @@ Without the `reset()`, every phone would stay in the arena until `print_phones` 
 can reset the arena while the outer decode is still running, because nothing in the streaming
 decoder touches the arena. Each [reset](arena.md#the-arena) invalidates every message the arena
 holds, the phone from the previous call included. Finish with each phone inside the call that
-decoded it. With a reset per phone, the arena only has to grow as far as the largest phone needs. For now, a
-[bug in how a reset arena reuses its memory](arena.md#limiting-memory) can make it grow past that.
+decoded it. With a reset per phone, the arena only has to grow as far as the largest phone needs.
+For now, a [bug in how a reset arena reuses its memory](arena.md#limiting-memory) can make it grow
+past that.
 
 ## Next to protoc-generated code
 
