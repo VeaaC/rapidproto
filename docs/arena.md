@@ -172,8 +172,11 @@ person->workplace(
 
 A handler's first parameter is a member tag type such as `ex::Person::Workplace::office`, and its
 second is the member's value. For a message member that value comes as a reference, which can't be
-null. Members without a handler are ignored unless a `[](auto, auto)` handler picks them up. The
-unset case only ever reaches a `std::monostate` handler. Handlers return `void`.
+null. Members without a handler are ignored unless a catch-all handler, such as
+`[](auto, auto value) -> void { ... }`, picks them up. Leave out the `-> void` and a body that
+prints the value or passes it to an overloaded function may not compile. The unset case reaches a
+`std::monostate` handler, or a catch-all written with a parameter pack, but never a two-parameter
+catch-all. Handlers return `void`.
 
 A [decode profile](profiles.md) changes some of these types. Dropping a field removes its accessor.
 A `raw` sub-message comes back still encoded: a `std::optional<rapidproto::ByteView>`, a plain

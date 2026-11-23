@@ -1,145 +1,290 @@
 # The streaming decoder
 
-*Generated with `--stream`. Header: `<stem>.rp.stream.hpp`, types at `rp::stream::pkg::Msg`. Back to the
-[README](../README.md); shared rules (lifetimes, presence, enums) in [semantics.md](semantics.md).*
+Use the streaming decoder in place of the [arena decoder](arena.md) when you want a few fields out
+of large messages and don't need the message itself. You pass `decode` a handler for each field
+you're after, and it calls them in a single pass over the input without allocating memory. The whole
+input has to be in memory before you start.
 
-A streaming decoder forwards wire data 1:1, with no aggregation, defaulting, or merging.
-For each message `Foo` the generator emits a `struct Foo` holding a
-non-owning `ByteView`, plus a **field-identity tag** type per field:
+The examples decode a `Person`, from the same schema the arena decoder's page uses:
+
+```proto
+syntax = "proto3";
+package example;
+
+message Person {
+  string name = 1;
+  uint32 id = 2;
+  repeated string email = 3;
+  Address address = 4;
+  optional string nickname = 5;
+  repeated Phone phones = 6;
+  map<string, string> labels = 7;
+  oneof workplace {
+    Address office = 8;
+    string timezone = 9;
+  }
+}
+
+message Address {
+  string city = 1;
+  string country = 2;
+}
+
+message Phone {
+  string number = 1;
+}
+```
+
+`rapidprotoc --stream person.proto` writes `person.rp.stream.hpp` (other flags are in the
+[CLI reference](integration.md#the-rapidprotoc-cli)). The package gives the namespace,
+`rp::stream::example` here, or plain `rp::stream` when the schema has none. A message declared
+inside another becomes a struct nested in it.
 
 ```cpp
-struct Person {
-  explicit Person(rapidproto::ByteView bytes) noexcept;
+#include "person.rp.stream.hpp"
 
-  struct name    { using Value = std::string_view;     /* kNumber=1, kName="name"    */ };
-  struct id      { using Value = std::uint32_t;        /* kNumber=2, kName="id"      */ };
-  struct email   { using Value = std::string_view;     /* kNumber=3, kName="email"   */ };
-  struct address { using Value = ::rp::stream::example::Address; /* kNumber=4, kName="address" */ };
+#include <iostream>
 
-  template <class... rp_Callbacks>
-  [[nodiscard]] rapidproto::DecodeStatus decode(rp_Callbacks&&... rp_callbacks) const;
+namespace ex = rp::stream::example;
+
+bool print_person(rapidproto::ByteView input) {
+    const rapidproto::DecodeStatus status = ex::Person{input}.decode(
+        [](ex::Person::name, std::string_view name) { std::cout << name << '\n'; },
+        [](ex::Person::email, std::string_view email) { std::cout << "email " << email << '\n'; },
+        [](ex::Person::address, ex::Address address) {
+            return address.decode([](ex::Address::city, std::string_view city) {
+                std::cout << "lives in " << city << '\n';
+            });
+        });
+    if (!status.ok()) {
+        std::cerr << "not a valid Person\n";
+        return false;
+    }
+    return true;
+}
+```
+
+Given the bytes protoc writes for
+`name: "Ada" id: 7 email: "ada@x.org" address { city: "London" } phones { number: "555-0100" }`,
+it prints:
+
+```text
+Ada
+email ada@x.org
+lives in London
+```
+
+`ex::Person{input}` is the decoder, holding nothing but a view of the input. `rapidproto::ByteView`
+is `std::string_view` under another name. For raw bytes behind a `const std::uint8_t*`,
+`rapidproto::byte_view(ptr, size)` builds one.
+
+Each handler picks its field by the type of its first parameter, so their order in the call doesn't
+matter. With no handler for `id` or `phones`, the decoder skips both. It gets past `phones` in one
+jump over its length, without looking inside.
+
+## Handlers
+
+For each field, the generator writes a field tag type nested in the message's decoder. This is
+`ex::Person::name`:
+
+```cpp
+struct name {
+    using Value = std::string_view;
+    static constexpr std::uint32_t kNumber = 1;
+    static constexpr std::string_view kName = "name";
 };
 ```
 
-The examples below use `namespace ex_s = rp::stream::example;` - streaming types live under
-`rp::stream::<your.package>`.
+A handler takes the field tag type and then a `Value` (for a map field, a `Key` and then a `Value`).
+Any of them may be a `const` reference. Field tag types keep their fields' names, case included. A
+name that would clash with C++ or with the generated code gets a trailing `_`, as in `decode_` for a
+field called `decode`. `kNumber` holds the field number and `kName` the name as the schema spells
+it. They're there mostly for [catch-all handlers](#catch-all-handlers).
 
-A callback is `[](Foo::field, Value v){ … }`. The **tag type** names the field (tied to its proto name,
-so referencing a removed or renamed field is a compile error), and `Value` is the field's type. Each
-tag also carries `static constexpr std::uint32_t kNumber` and `std::string_view kName` (the proto
-name). Callbacks fire in **wire order**, once per occurrence (repeated/packed fire per element; maps
-per entry). The decoder never materializes the whole message.
-
-> **Absent fields fire no callback and no defaults are delivered** - and a proto3 scalar equal to its
-> default is not on the wire at all. Initialize your own destination variables.
-
-## Three ways to consume fields
-
-All snippets decode a `Person` buffer `wire` (a `rapidproto::ByteView`). `decode()` is `[[nodiscard]]`
-and returns a `DecodeStatus` (see [Error handling](#error-handling)).
-
-**1. A subset.** Pass callbacks only for the fields you want; the rest are skipped - the skip-heavy
-microbenchmarks in [benchmarks.md](benchmarks.md#streaming-vs-protozero) measure that shape:
-
-```cpp
-std::string name; std::uint32_t id = 0;
-ex_s::Person{wire}.decode(
-    [&](ex_s::Person::name, std::string_view v) { name = std::string(v); },
-    [&](ex_s::Person::id,   std::uint32_t v)    { id = v; });
-// email and address are never decoded.
-```
-
-**2. A catch-all.** A generic `[](auto tag, auto&& value)` matches every known field you didn't give a
-specific callback (logging, generic processing). The tag's `kName`/`kNumber` identify it, and you can
-mix a catch-all with specific callbacks (the specific one wins). For a sub-message field, `value` is an
-undecoded sub-decoder; a catch-all does **not** recurse, so call `value.decode(...)` yourself.
-
-```cpp
-ex_s::Person{wire}.decode([&](auto tag, auto&& value) {
-    log("field %s (#%u)", tag.kName.data(), tag.kNumber);
-});
-```
-
-**3. Known fields *and* unknown ones.** Give specific callbacks, and add a one-argument
-`[](rapidproto::UnknownField uf)` that fires for fields whose number is **not in your schema** (a newer
-producer's field). This is the forward-compatibility pattern:
-
-```cpp
-ex_s::Person{wire}.decode(
-    [&](ex_s::Person::name,  std::string_view v) { name = std::string(v); },
-    [&](ex_s::Person::email, std::string_view v) { emails.push_back(std::string(v)); }, // per element
-    [&](ex_s::Person::address, ex_s::Address a) -> rapidproto::DecodeStatus { // recurse
-        return a.decode([&](ex_s::Address::city, std::string_view v) { city = std::string(v); });
-    },
-    [&](rapidproto::UnknownField uf) {                                  // a field not in the schema
-        log("unknown #%u (wire type %d, %zu bytes)", uf.field_number, int(uf.wire_type), uf.bytes.size());
-    });
-```
-
-`UnknownField` carries `{ std::uint32_t field_number; rapidproto::WireType wire_type;
-rapidproto::ByteView bytes; }` - the field's bytes **as they appear on the wire after the tag**, so a LEN field's view
-starts with its length prefix and a group's ends with its closing end-group tag. That framing is why
-these bytes are **not** what another decoder's `decode()` takes - a sub-decoder's `rp_bytes()` is
-(see [using both models](using-both-models.md)); strip the prefix yourself if you want to decode an
-unknown field. A known field you simply didn't handle is not "unknown" (use a catch-all for those).
-Proto2 `extend` fields are not decoded; an extension on the wire arrives here as a raw `UnknownField`.
+Handlers are called in the order their fields appear in the input. Each element of a repeated field
+gets its own call, whether the elements came packed or one per tag. A field that's missing from the
+input doesn't reach its handler, not even with a default value. Give your variables their starting
+values before the decode. protoc never writes a proto3 `id` of 0 into the input.
 
 ## Field kinds
 
-- **Scalars, `string`, `bytes`.** Delivered by value; `string`/`bytes` both arrive as
-  `std::string_view` (no UTF-8 validation). The value types match the arena model's scalar mapping.
-- **`repeated`.** Fires **once per element**, in wire order (packed or expanded).
-- **Sub-messages and groups.** Delivered as a **sub-decoder**; recurse with its `decode(...)`. It
-  doesn't decode until you do. Groups behave like sub-messages. `rp_bytes()` exposes the
-  sub-decoder's exact undecoded span (a group body arrives without its framing) - see
-  [Using both models](using-both-models.md) for feeding it to the arena decoder.
-- **`map<K, V>`.** The callback takes **`(Tag, K, V)`** and fires once per entry:
-  `[&](Person::labels, std::string_view key, std::string_view value) { … }`.
-- **`oneof`.** Each member is an ordinary field tag. The member present on the wire fires its callback
-  and the others don't, so *the callback that fires is the discriminator*. There's no oneof-level type.
-  On a buffer carrying more than one member - two serialized messages concatenated, say - each fires
-  in wire order, and the **last** is the one protobuf would call set (see
-  [duplicate fields](semantics.md)).
+| Field | The handler then takes |
+| --- | --- |
+| number, `bool` | the value, such as `std::uint32_t` or `double` |
+| enum | the generated enum type |
+| `string`, `bytes` | `std::string_view` |
+| message, group | the sub-message's decoder, such as `ex::Address` |
+| `map<K, V>` | the key, then the value |
 
-Enums decode open - see [semantics](semantics.md).
-
-## Error handling
-
-`decode()` returns a `rapidproto::DecodeStatus`:
+A repeated field or a oneof member takes the same parameters as a single field of its type. The
+handler call for each element makes large packed fields of numbers
+[faster to read](benchmarks.md#arena-vs-streaming-the-two-rapidproto-models) with the arena decoder.
 
 ```cpp
-struct DecodeStatus {
-    rapidproto::WireError wire;    // a wire-format error (None when ok or aborted)
-    bool                  aborted; // a callback asked to stop
-    std::size_t           offset;  // byte offset of a wire error
-    bool ok() const noexcept;      // true unless a wire error or an abort
+rapidproto::DecodeStatus print_labels(rapidproto::ByteView input) {
+    return ex::Person{input}.decode(
+        [](ex::Person::labels, std::string_view key, std::string_view value) {
+            std::cout << key << '=' << value << '\n';
+        });
+}
+```
+
+The `labels` handler runs once per entry. An entry sent without its key or its value still reaches
+it, with an empty view, a 0 or an empty decoder in place of the missing part.
+
+The members of `Person`'s oneof, `office` and `timezone`, are ordinary fields here, each with its
+own field tag type. The handler that runs tells you which one the sender chose. Should both turn up
+in the input, both handlers run, in input order. Protobuf would keep the later one.
+
+Two `address` fields in one input mean two calls to its handler, where protobuf would
+[merge](semantics.md) them. Nothing checks for a missing `required` field, an enum value the schema
+doesn't define, or a string that isn't valid UTF-8.
+
+## Sub-messages
+
+The `address` handler in the first example gets an `ex::Address`, the sub-message's decoder.
+`Person`'s decoder doesn't look inside the address unless that handler calls `address.decode`.
+Return the status of that call, as `print_person` does. A malformed address, or an abort from a
+handler inside it, then ends the outer decode as well. A handler that ignores the status lets the
+outer decode succeed.
+
+Groups work differently. Whenever the decoder meets one, it first walks the group's fields to the
+end-group tag, validating each tag and length, and only then calls the group's handler if there is
+one. The decode fails with `WireError::GroupTooDeep` when more than `rapidproto::kMaxGroupDepth`
+(100) groups are stacked directly inside one another.
+
+The [arena decoder's depth limit](arena.md#depth-limits) has no counterpart for sub-messages here.
+Each level is one of your handlers calling `decode`, with the stack growing as it goes. A recursive
+handler that may see untrusted input should count levels and stop the decode past a limit you
+choose.
+
+`rp_bytes()` returns the bytes a sub-message's decoder would read. They start after the length
+prefix, or for a group they're its body, without the tags that open and close it. You can pass them
+to the arena decoder's `decode` to [build a message](using-both-models.md) for just that part of the
+input.
+
+## Catch-all handlers
+
+```cpp
+rapidproto::DecodeStatus print_name(rapidproto::ByteView input) {
+    return ex::Person{input}.decode(
+        [](ex::Person::name, std::string_view name) { std::cout << name << '\n'; },
+        [](auto field, const auto&...) -> void {
+            std::cout << "skipped " << field.kName << " (field " << field.kNumber << ")\n";
+        });
+}
+```
+
+The second lambda is a catch-all handler, a generic lambda that accepts any field tag type and the
+values that come with it. Every declared field you wrote no handler for goes to it, with the same
+arguments its own handler would have had, while `name` still reaches the first lambda.
+
+Write the values as a `const auto&...` pack, as here, which also gives map fields their key and
+value. A catch-all written `[](auto field, auto value)` compiles but never receives map fields, and
+one written with `auto&&...` can take fields from handlers that use `const` references. A generic
+lambda with a single parameter receives only [unknown fields](#unknown-fields).
+
+Keep the `-> void` as well. Without it, `decode` compiles the body with test arguments of its own
+while it sorts out which handler takes which field. A body that reads `kName`, or that passes a
+value to `<<` or another overloaded function, doesn't compile against those arguments.
+
+## Unknown fields
+
+```cpp
+rapidproto::DecodeStatus list_unknown(rapidproto::ByteView input) {
+    return ex::Person{input}.decode([](rapidproto::UnknownField field) {
+        std::cout << "field " << field.field_number << ", wire type "
+                  << static_cast<int>(field.wire_type) << ", " << field.bytes.size()
+                  << " bytes\n";
+    });
+}
+```
+
+A handler taking a single `rapidproto::UnknownField` receives every field whose number `Person`
+doesn't declare, such as one added in a newer version of the schema. Extensions arrive here too.
+
+`bytes` holds the field as it was encoded, minus its tag. The length that starts a length-delimited
+field is included, and so is the tag that ends a group. Write the tag back in front, as the varint
+`(field.field_number << 3) | static_cast<std::uint32_t>(field.wire_type)`, and you have the original
+field byte for byte. When an unknown length-delimited field holds a message, the message starts
+right after that length prefix.
+
+## Errors and stopping early
+
+```cpp
+std::optional<std::string_view> first_email(rapidproto::ByteView input) {
+    std::optional<std::string_view> found;
+    const rapidproto::DecodeStatus status = ex::Person{input}.decode(
+        [&](ex::Person::email, std::string_view email) {
+            found = email;
+            return rapidproto::DecodeStatus::abort();
+        });
+    if (status.wire != rapidproto::WireError::None) {
+        std::cerr << "malformed Person\n";
+        return std::nullopt;
+    }
+    return found;  // points into input
+}
+```
+
+`decode` returns a `rapidproto::DecodeStatus`:
+
+```cpp
+struct [[nodiscard]] DecodeStatus {
+    WireError wire = WireError::None;
+    bool aborted = false;
+    std::size_t offset = 0;
+
+    [[nodiscard]] constexpr bool ok() const noexcept { return wire == WireError::None && !aborted; }
+    explicit constexpr operator bool() const noexcept { return ok(); }
+
+    static constexpr DecodeStatus success() noexcept { return {}; }
+    static constexpr DecodeStatus abort() noexcept { return {WireError::None, true, 0}; }
 };
 ```
 
-- **Wire errors** stop the walk; `status.wire`/`status.offset` say what and where.
-- **Partial delivery is not rolled back.** Callbacks fire *as the message is decoded*; if a wire error
-  or abort stops the walk part-way, the callbacks that already fired are **not** undone. On a non-ok
-  `decode()`, discard whatever your variables hold.
-- **Aborting.** A callback may return `void` (continue) **or** `rapidproto::DecodeStatus`, and you can
-  mix the two freely. Return `rapidproto::DecodeStatus::abort()` (or propagate a sub-decode's status) to
-  stop early.
+A handler returns `void` or a `DecodeStatus`, and `print_person` mixes the two. A handler that
+returns a status whose `ok()` is false, usually `DecodeStatus::abort()`, ends the decode on the
+spot. `decode` then returns that same status. `first_email` stops at the first email this way.
+That's also why it checks `wire` rather than `ok()`.
 
-## Mistakes are compile errors
+Malformed input ends the decode too, with `wire` set to what was wrong. `offset` gives the error's
+position in bytes. It counts from the beginning of the input, or of the sub-message, packed field or
+map entry the error is in.
 
-Dispatch is entirely compile-time (no allocation, no `std::function`, no virtual calls). Each of
-these is a compile error:
+Nothing a handler did before a failure is undone. Given only the first 20 bytes of the input above,
+`print_person` prints `Ada` and `email ada@x.org` before it reports the error.
 
-- **Wrong value type.** `[](Person::id, std::int64_t)` for a `uint32` field → error.
-- **Wrapper type.** `[](Person::id, std::optional<std::uint32_t>)` → error.
-- **Duplicate.** Two callbacks for the same field → error.
-- **Wrong arity.** `[](Person::id)`, or a map callback missing its value → error.
-- **Removed/renamed field.** Referencing `Person::nonexistent` → error (the tag type doesn't exist).
-- **Another message's field.** Passing `[](Address::city, …)` to `Person`'s `decode()` (say, pasted
-  between the nesting levels of the recursion pattern above) → error - it could never fire.
+## What a decode checks
 
-## See also
+At the level you call `decode` on, the decoder checks every tag, value and length. It looks inside a
+packed field or a map entry only when the field has a handler. Malformed bytes in anything it skips,
+such as a sub-message no handler decoded, don't fail the decode. To have them rejected, decode those
+parts too. With no handlers, `return address.decode();` checks the address's own fields without
+calling anything. Where the decoder does read, malformed input fails the decode and never crashes
+it. The streaming and arena decoders are both
+[fuzzed](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md) under AddressSanitizer.
 
-- [Using both models](using-both-models.md) - stream the outer message, materialize chosen
-  sub-messages with the arena decoder.
-- [Benchmarks](benchmarks.md) - how the streaming decoder compares to protozero (and when the arena
-  model is faster, e.g. large packed arrays).
+## Compile errors
+
+Most handler mistakes stop the build. Taking `id` as a `std::int64_t`, which its `std::uint32_t`
+would convert to, fails with "a callback for field 'Person::id' has the wrong value type (expected
+id::Value)". An `int` for an enum fails the same way. The build also fails on two handlers for one
+field, or on a handler that names a field of some other message, such as `ex::Address::city` passed
+to `Person`'s `decode`. Once a handler names its field, its value parameter must be concrete too,
+which rules out `[](ex::Person::id, auto)`. A handler for a field that has since been renamed or
+removed from the schema fails with the compiler's own error about a missing type.
+
+## Lifetimes and threads
+
+Like the decoder itself, the `std::string_view`s your handlers receive
+[borrow from the input](arena.md#the-arena). They remain usable after `decode` returns, up to the
+point where the input is destroyed or changed. Say `load()` returns a `std::string`. In
+`ex::Person{load()}.decode(...)` that string lives until the statement ends. The handlers can read
+their views during the decode but mustn't keep any. `ex::Person person{load()};` stores a decoder
+whose string is gone by the next line, and compilers don't warn about it.
+
+`decode` keeps its own instance of each handler for the call, copied from a named lambda or moved
+from a temporary. State a handler should leave behind belongs in a reference capture, since a
+`mutable` lambda's by-value captures change only that instance. Several threads can decode the same
+input at the same time, provided nothing modifies it.
