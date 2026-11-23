@@ -9,7 +9,7 @@ mod schema {
     include!(concat!(env!("OUT_DIR"), "/message.rs"));
 }
 
-use rapidproto::{Arena, DecodeError};
+use rapidproto::Arena;
 use schema::arena::demo::{Point as ArenaPoint, Shape as ArenaShape};
 use schema::common::demo::{Kind, KindClass};
 use schema::stream::demo::{shape_stream, Shape};
@@ -67,14 +67,14 @@ fn main() {
                 // `?` turns invalid UTF-8 into a `DecodeError`, which ends the decode.
                 name => |p, n| {
                     p.name = n.to_str()?.to_owned();
-                    Ok::<_, DecodeError>(())
+                    Ok(())
                 },
                 origin => |p, pt| {
                     let sub_arena = Arena::new();
                     let point = ArenaPoint::decode(pt.bytes(), &sub_arena)?;
                     p.x = point.x();
                     p.y = point.y();
-                    Ok::<_, DecodeError>(())
+                    Ok(())
                 },
                 kind => |p, k| p.kind = k.0, // the open-enum newtype; `.0` is the raw i32
                 sides => |p, v| p.sides_sum += v,

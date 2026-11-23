@@ -1,14 +1,18 @@
-// Generate decoders for the schema under `proto/` when the crate is built. The generated code lands
-// in OUT_DIR; `src/main.rs` includes it. Editing a `.proto` re-runs this automatically.
+// Generates the decoders for `proto/message.proto` into `OUT_DIR`, where `src/main.rs` includes
+// them. rapidproto-build tells Cargo to re-run this script when any `.proto` under `proto/`
+// changes.
 
 fn main() {
-    // The generated code names its types through the path it is included at: `mod schema` in main.rs.
+    // The path of `mod schema` in `main.rs`, which includes the output. Generated code spells
+    // paths to its own types from there.
     rapidproto_build::Config::new("crate::schema")
-        // Emit BOTH decode models into the one generated file: the arena tree (`schema::arena`) and the
-        // streaming visitor (`schema::stream`). main.rs decodes the same buffer with each.
+        // Streaming decoders in `schema::stream` next to the arena decoders in `schema::arena`, in
+        // the same file, with the enums both use in `schema::common`. `main.rs` runs both on one
+        // input.
         .stream(true)
-        // `serde::Serialize` impls when this crate's optional `serde` feature is on.
+        // `Serialize` impls only when this crate's optional `serde` feature is on.
         .serde(std::env::var_os("CARGO_FEATURE_SERDE").is_some())
+        // Where `message.proto`'s import of `types.proto` is found.
         .include("proto")
         .compile(&["proto/message.proto"])
         .expect("generate decoders");

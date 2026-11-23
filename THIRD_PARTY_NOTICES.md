@@ -42,7 +42,8 @@ and are not part of what it distributes.
 
 - **Files:** `examples/osm-pbf/proto/fileformat.proto` and
   `examples/osm-pbf/proto/osmformat.proto`, vendored unmodified from
-  [OSM-binary](https://github.com/openstreetmap/OSM-binary) v1.7.0 for the OSM PBF example.
+  [OSM-binary](https://github.com/openstreetmap/OSM-binary) v1.7.0 for the OSM PBF example, and
+  identical copies in `rust/examples/osm-pbf/proto/` for the Rust one.
 - **Copyright:** 2010 Scott A. Crosby.
 - **License:** MIT — each file carries the full license text in its header. (The OSM-binary
   repository's *library* code is LGPL-3.0; none of it is used or distributed here — only the
