@@ -3,15 +3,18 @@
 *The shared rules - they apply to both decode models ([arena](arena.md), [streaming](streaming.md))
 and affect how you write correct consumer code. This page is the single home for them.*
 
-- **Lifetimes.** Both models borrow the input. Streaming: the input `ByteView` must outlive the decoder
-  and every `string_view` it hands a callback. Arena: a decoded message needs both
+- **Lifetimes.** Both models borrow the input. Streaming: the views a handler gets point into it
+  ([lifetimes](streaming.md#lifetimes-and-threads)). Arena: a decoded message needs both
   [its `Arena`](arena.md#the-arena) and the input, and
   [`decode_owned`](arena.md#owned-messages) keeps the three together.
-- **Untrusted input is validated; values are not.** Wire input is fully checked for **wire-format
-  integrity** (structure, lengths, group nesting), so a malformed buffer fails the decode - the arena
-  `decode()` returns null with an `ArenaDecodeError`, the streaming one a non-`ok()` `DecodeStatus` -
-  and never triggers UB. Field *values* are not range-checked. A `string` in particular is handed
-  back unvalidated, so it may carry bytes `protoc` would reject as invalid UTF-8.
+- **Untrusted input is validated; values are not.** What a decoder reads is checked for
+  **wire-format integrity** (structure, lengths, group nesting), so a malformed buffer fails the
+  decode - the arena `decode()` returns null with an `ArenaDecodeError`, the streaming one a
+  non-`ok()` `DecodeStatus` - and never triggers UB. The streaming decoder checks only the parts it
+  reads; see
+  [what a decode checks](streaming.md#what-a-decode-checks). Field *values* are not range-checked.
+  A `string` in particular is handed back unvalidated, so it may carry bytes `protoc` would reject
+  as invalid UTF-8.
 - **Defaults & presence.** Arena: an *implicit*-presence field (plain proto3 scalars) reads back its
   zero default (`0` / `""` / the first enum value) when absent; an *explicit*-presence scalar/string/
   enum field returns `std::optional<T>` (`std::nullopt` when absent - apply a proto2 `[default=X]`
@@ -75,9 +78,9 @@ and affect how you write correct consumer code. This page is the single home for
   `int32` field sent as length-delimited bytes is skipped. It does not set
   [`has_unknown_fields()`](profiles.md#unknown-fields) and does not reach a streaming decoder's
   unknown-field handler. Protobuf's own parsers treat such a field as unknown.
-- **Thread-safety.** A streaming `decode()` is `const` and holds no mutable state, so decoders over one
-  buffer run concurrently as long as the buffer isn't mutated. An arena `decode()` writes to its
-  `Arena`, so each thread needs [an arena of its own](arena.md#the-arena).
+- **Thread-safety.** Streaming decodes of one unmodified input can
+  [run on several threads](streaming.md#lifetimes-and-threads) at once. An arena `decode()` writes
+  to its `Arena`, so each thread needs [an arena of its own](arena.md#the-arena).
 
 The full list of intentional non-goals and known limitations (what is deliberately *not* supported,
 and why) is in [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md#known-limitations-and-non-goals).
