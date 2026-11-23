@@ -26,7 +26,7 @@ On malformed input, a decode fails with an error instead of crashing. On every p
 C++ wire reader and both C++ decoders are fuzzed under ASan and UBSan, and the Rust arena decoders
 under ASan. [SECURITY.md](https://github.com/VeaaC/rapidproto/blob/main/SECURITY.md) has the
 details. For untrusted input, also limit how much memory the
-[arena](docs/arena.md#memory--lifetimes) may take with `Arena::set_capacity_limit`. The Rust crate
+[arena](docs/arena.md#limiting-memory) may take with `Arena::set_capacity_limit`. The Rust crate
 documents it under [untrusted input](https://docs.rs/rapidproto/latest/rapidproto/#untrusted-input).
 
 ## Two decoders
@@ -72,7 +72,7 @@ too: `service` and `rpc` definitions are skipped.
 
 Decoded strings and bytes point into the input, which has to [stay alive](docs/semantics.md) while
 you use them. With the arena decoder, so does the arena. If that's awkward,
-[`rapidproto::decode_owned<T>`](docs/arena.md#self-contained-decode-decode_owned) in C++ and
+[`rapidproto::decode_owned<T>`](docs/arena.md#owned-messages) in C++ and
 [`Msg::decode_owned`](https://docs.rs/rapidproto/latest/rapidproto/struct.Owned.html) in Rust
 bundle the input and the arena with the message.
 
@@ -150,7 +150,7 @@ int main() {
     rapidproto::ArenaDecodeError err;
     const ex::Person* person = ex::Person::decode(rapidproto::ByteView(input), arena, &err);
     if (person == nullptr) {
-        return 1;  // malformed input: err.code and err.offset say why
+        return 1;  // malformed input: err.code says why
     }
 
     std::uint32_t id = person->id();
@@ -330,9 +330,9 @@ Before 1.0, a C++ minor release may break things but a patch release won't.
 every C++ release and opens with the full compatibility policy, including what changes at 1.0.
 
 CI builds and tests the C++ side on Linux, macOS and Windows with GCC, Clang, AppleClang and MSVC.
-The C++ arena decoder stops at 100 levels of nesting, a limit sized for the 8 MB stack of Linux and
-macOS. Windows gives a program 1 MB, so link programs that decode untrusted input there with
-`/STACK:8388608`.
+The C++ arena decoder stops at [100 levels of nesting](docs/arena.md#depth-limits), a limit sized
+for the 8 MB stack of Linux and macOS. Windows gives a program 1 MB, so link programs that decode
+untrusted input there with `/STACK:8388608`.
 
 The Rust crates are test releases. Until they're stable, any release may change their API and the
 code the generator writes. CI runs the full Rust test suite on Linux. On macOS and Windows it builds

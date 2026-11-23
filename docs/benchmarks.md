@@ -32,7 +32,7 @@ That's the g++-13 figure; clang++-20 measures ~6×. (Both moved when the bench b
 alignment pinning - see the appendix - which normalizes away the layout luck older figures
 implicitly carried.) The decoded tree borrows the input, so it stays valid
 only while both the input and the `Arena` outlive it (or use
-[`decode_owned`](arena.md#self-contained-decode-decode_owned) for a self-contained handle).
+[`decode_owned`](arena.md#owned-messages) for a self-contained handle).
 
 ## Streaming vs `protozero`
 

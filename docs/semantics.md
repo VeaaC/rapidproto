@@ -4,10 +4,9 @@
 and affect how you write correct consumer code. This page is the single home for them.*
 
 - **Lifetimes.** Both models borrow the input. Streaming: the input `ByteView` must outlive the decoder
-  and every `string_view` it hands a callback. Arena: the tree's structure lives in the `Arena`, but its
-  strings/bytes are `string_view`s into the input, so the tree stays valid only while **both** the
-  `Arena` and the input buffer live. Use [`decode_owned`](arena.md#self-contained-decode-decode_owned)
-  for a `shared_ptr` that owns both.
+  and every `string_view` it hands a callback. Arena: a decoded message needs both its `Arena` and
+  the input; [the arena page](arena.md#the-arena) has the rules, and
+  [`decode_owned`](arena.md#owned-messages) bundles all three.
 - **Untrusted input is validated; values are not.** Wire input is fully checked for **wire-format
   integrity** (structure, lengths, group nesting), so a malformed buffer fails the decode - the arena
   `decode()` returns null with an `ArenaDecodeError`, the streaming one a non-`ok()` `DecodeStatus` -
@@ -77,8 +76,8 @@ and affect how you write correct consumer code. This page is the single home for
   [`has_unknown_fields()`](profiles.md#unknown-fields) and does not reach a streaming decoder's
   unknown-field handler. Protobuf's own parsers treat such a field as unknown.
 - **Thread-safety.** A streaming `decode()` is `const` and holds no mutable state, so decoders over one
-  buffer run concurrently as long as the buffer isn't mutated. An arena `decode()` mutates its `Arena`,
-  so give each thread its own arena; the resulting read-only tree can then be shared.
+  buffer run concurrently as long as the buffer isn't mutated. For the arena decoder, see
+  [the arena page](arena.md#the-arena).
 
 The full list of intentional non-goals and known limitations (what is deliberately *not* supported,
 and why) is in [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md#known-limitations-and-non-goals).
