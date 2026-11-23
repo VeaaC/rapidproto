@@ -1,12 +1,11 @@
 # Decode profiles
 
-A decode profile is a short text file that adjusts the [arena decoder](arena.md) generated for a
-schema. It's meant for programs that need only a handful of fields from large messages. Such a
-program can drop the fields it never reads, leaving the generated classes without storage or
-accessors for them.
-Sub-messages it seldom needs can stay encoded until the program decodes them itself. Unknown-field
-tracking works the other way round. It adds an accessor that tells you whether the input held
-fields the schema doesn't declare.
+A decode profile is a short list of directives, usually kept in a text file, that adjusts the
+[arena decoder](arena.md) generated for a schema. It's meant for programs that need only a handful
+of fields from large messages. Such a program can drop the fields it never reads, leaving the
+generated classes without storage or accessors for them. Sub-messages it seldom needs can stay
+encoded until the program decodes them itself. Unknown-field tracking works the other way round. It
+adds an accessor that tells you whether the input held fields the schema doesn't declare.
 
 You give the profile to [`rapidprotoc`](integration.md#the-rapidprotoc-cli) along with the schema.
 The schema stays untouched; another program can generate from it with a different profile. The
@@ -86,9 +85,10 @@ error: no member named 'email' in 'rp::arena::example::Person'
 ```
 
 The decoder still reads the tag of a dropped field and makes sure the field doesn't run past the end
-of the input. Malformed bytes inside a dropped sub-message, map entry or packed field go through,
-because the decoder jumps over it without looking in. Groups are different. A dropped group is
-walked to its end tag, and bad bytes in it fail the decode as before. Neither kind gets its
+of the input. Malformed bytes inside a dropped sub-message, map or packed field go through, because
+the decoder jumps over it without looking in. A group has no length to jump by, so the decoder reads
+through a dropped one to find its end: a broken tag or length in there, or a missing end tag, still
+fails the decode, but a sub-message inside the group isn't opened. Neither kind gets its
 `required` fields checked. A non-repeated sub-message or group that arrives twice isn't reported as
 [`RepeatedSingularMessage`](arena.md#errors) either.
 
@@ -118,16 +118,16 @@ printed `Ada (7)` and called `ex::Address::decode`.
 
 The arena decoder skips fields the schema doesn't declare. To learn whether a message had any,
 track it with an `unknown-fields` line, as `lean.modes` does for `Person`, or with
-`--unknown=example.Person`. `--unknown-present` tracks every message that run of `rapidprotoc`
-generates, including nested messages and those from imported files. A tracked message gets one more
+`--unknown=example.Person`. `--unknown-present` tracks every message generated alongside it,
+including nested messages and those from imported files. A tracked message gets one more
 accessor, `has_unknown_fields()`. It returns true when the input held at least one field number the
 message doesn't declare, and that's all it records. For the field numbers and their bytes, use the
 streaming decoder's [unknown-field handler](streaming.md#unknown-fields).
 
-[Extensions](semantics.md) count as unknown fields. A declared field that arrives with the wrong
-wire type is skipped without counting. Nor does a dropped field count, since the schema still
-declares it. Fields inside a sub-message are that sub-message's own business. If its type is
-tracked too, it reports them itself (for a raw field, once you decode the payload).
+[Extensions](semantics.md) count as unknown fields. A field the schema declares never does, even
+when the profile drops it or it arrives with an unexpected wire type and gets skipped. Fields inside
+a sub-message are that sub-message's own business. If its type is tracked too, it reports them
+itself (for a raw field, once you decode the payload).
 
 Tracking costs one bit per message. In `Person` it shares a byte with the bit that records whether
 `nickname` is set. `Address` has no such byte. Tracking it adds one, and padding rounds the class up
@@ -140,10 +140,11 @@ field or a type, `unknown-fields` with a message, or `name` with an identifier. 
 `#` and may follow a directive on the same line. Write names in full, starting with the package, as
 in `example.Person.email`.
 
-Every entry in `lean.modes` names a single field. An entry can name a type instead. It then applies
-to every field of that type in the same `rapidprotoc` run (in CMake, the same target). That
-includes fields in nested messages and imported files. `drop` also takes an enum type and removes
-every field of that enum. With a type `drop`, maps whose values have that type are dropped too.
+Each `drop` and `raw` line in `lean.modes` names a single field. Such a line can name a type
+instead. It then applies to every field of that type that the same `rapidprotoc` run generates (in
+CMake, the same target), in nested messages and imported files too. For `drop` the type can be an
+enum, and fields declared with that enum go. With a type `drop`, maps whose values have that type
+are dropped too.
 
 Some fields can't take a directive: oneof members, `required` fields under `drop`, and maps under
 `raw`. Naming one in a field entry is an error, but a type entry passes over them without a word.
@@ -153,8 +154,8 @@ field entry wins.
 
 Pass the file with `--field-modes=<file>`, or single entries with `--drop=<name>` and
 `--raw=<name>`. You can repeat these flags and combine them with the `--unknown` ones into one
-profile. All of them need the `=`. Written with a space, `--field-modes lean.modes` stops
-`rapidprotoc` with `error: unknown flag '--field-modes'`. In CMake,
+profile. Those that take a value need the `=`. Written with a space, `--field-modes lean.modes`
+stops `rapidprotoc` with `error: unknown flag '--field-modes'`. In CMake,
 [`rapidproto_generate`](integration.md#cmake-integration) takes `FIELD_MODES`, `DROP`, `RAW`,
 `UNKNOWN` and `UNKNOWN_PRESENT` for the same jobs. In Rust,
 [`Config::field_modes`](https://docs.rs/rapidproto-build/latest/rapidproto_build/struct.Config.html#method.field_modes)
@@ -207,5 +208,5 @@ its own output directory (in CMake, its own `rapidproto_generate` target). The
 [consumer example](../examples/consumer/CMakeLists.txt) builds its schema twice like this, and
 [`lean_main.cpp`](../examples/consumer/lean_main.cpp) uses the profiled copy. Don't mix the two
 directories in one source file. Each output directory carries its own copy of the runtime headers,
-and a file that includes generated headers from two of them gets `rapidproto::Arena` defined twice
-and doesn't compile. That's true even when neither directory uses a profile.
+and a file that includes generated headers from two of them can fail to compile with
+`rapidproto::Arena` defined twice, even when neither directory uses a profile.
