@@ -115,11 +115,11 @@ as `import "../up/u.proto";`, whose headers would land outside the output direct
 
 Generated code sits under one root namespace, `rp` unless you pick another. For `package shop;` the
 arena decoder's classes are in `rp::arena::shop`, the streaming decoder's in `rp::stream::shop`, and
-the enums in `rp::common::shop`. `--namespace-prefix` replaces the root, which you'd do when [`rp`
-or a namespace inside it clashes](using-both-models.md#next-to-protoc-generated-code) with protoc's
-generated code or with your own. `--namespace-prefix=acme` gives `acme::arena::shop` and so on,
-while the runtime keeps its own namespace, `rapidproto`. A dotted value such as `acme.rp` nests the
-root as `acme::rp::arena::shop`.
+the enums in `rp::common::shop`. `--namespace-prefix` replaces the root, which you'd do when
+[`rp` or a namespace inside it clashes](using-both-models.md#next-to-protoc-generated-code) with
+protoc's generated code or with your own. `--namespace-prefix=acme` gives `acme::arena::shop` and
+so on, while the runtime keeps its own namespace, `rapidproto`. A dotted value such as `acme.rp`
+nests the root as `acme::rp::arena::shop`.
 
 The value has to be C++ identifiers separated by dots. Keywords, `std`, `rapidproto`, names starting
 with `rp_` or `RP_`, identifiers C++ reserves and common macro names such as `NULL` or `linux` are
@@ -177,8 +177,8 @@ or link for it. Which of its files a run writes depends on the decoders it gener
 | `rapidproto/dump_runtime.hpp` | with `--dump` | [`rapidproto::dump`](dumper.md), [`rapidproto::DumpOptions`](dumper.md#indentation-and-line-width) |
 
 Each schema also gets a common header, `<stem>.rp.common.hpp`, whichever decoders you generate. It
-defines the schema's enums. Because both decoder headers include it, they [share one type per
-enum](using-both-models.md).
+defines the schema's enums. Because both decoder headers include it, they
+[share one type per enum](using-both-models.md).
 
 A generated header is compiled again in every source file that includes it, and the
 [compile cost](benchmarks.md#compile-cost---what-the-throughput-costs-to-build) adds up. Keep such
