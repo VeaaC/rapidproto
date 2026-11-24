@@ -12,8 +12,9 @@ rapidprotoc --dump -I. --out-dir=out person.proto
 ```
 
 `--dump` implies `--arena`, so on top of the usual arena output this writes `person.rp.dump.hpp`
-and `rapidproto/dump_runtime.hpp`, the dumper's part of the [runtime](integration.md). The dump
-header includes `person.rp.hpp` and is the only header you need. In CMake, add `DUMP` to
+and `rapidproto/dump_runtime.hpp`, the dumper's part of the
+[runtime](integration.md#the-output-directory). The dump header includes `person.rp.hpp` and is the
+only header you need. In CMake, add `DUMP` to
 [`rapidproto_generate`](integration.md#cmake-integration). In Rust, `{:?}` on a decoded message
 gives the same kind of view through its
 [`Debug`](https://docs.rs/rapidproto/latest/rapidproto/#debug-output) implementation.

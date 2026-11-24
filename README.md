@@ -129,8 +129,8 @@ rapidprotoc -I. --out-dir=out person.proto
 ```
 
 `person.rp.hpp` is the arena decoder and `person.rp.common.hpp` holds the schema's enums. The
-headers in `out/rapidproto/` are a copy of the [runtime](docs/integration.md). It's all headers on
-top of the standard library, with nothing to link.
+headers in `out/rapidproto/` are a copy of the [runtime](docs/integration.md#the-output-directory).
+It's all headers on top of the standard library, with nothing to link.
 
 ```cpp
 // read_person.cpp

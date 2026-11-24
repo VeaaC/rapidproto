@@ -244,7 +244,8 @@ function(rapidproto_generate target)
     message(WARNING
       "rapidproto_generate(): incremental import tracking needs CMake >= 3.20 (Makefiles) or >= 3.21 "
       "(Xcode/Visual Studio); on ${CMAKE_GENERATOR} with CMake ${CMAKE_VERSION} it is off. Generation "
-      "stays correct -- but after editing an imported .proto, re-run CMake or do a clean build.")
+      "stays correct -- but after editing an imported .proto, touch one of the target's PROTOS or do "
+      "a clean build.")
     set(_RAPIDPROTO_DEPFILE_WARNED TRUE CACHE INTERNAL "rapidproto depfile-unsupported warning shown")
   endif()
 

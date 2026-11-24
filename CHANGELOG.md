@@ -26,6 +26,12 @@ runtime headers.
 - `rapidprotoc` reports an entry file it cannot read, even when an earlier entry already resolved a
   file of that name. It used to skip that entry.
 
+### Fixed
+
+- On CMake versions without import tracking, `rapidproto_generate()` warns that after editing an
+  imported `.proto` you touch one of the target's `PROTOS` or do a clean build. It used to suggest
+  rerunning CMake, which doesn't regenerate the headers.
+
 ## 0.5.1 - 2026-09-13
 
 ### Added
