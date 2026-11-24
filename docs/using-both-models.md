@@ -14,13 +14,12 @@ rapidprotoc --arena --stream -I. --out-dir=out person.proto
 
 For the `Person` schema on the arena decoder's page, this writes `person.rp.hpp`,
 `person.rp.stream.hpp` and `person.rp.common.hpp` into `out/`, with one copy of the
-[runtime](integration.md) in `out/rapidproto/`. In CMake, one
+[runtime](integration.md#the-output-directory) in `out/rapidproto/`. In CMake, one
 [`rapidproto_generate`](integration.md#cmake-integration) target with `GENERATOR both` does the
 same, as in the [consumer example](../examples/consumer). Keep both headers in that one output
 directory. Two targets, one with `GENERATOR arena` and one with `GENERATOR stream`, would write two
-directories, each holding a runtime of its own. A source file that includes headers from both then
-has two copies of the runtime. Under clang++ the build stops at `redefinition of 'WireType'`. With
-g++ it compiles only while the two copies have the same contents and timestamp.
+directories, and a source file can't include headers from
+[both of them](integration.md#the-output-directory).
 
 The arena decoder's `Person` is `rp::arena::example::Person`, and the streaming decoder's is
 `rp::stream::example::Person`. Each enum in the schema is defined once, under

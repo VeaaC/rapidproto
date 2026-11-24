@@ -206,7 +206,6 @@ it.
 Because generated headers have the same names under every profile, each profile of a schema needs
 its own output directory (in CMake, its own `rapidproto_generate` target). The
 [consumer example](../examples/consumer/CMakeLists.txt) builds its schema twice like this, and
-[`lean_main.cpp`](../examples/consumer/lean_main.cpp) uses the profiled copy. Don't mix the two
-directories in one source file. Each output directory carries its own copy of the runtime headers,
-and a file that includes generated headers from two of them can fail to compile with
-`rapidproto::Arena` defined twice, even when neither directory uses a profile.
+[`lean_main.cpp`](../examples/consumer/lean_main.cpp) uses the profiled copy. Don't include
+headers from both directories in one source file. Each directory has its own
+[copy of the runtime](integration.md#the-output-directory), and the two copies clash.
