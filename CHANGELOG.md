@@ -28,9 +28,10 @@ runtime headers.
 
 ### Fixed
 
-- On CMake versions without import tracking, `rapidproto_generate()` warns that after editing an
-  imported `.proto` you touch one of the target's `PROTOS` or do a clean build. It used to suggest
-  rerunning CMake, which doesn't regenerate the headers.
+- With Makefiles before CMake 3.20, or Xcode and Visual Studio before 3.21, an edit to an imported
+  `.proto` doesn't regenerate the headers. `rapidproto_generate()`'s warning about this now says to
+  touch a `.proto` listed in `PROTOS` or do a clean build. It used to suggest rerunning CMake, which
+  doesn't help.
 
 ## 0.5.1 - 2026-09-13
 

@@ -2,8 +2,7 @@
 
 `rapidprotoc` is RapidProto's generator for C++. It reads `.proto` schemas and writes their decoders
 as headers, along with a copy of the runtime that those headers include. You can run it yourself or
-have
-[`rapidproto_generate()`](#cmake-integration) run it as part of a CMake build. Rust projects
+have [`rapidproto_generate()`](#cmake-integration) run it as part of a CMake build. Rust projects
 generate from `build.rs` with
 [`rapidproto-build`](https://docs.rs/rapidproto-build/latest/rapidproto_build/) instead.
 
@@ -44,7 +43,7 @@ wrote gen/rapidproto/arena_runtime.hpp
 ```
 
 The two files under `rapidproto/` are the runtime. Nothing under `proto` provides
-`timestamp.proto`, so the generator used the copy it has built in.
+`timestamp.proto`. The generator used its bundled copy instead.
 
 ## The `rapidprotoc` CLI
 
@@ -59,7 +58,7 @@ the full rule). The run also writes headers for every schema the entries import.
 | Flag | Effect |
 | --- | --- |
 | `-I<dir>` | look for imported schemas in `<dir>`; repeatable, tried in command-line order |
-| `--out-dir=<dir>` | write everything under `<dir>`, creating it; default `.` |
+| `--out-dir=<dir>` | write the headers and the runtime under `<dir>`, creating it; default `.` |
 | `--arena` | write `<stem>.rp.hpp`, the [arena decoder](arena.md); the default without `--stream` |
 | `--stream` | write `<stem>.rp.stream.hpp`, the [streaming decoder](streaming.md); with `--arena`, both |
 | `--dump` | write `<stem>.rp.dump.hpp`, the [debug dumper](dumper.md); implies `--arena` |
@@ -97,9 +96,8 @@ the stem is its path below the first `-I` directory that holds it, minus `.proto
 `proto/shop/order.proto` has the stem `shop/order`, and its arena decoder is the
 `gen/shop/order.rp.hpp` in the listing above. With `-I proto/shop -I proto` the stem is just
 `order`, because the first directory already holds `order.proto`. An entry that none of the `-I`
-directories holds takes its file name, without any directory, as the stem. For an imported schema
-the stem is the path written
-in the `import` statement, which is how `money.proto` became `shop/money`.
+directories holds gets its file name minus `.proto` as the stem. For an imported schema the stem is
+the path written in the `import` statement, which is how `money.proto` became `shop/money`.
 
 Two entries can't have the same stem. Without an `-I`, `api/v1/order.proto` and `api/v2/order.proto`
 would both be `order`. Passing both, as in
@@ -110,9 +108,8 @@ error: '/home/me/shop/api/v1/order.proto' and '/home/me/shop/api/v2/order.proto'
   one would overwrite the other; pass an -I they share, so each keeps a distinct path relative to it
 ```
 
-With `-I api` added, the stems are `v1/order` and `v2/order`. An import such as
-`import "../up/u.proto";` fails the same way, because its headers would land outside the output
-directory.
+With `-I api` added, the stems are `v1/order` and `v2/order`. The run also refuses an import such
+as `import "../up/u.proto";`, whose headers would land outside the output directory.
 
 ### The root namespace
 
@@ -136,15 +133,15 @@ refused as components, with an error that names the rule.
 | `--list-outputs` | print each file the run would write, and write nothing |
 | `--list-inputs` | print each schema file the run would read, and write nothing |
 
-A depfile holds one rule. Its targets are the entries' decoder headers, and its prerequisites are
-the `--field-modes` files and every schema the run read from disk, by absolute path. Adding
+A depfile holds one rule. Its targets are the entries' decoder headers. Its prerequisites are the
+`--field-modes` files and every schema the run read from disk, by absolute path. Adding
 `--depfile=gen/order.d` to the first command writes:
 
 ```text
 gen/shop/order.rp.hpp: /home/me/shop/proto/shop/money.proto /home/me/shop/proto/shop/order.proto
 ```
 
-The built-in `timestamp.proto` never came from disk, so it isn't listed.
+The bundled `timestamp.proto` isn't read from disk and doesn't appear.
 
 `--list-outputs` prints paths relative to `--out-dir`. The entries come first, in the order the
 command gives them, then the schemas they import, and the runtime last. `--list-inputs` prints
@@ -167,9 +164,8 @@ g++ -std=c++17 -Igen main.cpp -o app
 
 Generated headers include the runtime and the headers of imported schemas by paths such as
 `"rapidproto/arena_runtime.hpp"` and `"shop/money.rp.hpp"`, which only resolve from the output
-directory. Put its parent directory on the include path and write
-`#include "gen/shop/order.rp.hpp"`, and g++ fails with
-`rapidproto/arena_runtime.hpp: No such file or directory`.
+directory. With its parent directory on the include path instead, `#include "gen/shop/order.rp.hpp"`
+fails on g++ with `rapidproto/arena_runtime.hpp: No such file or directory`.
 
 The runtime is header-only and needs nothing beyond the standard library. There's nothing to build
 or link for it. Which of its files a run writes depends on the decoders it generates:
@@ -184,10 +180,9 @@ Each schema also gets a common header, `<stem>.rp.common.hpp`, whichever decoder
 defines the schema's enums. Because both decoder headers include it, they [share one type per
 enum](using-both-models.md).
 
-A generated header is compiled again in every source file that includes it, so keep such includes
-out of headers that many files pull in. The
-[benchmarks](benchmarks.md#compile-cost---what-the-throughput-costs-to-build) measure what that
-costs.
+A generated header is compiled again in every source file that includes it, and the
+[compile cost](benchmarks.md#compile-cost---what-the-throughput-costs-to-build) adds up. Keep such
+includes out of headers that many files pull in.
 
 A source file can't mix generated headers from two output directories. Two directories mean two
 copies of the runtime and of every common header, and to `#pragma once` each copy is a separate
@@ -201,6 +196,9 @@ clang++ -std=c++17 -Igen-arena -Igen-stream main.cpp -o app
 ```text
 gen-stream/shop/money.rp.common.hpp:9:12: error: redefinition of 'Currency'
 ```
+
+Which definition clashes first depends on the schemas and the `-I` order. With a top-level schema
+such as `person.proto`, it can be the runtime's `redefinition of 'WireType'` instead.
 
 g++ accepts the file as long as each pair of copies has the same contents and the same modification
 time, to the second. Don't count on that. Two separate runs can easily write the copies a second
@@ -225,7 +223,10 @@ add_executable(app main.cpp)
 target_link_libraries(app PRIVATE shop_schema)
 ```
 
-`rapidproto_generate()` makes `shop_schema` an interface library, and linking `app` to it is all the
+The `find_package` line needs RapidProto installed. [Getting the helper](#getting-the-helper) shows
+how to install it, or how to fetch it instead.
+
+`rapidproto_generate()` makes `shop_schema` an interface library. Linking `app` to it is all the
 setup `app` needs. The generator runs before `main.cpp` is compiled. Because `shop_schema` puts its
 output directory on the include path, `main.cpp` can include `"shop/order.rp.hpp"` and
 `"shop/order.rp.stream.hpp"` directly. The library also gives `app` the `cxx_std_17` compile
@@ -267,9 +268,9 @@ Configure fails if two targets share an `OUT_DIR`. It also fails when `GENERATOR
 
 ### Getting the helper
 
-`find_package` needs RapidProto installed. The
-[release archives](https://github.com/VeaaC/rapidproto/releases) have the `rapidprotoc` binary but
-not the CMake package. To get both, build from the release tag and install:
+The [release archives](https://github.com/VeaaC/rapidproto/releases) have the `rapidprotoc` binary
+but not the CMake package that `find_package` loads. To get both, build from the release tag and
+install:
 
 ```sh
 git clone https://github.com/VeaaC/rapidproto
@@ -297,8 +298,8 @@ FetchContent_MakeAvailable(rapidproto)
 ```
 
 As a subproject, RapidProto skips its own tests and install rules and compiles without `-Werror`.
-Either way you also get `rapidproto::rapidprotoc`, a target for the generator itself, if you want
-to call it from a custom command of your own.
+Either way, your own custom commands can run the generator through the `rapidproto::rapidprotoc`
+target.
 
 ### Installed and fetched generators
 
@@ -316,9 +317,9 @@ though, and the next build fails on the missing header. Touch any of the target'
 back. A broken schema or profile is reported only when the build runs the generator.
 
 Even an installed generator can't list the outputs of an entry that doesn't exist yet at configure
-time. For such a target the helper declares only the entries' headers and the runtime copy, as it
-does with FetchContent. That happens when a build rule creates an entry later, and when an entry's
-path is misspelled, which passes configure and then fails in Ninja:
+time. The helper then declares no more than it does with FetchContent. That covers an entry
+that a build rule creates later. It also covers a misspelled entry path, which passes configure and
+then fails in Ninja:
 
 ```text
 ninja: error: '/home/me/shop/proto/shop/oder.proto', needed by 'rapidproto/shop_schema/shop/oder.rp.hpp', missing and no known rule to make it
@@ -329,13 +330,12 @@ ninja: error: '/home/me/shop/proto/shop/oder.proto', needed by 'rapidproto/shop_
 The repository has a [Conan recipe](https://github.com/VeaaC/rapidproto/blob/main/conanfile.py) and
 a [vcpkg overlay port](https://github.com/VeaaC/rapidproto/tree/main/ports/rapidproto). Neither is
 in [ConanCenter](https://conan.io/center) or in vcpkg's [public
-registry](https://vcpkg.io/en/packages), so you use them from a clone of the RapidProto
-repository. They install the CMake package that `cmake --install` writes. With your project
-configured through Conan's
-[toolchain](https://docs.conan.io/2/reference/tools/cmake/cmaketoolchain.html) or vcpkg's
+registry](https://vcpkg.io/en/packages). You use them from a clone of the RapidProto repository.
+They install the CMake package that `cmake --install` writes. With your project configured through
+Conan's [toolchain](https://docs.conan.io/2/reference/tools/cmake/cmaketoolchain.html) or vcpkg's
 [toolchain file](https://learn.microsoft.com/en-us/vcpkg/users/buildsystems/cmake-integration), the
-`CMakeLists.txt` above needs no changes, apart from one setting for a vcpkg
-[cross build](#cross-compiling).
+`CMakeLists.txt` above needs no changes. A vcpkg [cross build](#cross-compiling) needs one more
+setting when you configure.
 
 For Conan, run this in a checkout of the v0.5.1 tag, made as [above](#getting-the-helper):
 
@@ -363,9 +363,9 @@ class ShopConan(ConanFile):
 There's no `CMakeDeps` in it because the RapidProto package carries its own CMake config file, which
 `find_package` loads directly.
 
-For vcpkg, take the port from a clone of main, where it builds the latest release, v0.5.1. The copy
-at a release tag fails its hash check, because a release's hash can only be added once the tag
-exists. Register the clone's `ports` directory as an
+For vcpkg, take the port from a clone of main, where it builds the latest release, v0.5.1. A
+release's hash is added to the port on main only after the release is tagged. The copy at the tag
+fails its hash check. Register the clone's `ports` directory as an
 [overlay](https://learn.microsoft.com/en-us/vcpkg/concepts/overlay-ports). Pass
 `--overlay-ports=<clone>/ports` to vcpkg, or add the directory to `"overlay-ports"` in
 [`vcpkg-configuration.json`](https://learn.microsoft.com/en-us/vcpkg/reference/vcpkg-configuration-json).
@@ -392,5 +392,6 @@ build machine instead and use `find_package`.
 A toolchain that keeps `find_package` inside its sysroot (`CMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY`)
 won't follow `CMAKE_PREFIX_PATH` to a prefix you filled with `cmake --install`. Point
 `rapidproto_DIR` at the prefix's config directory instead, as in
-`-Drapidproto_DIR=/opt/rapidproto/lib/cmake/rapidproto`. A vcpkg cross build always needs
-`rapidproto_DIR`, set to the `share/rapidproto` directory in the host triplet's install tree.
+`-Drapidproto_DIR=/opt/rapidproto/lib/cmake/rapidproto`. In a vcpkg cross build, `find_package`
+searches only the target triplet's install tree. Set `rapidproto_DIR` to the `share/rapidproto`
+directory in the host triplet's tree.

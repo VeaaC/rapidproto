@@ -18,8 +18,8 @@ For the `Person` schema on the arena decoder's page, this writes `person.rp.hpp`
 [`rapidproto_generate`](integration.md#cmake-integration) target with `GENERATOR both` does the
 same, as in the [consumer example](../examples/consumer). Keep both headers in that one output
 directory. Two targets, one with `GENERATOR arena` and one with `GENERATOR stream`, would write two
-directories, and a source file can't use headers from
-[two output directories](integration.md#the-output-directory).
+directories, and a source file can't include headers from
+[both of them](integration.md#the-output-directory).
 
 The arena decoder's `Person` is `rp::arena::example::Person`, and the streaming decoder's is
 `rp::stream::example::Person`. Each enum in the schema is defined once, under
