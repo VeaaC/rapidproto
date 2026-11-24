@@ -472,6 +472,11 @@ if(RAPIDPROTO_BUILD_TESTS)
   # reach, and loop-phase luck. Bench targets ONLY -- consumers' builds are untouched.
   set(RAPIDPROTO_BENCH_ALIGN -falign-functions=64 -falign-loops=64)
   target_compile_options(rapidproto_bench PRIVATE -O3 -DNDEBUG ${RAPIDPROTO_BENCH_ALIGN})
+  # The pinned protozero when the corpus carries it, as in the arena bench below, so both benches
+  # measure the same recorded version instead of whatever is installed.
+  if(EXISTS "${CORPUS_DIR}/protozero/include/protozero/pbf_reader.hpp")
+    target_include_directories(rapidproto_bench SYSTEM PRIVATE "${CORPUS_DIR}/protozero/include")
+  endif()
 
   # Arena benchmark: decode the SAME realistic buffer up to four ways -- the arenagen decoder, protoc +
   # google::protobuf::Arena, the streamgen decoder, and (if <protozero/pbf_reader.hpp> is present)
@@ -665,10 +670,9 @@ if(RAPIDPROTO_BUILD_TESTS)
         "fetched. Run: python3 tests/fetch_corpus.py")
     endif()
 
-    # The pinned protozero, whenever the corpus carries it: BOTH its uses (the Dataset arm's
-    # protozero baseline, libosmium's protobuf layer below) then measure one recorded version
-    # instead of whatever is installed. Independent of the OSM guard on purpose -- the
-    # fetch_corpus.py entry claims exactly this.
+    # The pinned protozero, whenever the corpus carries it: the Dataset arm's protozero baseline
+    # and libosmium's protobuf layer below then measure the same version as the streaming bench.
+    # Independent of the OSM guard, as the fetch_corpus.py entry says.
     if(EXISTS "${CORPUS_DIR}/protozero/include/protozero/pbf_reader.hpp")
       target_include_directories(rapidproto_arena_bench SYSTEM PRIVATE
         "${CORPUS_DIR}/protozero/include")
