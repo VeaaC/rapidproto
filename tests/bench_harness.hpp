@@ -16,6 +16,9 @@
 //     cores). The ratio + its significance, not the absolute rate, is the trustworthy verdict.
 //   * Measurement order rotates each round, so first-/second-slot bias cancels (else a null A-vs-A
 //     comparison falsely reads ~0.3% "significant").
+//   * A sample is as many back-to-back calls of an arm as make the baseline's sample take ~10 ms,
+//     the same count for every arm, so the per-sample clock and counter costs vanish even on a
+//     228-byte payload.
 //   * Sampling is ADAPTIVE: rounds accumulate until every ratio's verdict is confident -- the effect
 //     is clearly non-zero, or its CI is tight enough to call it a wash -- or a wall-time budget
 //     elapses (then it warns that a ratio stayed ambiguous). The budget never stops a run before its
@@ -266,7 +269,17 @@ struct Cost {
     double instr;  // -1 when no instructions counter
     double xtra;   // -1 unless RAPIDPROTO_BENCH_EVENT selected one
 };
-inline Cost sample(Counters cnt, const Work& f, std::uint64_t& out) {
+// `calls` back-to-back calls of `f`, their checksums summed.
+inline std::uint64_t call_n(const Work& f, std::size_t calls) {
+    std::uint64_t sum = 0;
+    for (std::size_t i = 0; i < calls; ++i) {
+        sum += f();
+    }
+    return sum;
+}
+
+// One timed sample of `calls` calls.
+inline Cost sample(Counters cnt, const Work& f, std::uint64_t& out, std::size_t calls) {
 #if defined(__linux__)
     if (cnt.cyc >= 0) {
         ioctl(cnt.cyc, PERF_EVENT_IOC_RESET, 0);
@@ -276,7 +289,7 @@ inline Cost sample(Counters cnt, const Work& f, std::uint64_t& out) {
         ioctl(cnt.instr, PERF_EVENT_IOC_ENABLE, 0);
         ioctl(cnt.xtra, PERF_EVENT_IOC_ENABLE, 0);
         const auto t0 = Clock::now();
-        out = f();
+        out = call_n(f, calls);
         const double ns = ns_since(t0);
         ioctl(cnt.cyc, PERF_EVENT_IOC_DISABLE, 0);
         ioctl(cnt.instr, PERF_EVENT_IOC_DISABLE, 0);
@@ -299,7 +312,7 @@ inline Cost sample(Counters cnt, const Work& f, std::uint64_t& out) {
 #endif
     (void)cnt;
     const auto t0 = Clock::now();
-    out = f();
+    out = call_n(f, calls);
     return {ns_since(t0), -1.0, -1.0, -1.0};
 }
 
@@ -374,14 +387,35 @@ inline Stat stat(std::vector<double> v) {
     std::vector<std::uint64_t> sums(n, 0);
 
     std::uint64_t junk = 0;
+    // The first warm-up round makes one call per arm, then the baseline's single call is timed.
+    for (const auto& a : arms) {
+        sample(cnt, a.fn, junk, 1);
+    }
+    // A sample is as many back-to-back calls as make the baseline's sample take kMinSampleNs, the
+    // same count for every arm and the same target as the Rust runner. One call on a small payload
+    // (google_message1 is 228 bytes) is too short to time alone: the clock reads, the counter ioctls
+    // and a cold start would weigh on it.
+    constexpr double kMinSampleNs = 10.0e6;
+    double base_ns = sample(cnt, arms[0].fn, junk, 1).ns;
+    if (base_ns < kMinSampleNs) {
+        std::vector<double> t(5);
+        for (double& x : t) {
+            x = sample(cnt, arms[0].fn, junk, 1).ns;
+        }
+        base_ns = stat(t).median;
+    }
+    const auto calls =
+        static_cast<std::size_t>(std::max(1.0, std::ceil(kMinSampleNs / std::max(base_ns, 1.0))));
+    const double sample_bytes = byte_size * static_cast<double>(calls);
+
     // Warm caches / predictors for every arm: 5 rounds, or 2 when a round is long (over 10 ms: a
     // whole pool pass, a large buffer, a file), which one round already warms.
     constexpr double kLongRoundNs = 10.0e6;
     double round_ns = 0;
-    for (int w = 0; w < 5 && !(w >= 2 && round_ns > kLongRoundNs); ++w) {
+    for (int w = 1; w < 5 && !(w >= 2 && round_ns > kLongRoundNs); ++w) {
         const auto t = Clock::now();
         for (const auto& a : arms) {
-            sample(cnt, a.fn, junk);
+            sample(cnt, a.fn, junk, calls);
         }
         round_ns = ns_since(t);
     }
@@ -402,7 +436,7 @@ inline Stat stat(std::vector<double> v) {
         for (std::size_t j = 0; j < n; ++j) {
             const std::size_t k = (j + round) % n;  // rotate start each round: cancels slot bias
             std::uint64_t s = 0;
-            costs[k] = sample(cnt, arms[k].fn, s);
+            costs[k] = sample(cnt, arms[k].fn, s, calls);
             sums[k] = s;
             ns_s[k].push_back(costs[k].ns);
             if (cyc) {
@@ -457,12 +491,12 @@ inline Stat stat(std::vector<double> v) {
         const bool ok = sums[k] == sums[0];
         bad += ok ? 0 : 1;
         const Stat sns = stat(ns_s[k]);
-        const double gb_s = byte_size / sns.median;
+        const double gb_s = sample_bytes / sns.median;
         // Counter-based per-byte costs are undefined for a threaded arm (main thread only).
         const bool counters_valid = !arms[k].threaded;
-        const double cyc_b = cyc && counters_valid ? stat(cyc_s[k]).median / byte_size : -1.0;
-        const double ins_b = ins && counters_valid ? stat(instr_s[k]).median / byte_size : -1.0;
-        const double xtra_b = xtra_s[k].empty() ? -1.0 : stat(xtra_s[k]).median / byte_size;
+        const double cyc_b = cyc && counters_valid ? stat(cyc_s[k]).median / sample_bytes : -1.0;
+        const double ins_b = ins && counters_valid ? stat(instr_s[k]).median / sample_bytes : -1.0;
+        const double xtra_b = xtra_s[k].empty() ? -1.0 : stat(xtra_s[k]).median / sample_bytes;
         // For arm 0 (baseline) there is no ratio; for k>0, `vs_base` is the throughput gain over it.
         double vs_base = 0.0;
         double band = 0.0;
@@ -480,8 +514,9 @@ inline Stat stat(std::vector<double> v) {
         }
         if (json_mode()) {
             std::printf(
-                R"({"rec":"arm","scenario":"%s","arm":"%s","bytes":%.0f,"baseline":%s,"gb_s":%.5f,)",
-                scenario, arms[k].label, byte_size, k == 0 ? "true" : "false", gb_s);
+                R"({"rec":"arm","scenario":"%s","arm":"%s","bytes":%.0f,"calls":%zu,"baseline":%s,)"
+                R"("gb_s":%.5f,)",
+                scenario, arms[k].label, byte_size, calls, k == 0 ? "true" : "false", gb_s);
             if (cyc_b >= 0) {
                 std::printf(R"("cyc_b":%.5f,)", cyc_b);
             } else {

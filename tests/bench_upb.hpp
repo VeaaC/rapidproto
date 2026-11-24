@@ -29,8 +29,8 @@
 // band upstream's own figures put upb in -- so a weak upb showing on the map/string-heavy
 // Dataset is upb's genuine shape behavior, not a mis-setup. The IN-TREE rows read lower mainly
 // because the timed arm also pays the read-out walk (reading fields OUT of a upb message costs
-// more than reading our arena's structs -- see docs/benchmarks.md), plus a smaller
-// short-rotated-batch effect on tiny payloads. The probe validates the CONFIGURATION; the
+// more than reading our arena's structs -- see docs/benchmark-method.md). The probe validates the
+// CONFIGURATION; the
 // table is the like-for-like comparison. Plugin-generated tables might still buy upb a little.
 
 #ifdef RAPIDPROTO_HAVE_UPB
