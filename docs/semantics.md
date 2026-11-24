@@ -147,7 +147,8 @@ reads `std::nullopt` or `None`, where protobuf's accessor would return X. `value
 The streaming decoder calls no handler for a field that isn't in the input. A map entry that lacks
 its key or its value still reaches the map handler, with 0, an empty view or an empty sub-message in
 the missing place. The arena decoder fills the same gaps, except that a missing message value reads
-as null in C++ and as an empty message in Rust.
+as null in C++ and as an empty message in Rust. A known C++ issue gives an empty message there too
+for some small value types.
 
 ## Required fields
 
