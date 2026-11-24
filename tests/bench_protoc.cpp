@@ -160,12 +160,15 @@ std::uint64_t checksum_big_protoc_kinds(const bench::Big& b) {
     return s;
 }
 
-// Parse into a fresh protoc Arena and checksum: the whole measured operation, in one place.
+// Parse into a fresh protoc Arena and checksum: the whole measured operation, in one place. A failed
+// parse returns a checksum no RapidProto arm produces, so the run fails on it.
 template <class Message, class Fn>
 std::uint64_t parse_and_sum(const std::string& buf, Fn&& sum) {
     google::protobuf::Arena arena;
-    auto* message = google::protobuf::Arena::CreateMessage<Message>(&arena);
-    message->ParseFromString(buf);
+    auto* message = google::protobuf::Arena::Create<Message>(&arena);
+    if (!message->ParseFromString(buf)) {
+        return ~std::uint64_t{0};
+    }
     return sum(*message);
 }
 
@@ -179,8 +182,10 @@ std::uint64_t parse_and_sum_warm(const std::string& buf, Fn&& sum) {
     static const std::unique_ptr<char[]> block(new char[kWarmBlockBytes]);
     static google::protobuf::Arena arena(block.get(), kWarmBlockBytes);
     arena.Reset();
-    auto* message = google::protobuf::Arena::CreateMessage<Message>(&arena);
-    message->ParseFromString(buf);
+    auto* message = google::protobuf::Arena::Create<Message>(&arena);
+    if (!message->ParseFromString(buf)) {
+        return ~std::uint64_t{0};
+    }
     return sum(*message);
 }
 
@@ -225,8 +230,10 @@ std::uint64_t protoc_record_warm(const std::string& buf) {
 
 ProtocMemory protoc_dataset_memory(const std::string& buf) {
     google::protobuf::Arena arena;
-    auto* message = google::protobuf::Arena::CreateMessage<bench::Dataset>(&arena);
-    message->ParseFromString(buf);
+    auto* message = google::protobuf::Arena::Create<bench::Dataset>(&arena);
+    if (!message->ParseFromString(buf)) {
+        return {0, 0};
+    }
     return {static_cast<std::size_t>(arena.SpaceUsed()),
             static_cast<std::size_t>(arena.SpaceAllocated())};
 }

@@ -90,6 +90,17 @@ std::uint64_t bits(double d) {
 
 // ── builders (protoc serializes the bytes every decoder then parses) ──────────────────────────────
 
+// A builder's wire bytes. A failed serialize would leave every arm decoding a wrong payload, so it
+// ends the program.
+std::string serialized(const google::protobuf::MessageLite& message) {
+    std::string out;
+    if (!message.SerializeToString(&out)) {
+        std::fprintf(stderr, "bench: protoc failed to serialize a payload\n");
+        std::exit(1);
+    }
+    return out;
+}
+
 // The realistic mixed shape: records with scalars, strings, a nested message, repeated scalars/
 // strings/sub-messages, and a map. `people` scales the payload size.
 std::string make_dataset(int people) {
@@ -122,9 +133,7 @@ std::string make_dataset(int people) {
         (*p->mutable_counters())["clicks"] = i;
         (*p->mutable_counters())["views"] = i * 2;
     }
-    std::string out;
-    ds.SerializeToString(&out);
-    return out;
+    return serialized(ds);
 }
 
 // Many small arrays: each record carries six short repeated fields -> a flood of tiny allocations.
@@ -143,9 +152,7 @@ std::string make_wide(int items) {
             w->add_t("t" + std::to_string((i + k) % 32));
         }
     }
-    std::string out;
-    ws.SerializeToString(&out);
-    return out;
+    return serialized(ws);
 }
 
 // Few big arrays: a handful of records, each dominated by two large scalar arrays (the doubles array
@@ -159,9 +166,7 @@ std::string make_big(int items, int per) {
             b->add_reals(static_cast<double>(k) * 1.5);
         }
     }
-    std::string out;
-    bs.SerializeToString(&out);
-    return out;
+    return serialized(bs);
 }
 
 // Packed-scalar shapes for the varint-vs-fixed decode comparison: same element count and structure,
@@ -175,9 +180,7 @@ std::string make_big_varint(int items, int per) {
             b->add_numbers(static_cast<std::int64_t>(i) * per + k);
         }
     }
-    std::string out;
-    bs.SerializeToString(&out);
-    return out;
+    return serialized(bs);
 }
 std::string make_big_fixed(int items, int per) {
     bench::BigSet bs;
@@ -187,9 +190,7 @@ std::string make_big_fixed(int items, int per) {
             b->add_reals(static_cast<double>(k) * 1.5);
         }
     }
-    std::string out;
-    bs.SerializeToString(&out);
-    return out;
+    return serialized(bs);
 }
 // OSM-DenseNodes / vector-tile shape: repeated sub-messages, each carrying a packed sint64 DELTA run
 // (small signed values -> zigzag encodes to 1-2 bytes, the narrow-mixed regime the Struct/Bulk kernels
@@ -217,9 +218,7 @@ std::string make_big_osm(int items, int per) {
             b->add_kinds((next() & 1U) != 0U ? bench::KIND_ONE : bench::KIND_UNSPECIFIED);
         }
     }
-    std::string out;
-    bs.SerializeToString(&out);
-    return out;
+    return serialized(bs);
 }
 
 // Fixed-size sub-messages, always present: each record carries two 24-byte Vec3s. At the default
@@ -240,9 +239,7 @@ std::string make_particles(int items) {
         vel->set_z(i * 0.3);
         p->set_color(static_cast<std::uint32_t>(i));
     }
-    std::string out;
-    ps.SerializeToString(&out);
-    return out;
+    return serialized(ps);
 }
 
 // A RecordSet of scalar-heavy records (no strings/packed/maps), small values so per-field cost is
@@ -280,9 +277,7 @@ std::string make_records(int count) {
         r->set_f19((i + 15) & 63);
         r->set_f20((i + 16) & 63);
     }
-    std::string out;
-    rs.SerializeToString(&out);
-    return out;
+    return serialized(rs);
 }
 
 // ── shared scenario payloads ───────────────────────────────────────────────────────────────────────

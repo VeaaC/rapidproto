@@ -107,7 +107,7 @@ inline std::string load_payload(const char* path) {
 // ── google_message1: full walk, present fields only, all four decoders ───────────────────────
 
 inline std::uint64_t gm1_protoc(google::protobuf::Arena& arena, const std::string& buf) {
-    auto* m = google::protobuf::Arena::CreateMessage<pm::GoogleMessage1>(&arena);
+    auto* m = google::protobuf::Arena::Create<pm::GoogleMessage1>(&arena);
     if (!m->ParseFromString(buf)) {
         return ~std::uint64_t{0};
     }
@@ -551,7 +551,7 @@ inline std::uint64_t gm1_stream(rapidproto::ByteView buf) {
 // ── google_message2: full walk, present fields only ──────────────────────────────────────────
 
 inline std::uint64_t gm2_protoc(google::protobuf::Arena& arena, const std::string& buf) {
-    auto* m = google::protobuf::Arena::CreateMessage<pm::GoogleMessage2>(&arena);
+    auto* m = google::protobuf::Arena::Create<pm::GoogleMessage2>(&arena);
     if (!m->ParseFromString(buf)) {
         return ~std::uint64_t{0};
     }
