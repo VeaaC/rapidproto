@@ -803,7 +803,8 @@ int main() {
     const std::uint64_t c_arena = checksum_arena_dataset(adoc);
     const std::uint64_t c_protoc = rpbaseline::protoc_dataset(buf);
     const std::uint64_t c_stream = checksum_stream(view);
-    bool mismatch = c_arena != c_protoc || c_arena != c_stream;
+    bool mismatch = c_arena != c_protoc || c_arena != c_stream ||
+                    c_arena != rpbaseline::protoc_dataset_warm(buf);
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
     const std::uint64_t c_pz = rpbaseline::protozero_dataset(view);
     mismatch = mismatch || c_arena != c_pz;
@@ -844,13 +845,14 @@ int main() {
     // Headline parse-time comparison on the shared harness (bench_harness.hpp): frequency-invariant
     // cycles/byte + drift-invariant ratios vs the protoc baseline, with a significance verdict.
     // '+X%' = the decoder out-throughputs protoc (so +53% == 1.53x). protoc is arm 0 (the baseline);
-    // arena is measured "cold" (fresh Arena) and "warm" (reset+reuse).
+    // protoc and the arena are each measured "cold" (fresh arena) and "warm" (reset+reuse).
     rapidproto::Arena warm;
     if (!rpbench::json_mode()) {
         std::printf("bench: Dataset with %d people, wire = %zu bytes\n\n", kPeople, buf.size());
     }
     std::vector<rpbench::Arm> arms = {
         {"protoc", [&]() { return rpbaseline::protoc_dataset(buf); }},
+        {"protoc-warm", [&]() { return rpbaseline::protoc_dataset_warm(buf); }},
         {"arena-cold",
          [&]() {
              rapidproto::Arena a;
@@ -950,6 +952,7 @@ int main() {
         rapidproto::Arena w;
         std::vector<rpbench::Arm> a = {
             {"protoc", [&]() { return rpbaseline::protoc_big_set(b); }},
+            {"protoc-warm", [&]() { return rpbaseline::protoc_big_set_warm(b); }},
             {"arena-warm",
              [&]() {
                  w.reset();
@@ -968,6 +971,7 @@ int main() {
         rapidproto::Arena w;
         std::vector<rpbench::Arm> a = {
             {"protoc", [&]() { return rpbaseline::protoc_wide(wbuf); }},
+            {"protoc-warm", [&]() { return rpbaseline::protoc_wide_warm(wbuf); }},
             {"arena-warm",
              [&]() {
                  w.reset();
@@ -1002,6 +1006,7 @@ int main() {
         rapidproto::Arena w;
         std::vector<rpbench::Arm> a = {
             {"protoc", [&]() { return rpbaseline::protoc_record(rbuf); }},
+            {"protoc-warm", [&]() { return rpbaseline::protoc_record_warm(rbuf); }},
             {"arena-warm",
              [&]() {
                  w.reset();

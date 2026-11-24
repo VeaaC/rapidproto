@@ -9,8 +9,10 @@
 // coupling this separation exists to remove.
 #include "bench_baselines.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <string>
 
 #include <google/protobuf/arena.h>
@@ -167,6 +169,21 @@ std::uint64_t parse_and_sum(const std::string& buf, Fn&& sum) {
     return sum(*message);
 }
 
+// protoc's side of the arena decoder's reused arena: one Arena per message type, Reset() before
+// each parse. Reset() frees every block except a caller-owned first one, so the Arena starts on a
+// block large enough that no parse here needs a second.
+constexpr std::size_t kWarmBlockBytes = std::size_t{32} << 20;
+
+template <class Message, class Fn>
+std::uint64_t parse_and_sum_warm(const std::string& buf, Fn&& sum) {
+    static const std::unique_ptr<char[]> block(new char[kWarmBlockBytes]);
+    static google::protobuf::Arena arena(block.get(), kWarmBlockBytes);
+    arena.Reset();
+    auto* message = google::protobuf::Arena::CreateMessage<Message>(&arena);
+    message->ParseFromString(buf);
+    return sum(*message);
+}
+
 }  // namespace
 
 std::uint64_t protoc_dataset(const std::string& buf) {
@@ -192,6 +209,18 @@ std::uint64_t protoc_big_zz(const std::string& buf) {
 }
 std::uint64_t protoc_big_kinds(const std::string& buf) {
     return parse_and_sum<bench::Big>(buf, checksum_big_protoc_kinds);
+}
+std::uint64_t protoc_dataset_warm(const std::string& buf) {
+    return parse_and_sum_warm<bench::Dataset>(buf, checksum_protoc);
+}
+std::uint64_t protoc_big_set_warm(const std::string& buf) {
+    return parse_and_sum_warm<bench::BigSet>(buf, checksum_protoc_big);
+}
+std::uint64_t protoc_wide_warm(const std::string& buf) {
+    return parse_and_sum_warm<bench::WideSet>(buf, checksum_protoc_wide);
+}
+std::uint64_t protoc_record_warm(const std::string& buf) {
+    return parse_and_sum_warm<bench::RecordSet>(buf, checksum_protoc_record);
 }
 
 ProtocMemory protoc_dataset_memory(const std::string& buf) {
