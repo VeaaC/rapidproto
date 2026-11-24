@@ -491,9 +491,10 @@ if(RAPIDPROTO_BUILD_TESTS)
     find_package(Protobuf MODULE QUIET)
   endif()
   if(Protobuf_FOUND)
-    # The module sets Protobuf_PROTOC_EXECUTABLE (a path); the config package exposes an imported
-    # protobuf::protoc executable instead. Use whichever is available -- and matched to libprotobuf.
-    if(NOT Protobuf_PROTOC_EXECUTABLE AND TARGET protobuf::protoc)
+    # protoc must match the libprotobuf just found. Prefer the package's imported protobuf::protoc
+    # over the module's Protobuf_PROTOC_EXECUTABLE: that path is cached, so after a reconfigure with
+    # a new CMAKE_PREFIX_PATH it would still name the earlier protobuf's protoc.
+    if(TARGET protobuf::protoc)
       set(Protobuf_PROTOC_EXECUTABLE "$<TARGET_FILE:protobuf::protoc>")
     endif()
     # protoc C++ codegen for the arena bench's materializing baseline (the rapidproto decoders come
