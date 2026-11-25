@@ -51,7 +51,7 @@ tag keys refer to the stringtable by index, and nothing promises the stringtable
 in a block, so the program decodes each block twice - a cheap pass that collects only the
 stringtable and the coordinate scaling fields, then the real walk. Skipping fields is what a
 streaming decoder is good at; even with the double decode, the streaming arm matches the arena
-end to end ([benchmarks.md](benchmarks.md#real-world-data---osm-pbf-vs-libosmium)). Packed
+end to end ([benchmarks.md](benchmarks.md#openstreetmap-data)). Packed
 parallel arrays arrive one whole array at a time, not interleaved, so by the
 time lon element *i* shows up, lat element *i* is long gone; the statistics use per-axis
 aggregates precisely so nothing needs pairing. And since an absent field fires no callback,
@@ -72,6 +72,6 @@ curl -O https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf
 Statistics go to stdout, timing to stderr. The arena program reports read / inflate /
 decode / walk - with a materialized tree, decoding and reading are separate steps - while
 the streaming program reports decode+walk as one number, because for it they are one pass.
-Zlib inflate costs several times the protobuf decode, so end-to-end PBF throughput is mostly
-a zlib number; [benchmarks.md](benchmarks.md#real-world-data---osm-pbf-vs-libosmium) keeps
-the two layers separate.
+Reading the frames and inflating them takes more than twice as long as the protobuf decode, so
+end-to-end PBF throughput is mostly a zlib number;
+[benchmarks.md](benchmarks.md#openstreetmap-data) keeps the two layers separate.

@@ -16,7 +16,7 @@ bench record, each tagged with `"decoder":"stream"|"arena"`. GB/s (measured deco
 PRIMARY signal -- it is what a reader actually cares about and, unlike ins/B, it reflects everything the
 CPU pays for (branch mispredictions, cache/memory stalls), so it is what the compare and the regression
 gate key on. Caveat: across independent builds GB/s carries code-PLACEMENT noise -- calibrated
-by shuffle-relinking (recipe in docs/benchmark-method.md) at ~6% worst-arm, most
+by shuffle-relinking (recipe in docs/running-benchmarks.md) at ~6% worst-arm, most
 under 4%, now that the bench builds pin 64-byte function/loop alignment -- plus frequency drift; the gate keys on the larger of a flat
 threshold (--threshold, default 10%: conservative against those floors) and the arm's own
 measured run-to-run spread; sub-floor cross-build deltas are not reliable (quiesce the box --
@@ -777,7 +777,7 @@ def main():
     r = sub.add_parser("run", help="build both benches, run pinned, write a snapshot")
     r.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb35"),
                    help="cmake build dir (default build/gcc-pb35, configured as "
-                        "docs/benchmark-method.md shows)")
+                        "docs/running-benchmarks.md shows)")
     r.add_argument("--core", default="2", help="taskset core to pin to, or 'none' to skip pinning (default 2)")
     r.add_argument("--out", default=None, help="snapshot path (default bench_snapshots/<cc>-<rev>.ndjson)")
     r.add_argument("--repeat", type=int, default=DEFAULT_REPEAT,
@@ -807,7 +807,7 @@ def main():
     e.add_argument("variant", nargs="?", default=None, help="git ref for the variant (default: current HEAD)")
     e.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb35"),
                    help="cmake build dir (default build/gcc-pb35, configured as "
-                        "docs/benchmark-method.md shows)")
+                        "docs/running-benchmarks.md shows)")
     e.add_argument("--core", default="2", help="taskset core, or 'none' to skip pinning (default 2)")
     e.add_argument("--repeat", type=int, default=DEFAULT_REPEAT,
                    help=f"runs per snapshot, median run kept per arm (default {DEFAULT_REPEAT})")

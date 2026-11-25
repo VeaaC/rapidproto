@@ -11,9 +11,9 @@ through collect()/render()/compare() below -- one home for the machinery -- so i
 compile-only investigation.
 All three were invisible, and all three scale with the sub-message closure -- `RP_FLATTEN` on every
 message's `rp_decode_into` transitively inlines it, bounded by `LayoutOptions::flatten_budget`. On
-gcc a 10-message nesting chain takes ~7.2s and 174 KB of `.text` (unbounded: ~65s and 599 KB,
+gcc a 10-message nesting chain takes ~7.1s and 174 KB of `.text` (unbounded: ~65s and 599 KB,
 measured at the flatten-budget work),
-where clang takes ~1.1s and 48 KB.
+where clang takes ~1.7s and 48 KB.
 
 Methodology
 -----------

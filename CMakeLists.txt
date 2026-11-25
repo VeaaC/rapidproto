@@ -468,7 +468,7 @@ if(RAPIDPROTO_BUILD_TESTS)
   # address phase independent of where the linker drops its object, collapsing the measured
   # cross-layout GB/s spread from up to ~22% to ~6.5% worst-arm, mostly <4% (shuffle-relink
   # calibration, 20 layouts per variant, quiesced box, ins/B flat except upb's ~1%; recipe in
-  # docs/benchmarks.md's noise appendix). The residual mixes run noise, the prebuilt protobuf library these flags cannot
+  # docs/running-benchmarks.md). The residual mixes run noise, the prebuilt protobuf library these flags cannot
   # reach, and loop-phase luck. Bench targets ONLY -- consumers' builds are untouched.
   set(RAPIDPROTO_BENCH_ALIGN -falign-functions=64 -falign-loops=64)
   target_compile_options(rapidproto_bench PRIVATE -O3 -DNDEBUG ${RAPIDPROTO_BENCH_ALIGN})

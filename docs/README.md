@@ -20,6 +20,10 @@ crates on docs.rs. The decoding rules and the benchmarks cover both languages.
 - [One optimization at a time](optimizations.md) shows how the decoders got fast, with seven
   optimizations re-enabled in turn and measured.
 - [Benchmarks](benchmarks.md) has the numbers and how to reproduce them.
+- [Benchmark method](benchmark-method.md) explains how the published numbers are made and how far
+  they move between runs.
+- [Running the benchmarks](running-benchmarks.md) shows how to build and run the benchmarks and
+  compare two builds.
 
 Other documents are on GitHub.
 [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md) describes the

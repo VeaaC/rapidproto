@@ -181,7 +181,7 @@ defines the schema's enums. Because both decoder headers include it, they
 [share one type per enum](using-both-models.md).
 
 A generated header is compiled again in every source file that includes it, and the
-[compile cost](benchmarks.md#compile-cost---what-the-throughput-costs-to-build) adds up. Keep such
+[compile cost](benchmarks.md#compile-cost) adds up. Keep such
 includes out of headers that many files pull in.
 
 A source file can't mix generated headers from two output directories. Two directories mean two
