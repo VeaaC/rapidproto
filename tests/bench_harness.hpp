@@ -361,11 +361,11 @@ inline Stat stat(std::vector<double> v) {
 // [[nodiscard]]: a silently dropped verdict is exactly how the arena bench's cross-check claim once
 // went false -- make the next dropped one a warning, which the gate's build-output check fails on
 // (the benches are not -Werror builds).
-// `budget_ns` / `min_rounds` widen the defaults for a scenario whose single round costs seconds (the
-// OSM file pass): it gets more than one convergence check within its budget. The budget never stops
-// a run before its first check (up to 20 s), and a long round lowers the minimum (see below).
+// A scenario whose single round costs seconds (the OSM passes) widens `budget_ns` and lowers
+// `min_rounds`, so it still gets more than one convergence check within its budget. The budget never
+// stops a run before its first check (up to 20 s).
 [[nodiscard]] inline int run(const char* scenario, double byte_size, const std::vector<Arm>& arms,
-                             double budget_ns = 3.0e9, std::size_t min_rounds = 30) {
+                             double budget_ns = 3.0e9, std::size_t min_rounds = 17) {
     if (!scenario_selected(scenario)) {
         return 0;
     }
@@ -391,10 +391,12 @@ inline Stat stat(std::vector<double> v) {
     for (const auto& a : arms) {
         sample(cnt, a.fn, junk, 1);
     }
-    // A sample is as many back-to-back calls as make the baseline's sample take kMinSampleNs, the
-    // same count for every arm and the same target as the Rust runner. One call on a small payload
-    // (google_message1 is 228 bytes) is too short to time alone: the clock reads, the counter ioctls
-    // and a cold start would weigh on it.
+    // A sample is as many back-to-back calls as make the baseline's sample take about kMinSampleNs,
+    // the same count for every arm and the same target as the Rust runner. One call on a small
+    // payload (google_message1 is 228 bytes) is too short to time alone: the clock reads, the counter
+    // ioctls and a cold start would weigh on it. The count still comes from timing single calls,
+    // which carry that overhead, so a tiny payload's sample comes out shorter (google_message1's is
+    // about 7 ms).
     constexpr double kMinSampleNs = 10.0e6;
     double base_ns = sample(cnt, arms[0].fn, junk, 1).ns;
     if (base_ns < kMinSampleNs) {
@@ -408,22 +410,13 @@ inline Stat stat(std::vector<double> v) {
         static_cast<std::size_t>(std::max(1.0, std::ceil(kMinSampleNs / std::max(base_ns, 1.0))));
     const double sample_bytes = byte_size * static_cast<double>(calls);
 
-    // Warm caches / predictors for every arm: 5 rounds, or 2 when a round is long (over 10 ms: a
-    // whole pool pass, a large buffer, a file), which one round already warms.
-    constexpr double kLongRoundNs = 10.0e6;
-    double round_ns = 0;
-    for (int w = 1; w < 5 && !(w >= 2 && round_ns > kLongRoundNs); ++w) {
-        const auto t = Clock::now();
-        for (const auto& a : arms) {
-            sample(cnt, a.fn, junk, calls);
-        }
-        round_ns = ns_since(t);
+    // Warm caches / predictors for every arm: one round of full samples, each already many calls.
+    for (const auto& a : arms) {
+        sample(cnt, a.fn, junk, calls);
     }
-    // The floor before the first convergence check; a null (wash) result self-extends for a tighter
-    // CI. A long round's samples are each many decodes, steady enough that 17 rounds settle a ratio
-    // (the default's first check comes at 33), which halves the cost of those long rounds.
-    const std::size_t kMinRounds =
-        round_ns > kLongRoundNs ? std::min<std::size_t>(min_rounds, 17) : min_rounds;
+    // `min_rounds` is the floor before the first convergence check; a null (wash) result
+    // self-extends for a tighter CI. Samples of ~10 ms are steady enough that the default's 17
+    // rounds settle a ratio.
     // Until the first check the budget stretches up to kMaxBudgetNs: a scenario with long rounds
     // would otherwise stop on it with a CI from a handful of samples and no check at all.
     constexpr double kMaxBudgetNs = 20.0e9;
@@ -472,7 +465,7 @@ inline Stat stat(std::vector<double> v) {
                 ratio[k].push_back(prim[k] / prim[0]);
             }
         }
-        if (round + 1 >= kMinRounds && round % 8 == 0) {
+        if (round + 1 >= min_rounds && round % 8 == 0) {
             checked = true;
             converged = true;
             for (std::size_t k = 1; k < n; ++k) {
