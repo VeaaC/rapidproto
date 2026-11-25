@@ -72,11 +72,11 @@ the 368,611-byte input the arena decoder's message points into.
 
 | `Dataset`, one decode, either compiler | In use | Held |
 |---|---|---|
-| protoc | 1,837,855 bytes | 1,994,992 bytes |
+| protoc | 1,837,855 bytes | 1,994,752 bytes |
 | RapidProto arena decoder | 970,336 bytes | 1,159,408 bytes |
 | RapidProto relative to protoc | 0.53 | 0.58 |
 
-Each C++ figure is the median of five runs of its program. For a typical figure the middle three
+Each C++ throughput figure is the median of five runs of its program. For a typical figure the middle three
 runs lie within about 0.15% of each other. Of the 1,388 figures from both compilers, seven spread by
 more than 5%, all on packed varint arrays and none by more than 30%. A rebuild that moves the code
 in memory can shift a row by a few percent more

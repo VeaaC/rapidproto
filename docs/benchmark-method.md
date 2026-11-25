@@ -162,8 +162,11 @@ Arena's `SpaceUsed()` and `SpaceAllocated()`. Neither sees the text of a long st
 holds each `std::string` object, but libstdc++ keeps at most 15 bytes of text inside it and gives a
 longer string a heap buffer of its own. `Dataset` has 3,001 strings that long. For each buffer,
 protoc's in-use figure adds the bytes requested (the string's capacity plus one). Its held figure
-adds the size of the allocator's chunk, which under glibc is the buffer's usable size plus an 8-byte
-header.
+adds the chunk glibc's malloc cuts for that request: the request plus an 8-byte header, rounded up
+to 16 bytes, and at least 32. It's worked out from the request, so it doesn't depend on which free
+chunk the allocator happens to reuse. `SpaceUsed()` leaves out the Arena's list of destructors
+(about 64 KB on `Dataset`, under [Baselines](#baselines)), so protoc's in-use figure does too; its
+held figure counts it.
 
 ## Payloads
 
@@ -237,8 +240,8 @@ packed-varint pools and `records sparse (dropped)` have only `protoc`.
 
 In protobuf v35.1, `Reset()` frees all of an Arena's memory except a first block handed to its
 constructor. So `protoc-warm` builds its Arena over a buffer the program owns
-([bench_protoc.cpp](https://github.com/VeaaC/rapidproto/blob/main/tests/bench_protoc.cpp)): 32 MB
-for `Dataset` and the six shared payloads, 8 MB for Google's. Outside that block, in heap chunks,
+([bench_protoc.cpp](https://github.com/VeaaC/rapidproto/blob/main/tests/bench_protoc.cpp)): 32 MiB
+for `Dataset` and the six shared payloads, 8 MiB for Google's. Outside that block, in heap chunks,
 the Arena keeps a list of the destructors `Reset()` will run. For the map entries of `Dataset` that
 list takes roughly 64 KB on every parse. We checked every `protoc-warm` parse, and apart from that
 list each one fits in its block. Without the reuse protoc is about 1% slower on `Dataset`, at most

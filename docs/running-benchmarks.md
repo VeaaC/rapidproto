@@ -22,6 +22,7 @@ benchmark build against it:
 ```sh
 git clone --branch v35.1 https://github.com/protocolbuffers/protobuf build/deps/protobuf-src
 cmake -S build/deps/protobuf-src -B build/deps/protobuf-build -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_CXX_STANDARD=17 -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -Dprotobuf_BUILD_TESTS=OFF -Dprotobuf_FORCE_FETCH_DEPENDENCIES=ON \
     -DCMAKE_INSTALL_PREFIX=$HOME/protobuf-35.1
 cmake --build build/deps/protobuf-build --parallel
@@ -31,7 +32,9 @@ cmake --preset gcc -B build/gcc-pb35 -DCMAKE_PREFIX_PATH=$HOME/protobuf-35.1
 
 The protobuf sources and build go under `build/deps/`, which git ignores, so `bench.py experiment`
 won't count them as untracked files. `protobuf_FORCE_FETCH_DEPENDENCIES=ON` makes protobuf's CMake
-download the Abseil release it pins and ignore any Abseil already installed.
+download the Abseil release it pins and ignore any Abseil already installed. The library behind the
+published numbers was built with these flags. `CMAKE_POSITION_INDEPENDENT_CODE=ON` compiles it with
+`-fPIC`, which limits what GCC inlines inside it, so leave it in to time the same code.
 
 ## Running and comparing
 
