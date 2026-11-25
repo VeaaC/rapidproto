@@ -9,6 +9,8 @@
 // coupling this separation exists to remove.
 #include "bench_baselines.hpp"
 
+#include <malloc.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -230,14 +232,55 @@ std::uint64_t protoc_record_warm(const std::string& buf) {
     return parse_and_sum_warm<bench::RecordSet>(buf, checksum_protoc_record);
 }
 
+namespace {
+
+// The heap buffers of a parsed message's strings. The Arena holds each std::string object, but a
+// string too long for its inline buffer keeps its text in operator new memory, which the Arena's
+// SpaceUsed / SpaceAllocated never see. `used` adds what was requested (capacity + 1), `held` what
+// the allocator reserved for it (glibc: the usable size plus its 8-byte chunk header).
+struct StringHeap {
+    std::size_t used = 0;
+    std::size_t held = 0;
+    void add(const std::string& s) {
+        const char* object = reinterpret_cast<const char*>(&s);
+        if (s.data() >= object && s.data() < object + sizeof s) {
+            return;  // the text sits in the object's inline buffer
+        }
+        used += s.capacity() + 1;
+        held += malloc_usable_size(const_cast<char*>(s.data())) + sizeof(std::size_t);
+    }
+};
+
+}  // namespace
+
 ProtocMemory protoc_dataset_memory(const std::string& buf) {
     google::protobuf::Arena arena;
     auto* message = google::protobuf::Arena::Create<bench::Dataset>(&arena);
     if (!message->ParseFromString(buf)) {
         return {0, 0};
     }
-    return {static_cast<std::size_t>(arena.SpaceUsed()),
-            static_cast<std::size_t>(arena.SpaceAllocated())};
+    StringHeap heap;
+    heap.add(message->name());
+    for (const bench::Person& p : message->people()) {
+        heap.add(p.name());
+        heap.add(p.email());
+        if (p.has_address()) {
+            heap.add(p.address().street());
+            heap.add(p.address().city());
+        }
+        for (const std::string& t : p.tags()) {
+            heap.add(t);
+        }
+        for (const bench::Attribute& a : p.attributes()) {
+            heap.add(a.key());
+            heap.add(a.value());
+        }
+        for (const auto& kv : p.counters()) {
+            heap.add(kv.first);
+        }
+    }
+    return {static_cast<std::size_t>(arena.SpaceUsed()) + heap.used,
+            static_cast<std::size_t>(arena.SpaceAllocated()) + heap.held};
 }
 
 }  // namespace rpbaseline

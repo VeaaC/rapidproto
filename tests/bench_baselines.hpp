@@ -26,7 +26,8 @@
 namespace rpbaseline {
 
 // Peak memory of a protoc parse, for the like-with-like comparison against the arena's
-// bytes_used / bytes_reserved.
+// bytes_used / bytes_reserved: the Arena's own figures plus the heap buffers of the message's long
+// strings, which the Arena doesn't count.
 struct ProtocMemory {
     std::size_t used;
     std::size_t held;

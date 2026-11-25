@@ -7,9 +7,10 @@
 //        protozero: mapbox pbf_reader (zero-materialization yardstick; absent -> that row is skipped)
 //      Reports parse TIME on the shared harness (bench_harness.hpp: drift-invariant ratios vs the
 //      protoc baseline + cycles/byte; arena measured "cold" = fresh arena and "warm" = reset+reuse)
-//      and peak MEMORY for the two MATERIALIZERS like-with-like: payload (arena bytes_used vs protoc
-//      SpaceUsed) and total-malloc'd (arena bytes_reserved vs protoc SpaceAllocated). All four decoders
-//      must agree on a checksum.
+//      and peak MEMORY for the two MATERIALIZERS like-with-like: in use (arena bytes_used vs protoc
+//      SpaceUsed) and held (arena bytes_reserved vs protoc SpaceAllocated), protoc's each plus the
+//      heap buffers of its long strings, which its Arena doesn't count (bench_protoc.cpp). All four
+//      decoders must agree on a checksum.
 //   2. Repeated / packed-array shapes (arena-warm vs protoc): packed varint vs fixed-width elements
 //      (same element count) and many-messages-few-elements vs few-messages-many (same element count),
 //      isolating the arena's repeated-field decode cost across the axes that stress it.
@@ -931,7 +932,7 @@ int main() {
         std::printf("\npeak memory of the two materializers (bytes, one parse, like-with-like):\n");
         std::printf("  used (payload):   arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_used,
                     mem_p_used, static_cast<double>(mem_a_used) / static_cast<double>(mem_p_used));
-        std::printf("  held (malloc'd):  arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_held,
+        std::printf("  held (reserved):  arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_held,
                     mem_p_held, static_cast<double>(mem_a_held) / static_cast<double>(mem_p_held));
         std::printf("checksum %llu (all agree)\n", static_cast<unsigned long long>(c_arena));
     }
