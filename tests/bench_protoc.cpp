@@ -9,17 +9,18 @@
 // coupling this separation exists to remove.
 #include "bench_baselines.hpp"
 
-#include <malloc.h>
-
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
 
 #include <google/protobuf/arena.h>
 
 #include "bench.pb.h"
+#include "bench_pb_arena.hpp"
 
 namespace rpbaseline {
 namespace {
@@ -167,7 +168,7 @@ std::uint64_t checksum_big_protoc_kinds(const bench::Big& b) {
 template <class Message, class Fn>
 std::uint64_t parse_and_sum(const std::string& buf, Fn&& sum) {
     google::protobuf::Arena arena;
-    auto* message = google::protobuf::Arena::Create<Message>(&arena);
+    auto* message = new_in_arena<Message>(&arena);
     if (!message->ParseFromString(buf)) {
         return ~std::uint64_t{0};
     }
@@ -186,7 +187,7 @@ std::uint64_t parse_and_sum_warm(const std::string& buf, Fn&& sum) {
     static const std::unique_ptr<char[]> block(new char[kWarmBlockBytes]);
     static google::protobuf::Arena arena(block.get(), kWarmBlockBytes);
     arena.Reset();
-    auto* message = google::protobuf::Arena::Create<Message>(&arena);
+    auto* message = new_in_arena<Message>(&arena);
     if (!message->ParseFromString(buf)) {
         return ~std::uint64_t{0};
     }
@@ -236,18 +237,22 @@ namespace {
 
 // The heap buffers of a parsed message's strings. The Arena holds each std::string object, but a
 // string too long for its inline buffer keeps its text in operator new memory, which the Arena's
-// SpaceUsed / SpaceAllocated never see. `used` adds what was requested (capacity + 1), `held` what
-// the allocator reserved for it (glibc: the usable size plus its 8-byte chunk header).
+// SpaceUsed / SpaceAllocated never see. `used` adds what was requested (capacity + 1). `held` adds
+// the chunk glibc's malloc carves for that request: the request plus its 8-byte size header,
+// rounded up to 16, at least 32. It's computed from the request, not asked of the allocator:
+// malloc_usable_size also reports the slack of a reused chunk, which depends on what ran before.
 struct StringHeap {
     std::size_t used = 0;
     std::size_t held = 0;
     void add(const std::string& s) {
         const char* object = reinterpret_cast<const char*>(&s);
-        if (s.data() >= object && s.data() < object + sizeof s) {
+        const std::less<const char*> before;
+        if (!before(s.data(), object) && before(s.data(), object + sizeof s)) {
             return;  // the text sits in the object's inline buffer
         }
-        used += s.capacity() + 1;
-        held += malloc_usable_size(const_cast<char*>(s.data())) + sizeof(std::size_t);
+        const std::size_t request = s.capacity() + 1;
+        used += request;
+        held += std::max<std::size_t>(32, (request + sizeof(std::size_t) + 15) & ~std::size_t{15});
     }
 };
 
@@ -255,7 +260,7 @@ struct StringHeap {
 
 ProtocMemory protoc_dataset_memory(const std::string& buf) {
     google::protobuf::Arena arena;
-    auto* message = google::protobuf::Arena::Create<bench::Dataset>(&arena);
+    auto* message = new_in_arena<bench::Dataset>(&arena);
     if (!message->ParseFromString(buf)) {
         return {0, 0};
     }

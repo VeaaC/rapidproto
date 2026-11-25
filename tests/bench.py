@@ -469,9 +469,10 @@ def table(args):
 def overhead_dominated(scenario):
     """The repeated-varint sweep's tiniest rows (n<=100 -> buffers of tens to hundreds of bytes) are
     excluded from pass/fail (still shown in the report): with one buffer per sample, per-op timer
-    overhead dominated their GB/s, which swung far more than the placement floor. Whole-pool samples
-    amortize that overhead, but their spread under them is unmeasured. The deterministic ins/B column
-    compares them fine. Only the sweep uses this `rv <dist> <count>` naming."""
+    overhead dominated their GB/s, which swung far more than the placement floor. Whole-pool, batched
+    samples amortize that overhead, and their snapshots now carry a spread, but no cross-build floor
+    has been measured for them. The deterministic ins/B column compares them fine. Only the sweep uses
+    this `rv <dist> <count>` naming."""
     return scenario.startswith("rv ") and scenario.rsplit(" ", 1)[-1] in ("10", "100")
 
 

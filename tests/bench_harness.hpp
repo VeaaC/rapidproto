@@ -478,10 +478,18 @@ inline Stat stat(std::vector<double> v) {
     }
     const double elapsed_ns = ns_since(start);
 
+    // A sample's checksum is the sum over its `calls` calls, so a difference d in every call drops
+    // out when calls * d wraps to 0 (d = 2^63 with an even count, say). One untimed call per arm
+    // compares single checksums too.
+    std::vector<std::uint64_t> single(n, 0);
+    for (std::size_t k = 0; k < n; ++k) {
+        single[k] = call_n(arms[k].fn, 1);
+    }
+
     int bad = 0;
     bool ambiguous = false;
     for (std::size_t k = 0; k < n; ++k) {
-        const bool ok = sums[k] == sums[0];
+        const bool ok = sums[k] == sums[0] && single[k] == single[0];
         bad += ok ? 0 : 1;
         const Stat sns = stat(ns_s[k]);
         const double gb_s = sample_bytes / sns.median;

@@ -799,8 +799,8 @@ int main() {
     const std::uint64_t c_arena = checksum_arena_dataset(adoc);
     const std::uint64_t c_protoc = rpbaseline::protoc_dataset(buf);
     const std::uint64_t c_stream = checksum_stream(view);
-    bool mismatch = c_arena != c_protoc || c_arena != c_stream ||
-                    c_arena != rpbaseline::protoc_dataset_warm(buf);
+    const std::uint64_t c_protoc_warm = rpbaseline::protoc_dataset_warm(buf);
+    bool mismatch = c_arena != c_protoc || c_arena != c_stream || c_arena != c_protoc_warm;
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
     const std::uint64_t c_pz = rpbaseline::protozero_dataset(view);
     mismatch = mismatch || c_arena != c_pz;
@@ -822,10 +822,11 @@ int main() {
     }
 #endif
     if (mismatch) {
-        std::fprintf(stderr, "CHECKSUM MISMATCH arena=%llu protoc=%llu stream=%llu",
-                     static_cast<unsigned long long>(c_arena),
-                     static_cast<unsigned long long>(c_protoc),
-                     static_cast<unsigned long long>(c_stream));
+        std::fprintf(
+            stderr, "CHECKSUM MISMATCH arena=%llu protoc=%llu protoc-warm=%llu stream=%llu",
+            static_cast<unsigned long long>(c_arena), static_cast<unsigned long long>(c_protoc),
+            static_cast<unsigned long long>(c_protoc_warm),
+            static_cast<unsigned long long>(c_stream));
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
         std::fprintf(stderr, " protozero=%llu", static_cast<unsigned long long>(c_pz));
 #endif
