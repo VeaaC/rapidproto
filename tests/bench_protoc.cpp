@@ -174,7 +174,9 @@ std::uint64_t parse_and_sum(const std::string& buf, Fn&& sum) {
 
 // protoc's side of the arena decoder's reused arena: one Arena per message type, Reset() before
 // each parse. Reset() frees every block except a caller-owned first one, so the Arena starts on a
-// block large enough that no parse here needs a second.
+// block large enough that no parse here needs a second. protobuf v35 keeps the Arena's cleanup list
+// (the destructors Reset() runs) outside its blocks, so Dataset's map entries still take heap
+// chunks on every parse.
 constexpr std::size_t kWarmBlockBytes = std::size_t{32} << 20;
 
 template <class Message, class Fn>

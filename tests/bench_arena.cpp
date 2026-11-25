@@ -866,10 +866,11 @@ int main() {
 #ifdef RAPIDPROTO_HAVE_UPB
     if (upb_ok) {
         // Decode + accessor-walk checksum into a fresh upb arena (arena-cold semantics; upb has
-        // no reset-and-reuse): the SAME work every other arm does. The walk reads through
-        // pre-resolved upb_MiniTableField accessors -- what upb's generated code compiles to --
-        // not reflection, so upb is neither flattered (walk skipped) nor over-billed
-        // (per-field name lookups); see bench_upb.hpp.
+        // no reset, and the arm doesn't yet start each decode on a reused block with
+        // upb_Arena_Init): the SAME work every other arm does. The walk reads through
+        // pre-resolved upb_MiniTableField handles, not reflection, so upb isn't flattered (walk
+        // skipped) and avoids per-field name lookups; it pays a little more than generated
+        // getters would (see bench_upb.hpp).
         arms.push_back({"upb", [&]() { return rpupb::decode_and_sum_dataset(view); }});
     }
 #endif

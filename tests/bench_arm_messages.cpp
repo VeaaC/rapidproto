@@ -1756,8 +1756,9 @@ int scenario(const char* name, const std::string& buf, ProtocFn protoc_sum, Aren
 #ifdef RAPIDPROTO_HAVE_UPB
     if (upb_ready) {
         // Decode + accessor-walk checksum: the SAME work every other arm does, through
-        // pre-resolved upb_MiniTableField accessors (what upb's generated code compiles to) --
-        // neither flattering upb by skipping the walk nor over-billing it with reflection.
+        // pre-resolved upb_MiniTableField handles -- not flattering upb by skipping the walk, and
+        // avoiding reflection's lookups, though a little dearer than generated getters (see
+        // bench_upb.hpp).
         arms.push_back({"upb", [&buf, upb_timed_sum]() { return upb_timed_sum(buf); }});
     }
 #endif
