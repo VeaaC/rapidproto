@@ -3,10 +3,11 @@
 #pragma once
 
 // A protoc message created IN a google::protobuf::Arena, on every protobuf release the benchmarks
-// build against. Before v35, Arena::Create default-constructs a message without the arena: only the
+// build against. Before v26, Arena::Create default-constructs a message without the arena: only the
 // object lands in it, its strings and sub-messages go to the heap, and CreateMessage is the
-// arena-aware call. v35 removed CreateMessage and made Create arena-aware. Releases that have both
-// mark CreateMessage deprecated, which the pragmas below keep out of the build output.
+// arena-aware call. From v26 Create is arena-aware too; v27 to v29 mark CreateMessage deprecated,
+// which the pragmas below keep out of the build output, and v30 removed it. Wherever CreateMessage
+// exists it is arena-aware, so this prefers it and falls back on Create.
 
 #include <type_traits>
 

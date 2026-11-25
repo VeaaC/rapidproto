@@ -965,12 +965,11 @@ constant, and reproduce rather than quote. What the results mean structurally:
   validates UTF-8 per proto3 `string`; the arena does not), and much of the memory gap comes from
   borrowing strings/bytes/`raw` payloads as views into the input instead of copying them (protoc
   keeps a `std::string` per string in its Arena and the text of any string too long for its inline
-  buffer on the heap; the split hasn't been measured). "Memory" is allocator-reported accounting
-  (`bytes_used`/`bytes_reserved` vs protobuf's `SpaceUsed`/`SpaceAllocated`, each plus the heap
-  buffers of protoc's long strings), not process RSS; the memory ratios are exact byte counts
-  (protoc's held figure moves slightly with the allocator's heap state, 144 bytes between two
-  programs measured), while the
-  time multiple varies with payload shape, baseline version, and machine state.
+  buffer on the heap; the split hasn't been measured). "Memory" is arena accounting
+  (`bytes_used`/`bytes_reserved` vs protobuf's `SpaceUsed`/`SpaceAllocated`) plus, for protoc, the
+  heap buffers of its long strings (requested bytes, and glibc's chunk size for each request), not
+  process RSS; the memory ratios are exact byte counts, while the time multiple varies with payload
+  shape, baseline version, and machine state.
 - **Real codegen wins, surfaced by same-binary A/B.** The headline metric is **GB/s** - measured decode
   throughput, which unlike retired instructions reflects everything the CPU pays for (branch
   mispredictions, cache/memory stalls; e.g. random-width packed varints run ~4× slower than
