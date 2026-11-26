@@ -663,8 +663,8 @@ and locked at their chosen values; each is a single constant with a rationale co
 
 - **Flatten budget = 4 decode arms** (`LayoutOptions::flatten_budget`, applied in `arenagen/layout.cpp`).
   Forcing `RP_FLATTEN` is itself an optimization over letting the compiler decide, taken because
-  GCC's
-  inliner leaves throughput on the table in a large TU (Clang's does not need the help). This
+  GCC's and Clang's
+  inliners both leave throughput on the table in a large TU. This
   budget is
   what keeps that choice affordable: without it, forcing flatten costs so much build time on a large
   schema that it is not a viable default at all. The planner walks the message graph, accumulates
@@ -985,39 +985,10 @@ constant, and reproduce rather than quote. What the results mean structurally:
   conservative against those floors) and the arm's own measured spread. A genuine *sub*-floor codegen
   change is confirmed instead by retired **instructions/byte**, deterministic and
   placement-invariant
-  (a rough proxy for work, blind to the stalls above). Shipped so far: **field-order threading**
-  of both
-  decode loops (see [Field-order threading](#field-order-threading)) - after each field a depth-2
-  constant-tag probe jumps straight to the next expected field, converting per-field N-way
-  dispatch into a
-  predictable 2-way branch for the common ascending-order wire, and giving on gcc ≈2× throughput on
-  scalar-heavy dispatch-bound arena records (ins/B 15.2 → 11.3), +16% on the mixed `Dataset`
-  (ins/B 11.4 → 9.7), ≈2× on a dense streaming consumer (ins/B 12.7 → 7.8), and ≈2.3× on a
-  sparse-extract
-  streaming consumer (ins/B 10.6 → 4.1, the biggest winner, since the dedicated per-wire skip
-  makes the
-  skipped majority cheap) - at about −11% arena bench `.text` (the threaded label is emitted once
-  per
-  field); a fused 1-byte-tag fast path in `read_tag` (~10% on both compilers);
-  driving both decode loops with a fused `read_tag_or_end` (one bounds check instead of `at_end()` +
-  `read_tag()`, tag held as a value not `std::optional`), which closed most of the protozero gap on
-  nested/message-heavy decode (≈2× nested-message throughput on gcc, at or above protozero on
-  clang); a
-  raw-byte peek switch that dispatches single-byte tags (fields 1–15) without splitting field from
-  wire;
-  `RP_FLATTEN` on generated `decode()`, which recovers the inlining GCC leaves on the table in a
-  large
-  translation unit (~30% more retired instructions on message/skip-heavy shapes, where Clang was
-  already
-  inlining - but a large closure is what makes a schema slow, or impossible, to compile, so the
-  planner
-  bounds it: see the flatten budget under [Tuning](#tuning-benchmark-driven-knobs)); and, for the
-  arena's packed scalars, pre-sizing the array from the wire length plus a single
-  bulk copy of a packed **fixed-width** array on little-endian (≈2–2.5× packed varint, ≈5× packed
-  fixed,
-  ahead of protoc). That bulk copy moves a whole packed *array* in one `memcpy`; an earlier
-  attempt to
-  `memcpy` a *single* fixed-width field, by contrast, showed no effect under the same control.
+  (a rough proxy for work, blind to the stalls above). The decoder optimizations shipped so far,
+  what each changes and what it bought, are in [`docs/optimizations.md`](docs/optimizations.md).
+  One idea measured no effect under the same control: a `memcpy` of a *single* fixed-width field
+  (the packed pre-sizing's bulk copy of a whole fixed-width array is a different case).
 
 **The `protoc` baseline version matters - and is selectable without vendoring protobuf.** An old
 baseline flatters the arena (libprotobuf's own decoder has sped up markedly across releases).
