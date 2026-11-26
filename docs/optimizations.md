@@ -4,7 +4,7 @@ RapidProto can generate two C++ decoders for a schema. The [arena decoder](arena
 whole message into an arena and gives you an accessor per field, and the
 [streaming decoder](streaming.md) hands the fields you ask for to your handlers and builds no
 message. Most of their speed comes from seven optimizations. To measure each one, we switched all
-seven off in the shipped code, along with two choices of its layout planner. What was left was a
+seven off in the shipped code, along with two choices of the layout planner. What was left was a
 plain loop that read a tag, switched on the field number and validated each value as it went. Then
 we put the optimizations back one at a time. With all seven back, the arena decoder went from 2.4 to
 6.1 times the throughput of [protoc](https://github.com/protocolbuffers/protobuf)'s generated code
@@ -36,13 +36,13 @@ right](ladder/ladder-step0.svg)
 
 Every chart shows the same 43 benchmarks, the arena decoder's 23 on the left and the streaming
 decoder's 20 on the right. The text quotes only a few of them. A bar is a decoder's throughput as a
-multiple of its reference decoder's, on a square-root scale: protoc for the arena decoder and
-protozero for the streaming decoder, run on the same bytes in the same program. Each throughput is
-the median of five runs. In the step charts, numbered in the order of the sections below, the part
-of a bar that changed since the build before is blue for a gain and orange for a loss. It stays
-grey when the change is within the larger of 3% and the reference decoder's own drift across the
-builds. protoc and protozero ran the same code in every build, but their speed still moved with
-where the linker placed it ([code placement](benchmark-method.md#code-placement)).
+multiple of its reference decoder's, on a square-root scale. The reference is protoc for the arena
+decoder and protozero for the streaming decoder, run on the same bytes in the same program. Each
+throughput is the median of five runs. In the step charts, numbered in the order of the sections
+below, the part of a bar that changed since the build before is blue for a gain and orange for a
+loss. It stays grey when the change is within the larger of 3% and the reference decoder's own
+drift across the builds. protoc and protozero ran the same code in every build, but their speed
+still moved with where the linker placed it ([code placement](benchmark-method.md#code-placement)).
 
 ## Borrowed strings
 
@@ -284,9 +284,9 @@ path, whose switch jumps into the same labels.
 Here is the loop of
 [`Wide`](https://github.com/VeaaC/rapidproto/blob/main/tests/bench/bench.proto), which has four
 packed `int32` arrays in fields 1 to 4 and two string arrays in fields 5 and 6.
-`many msgs, tiny arrays` decodes 50,000 of them, each with three values per array and two strings
-per string field, and comes back in the next section. The diagrams after the sketch use a smaller
-message whose fields 1 to 3 are `name`, `id` and `tags`.
+`many msgs, tiny arrays` decodes 50,000 of them, each with three values in each `int32` array and
+two strings in each string field, and comes back in the next section. The diagrams after the
+sketch use a smaller message whose fields 1 to 3 are `name`, `id` and `tags`.
 
 ```cpp
 // Wide's decode loop with the hub, before threading, trimmed: namespace qualifiers, the field
@@ -356,9 +356,8 @@ those probed, the probes thread the decode from label to label without touching 
 
 A successor that the schema declares packed (proto3's default for repeated numeric and enum fields,
 `[packed = true]`, or `repeated_field_encoding = PACKED` in editions) arrives as one
-length-delimited run. Its probe
-tests that tag, and a hit enters the field's packed label, `rp_do_<n>_p`, which fills the array and
-then probes for the fields after it.
+length-delimited run. Its probe tests that tag, and a hit enters the field's packed label,
+`rp_do_<n>_p`, which fills the array and then probes for the fields after it.
 
 ```cpp
 // Two of Wide's labels as shipped, trimmed: namespace qualifiers, the field bodies and error
@@ -382,10 +381,11 @@ or 0x1a, after field 2 (id) for 0x1a, and after field 3 (tags) for another tags 
 falls back to the hub.](ladder/diagram-threading.svg)
 
 In machine code each probe is a compare with a constant and a direct conditional branch, two of
-each for a two-byte tag. Most records in `scalar records (dispatch-bound)` carry the same fields
-in the same order, so most of these branches go the same way nearly every time. The hub's indirect
-jump had a different target from one field to the next. On that benchmark
-threading cut instructions per byte by 26% and raised instructions per cycle from 4.1 to 5.2. It
+each for a two-byte tag. In `scalar records (dispatch-bound)` the fields always arrive in the same
+order and nearly every one is present in nearly every record, so most of these branches go the same
+way nearly every time. The hub's indirect jump had a different target from one field to the next.
+On that benchmark threading cut instructions per byte by 26% and raised instructions per cycle from
+4.1 to 5.2. It
 decoded 70% faster. Relative to protoc, whose own speed on it rose 9% between the two builds, that's
 56%. `google_message1` gained 23%.
 
@@ -397,7 +397,7 @@ On `many msgs, tiny arrays` the decoder ran 10% slower, and on
 of an OpenStreetMap extract of Bremen, inflated before timing. In both, the fields do arrive in
 ascending order, with packed arrays among them. We found the cause while writing this article. The
 build we measured probed a packed successor by its element tag, the tag a single value carries when
-sent unpacked. A packed run never carries that tag, and the probe always missed. In `Wide`, after
+sent unpacked. A packed run never carries that tag, so the probe always missed. In `Wide`, after
 each of the first three arrays, both probes missed and the loop fell back to the hub, paying for two
 compares on top of its jump. Decoding stayed correct, since the hub has a case for either form, but
 instructions per byte rose 14% on `many msgs, tiny arrays` and 4% on `osm_blocks`. The fix has
@@ -409,10 +409,10 @@ throughput rose 16% and 6%.
 ## The finished decoder
 
 At the end of the series the arena decoder still built the whole message and both decoders still
-validated every field they read. The table sets the starting build beside the last one, from before
+validated every field they read. The table sets the baseline build beside the last one, from before
 the probe fix, for the payloads quoted above other than the `rv` pools.
 
-| Throughput relative to the reference decoder | Reference | Starting build | After threading |
+| Throughput relative to the reference decoder | Reference | Baseline build | After threading |
 |---|---|---|---|
 | `Dataset` | protoc | 2.4 | 6.1 |
 | `google_message1` | protoc | 2.2 | 3.7 |
