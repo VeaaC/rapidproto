@@ -1,52 +1,52 @@
 # One optimization at a time
 
-RapidProto can generate two C++ decoders for a schema. The [arena decoder](arena.md) decodes the whole
-message into an arena and gives you an accessor per field, and the [streaming decoder](streaming.md)
-hands the fields you ask for to your handlers and builds no message. Most of their speed comes from
-seven optimizations. To measure each one, we switched all seven off in the shipped code. What was
-left was a plain loop that read a tag, switched on the field number and validated each value as it
-went. Then we put the optimizations back one at a time. With all seven back, the arena decoder went
-from 2.4 to 6.1 times the throughput of protoc's generated code on [`Dataset`](benchmarks.md#c),
-whose 2,000 proto3 records mix numbers, strings and sub-messages.
+RapidProto can generate two C++ decoders for a schema. The [arena decoder](arena.md) decodes the
+whole message into an arena and gives you an accessor per field, and the
+[streaming decoder](streaming.md) hands the fields you ask for to your handlers and builds no
+message. Most of their speed comes from seven optimizations. To measure each one, we switched all
+seven off in the shipped code, along with two choices of its layout planner. What was left was a
+plain loop that read a tag, switched on the field number and validated each value as it went. Then
+we put the optimizations back one at a time. With all seven back, the arena decoder went from 2.4 to
+6.1 times the throughput of [protoc](https://github.com/protocolbuffers/protobuf)'s generated code
+on [`Dataset`](benchmarks.md#c), whose 2,000 proto3 records mix numbers, strings and sub-messages.
 
-We measured the series in September 2026 with clang++-20 and protoc from libprotobuf 4.25.3, adding
-one optimization per build in the order of the sections below. An extra build after borrowed
-strings added a layout planner, which stores small sub-messages inside their parent. It moved no
-benchmark beyond its noise, though the totals include it. Each speed figure is a decoder's
-throughput over a reference decoder's, both measured on the same bytes in the same program and
-taken as the median of five runs. The reference is protoc for the arena decoder and
-[protozero](https://github.com/mapbox/protozero) for the streaming decoder.
-[Benchmarks](benchmarks.md) has today's figures, measured against a newer protobuf release.
+We measured the series in September 2026 with clang++-20 and protoc from libprotobuf 4.25.3;
+[Benchmarks](benchmarks.md) has today's figures, against a newer protobuf release. Each build added
+one optimization, in the order of the sections below. An extra build after borrowed strings turned
+the two layout choices back on: members ordered by alignment to cut padding, and fixed-size
+sub-messages of up to 16 bytes stored inside their parent. It moved no benchmark beyond its noise,
+though the totals include it.
 
 ## The baseline
 
 The baseline loop checked for the end of the input, read the next tag, switched on the field number,
 checked the wire type and decoded the value into the message's struct. A repeated field went into an
 array that started with room for four values and doubled when full, leaving each outgrown array in
-the arena. Strings and bytes were copied into the arena, and clang inlined whatever it chose to.
+the arena. Strings and bytes were copied into the arena. Clang inlined whatever it chose to.
 Every build in the series, this one included, validated as much as the shipped decoder does.
 
 It was already well ahead of protoc on `Dataset`, but protoc beat it on most packed varint arrays.
-The streaming decoder was 11% slower than protozero on `rv fx1`, where every array in the
-[pool](benchmark-method.md#payloads) holds a million one-byte varints.
+The streaming decoder was 11% slower than [protozero](https://github.com/mapbox/protozero) on
+`rv fx1`, where every array in the [pool](benchmark-method.md#payloads) holds a million one-byte
+varints.
 
 ![Chart of each benchmark's throughput relative to its reference decoder in the baseline, the
 arena decoder against protoc on the left and the streaming decoder against protozero on the
 right](ladder/ladder-step0.svg)
 
 Every chart shows the same 43 benchmarks, the arena decoder's 23 on the left and the streaming
-decoder's 20 on the right, and the text quotes only a few of them. A bar is the throughput as a
-multiple of the reference decoder's, on a square-root scale. In the step charts, numbered in the
-order of the sections below, the part of a bar that changed since the build before is blue for a
-gain and orange for a loss. It stays grey when the change is within the larger of 3% and the
-reference decoder's own drift across the builds. protoc and protozero ran the same code in every
-build, but their speed still moved with where the linker placed it
-([code placement](benchmark-method.md#code-placement)).
+decoder's 20 on the right. The text quotes only a few of them. A bar is a decoder's throughput as a
+multiple of its reference decoder's, on a square-root scale: protoc for the arena decoder and
+protozero for the streaming decoder, run on the same bytes in the same program. Each throughput is
+the median of five runs. In the step charts, numbered in the order of the sections below, the part
+of a bar that changed since the build before is blue for a gain and orange for a loss. It stays
+grey when the change is within the larger of 3% and the reference decoder's own drift across the
+builds. protoc and protozero ran the same code in every build, but their speed still moved with
+where the linker placed it ([code placement](benchmark-method.md#code-placement)).
 
 ## Borrowed strings
 
-Each copied string took an arena allocation and a `memcpy`, and `Dataset` has strings in every
-record.
+Each copied string took an arena allocation and a `memcpy`. `Dataset` has strings in every record.
 
 A string or bytes field is a 12-byte `ArenaString`, a pointer and a 32-bit length, and its accessor
 returns a `std::string_view` over them. In the baseline the pointer led to the arena's copy. Now it
@@ -56,7 +56,7 @@ points into the input.
 the input into the arena with an allocation and a memcpy. With borrowed strings the field holds a
 pointer and a length into the input.](ladder/diagram-strings.svg)
 
-`Dataset` got 42% faster, and the arena it used fell from 1.23 MB to 1.03 MB. The streaming decoder
+`Dataset` got 42% faster and used 1.03 MB of arena instead of 1.23 MB. The streaming decoder
 didn't move, since its handlers had been given `std::string_view`s into the input all along.
 
 ![Chart of each benchmark's throughput relative to its reference decoder after step 1, borrowed
@@ -69,7 +69,7 @@ Borrowing slowed nothing down. It does tie the message to the input, which has t
 ## Pre-sizing packed arrays
 
 A packed field arrives as one length-delimited run of values. The baseline appended them one by one
-to the growable array, with a capacity check per value and a copy at every doubling, and it read
+to the growable array, with a capacity check per value and a copy at every doubling. It read
 fixed-width values one at a time.
 
 The run's length bounds how many values it holds. For fixed-width values the count is exact, the
@@ -77,9 +77,9 @@ length divided by the width. A varint takes at least one byte, so a run of varin
 one value per byte. Pre-sizing allocates the array once at that size and decodes into it. For
 varints it then hands the unused tail back with `Arena::shrink_last`, which moves the arena's
 allocation pointer back to the end of the last value. Only the arena's most recent allocation can
-shrink that way, and a freshly allocated array still is one at the trim, since decoding the run
-allocates nothing else. On a little-endian host a run of fixed-width values
-is already the array's memory image, and one `memcpy` fills it, as in protoc's decoder.
+shrink that way. Because decoding the run allocates nothing else, a freshly allocated array is still
+the most recent one when the trim comes. On a little-endian host a run of fixed-width values is
+already the array's memory image, and one `memcpy` fills it, as in protoc's decoder.
 
 ```cpp
 // A sketch of the packed fill for a repeated int32 field, with plain names and no error checks,
@@ -109,8 +109,8 @@ pre-sizing, with this step's change in color](ladder/ladder-step2.svg)
 
 Pre-sizing cost no speed anywhere, but it raises the arena's peak while a packed varint field
 decodes. Until the trim, the array has room for one value per byte of the run. For 64-bit values
-that's 8 bytes of arena per input byte, and a [capacity limit](arena.md#limiting-memory) has to
-leave room for it.
+that's 8 bytes of arena per input byte. A [capacity limit](arena.md#limiting-memory) has to leave
+room for it.
 
 ## Forced inlining
 
@@ -150,8 +150,8 @@ sub-messages of a single `int32`, one level deep, each decoded by a handler that
 sub-message's decoder. It ran 32% slower with a third more instructions per byte, and stayed there
 for the rest of the series. We didn't track down why.
 
-The build pays as well. Every inlined callee becomes a copy inside each decode function, and code
-size and compile time grow with the schema. With g++-13, one googleapis schema of 288 messages
+The build pays as well. Every inlined callee becomes a copy inside each decode function. Code size
+and compile time grow with the schema. With g++-13, one googleapis schema of 288 messages
 didn't finish compiling within 280 seconds with flatten unbounded and took 129 seconds with the
 budget.
 
@@ -251,7 +251,7 @@ one of these:
 - `Swar` for mixes with a value over 5 bytes, one value per 8-byte load, with no branch for
   lengths 2 to 8.
 - `ByteLoop`, the old loop, when the first value doesn't end within 64 bytes or every value there
-  is longer than 10 bytes. It reports the error.
+  has one length over 10 bytes. It reports the error.
 
 When a kernel meets a length it doesn't handle, the byte loop finishes the run, unless the kernel
 had already covered a long stretch and much of the run is left, in which case the decoder picks
@@ -265,7 +265,7 @@ branch the kernel removed had been predicted all along. The streaming decoder di
 ![Chart of each benchmark's throughput relative to its reference decoder after step 5, SWAR
 varint kernels, with this step's change in color](ladder/ladder-step5.svg)
 
-The kernels make the decoder bigger. The one for long runs is compiled once per element type and
+The kernels make the decoder bigger. The one for long runs is compiled once per field type and
 marked `RP_NOINLINE`, and flatten leaves it out of line instead of copying it into every packed
 field. Picking a kernel costs the scan of the first 64 bytes, and that's why short runs skip it.
 
@@ -283,9 +283,10 @@ path, whose switch jumps into the same labels.
 
 Here is the loop of
 [`Wide`](https://github.com/VeaaC/rapidproto/blob/main/tests/bench/bench.proto), which has four
-packed `int32` arrays in fields 1 to 4 and two string arrays in fields 5 and 6. It comes back in
-the next section, and the diagrams after it use a smaller message whose fields 1 to 3 are `name`,
-`id` and `tags`.
+packed `int32` arrays in fields 1 to 4 and two string arrays in fields 5 and 6.
+`many msgs, tiny arrays` decodes 50,000 of them, each with three values per array and two strings
+per string field, and comes back in the next section. The diagrams after the sketch use a smaller
+message whose fields 1 to 3 are `name`, `id` and `tags`.
 
 ```cpp
 // Wide's decode loop with the hub, before threading, trimmed: namespace qualifiers, the field
@@ -325,17 +326,17 @@ switch on the field number it replaces. A message with only a few cases gets a c
 instead. Where there's a table, every field still passes through one indirect jump, now with fewer
 instructions around it.
 
-`Dataset` gained 23%. `scalar records (dispatch-bound)` decodes 20,000 records that each set 18
-scalar fields and two sub-messages of six more. Its instructions per byte fell 24%, and its
+`Dataset` gained 23%. `scalar records (dispatch-bound)` decodes 20,000 records of 18 scalar fields
+and two sub-messages of six more, all with small values. Its instructions per byte fell 24%, and its
 throughput relative to protoc rose 16%. Its bar stays grey all the same. protoc's own throughput on
-this benchmark drifted by 19.8% across the builds, the most of any, so a 16% change can't be told
-apart from placement.
+this benchmark drifted by 19.8% across the builds, the most of any. A 16% change can't be told apart
+from that.
 
 ![Chart of each benchmark's throughput relative to its reference decoder after step 6, the
 one-byte peek hub, with this step's change in color](ladder/ladder-step6.svg)
 
-No bar turned orange here. A field's decode is emitted once, as a label that the hub and the
-general switch both jump to, so the hub adds no copies of it. It does nothing for a field numbered
+No bar turned orange here. A field's decode is emitted once, as a label that both the hub and the
+general switch jump to. The hub adds no copies of it. It does nothing for a field numbered
 above 15, whose tag takes two bytes or more.
 
 ## Field-order threading
@@ -346,15 +347,16 @@ next higher-numbered field present. Protobuf doesn't promise that order, and its
 [encoding guide](https://protobuf.dev/programming-guides/encoding/#order) says parsers must accept
 fields in any order.
 
-Threading ends each field's label with probes: one for each of the next two fields in ascending
-order and, on a repeated field, one before those for another value of its own. A probe compares
-what comes next in the input with that field's tag and, on a match, jumps straight to its label.
-When none matches, `continue` returns to the hub. A oneof member doesn't probe for its own
+Threading ends each field's label with probes: one for each of the next two fields with labels, in
+ascending order, and on a repeated field one before those for another value of its own. A probe
+compares what comes next in the input with that field's tag and, on a match, jumps straight to its
+label. When none matches, `continue` returns to the hub. A oneof member doesn't probe for its own
 siblings, as an encoder writes only the member that's set. While the next field present is one of
 those probed, the probes thread the decode from label to label without touching the hub.
 
 A successor that the schema declares packed (proto3's default for repeated numeric and enum fields,
-`[packed = true]`, or the editions feature `PACKED`) arrives as one length-delimited run. Its probe
+`[packed = true]`, or `repeated_field_encoding = PACKED` in editions) arrives as one
+length-delimited run. Its probe
 tests that tag, and a hit enters the field's packed label, `rp_do_<n>_p`, which fills the array and
 then probes for the fields after it.
 
@@ -380,10 +382,10 @@ or 0x1a, after field 2 (id) for 0x1a, and after field 3 (tags) for another tags 
 falls back to the hub.](ladder/diagram-threading.svg)
 
 In machine code each probe is a compare with a constant and a direct conditional branch, two of
-each for a two-byte tag. When every message sets the same fields, as in
-`scalar records (dispatch-bound)`, the branches at a given label go the same way nearly every time,
-while the hub's indirect jump had a different target from one field to the next. On that benchmark
-threading cut instructions per byte by 26% and raised instructions per cycle from 4.1 to 5.2, so it
+each for a two-byte tag. Most records in `scalar records (dispatch-bound)` carry the same fields
+in the same order, so most of these branches go the same way nearly every time. The hub's indirect
+jump had a different target from one field to the next. On that benchmark
+threading cut instructions per byte by 26% and raised instructions per cycle from 4.1 to 5.2. It
 decoded 70% faster. Relative to protoc, whose own speed on it rose 9% between the two builds, that's
 56%. `google_message1` gained 23%.
 
@@ -395,22 +397,22 @@ On `many msgs, tiny arrays` the decoder ran 10% slower, and on
 of an OpenStreetMap extract of Bremen, inflated before timing. In both, the fields do arrive in
 ascending order, with packed arrays among them. We found the cause while writing this article. The
 build we measured probed a packed successor by its element tag, the tag a single value carries when
-sent unpacked. A packed run never carries that tag, so the probe always missed. In `Wide`, after
+sent unpacked. A packed run never carries that tag, and the probe always missed. In `Wide`, after
 each of the first three arrays, both probes missed and the loop fell back to the hub, paying for two
 compares on top of its jump. Decoding stayed correct, since the hub has a case for either form, but
 instructions per byte rose 14% on `many msgs, tiny arrays` and 4% on `osm_blocks`. The fix has
 since shipped and probes a packed successor by its length-delimited tag, as in the sketch above. In
 a later measurement outside this series, with clang++-20, it took 13% off the arena decoder's
-instructions per byte on `many msgs, tiny arrays` and 7% on `osm_blocks`, and they decoded 16% and
-6% faster.
+instructions per byte on `many msgs, tiny arrays` and 7% on `osm_blocks`. The arena decoder's own
+throughput rose 16% and 6%.
 
 ## The finished decoder
 
 At the end of the series the arena decoder still built the whole message and both decoders still
-validated every field they read. The table sets the baseline beside the last build, from before the
-probe fix, for the payloads quoted above other than the `rv` pools.
+validated every field they read. The table sets the starting build beside the last one, from before
+the probe fix, for the payloads quoted above other than the `rv` pools.
 
-| Throughput relative to the reference decoder | Reference | Baseline | After threading |
+| Throughput relative to the reference decoder | Reference | Starting build | After threading |
 |---|---|---|---|
 | `Dataset` | protoc | 2.4 | 6.1 |
 | `google_message1` | protoc | 2.2 | 3.7 |
@@ -418,16 +420,17 @@ probe fix, for the payloads quoted above other than the `rv` pools.
 | `many msgs, tiny arrays` | protoc | 1.5 | 2.5 |
 | `osm_blocks` | protoc | 0.91 | 1.5 |
 | `packed double(fixed)` | protoc | 0.56 | 1.1 |
+| `mixed` | protozero | 1.4 | 2.3 |
 | `sparse-skip` | protozero | 1.8 | 3.1 |
 | `nested-msg` | protozero | 1.7 | 1.2 |
 
-Each gain above was measured with the earlier optimizations already in place, and the order shapes
-it. Two more builds from the same campaign each took one optimization back out of the finished
-decoder. Forced inlining had made `Dataset` 22% faster when it came third, and in the finished
-decoder it was worth 44%. On `rv fx1` it no longer mattered. The arena decoder ran that pool at 4.8
-times protoc's throughput with or without it, because the `Bulk1` kernel now does the work that
-flatten did there. Borrowed strings grew the same way on `Dataset`, from 42% as the first step to
-55% at the end.
+Each gain above was measured with the earlier optimizations already in place. The order shapes what
+a step is worth. Two more builds from the same campaign each took one optimization back out of the
+finished decoder. Forced inlining had made `Dataset` 22% faster when it came third, and in the
+finished decoder it was worth 44%. On `rv fx1` it no longer mattered. The arena decoder ran that
+pool at 4.8 times protoc's throughput with or without it, because the `Bulk1` kernel now does the
+work that flatten did there. Borrowed strings grew the same way on `Dataset`, from 42% as the first
+step to 55% at the end.
 
 Forced inlining sped up most benchmarks. Beyond that, which optimizations matter depends on what a
 schema's messages hold. Packed arrays gained most from pre-sizing and the SWAR kernels, records of

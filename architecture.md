@@ -445,7 +445,7 @@ Key properties:
   those. A field with no callback is skipped through a dedicated compile-time-wire skip keyed off
   its
   wire type, so a sparse-extract consumer (handling a few of many fields) stays cheap on the skipped
-  majority (measured at ins/B 10.6 → 4.1; see [Decoder performance](#decoder-performance)).
+  majority.
 - **Exact-match dispatch.** A callback claims a field only when its value type is *exactly*
   the field's `Value`; a wrong-but-convertible type or a duplicate is a **compile error**. The whole
   dispatch is compile-time: a hub `switch` (over the whole 1-byte tag for the common fields 1–15,
@@ -987,8 +987,6 @@ constant, and reproduce rather than quote. What the results mean structurally:
   placement-invariant
   (a rough proxy for work, blind to the stalls above). The decoder optimizations shipped so far,
   what each changes and what it bought, are in [`docs/optimizations.md`](docs/optimizations.md).
-  One idea measured no effect under the same control: a `memcpy` of a *single* fixed-width field
-  (the packed pre-sizing's bulk copy of a whole fixed-width array is a different case).
 
 **The `protoc` baseline version matters - and is selectable without vendoring protobuf.** An old
 baseline flatters the arena (libprotobuf's own decoder has sped up markedly across releases).
@@ -1012,7 +1010,8 @@ apart (shuffle-relink calibration, recipe in docs/running-benchmarks.md; the ben
   fixed-width field);
   others reproduced on both compilers and *were* shipped (the fused `read_tag` /
   `read_tag_or_end`, the
-  peek-switch dispatch, and the packed-array bulk copy above).
+  peek-switch dispatch, and the
+  [packed-array bulk copy](docs/optimizations.md#pre-sizing-packed-arrays)).
 - **Quiesce the box, and measure the floor rather than assuming one** - `tests/bench_box.sh setup` /
   `restore`, then compare a revision against *itself* to bound what the run can resolve.
   See [Reproducing](docs/benchmarks.md#reproducing) for the box and

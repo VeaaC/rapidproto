@@ -17,7 +17,7 @@ crates on docs.rs. The decoding rules and the benchmarks cover both languages.
   detecting unknown fields in the arena decoder.
 - [CLI & CMake](integration.md) covers the `rapidprotoc` command line and the CMake helper.
 - [OSM PBF walkthrough](osm-pbf.md) decodes OpenStreetMap's planet format with both models.
-- [One optimization at a time](optimizations.md) shows how the decoders got fast, with seven
+- [One optimization at a time](optimizations.md) shows how the C++ decoders got fast, with seven
   optimizations re-enabled in turn and measured.
 - [Benchmarks](benchmarks.md) has the numbers and how to reproduce them.
 - [Benchmark method](benchmark-method.md) explains how the published numbers are made and how far

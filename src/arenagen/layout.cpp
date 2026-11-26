@@ -599,8 +599,8 @@ const MessageLayout* LayoutSet::find(const std::string& fqn) const {
 //
 // Forcing RP_FLATTEN on every rp_decode_into buys decode throughput that neither GCC's nor Clang's
 // inliner gives on its own, but it inlines each message's whole transitive sub-message closure, so
-// on a large schema a single decoder absorbs most of the rest and build time explodes. This pass is what keeps that
-// price affordable -- without it, forcing flatten is not viable on a large schema. It bounds it by:
+// on a large schema a single decoder absorbs most of the rest and build time explodes. This pass
+// keeps that price affordable (without it, forced flatten is not viable there). It bounds it by:
 // walk the message graph so a message is visited after everything it would inline, accumulate the
 // closure's cost, and when it exceeds the budget mark the message RP_NOINLINE -- which stops a
 // parent's flatten at it, and (because its own contribution then drops to zero) bounds every
