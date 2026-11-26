@@ -65,12 +65,12 @@ struct LayoutOptions {
     // one function -- the message that trips it still contains the closure that tripped it.
     //
     // Why it exists: forcing RP_FLATTEN is itself an optimization over letting the compiler decide,
-    // taken because GCC's inliner leaves decode throughput on the table in a large TU. The price is
-    // that flatten inlines a message's WHOLE sub-message closure, so on a large schema one decoder
-    // absorbs the rest -- on g++-13, googleapis google/container/v1beta1/cluster_service.proto
-    // (288 messages) does not finish compiling in 280s with flatten unbounded, against 129s at
-    // budget 4. This threshold is what keeps forcing flatten from costing serious build time
-    // relative to not forcing it at all. Clang's inliner does not need the help; GCC does.
+    // taken because GCC's and Clang's inliners both leave decode throughput on the table in a large
+    // TU. The price is that flatten inlines a message's WHOLE sub-message closure, so on a large
+    // schema one decoder absorbs the rest -- on g++-13, googleapis
+    // google/container/v1beta1/cluster_service.proto (288 messages) does not finish compiling in
+    // 280s with flatten unbounded, against 129s at budget 4. This threshold is what keeps forcing
+    // flatten from costing serious build time relative to not forcing it at all.
     //
     // 4 is the cheapest budget measured to compile: over a googleapis sample, 185s at 4 against
     // 220s at 8 and >=329s at 32 (see architecture.md). Budgets 1-4 emit identical code for

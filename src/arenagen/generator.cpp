@@ -1938,8 +1938,9 @@ void emit_decode_def(const Emit& emit, const MessageNode& message) {
         "// NOLINTNEXTLINE(readability-function-cognitive-complexity): generated field dispatch\n");
     // out/arena are [[maybe_unused]]: an empty message writes nothing to `out`, and a scalar-only
     // message allocates nothing from `arena`.
-    // RP_FLATTEN: inline the wire primitives / dispatch / sub-decodes into this one function. GCC's
-    // large-TU inliner is otherwise far more conservative than Clang's, leaving them out-of-line.
+    // RP_FLATTEN: inline the wire primitives / dispatch / sub-decodes into this one function.
+    // Neither GCC's nor Clang's inliner does that on its own in a large TU, and decoding is slower
+    // for it.
     //
     // RP_NOINLINE additionally when the layout planner's flatten budget marked this message: that
     // stops a PARENT's flatten from absorbing this decoder's body, which is what bounds the

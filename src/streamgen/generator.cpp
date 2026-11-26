@@ -557,8 +557,9 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
     // for the whole file -- on a large schema, repeating it costs megabytes of header.
     const std::string owner = cpp_type_name(symbols, message.fqn);
     printer.print("template <class... rp_Callbacks>\n");
-    // RP_FLATTEN: inline the wire primitives / dispatch / sub-decodes into this one function. GCC's
-    // large-TU inliner is otherwise far more conservative than Clang's, leaving them out-of-line.
+    // RP_FLATTEN: inline the wire primitives / dispatch / sub-decodes into this one function.
+    // Neither GCC's nor Clang's inliner does that on its own in a large TU, and decoding is slower
+    // for it.
     printer.print(
         "RP_FLATTEN ::rapidproto::DecodeStatus $Q$::decode(rp_Callbacks&&... rp_callbacks) const "
         "{\n",
