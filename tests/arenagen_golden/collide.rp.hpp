@@ -1589,7 +1589,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::collide::Prims::rp_decode_into([
       rp_c = rp_np;
       out.m_h = ::rapidproto::ArenaString::make(rp_v, arena);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(9, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_9; }
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(10, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_10; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(10, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_10_p; }
       continue;
     }
     rp_do_9: {
@@ -1599,8 +1599,8 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::collide::Prims::rp_decode_into([
       rp_c = rp_np;
       out.m_i = ::rapidproto::bit_cast_float(rp_raw);
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 4));
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(10, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_10; }
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(11, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_11; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(10, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_10_p; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(11, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_11_p; }
       continue;
     }
     rp_do_10: {
@@ -1612,7 +1612,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::collide::Prims::rp_decode_into([
       rp_c = rp_np;
       *rp_slot = static_cast<std::uint32_t>(rp_raw);
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(10, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_10; }  // another element of the same field
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(11, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_11; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(11, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_11_p; }
       continue;
     }
     rp_do_10_p: {
@@ -1640,7 +1640,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::collide::Prims::rp_decode_into([
       }
       arena.shrink_last(rp_acc_j, rp_cap_j * sizeof(std::uint32_t), rp_n_j * sizeof(std::uint32_t));
       rp_cap_j = rp_n_j;
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(11, ::rapidproto::WireType::I32)) { ++rp_c; goto rp_do_11; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(11, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_11_p; }
       continue;
     }
     rp_do_11: {

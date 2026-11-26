@@ -15,9 +15,9 @@
 // FeatureSet options (field_presence/enum_type/repeated_field_encoding/message_encoding) are
 // handled earlier by resolve_features; group syntax sets is_group/Delimited at parse time.
 //
-// Precondition: compute_fqns has run (the message_set_wire_format warning names FQNs). [packed]
-// gates on scalar.hpp's is_packable_scalar -- pure spelling, no resolution needed. The composed
-// `analyze()` (resolve.hpp) runs all the passes in the right order.
+// Precondition: compute_fqns and type resolution have run (the message_set_wire_format warning
+// names FQNs; [packed] applies to packable scalars and to enums, which needs the resolved type
+// kind). The composed `analyze()` (resolve.hpp) runs all the passes in the right order.
 
 #include <string>
 #include <variant>

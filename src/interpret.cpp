@@ -27,13 +27,12 @@ const OptionValue* find_option(const std::vector<Option>& options, std::string_v
 }
 
 void interpret_field(FieldNode& field) {
-    // [packed = true/false] overrides the syntax-default repeated encoding, on packable scalars
-    // only -- gated on the SAME predicate the feature pass and the parser's syntax default use
-    // (scalar.hpp's is_packable_scalar), so the three passes cannot disagree; it also excludes
-    // string/bytes, which the resolved-kind flags alone would let through. A user type shadowing
-    // a scalar name never matches the predicate, mirroring resolve_field's scalar-first order.
+    // [packed = true/false] overrides the syntax-default repeated encoding, on the packable types:
+    // packable scalars (scalar.hpp's is_packable_scalar, which excludes string/bytes) and enums.
+    // This pass runs after type resolution, so is_enum_type is known. A user type shadowing a
+    // scalar name never matches the scalar predicate, mirroring resolve_field's scalar-first order.
     // true/false are retained as identifiers since the parser does not interpret bools.
-    if (field.is_repeated && is_packable_scalar(field.type_name)) {
+    if (field.is_repeated && (is_packable_scalar(field.type_name) || field.is_enum_type)) {
         if (const OptionValue* packed = find_option(field.options, "packed")) {
             if (const auto* value = std::get_if<Identifier>(&packed->value)) {
                 if (value->name == "true") {

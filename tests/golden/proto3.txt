@@ -13,7 +13,7 @@ file proto3.proto
     field nums num=6 presence=explicit repeated=packed type=int32
     field unpacked num=7 presence=explicit repeated=expanded type=int32
       option packed = id:false
-    field states num=8 presence=explicit repeated=expanded type=State -> .p3.State enum
+    field states num=8 presence=explicit repeated=packed type=State -> .p3.State enum
     field reals num=12 presence=explicit repeated=packed type=double
     field codes num=13 presence=explicit repeated=packed type=fixed32
     field bools num=17 presence=explicit repeated=packed type=bool

@@ -622,7 +622,8 @@ void emit_decode_def(Printer& printer, const CppNameTable& symbols, const Messag
         const bool packable = field->is_repeated && codegen::is_packable_wire(gen.wire_type);
         const auto oo = oneof_of.find(field);
         threaded.push_back({field->number, field->is_repeated, packable, std::string(gen.wire_type),
-                            oo != oneof_of.end() ? oo->second : nullptr});
+                            oo != oneof_of.end() ? oo->second : nullptr,
+                            field->repeated_encoding == RepeatedEncoding::Packed});
         threaded_gen.emplace(field->number, std::make_pair(field, gen));
     }
     // Number -> the exact ThreadField the label is emitted from. The general switch's wire-guarded

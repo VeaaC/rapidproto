@@ -1742,7 +1742,8 @@ void emit_decode_into_body(const Emit& emit, const MessageNode& message,
         const MemberPlan* m = it->second;
         const std::string tw = primary_fast_wire(*m);  // singular canonical / repeated element wire
         const bool packable = f.is_repeated && codegen::is_packable_wire(tw);
-        threaded.push_back({f.number, f.is_repeated, packable, tw});
+        threaded.push_back({f.number, f.is_repeated, packable, tw, nullptr,
+                            f.repeated_encoding == RepeatedEncoding::Packed});
         threaded_plan.emplace(f.number, m);
     }
     // Oneof members thread too (each gets a hub case + label; the probe walk knows the oneof

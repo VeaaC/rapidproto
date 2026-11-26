@@ -627,7 +627,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::xr::Nested::User::rp_decode_into
       out.m_rp_pick.chosen = rp_sub;
       out.m_rp_pick_case = 1;
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(5, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_5; }
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(6, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_6; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(6, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_6_p; }
       continue;
     }
     rp_do_5: {
@@ -636,7 +636,7 @@ RP_FLATTEN RP_NOINLINE inline bool ::rp::arena::xr::Nested::User::rp_decode_into
       if (rp_np == nullptr) { ::rapidproto::rp_fail_wire_at(err, rp_we, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(body))); return false; }
       rp_c = rp_np;
       out.m_kind = static_cast<::rp::common::xr::Nested::Def::Kind>(::rapidproto::varint_to_int32(rp_raw));
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(6, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_6; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(6, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_6_p; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
       continue;
     }

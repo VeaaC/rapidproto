@@ -1,5 +1,5 @@
 // proto3 feature coverage: implicit vs explicit (optional) presence, message/enum-typed
-// fields, packed-by-default repeated, un-packed override, repeated enum (expanded fixup),
+// fields, packed-by-default repeated, un-packed override, repeated enum (packed by default),
 // map, oneof, open enum.
 syntax = "proto3";
 
