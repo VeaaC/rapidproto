@@ -66,7 +66,7 @@ RP_FLATTEN inline bool ::rp::arena::ed24::M::rp_decode_into([[maybe_unused]] ::r
       rp_c = rp_np;
       out.m_a = ::rapidproto::varint_to_int32(rp_raw);
       out.m_rp_mask = static_cast<std::uint8_t>(out.m_rp_mask | (std::uint8_t{1} << 0));
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_2; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(2, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_2_p; }
       continue;
     }
     rp_do_2: {

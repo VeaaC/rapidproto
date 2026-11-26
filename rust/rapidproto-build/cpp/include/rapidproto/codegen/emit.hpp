@@ -367,6 +367,9 @@ struct ThreadField {
     // conformant wire (at most one member per oneof, ascending), so siblings are skipped as
     // successors.
     const OneofNode* oneof = nullptr;
+    // A repeated packable field its schema declares packed (proto3's default, `[packed = true]`,
+    // editions PACKED): an encoder writes it as one Len run, so a successor probe tests that tag.
+    bool packed = false;
 };
 
 // Hooks the caller supplies for the per-field label bodies. Each emits at the current indent,
@@ -383,20 +386,24 @@ namespace detail {
 
 // One constant-tag successor probe, consuming the tag bytes before the goto (labels are
 // tag-consumed). 1-byte successor: compare the single tag byte, `++rp_c`. 2-byte successor:
-// compare both tag bytes, `rp_c += 2`.
+// compare both tag bytes, `rp_c += 2`. A successor declared packed is probed by its Len tag and
+// enters its packed label: probing its element tag would never match the run its encoder writes.
 inline void emit_one_probe(Printer& p, const ThreadField& s) {
     const std::string n = std::to_string(s.number);
+    const bool packed = s.repeated && s.packable && s.packed;
+    const std::string wire = packed ? "Len" : s.thread_wire;
+    const std::string label = packed ? n + "_p" : n;
     if (s.number <= kMaxOneByteTagField) {
         p.print(
             "if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag($n$,"
-            " ::rapidproto::WireType::$w$)) { ++rp_c; goto rp_do_$n$; }\n",
-            {{"n", n}, {"w", s.thread_wire}});
+            " ::rapidproto::WireType::$w$)) { ++rp_c; goto rp_do_$l$; }\n",
+            {{"n", n}, {"w", wire}, {"l", label}});
     } else {
-        const int v = (s.number << kTagFieldShift) | wire_enum_num(s.thread_wire);
+        const int v = (s.number << kTagFieldShift) | wire_enum_num(wire);
         p.print(
             "if (rp_cend - rp_c > 1 && rp_c[0] == $b0$ && rp_c[1] == $b1$)"
-            " { rp_c += 2; goto rp_do_$n$; }\n",
-            {{"n", n},
+            " { rp_c += 2; goto rp_do_$l$; }\n",
+            {{"l", label},
              {"b0", std::to_string((v & kVarintPayload) | kVarintContinue)},
              {"b1", std::to_string(v >> kVarintShift)}});
     }
