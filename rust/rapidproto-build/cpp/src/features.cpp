@@ -12,7 +12,6 @@
 
 #include "rapidproto/ast.hpp"
 #include "rapidproto/resolver.hpp"
-#include "rapidproto/scalar.hpp"
 
 namespace rapidproto {
 namespace {
@@ -129,12 +128,10 @@ void resolve_field(FieldNode& field, ResolvedFeatures scope, bool is_oneof_membe
     if (!field.is_group) {
         field.message_encoding = scope.message_encoding;
     }
-    // Only packable scalars are affected here. Message/string/bytes stay Expanded; enum-typed
-    // repeated fields aren't known yet (type unresolved) and the type-resolution pass forces them
-    // to Expanded as a non-critical simplification (decoders accept both packed and expanded wire
-    // forms), so a PACKED/EXPANDED feature on a repeated enum is not reflected in
-    // repeated_encoding.
-    if (field.is_repeated && is_packable_scalar(field.type_name)) {
+    // Every repeated field but string/bytes takes the resolved feature: the type kind isn't known
+    // yet (type unresolved), so a user type takes it too, and the type-resolution pass puts message
+    // types back to Expanded while an enum keeps it.
+    if (field.is_repeated && field.type_name != "string" && field.type_name != "bytes") {
         field.repeated_encoding = scope.repeated_field_encoding;
     }
 }

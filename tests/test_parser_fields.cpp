@@ -115,9 +115,13 @@ TEST_CASE("repeated encoding: non-packable types are expanded") {
           RepeatedEncoding::Expanded);
     CHECK(field_ok("repeated bytes x = 1;", SyntaxLevel::Proto3).repeated_encoding ==
           RepeatedEncoding::Expanded);
-    // Message/unknown type: expanded at parse time (enums refined by the type-resolution pass).
+}
+
+TEST_CASE("repeated encoding: a user type takes the syntax default until it is resolved") {
+    // The parser can't tell an enum from a message yet: type resolution puts a message back to
+    // Expanded, and an enum keeps the default.
     CHECK(field_ok("repeated Foo x = 1;", SyntaxLevel::Proto3).repeated_encoding ==
-          RepeatedEncoding::Expanded);
+          RepeatedEncoding::Packed);
     CHECK(field_ok("repeated Foo x = 1;", SyntaxLevel::Proto2).repeated_encoding ==
           RepeatedEncoding::Expanded);
 }

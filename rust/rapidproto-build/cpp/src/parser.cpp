@@ -21,7 +21,6 @@
 #include "rapidproto/lexer.hpp"
 #include "rapidproto/range.hpp"
 #include "rapidproto/result.hpp"
-#include "rapidproto/scalar.hpp"
 
 // The parser is combinator-centric: each grammar production is an expression built
 // from the Range/Result combinators (alt/seq/opt/many/delimited/preceded/
@@ -538,11 +537,12 @@ auto cardinality() {
 }
 
 RepeatedEncoding default_repeated_encoding(std::string_view type, SyntaxLevel syntax) {
-    if (!is_packable_scalar(type)) {
-        return RepeatedEncoding::Expanded;  // string/bytes/message; enums refined by type
-                                            // resolution
+    if (type == "string" || type == "bytes") {
+        return RepeatedEncoding::Expanded;  // length-delimited, never packable
     }
-    // proto3 + editions default packed (editions refined by the feature pass); proto2 expanded.
+    // Packable scalars and user types alike, since the type kind isn't known yet: type resolution
+    // puts message types back to Expanded, and an enum keeps the default. proto3 + editions
+    // default packed (editions refined by the feature pass); proto2 expanded.
     return syntax == SyntaxLevel::Proto2 ? RepeatedEncoding::Expanded : RepeatedEncoding::Packed;
 }
 

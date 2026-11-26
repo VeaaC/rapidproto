@@ -242,8 +242,8 @@ private:
         if (field.is_message_type && field.presence == FieldPresence::Implicit) {
             field.presence = FieldPresence::Explicit;  // message-typed fields always have presence
         }
-        if (field.is_repeated && (field.is_message_type || field.is_enum_type)) {
-            field.repeated_encoding = RepeatedEncoding::Expanded;
+        if (field.is_repeated && field.is_message_type) {
+            field.repeated_encoding = RepeatedEncoding::Expanded;  // messages are never packed
         }
         return std::nullopt;
     }

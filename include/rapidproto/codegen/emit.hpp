@@ -367,8 +367,9 @@ struct ThreadField {
     // conformant wire (at most one member per oneof, ascending), so siblings are skipped as
     // successors.
     const OneofNode* oneof = nullptr;
-    // A repeated packable field its schema declares packed (proto3's default, `[packed = true]`,
-    // editions PACKED): an encoder writes it as one Len run, so a successor probe tests that tag.
+    // The schema declares the field packed (proto3's default for numeric and enum types,
+    // `[packed = true]`, editions PACKED). For a repeated packable field an encoder then writes one
+    // Len run, so a successor probe tests that tag.
     bool packed = false;
 };
 

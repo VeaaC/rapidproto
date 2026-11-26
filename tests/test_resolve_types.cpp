@@ -37,6 +37,15 @@ ResolvedFileSet one(std::string src) {
     return make_set({{"a.proto", std::move(src)}});
 }
 
+// The encoding the full analysis gives the first field of the first message, a repeated enum.
+RepeatedEncoding repeated_enum_encoding(std::string src) {
+    ResolvedFileSet set = one(std::move(src));
+    REQUIRE(analyze(set).is_ok());
+    const FieldNode& f = set.files[0].messages[0].fields[0];
+    REQUIRE(f.is_enum_type);
+    return f.repeated_encoding;
+}
+
 }  // namespace
 
 TEST_CASE("types: a relative reference in the same message scope") {
@@ -218,6 +227,35 @@ TEST_CASE("types: a repeated message field is expanded") {
     const FieldNode& f = set.files[0].messages[0].fields[0];
     CHECK(f.is_message_type);
     CHECK(f.repeated_encoding == RepeatedEncoding::Expanded);
+}
+
+// Unlike a message, an enum is packable: the full analysis gives a repeated enum the syntax
+// default, the [packed] option or the editions feature, as for a numeric scalar.
+TEST_CASE("types: a repeated enum takes the syntax default encoding") {
+    CHECK(repeated_enum_encoding(
+              R"(syntax = "proto3"; enum E { A = 0; } message M { repeated E e = 1; })") ==
+          RepeatedEncoding::Packed);
+    CHECK(repeated_enum_encoding(
+              R"(syntax = "proto2"; enum E { A = 0; } message M { repeated E e = 1; })") ==
+          RepeatedEncoding::Expanded);
+}
+
+TEST_CASE("types: [packed] sets a repeated enum's encoding") {
+    CHECK(repeated_enum_encoding(R"(syntax = "proto2"; enum E { A = 0; }
+                                    message M { repeated E e = 1 [packed = true]; })") ==
+          RepeatedEncoding::Packed);
+    CHECK(repeated_enum_encoding(R"(syntax = "proto3"; enum E { A = 0; }
+                                    message M { repeated E e = 1 [packed = false]; })") ==
+          RepeatedEncoding::Expanded);
+}
+
+TEST_CASE("types: the editions feature sets a repeated enum's encoding") {
+    CHECK(repeated_enum_encoding(
+              R"(edition = "2023"; enum E { A = 0; } message M { repeated E e = 1; })") ==
+          RepeatedEncoding::Packed);
+    CHECK(repeated_enum_encoding(R"(edition = "2023"; enum E { A = 0; } message M {
+                                    repeated E e = 1 [features.repeated_field_encoding = EXPANDED];
+                                    })") == RepeatedEncoding::Expanded);
 }
 
 // --- symbol table + extension registry --------------------------------------

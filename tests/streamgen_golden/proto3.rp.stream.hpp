@@ -217,7 +217,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(rp_Callbacks&&... rp_callbacks
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(6, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_6; }  // another element of the same field
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(7, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_7; }
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_8_p; }
       continue;
     }
     rp_do_6_p: {
@@ -243,7 +243,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(rp_Callbacks&&... rp_callbacks
         rp_c = rp_sp;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(7, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_7; }
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_8_p; }
       continue;
     }
     rp_do_7: {
@@ -266,7 +266,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(rp_Callbacks&&... rp_callbacks
         rp_c = rp_sp;
       }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(7, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_7; }  // another element of the same field
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_8_p; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(10, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_10; }
       continue;
     }
@@ -292,7 +292,7 @@ RP_FLATTEN ::rapidproto::DecodeStatus Msg::decode(rp_Callbacks&&... rp_callbacks
         if (rp_sp == nullptr) { return ::rapidproto::DecodeStatus{rp_we, false, static_cast<std::size_t>(rp_c - ::rapidproto::wire::byte_ptr(rp_span))}; }
         rp_c = rp_sp;
       }
-      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_8; }
+      if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(8, ::rapidproto::WireType::Len)) { ++rp_c; goto rp_do_8_p; }
       if (rp_c < rp_cend && *rp_c == ::rapidproto::raw_tag(10, ::rapidproto::WireType::Varint)) { ++rp_c; goto rp_do_10; }
       continue;
     }
