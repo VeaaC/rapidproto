@@ -23,6 +23,10 @@
   url: /docs/optimizations.html
 - title: Benchmarks
   url: /docs/benchmarks.html
+- title: Benchmark method
+  url: /docs/benchmark-method.html
+- title: Running the benchmarks
+  url: /docs/running-benchmarks.html
 - title: Consumer example
   url: /examples/consumer/
 - title: OSM PBF example

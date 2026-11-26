@@ -648,8 +648,8 @@ and locked at their chosen values; each is a single constant with a rationale co
   The design consequence is a three-part discipline: quiesce the box, take several runs per snapshot
   and keep each arm's median, and gate each arm on the larger of the flat cross-build floor and
   its own
-  measured spread. The measurements behind it, and the hypotheses tested and rejected, are in
-  [docs/benchmarks.md](docs/benchmarks.md#appendix-measurement-noise).
+  measured spread. The measurements behind it are in
+  [docs/benchmark-method.md](docs/benchmark-method.md#calibration-studies).
 
   Under that rule the `Dataset` **+28.8–39.9%** and `compute` **−18.4%** readings above are not
   usable as stated - both are single-run cross-build numbers. The build-cost figures in that bullet
@@ -943,36 +943,39 @@ instantaneous frequency, sampled adaptively until each ratio's significance is s
 compared against a hand-written value-threaded loop and mapbox/protozero (`tests/bench_streamgen.cpp` →
 `rapidproto_bench`); arena against `protoc` + `google::protobuf::Arena` (`tests/bench_arena.cpp` →
 `rapidproto_arena_bench`). Both are driven by `tests/bench.py` (`run`/`table`/`diff`/`experiment`;
-the subcommand reference lives in [`docs/benchmarks.md`](docs/benchmarks.md)). The **current headline numbers**
+the subcommand reference lives in [`docs/running-benchmarks.md`](docs/running-benchmarks.md)). The **current headline numbers**
 - which decoder is how much faster than which baseline, against which libprotobuf - live in
 [`docs/benchmarks.md`](docs/benchmarks.md), their source of truth (the README's lead repeats the
 headline claims and moves with it); the bench prints its libprotobuf baseline version at
 startup, since the baseline's version is half a ratio's meaning. Treat each number as a point, not a
 constant, and reproduce rather than quote. What the results mean structurally:
 
-- **Streaming is at or above a hand-written value-threaded loop, and at or above protozero on most
-  shapes.** The callback/dispatch abstraction costs nothing measurable, and on nested/message-heavy
+- **Streaming is close to a hand-written value-threaded loop, and above protozero on every
+  shape but one.** Built with clang++ the generated decoder matches or beats the hand loop almost
+  everywhere; built with g++ it trails it on many packed-varint shapes, by more than half on
+  `packed-int32`. On nested/message-heavy
   payloads the generated decoder *beats* a naive hand loop, because its loop is driven by a fused
   end-or-tag read (one bounds check per field, tag kept as a value) that a straightforward
   `while (!at_end()) { read_tag(); … }` does not use. It also validates *more* than protozero (whose
-  wire-type checks are `assert`s that compile out under `NDEBUG`; RapidProto's do not). Remaining
-  protozero
-  losses are confined to large packed arrays, decoded one element per callback (use the arena model
-  there).
-- **Arena beats `protoc` + `google::protobuf::Arena` on both axes** - decode throughput and peak
-  memory - on every shape and both compilers. Part of the time gap is a feature gap (protoc
-  validates
-  UTF-8 per proto3 `string`; the arena does not), and most of the memory gap comes from borrowing
-  strings/bytes/`raw` payloads as views into the input instead of copying them. "Memory" is
-  allocator-reported arena accounting (`bytes_used`/`bytes_reserved` vs protobuf's
-  `SpaceUsed`/`SpaceAllocated`), not process RSS; the memory ratio is deterministic (exact byte
-  counts), while the time multiple varies with payload shape, baseline version, and machine state.
+  wire-type checks are `assert`s that compile out under `NDEBUG`; RapidProto's do not). The one
+  remaining protozero loss is `packed-int32` built with g++.
+- **Arena beats `protoc` + `google::protobuf::Arena` on both axes** - decode throughput on every
+  shape but `packed double(fixed)`, where the two tie, with both compilers, and peak memory on
+  `Dataset`, the one shape it is measured on. Part of the time gap is a feature gap (protoc
+  validates UTF-8 per proto3 `string`; the arena does not), and much of the memory gap comes from
+  borrowing strings/bytes/`raw` payloads as views into the input instead of copying them (protoc
+  keeps a `std::string` per string in its Arena and the text of any string too long for its inline
+  buffer on the heap; the split hasn't been measured). "Memory" is arena accounting
+  (`bytes_used`/`bytes_reserved` vs protobuf's `SpaceUsed`/`SpaceAllocated`) plus, for protoc, the
+  heap buffers of its long strings (requested bytes, and glibc's chunk size for each request), not
+  process RSS; the memory ratios are exact byte counts, while the time multiple varies with payload
+  shape, baseline version, and machine state.
 - **Real codegen wins, surfaced by same-binary A/B.** The headline metric is **GB/s** - measured decode
   throughput, which unlike retired instructions reflects everything the CPU pays for (branch
   mispredictions, cache/memory stalls; e.g. random-width packed varints run ~4× slower than
   fixed-width
   at the same ins/B, pure branch-mispredict cost). Cross-binary comparison buries genuine wins in
-  placement noise - the shuffle-relink calibration (recipe in benchmarks.md's noise appendix)
+  placement noise - the shuffle-relink calibration (recipe in docs/running-benchmarks.md)
   measures worst arms up to ~22% apart across equally-valid layouts of an unaligned build - so
   the harness measures every arm back-to-back in one binary, where its GB/s and cycle-ratio
   verdict compare at one placement, and the bench builds pin
@@ -1017,15 +1020,16 @@ constant, and reproduce rather than quote. What the results mean structurally:
   `memcpy` a *single* fixed-width field, by contrast, showed no effect under the same control.
 
 **The `protoc` baseline version matters - and is selectable without vendoring protobuf.** An old
-baseline flatters the arena (libprotobuf's own decoder has sped up markedly across releases). The
-numbers, the selection recipe, and the CONFIG-vs-module resolution details all live in
-[`docs/benchmarks.md`](docs/benchmarks.md#choosing-the-protoc-baseline), which owns them.
+baseline flatters the arena (libprotobuf's own decoder has sped up markedly across releases).
+[`docs/benchmark-method.md`](docs/benchmark-method.md#choosing-the-protoc-baseline) owns the
+numbers, and [`docs/running-benchmarks.md`](docs/running-benchmarks.md#building-protobuf) owns the
+selection recipe and the CONFIG-vs-module resolution details.
 
 **Code placement.** Decode hot loops run at ~1–8 GB/s
 (1–2 ns/field), so throughput is dominated by **code placement**: which address a function lands at and
 the resulting alignment / branch-predictor behavior. Two **byte-for-byte identical** decode functions in
 one binary measure ~10% apart, and across relinked layouts the worst arms measure up to ~22%
-apart (shuffle-relink calibration, recipe in benchmarks.md's noise appendix; the bench builds'
+apart (shuffle-relink calibration, recipe in docs/running-benchmarks.md; the bench builds'
 64-byte alignment pinning brings that to ~6%). Consequences for anyone profiling this code:
 
 - **Compare structures at controlled placement.** A reliable A/B puts both variants in *one* binary,
@@ -1040,7 +1044,8 @@ apart (shuffle-relink calibration, recipe in benchmarks.md's noise appendix; the
   peek-switch dispatch, and the packed-array bulk copy above).
 - **Quiesce the box, and measure the floor rather than assuming one** - `tests/bench_box.sh setup` /
   `restore`, then compare a revision against *itself* to bound what the run can resolve.
-  See [Reproducing](docs/benchmarks.md#reproducing).
+  See [Reproducing](docs/benchmarks.md#reproducing) for the box and
+  [The regression check](docs/running-benchmarks.md#the-regression-check) for the self-comparison.
 - **Pin to one performance core** (`taskset -c <core> …`); unpinned hybrid-core runs swing 30%+, and even
   pinned, trust only same-binary ratios.
 
@@ -1144,7 +1149,7 @@ reflected (a documented simplification; decoders accept both wire forms).
   - `rapidproto_arena_bench` (`bench_arena.cpp`, built only when `protobuf` is found): arena vs `protoc` +
     `Arena` vs streaming on a realistic payload, plus the chunk-cap shape/size sweep.
   - `tests/bench.py` drives both (`run`/`table`/`diff`/`experiment`); the subcommand reference
-    lives in [`docs/benchmarks.md`](docs/benchmarks.md).
+    lives in [`docs/running-benchmarks.md`](docs/running-benchmarks.md).
 
   See [Decoder performance](#decoder-performance) for how to read the numbers (and the placement
   noise floor).
@@ -1158,7 +1163,7 @@ reflected (a documented simplification; decoders accept both wire forms).
   exists because those costs were invisible while scaling badly: `RP_FLATTEN` on every
   `rp_decode_into` transitively inlines the sub-message closure, bounded by the flatten budget
   above; the headline magnitudes live in
-  [docs/benchmarks.md](docs/benchmarks.md#compile-cost---what-the-throughput-costs-to-build). Peak RSS is measured because it is the failure that actually stops a
+  [docs/benchmarks.md](docs/benchmarks.md#compile-cost). Peak RSS is measured because it is the failure that actually stops a
   build: one arena TU peaks near 1 GB on gcc.
 
   Each measured translation unit defines **one external-linkage function per message**, taking the

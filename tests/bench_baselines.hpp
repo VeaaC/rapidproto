@@ -26,7 +26,8 @@
 namespace rpbaseline {
 
 // Peak memory of a protoc parse, for the like-with-like comparison against the arena's
-// bytes_used / bytes_reserved.
+// bytes_used / bytes_reserved: the Arena's own figures plus the heap buffers of the message's long
+// strings, which the Arena doesn't count.
 struct ProtocMemory {
     std::size_t used;
     std::size_t held;
@@ -44,6 +45,11 @@ std::uint64_t protoc_record_sparse(const std::string& buf);
 std::uint64_t protoc_big(const std::string& buf);
 std::uint64_t protoc_big_zz(const std::string& buf);
 std::uint64_t protoc_big_kinds(const std::string& buf);
+// The same parses into one long-lived protoc Arena per message type, Reset() before each parse.
+std::uint64_t protoc_dataset_warm(const std::string& buf);
+std::uint64_t protoc_big_set_warm(const std::string& buf);
+std::uint64_t protoc_wide_warm(const std::string& buf);
+std::uint64_t protoc_record_warm(const std::string& buf);
 ProtocMemory protoc_dataset_memory(const std::string& buf);
 #if __has_include(<protozero/pbf_reader.hpp>)
 #define RAPIDPROTO_HAVE_PROTOZERO 1

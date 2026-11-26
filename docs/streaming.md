@@ -117,10 +117,10 @@ of 0, which protoc doesn't write. Give your variables their starting values befo
 | message, group | the sub-message's decoder, such as `ex::Address` |
 | `map<K, V>` | the key, then the value |
 
-A repeated field or a oneof member takes the same parameters as a single field of its type. On large
-packed fields of numbers the arena decoder is
-[faster](benchmarks.md#arena-vs-streaming-the-two-rapidproto-models), because the streaming decoder
-makes a handler call for every element.
+A repeated field or a oneof member takes the same parameters as a single field of its type. On
+packed arrays of a thousand or more multi-byte numbers the arena decoder is
+[faster](benchmarks.md#arena-or-streaming), because the streaming decoder makes a handler call for
+every element.
 
 ```cpp
 rapidproto::DecodeStatus print_labels(rapidproto::ByteView input) {

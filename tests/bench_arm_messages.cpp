@@ -8,11 +8,13 @@
 
 #ifdef RAPIDPROTO_BENCH_MESSAGES
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -26,6 +28,7 @@
 
 #include "bench_harness.hpp"
 #include "bench_payloads.hpp"
+#include "bench_pb_arena.hpp"
 #include "bench_upb.hpp"
 #include "rapidproto/arena_runtime.hpp"
 
@@ -104,9 +107,8 @@ inline std::string load_payload(const char* path) {
 
 // ── google_message1: full walk, present fields only, all four decoders ───────────────────────
 
-inline std::uint64_t gm1_protoc(const std::string& buf) {
-    google::protobuf::Arena arena;
-    auto* m = google::protobuf::Arena::CreateMessage<pm::GoogleMessage1>(&arena);
+inline std::uint64_t gm1_protoc(google::protobuf::Arena& arena, const std::string& buf) {
+    auto* m = rpbaseline::new_in_arena<pm::GoogleMessage1>(&arena);
     if (!m->ParseFromString(buf)) {
         return ~std::uint64_t{0};
     }
@@ -549,9 +551,8 @@ inline std::uint64_t gm1_stream(rapidproto::ByteView buf) {
 
 // ── google_message2: full walk, present fields only ──────────────────────────────────────────
 
-inline std::uint64_t gm2_protoc(const std::string& buf) {
-    google::protobuf::Arena arena;
-    auto* m = google::protobuf::Arena::CreateMessage<pm::GoogleMessage2>(&arena);
+inline std::uint64_t gm2_protoc(google::protobuf::Arena& arena, const std::string& buf) {
+    auto* m = rpbaseline::new_in_arena<pm::GoogleMessage2>(&arena);
     if (!m->ParseFromString(buf)) {
         return ~std::uint64_t{0};
     }
@@ -1683,7 +1684,8 @@ int scenario(const char* name, const std::string& buf, ProtocFn protoc_sum, Aren
     rapidproto::Arena setup_arena;
     const ArenaMsg* doc = ArenaMsg::decode(view, setup_arena);
     const std::uint64_t c_arena = arena_walk(doc);
-    const std::uint64_t c_protoc = protoc_sum(buf);
+    google::protobuf::Arena setup_pb;
+    const std::uint64_t c_protoc = protoc_sum(setup_pb, buf);
     const std::uint64_t c_stream = stream_sum(view);
     bool mismatch = c_arena != c_protoc || c_arena != c_stream;
 #ifdef RAPIDPROTO_HAVE_UPB
@@ -1724,8 +1726,22 @@ int scenario(const char* name, const std::string& buf, ProtocFn protoc_sum, Aren
     }
 
     rapidproto::Arena warm;
+    // protoc's reused Arena: Reset() keeps only a caller-owned first block, so it starts on one
+    // large enough for the whole parse.
+    constexpr std::size_t kWarmBlockBytes = std::size_t{8} << 20;
+    const std::unique_ptr<char[]> pb_block(new char[kWarmBlockBytes]);
+    google::protobuf::Arena pb_warm(pb_block.get(), kWarmBlockBytes);
     std::vector<rpbench::Arm> arms = {
-        {"protoc", [&]() { return protoc_sum(buf); }},
+        {"protoc",
+         [&]() {
+             google::protobuf::Arena a;
+             return protoc_sum(a, buf);
+         }},
+        {"protoc-warm",
+         [&]() {
+             pb_warm.Reset();
+             return protoc_sum(pb_warm, buf);
+         }},
         {"arena-cold",
          [&]() {
              rapidproto::Arena a;
@@ -1741,8 +1757,9 @@ int scenario(const char* name, const std::string& buf, ProtocFn protoc_sum, Aren
 #ifdef RAPIDPROTO_HAVE_UPB
     if (upb_ready) {
         // Decode + accessor-walk checksum: the SAME work every other arm does, through
-        // pre-resolved upb_MiniTableField accessors (what upb's generated code compiles to) --
-        // neither flattering upb by skipping the walk nor over-billing it with reflection.
+        // pre-resolved upb_MiniTableField handles -- not flattering upb by skipping the walk, and
+        // avoiding reflection's lookups, though a little dearer than generated getters (see
+        // bench_upb.hpp).
         arms.push_back({"upb", [&buf, upb_timed_sum]() { return upb_timed_sum(buf); }});
     }
 #endif

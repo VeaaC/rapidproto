@@ -1,449 +1,314 @@
 # Benchmarks
 
-*The single home for the headline numbers, and how to reproduce them. Back to the
-[README](../README.md); the measurement methodology (placement noise, same-binary A/B, GB/s vs ins/B)
-is in [architecture.md](https://github.com/VeaaC/rapidproto/blob/main/architecture.md#decoder-performance).*
+RapidProto generates decoders and no encoders, so every number here is for decoding. Its C++
+decoders are measured against protoc's generated C++ code with a
+[`google::protobuf::Arena`](https://protobuf.dev/reference/cpp/arenas/), against
+[protozero](https://github.com/mapbox/protozero) and
+[upb](https://github.com/protocolbuffers/protobuf/tree/main/upb), and on OpenStreetMap data against
+[libosmium](https://github.com/osmcode/libosmium). The Rust decoders are measured against
+[prost](https://docs.rs/prost) and four other crates. A throughput table names its baseline in the
+header and gives each decoder's throughput as a multiple of the baseline's. Unless a table says
+otherwise, its decoders ran in one program, taking turns on the same payload. All absolute speeds on
+this page come from one test machine and depend on its CPU. [Benchmark method](benchmark-method.md)
+explains how each number is made.
 
-The numbers below come from the in-repo harness (`tests/bench.py`), decoding a realistic `Dataset`
-payload - 2000 mixed records with strings, nested and repeated messages, and packed scalar arrays -
-that `protoc` serializes and every decoder then parses. Built `-O3 -DNDEBUG` and measured on **g++-13**
-and **clang++-20** against **protobuf 4.25.3**. Reproduce with
-`python3 tests/bench.py run --build-dir build/gcc`
-(see [Reproducing](#reproducing)). The multipliers are decode **throughput** (GB/s) ratios rather
-than instruction counts, since a schema-specialized decoder wins as much from branch prediction,
-pipelining, and superscalar execution as from fewer instructions. Every decoder is measured in the same
-run under identical conditions, so the ratios are stable; treat them as a box-specific rule of thumb, not
-a cross-machine constant. The [Rust](#rust) numbers come from a separate bench.
+The C++ decode numbers were measured on 2026-11-25 with g++-13 and clang++-20 at `-O3 -DNDEBUG`,
+against protozero 1.8.2, libosmium 2.23.1 and protobuf v35.1 (libprotobuf 7.35.1), which supplies
+both protoc and upb. Every figure relative to protoc depends on that release. With the older
+libprotobuf 4.25.3, the `Dataset` throughput ratios would stay within about 3% of these, and the
+ratios on Google's payloads and the OSM blocks would be about 4% to 17% higher
+([Choosing the protoc baseline](benchmark-method.md#choosing-the-protoc-baseline)).
+The Rust numbers are from 2026-11-14, built with rustc 1.91.1.
 
-## Arena vs `protoc` + `google::protobuf::Arena`
+## C++
 
-Both materialize a full object tree, so this is a
-like-for-like comparison of decode speed and peak arena memory. RapidProto **borrows** strings, bytes,
-and `raw` payloads as views into the input instead of copying them, so the arena holds only tree
-structure - which is where most of the memory win comes from:
-
-| Metric | RapidProto arena | protoc + Arena |
+| `Dataset`, relative to protoc | g++-13 | clang++-20 |
 |---|---|---|
-| Decode throughput | **~7× faster** | baseline |
-| Peak memory, payload (arena `bytes_used` vs protoc `SpaceUsed`) | **0.49×** | 1× |
-| Peak memory, total held (arena `bytes_reserved` vs protoc `SpaceAllocated`) | **0.56×** | 1× |
+| protoc, reusing one `google::protobuf::Arena` | 1 | 1 |
+| RapidProto [arena decoder](arena.md) | 6.6 | 5.7 |
+| RapidProto [streaming decoder](streaming.md) | 12.1 | 8.8 |
+| protozero | 6.2 | 6.0 |
+| upb | 1.2 | 1.3 |
 
-That's the g++-13 figure; clang++-20 measures ~6×. (Both moved when the bench builds gained
-alignment pinning - see the appendix - which normalizes away the layout luck older figures
-implicitly carried.) Because the strings are borrowed, the input has to
-[outlive the message](arena.md#the-arena).
+`Dataset` is a proto3 message of 2,000 `Person` records, 368,611 bytes as protoc encodes it
+([bench.proto](https://github.com/VeaaC/rapidproto/blob/main/tests/bench/bench.proto)). Each record
+mixes numbers and strings with two kinds of sub-message, three repeated strings, a packed array of
+five `int32` values and a map with two entries. With g++-13, protoc decodes it on the test machine
+at 0.235 GB/s, the arena decoder at 1.56 GB/s and the streaming decoder at 2.85 GB/s. Both columns
+link the same GCC-built protoc library, which leaves clang++-20 compiling only the part of protoc's
+code generated from the schema.
 
-## Streaming vs `protozero`
+On `Dataset` the streaming decoder is nearly twice as fast as protozero with g++-13 and more than
+1.8 times as fast as the arena decoder. With clang++-20 both margins are about 1.5. The streaming
+decoder's own benchmark program pits it against protozero on 102 other payloads of single
+fields, message shapes and packed arrays. With clang++-20 it's faster on all of them. With g++-13
+it's 25% slower on one, `packed-int32`, whose payload is a single long packed `int32` array.
 
-Both are zero-materialization pull parsers. On the realistic `Dataset` the
-streaming decoder is **~1.8× faster than protozero** (clang: ~1.5×) - and **~12× faster than
-`protoc` + `Arena`**, since it materializes nothing. Across the per-field microbenchmarks it's faster on most shapes (repeated
-fields, nested messages, skip-heavy records), about even on single fixed-width scalars, and slower only
-on large **packed** arrays, which it decodes one element per callback - decode those with the arena model
-(below).
+The arena decoder builds its message in an arena, as protoc does here, but leaves every string and
+bytes field pointing into the input, which has to outlive the message
+([The arena decoder](arena.md)). protoc copies each string into its message. Repeated fields and
+maps go in the same arena, and a map keeps its entries in the order they arrived.
 
-## The upb arm - validating the C-parser baseline
+protoc's code for a proto3 schema rejects any string that isn't valid UTF-8, while RapidProto
+[returns strings unchecked](semantics.md#strings-and-utf-8). The C++ benchmarks don't measure what
+that check costs protoc. In the [Rust comparison](#other-rust-decoders), checking every string costs
+RapidProto about half of its throughput on `Dataset`.
 
-The arena bench also measures **upb** (protobuf's C parser, the engine under the Python/Ruby/PHP
-protobuf runtimes) on the same `Dataset`, cross-checked against every other decoder's checksum.
-The arm decodes through a **runtime-built MiniTable** (from an embedded descriptor, with upb's
-fasttable enabled, and string ALIASING on - the same borrow-from-the-input semantics
-RapidProto's arena uses, worth +5-11% to upb in pure-decode terms and ~1-4% on the walked table rows below)
-because upb's plugin-generated tables would require building protobuf's compiler from source.
-A standalone decode-vs-decode probe (2M back-to-back iterations per arm, no checksum walks,
-aliasing off - a strictly conservative variant of the configuration, since aliasing only helps
-upb) measures this configuration at **2.16× protoc** on `google_message1` - the band upstream's
-own figures put upb in - so the decoder itself runs at full strength.
+Both protoc and the arena decoder keep a single arena and reset it between decodes. If your program
+decodes many messages, [reuse one arena](arena.md#the-arena) the same way. upb could reuse memory
+as well, but the benchmark [gives it a new arena](benchmark-method.md#the-upb-baseline) for each
+decode.
 
-The in-tree rows read differently: **every arm's timed lambda decodes
-AND reads every present field** (the checksum walk - the work a real consumer does), and upb
-pays that walk through the same pre-resolved `upb_MiniTableField` accessors its generated code
-compiles to. Reading data OUT of a upb message costs measurably more than reading the arena's
-structs (per-field hasbit checks and offset indirection; upb's ins/B rises ~57-60% when the walk
-joins the timed loop), which is where most of the probe-vs-table gap goes. Maps never take
-upb's fast path, so the map-heavy `Dataset` is its weakest shape. upb's sources are fetched at
-the corpus's protobuf pin (`tests/fetch_corpus.py`), never vendored; without the corpus the arm
-is skipped and says so.
+The timing includes a walk that adds every decoded field to a checksum. A decoder that decodes a
+field only when it's read does that work inside the walk. All decoders on a payload must produce
+the same checksum.
 
-## The published datasets - google_message1 and google_message2
+For memory, protoc and the arena decoder each decode `Dataset` once into a new arena. In the table,
+held is what an arena has taken from the heap, and in use is the part of it handed out while
+decoding. protoc's figures also count the text of every string that `std::string` keeps on the
+heap, outside the Arena, because it's too long to store in the object. In use counts the bytes
+requested for that text, and held what the allocator reserves for it. Neither side's figures count
+the 368,611-byte input the arena decoder's message points into.
 
-Protobuf's own cross-language benchmark payloads (anonymized real production shapes, fetched at
-a pinned tag by `tests/fetch_corpus.py`), decoded by every arm and cross-checked on one
-checksum, so these numbers are comparable with figures third parties already publish. Measured
-like the tables above (g++-13, protobuf 4.25.3, quiesced box), throughput vs the protoc
-baseline:
-
-| | google_message1 (228 B) | google_message2 (84.5 KB, group-heavy) |
+| `Dataset`, one decode, either compiler | In use | Held |
 |---|---|---|
-| streaming | **+120%** | **+155%** |
-| arena (warm) | **+106%** | **+28%** |
-| arena (cold) | +44% | +23% |
-| upb | +21% | +13% |
+| protoc | 1,837,855 bytes | 1,994,752 bytes |
+| RapidProto arena decoder | 970,336 bytes | 1,159,408 bytes |
+| RapidProto relative to protoc | 0.53 | 0.58 |
 
-Two readings: `google_message2` is proto2's home turf - one huge repeated *group* of
-small mixed fields - and it is where the arena's lead over both protoc and upb is smallest,
-while the streaming decoder leads every arm on both.
-And `google_message1` at 228 bytes shows the cold-arena setup cost that the warm row amortizes;
-a consumer decoding many small messages should reuse the arena. (Read coarse ratios, not
-decimals: small-payload rows swing a few points between runs - short rotated batches magnify
-per-iteration overheads - and whenever the bench binary itself changes, EVERY row can shift by
-its placement floor - see the appendix. Compare within one table, not across published
-revisions of it.)
+Each C++ throughput figure is the median of five runs of its program. For a typical figure the middle three
+runs lie within about 0.15% of each other. Of the 1,388 figures from both compilers, seven spread by
+more than 5%, all on packed varint arrays and none by more than 30%. A rebuild that moves the code
+in memory can shift a row by a few percent more
+([Measurement noise](benchmark-method.md#measurement-noise)).
 
-## Real-world data - OSM PBF vs libosmium
+### Google's benchmark payloads
 
-OpenStreetMap's planet format ([walkthrough](osm-pbf.md)), on a pinned, sha256-verified
-Geofabrik extract: Bremen, ~20 MB, 1.6 M nodes, 320 K ways, full metadata
-(`tests/fetch_osm_dataset.py`). The baseline is **libosmium**, the standard C++ OSM library,
-built from a corpus pin. Every arm computes one cross-validated checksum - ids, coordinates,
-metadata, resolved way refs and relation members, a stringtable access per tag key, value and
-role - and `tests/bench_arm_osm.hpp` spells out the convention, including the reuse rules
-(protoc keeps one message across blocks, its standard idiom for repeated parsing and its
-fastest). Same setup as the tables above: g++-13, protobuf 4.25.3, libosmium 2.23.1,
-quiesced box.
+| Relative to protoc | `google_message1`, g++-13 | `google_message1`, clang++-20 | `google_message2`, g++-13 | `google_message2`, clang++-20 |
+|---|---|---|---|---|
+| protoc, reusing one `google::protobuf::Arena` | 1 | 1 | 1 | 1 |
+| RapidProto arena decoder | 2.4 | 3.4 | 1.2 | 1.3 |
+| RapidProto streaming decoder | 4.3 | 3.7 | 2.4 | 1.6 |
+| upb | 0.90 | 1.1 | 1.1 | 1.1 |
 
-Since inflating the zlib blobs rivals the protobuf work itself, there are two tables rather
-than one blended number:
+These anonymized production messages come from the benchmarks that Protobuf's repository carried
+until release [v21.12](https://github.com/protocolbuffers/protobuf/tree/v21.12/benchmarks).
+`google_message1` is a 228-byte proto2 message. With g++-13 one decode of it takes protoc 318 ns on
+the test machine, the arena decoder 133 ns and the streaming decoder 73 ns. `google_message2` is
+84,570 bytes long, and one repeated group of small fields makes up 98% of it.
 
-**The protobuf layer alone** (every block pre-inflated once, untimed; MB/s of inflated
-payload):
+### OpenStreetMap data
 
-| arm | MB/s | vs protoc |
+Both tables decode `bremen-250101.osm.pbf`, [Geofabrik](https://download.geofabrik.de/)'s extract of
+Bremen from 2025-01-01. The 20 MB [OSM PBF](osm-pbf.md#the-format) file holds 1.6 million nodes and
+320,000 ways with full metadata, packed into 246 zlib-compressed data blocks that follow a header
+block. The first table decodes the data blocks after an untimed inflate.
+
+| Inflated blocks, relative to protoc | g++-13 | clang++-20 |
 |---|---|---|
-| protoc | 274 | baseline |
-| arena (cold) | 437 | +60% |
-| arena (warm) | 441 | **+61%** |
-| streaming | 434 | **+58%** |
+| protoc, one message reused for every block | 1 | 1 |
+| RapidProto arena decoder | 1.4 | 1.3 |
+| RapidProto streaming decoder | 1.4 | 1.5 |
 
-**End to end** (raw file bytes in memory → framing, blob decode, inflate, block decode, walk;
-MB/s of file bytes):
+The streaming decoder makes two passes over each block, the first for its string table, and both
+are timed. The second table starts from the file's bytes in memory and adds the framing and the
+inflate. With either compiler those take about 70% of the time the arena decoder spends on the whole
+file.
 
-| arm | MB/s | vs arena |
+| Whole file, relative to the arena decoder | g++-13 | clang++-20 |
 |---|---|---|
-| arena (warm) | 56 | baseline |
-| streaming | 56 | −0.1% (a wash) |
-| libosmium | 21 | **−63%** |
+| RapidProto arena decoder | 1 | 1 |
+| RapidProto streaming decoder | 0.99 | 1.0 |
+| libosmium | 0.37 | 0.37 |
 
-The second table is mostly a zlib table. The same arena decode that manages 441 MB/s over
-inflated payload delivers only ~128 MB/s of it once framing and inflate join the loop, and
-the gap between arena and streaming disappears entirely.
+libosmium reads a file with a pool of worker threads. Here those threads share the benchmark's
+single core, and the whole file is timed by the wall clock. libosmium also builds a complete OSM
+object for every entity and copies user names into buffers of its own.
 
-The libosmium row is single-core on purpose. The harness pins the process to one core before
-libosmium's thread pool comes into existence, so its reader threads - a real strength on an
-unpinned machine - share that core, and the scenario is compared on wall time (per-thread
-cycle counters can't see the workers, hence the missing columns). libosmium's API always
-materializes full OSM objects, so the arena arm is the like-for-like comparison, and it
-reads the same data about 2.7× as fast on that core. The cold and warm arena rows nearly
-coincide: at ~187 KB per block, arena setup is noise, so the margin over a message-reusing
-protoc is not an allocator artifact.
+### Arena or streaming
 
-## Arena vs streaming (the two RapidProto models)
+From a packed varint array of 256 bytes or more, the arena decoder fills the message's array in a
+loop that reads several bytes per step; a shorter array it reads a byte at a time. The streaming
+decoder calls your handler once per value. Because the table's two decoders were timed in different
+benchmark programs, a cell close to 1 could go either way. Each cell is the arena decoder's
+throughput divided by the streaming decoder's, and a cell above 1 means the arena decoder is faster.
 
-The streaming decoder is **~1.8× faster** than the
-arena decoder on the `Dataset`, since it builds no object tree. Use the arena model when you want a
-navigable, random-access object; stream when you only extract or forward fields.
+| Value length | Compiler | 10 values | 100 | 1,000 | 10,000 | 100,000 | 1,000,000 |
+|---|---|---|---|---|---|---|---|
+| One byte | g++-13 | 0.66 | 0.87 | 1.2 | 0.77 | 0.68 | 0.54 |
+| One byte | clang++-20 | 0.51 | 0.73 | 1.0 | 1.1 | 1.1 | 0.71 |
+| Longer or mixed | g++-13 | 0.54–0.98 | 0.58–2.0 | 1.2–2.3 | 1.2–2.4 | 1.2–2.4 | 1.1–2.3 |
+| Longer or mixed | clang++-20 | 0.55–0.94 | 0.77–2.0 | 1.1–2.2 | 1.2–2.3 | 1.1–2.1 | 1.1–2.0 |
 
-**Large packed scalar arrays: prefer the arena model.** The arena decoder decodes a packed varint array
-a word at a time straight into its array, while the streaming decoder decodes it one element per callback
-(a streaming callback takes a single value and can't batch its store).
+The longer or mixed rows cover [14 distributions](benchmark-method.md#payloads) of value length,
+from two bytes each to ten, and mixes such as nine one-byte values in ten. With g++-13 the arena
+decoder's speed on one-byte arrays of 10,000 values and up varies from process to process, and the
+100,000-value cell moved by 11% between two measurements of the same RapidProto code
+([The remaining noise](benchmark-method.md#the-remaining-noise)).
 
-Speedups vary with payload shape, and part of the arena/protoc gap is a feature gap - protoc validates
-UTF-8 on every proto3 string and RapidProto does not. The harness ships every scenario (and a memory
-report), so measure your own payloads.
+The [README](../README.md#two-decoders) compares the two decoders on everything besides speed.
 
 ## Rust
 
-The Rust crate has its own bench in `rust/rapidproto-bench`. It decodes the payloads that the C++
-benches write. Each decoder decodes a payload and then reads every field, as in the C++ benches. On
-the eight payloads in the table below and on the real-world datasets, each decoder also has to
-produce the checksum that the C++ bench computes. The numbers were measured with rustc 1.91.1 and a
-release build without LTO that aligns functions and loops to 64 bytes, as the C++ builds do. In the
-table and in the comparison with C++, each number is the median of five runs.
+[`rapidproto-bench`](https://github.com/VeaaC/rapidproto/tree/main/rust/rapidproto-bench) times
+RapidProto's Rust decoders against five other Rust decoders on payloads that the C++ benchmark
+programs write out. On every payload in the table below, each decoder's checksum has to equal the
+one the C++ program stored with the payload.
 
 ### Other Rust decoders
 
-Throughput relative to prost:
-
-| Payload | RapidProto | prost | rust-protobuf | quick-protobuf | femtopb | google-protobuf |
+| Payload, relative to prost | RapidProto | prost | rust-protobuf | quick-protobuf | femtopb | google-protobuf |
 |---|---|---|---|---|---|---|
-| `Dataset` | 12 | 1 | 1.0 | 1.9 | n/a | 1.0 |
-| Packed `int64` | 2.6 | 1 | 1.3 | UB | 0.29 | 0.38 |
-| Packed `double` | 3.7 | 1 | 1.1 | UB | 0.69 | 0.43 |
-| Packed `sint64` deltas and enum | 2.8 | 1 | 0.89 | UB | 0.78 | 0.53 |
-| Packed `int64` and `double` | 2.8 | 1 | 1.2 | UB | 0.37 | 0.39 |
-| Many small messages | 8.1 | 1 | 0.94 | 1.4 | 2.0 | 1.4 |
-| Scalar records | 4.5 | 1 | 0.69 | 0.97 | 1.1 | 0.27 |
-| Particles | 3.7 | 1 | 0.43 | 0.89 | 0.74 | 0.20 |
+| `Dataset` | 12.4 | 1 | 1.0 | 1.9 | n/a | 1.0 |
+| packed `int64` | 2.6 | 1 | 1.3 | UB | 0.29 | 0.38 |
+| packed `double` | 3.7 | 1 | 1.1 | UB | 0.69 | 0.43 |
+| packed `sint64` deltas and enums | 2.8 | 1 | 0.89 | UB | 0.78 | 0.53 |
+| few messages, big arrays | 2.8 | 1 | 1.2 | UB | 0.37 | 0.39 |
+| many small messages | 8.1 | 1 | 0.94 | 1.4 | 2.0 | 1.4 |
+| scalar records | 4.5 | 1 | 0.69 | 0.97 | 1.1 | 0.27 |
+| particles | 3.7 | 1 | 0.43 | 0.89 | 0.74 | 0.20 |
 
-Each row is one payload:
+Each cell is the median of five runs of a release build without LTO, with functions and loops
+aligned to 64 bytes as in the C++ benchmark builds. The RapidProto column is its arena decoder with
+a new arena per decode, since each of the other crates also builds a fresh message every time.
+RapidProto's streaming decoder was timed on `Dataset` but not on the other seven payloads. There it
+reaches 23.6 times prost's throughput.
 
-- `Dataset` is the mixed payload described at the top of this page.
-- Packed `int64` and `double` decodes 30 messages, each with two arrays of 10,000 values. The other
-  three packed rows decode 200 messages with 1,000 values per array.
-- Each of the 50,000 small messages holds four short `int32` arrays and two short string arrays.
-- Each of the 20,000 scalar records holds 18 scalar fields and two nested messages of scalars.
-- Each of the 50,000 particles holds an id, a color and two nested messages of three `double`
-  values.
+UB marks the four payloads that quick-protobuf decodes through a message type with a packed
+`double` field. Its generated code hands out that field's values as a `&[f64]` pointing straight
+into the input. Wherever the input doesn't put the values on an 8-byte boundary, the slice is
+misaligned, which is undefined behaviour even where x86 tolerates it, and Miri reports it. Since
+some input will produce such a slice, the decoder is unsound, and we show UB instead of its numbers.
+femtopb has no map support, hence the n/a on `Dataset`.
 
-The crates produce different kinds of decoded messages:
+- `Dataset`: the payload of the [C++ table](#c).
+- Packed `int64` and packed `double`: 200 messages of 1,000 packed values each.
+- Packed `sint64` deltas and enums: 200 messages, each with 1,000 small `sint64` deltas and 1,000
+  enum values, both packed.
+- Few messages, big arrays: 30 messages, each with 10,000 `int64` and 10,000 `double` values.
+- Many small messages: 50,000 messages, each with four `int32` arrays of 3 values and two string
+  arrays of 2.
+- Scalar records: 20,000 records of 18 scalar fields and two sub-messages of 6 scalars.
+- Particles: 50,000 messages of an id, a color and two vectors of three `double` values.
 
-| Crate | Version | A decoded message |
+| Crate | Version | What a decoded message is |
 |---|---|---|
-| RapidProto | this repository | Lives in an arena and borrows strings and bytes from the input. The bench uses a new arena for every decode. |
-| prost | 0.14.6 | Owns its data in `String`, `Vec` and `HashMap` fields. |
-| rust-protobuf | 3.7.2 | Owns its data in `String`, `Vec` and `HashMap` fields. |
-| quick-protobuf | 0.8.1 | Borrows strings, bytes and packed fixed-width arrays from the input. Other repeated fields and maps are stored in `Vec` and `HashMap` fields. |
-| femtopb | 0.9.0 | Borrows from the input. Repeated fields are decoded while you iterate them. |
-| google-protobuf | 0.36.2-release | Lives in a upb arena. Strings are copied into the arena. |
+| RapidProto | this repository | lives in an arena, with strings and bytes borrowed from the input |
+| [prost](https://crates.io/crates/prost) | 0.14.6 | owns its data, in `String`, `Vec` and `HashMap` |
+| [rust-protobuf](https://crates.io/crates/protobuf/3.7.2) | 3.7.2 | owns its data, like prost |
+| [quick-protobuf](https://crates.io/crates/quick-protobuf) | 0.8.1 | strings, bytes and packed fixed-width arrays borrow from the input; other repeated fields go in a `Vec`, maps in a `HashMap` |
+| [femtopb](https://crates.io/crates/femtopb) | 0.9.0 | borrows from the input, and a repeated field is decoded while you iterate over it |
+| [google-protobuf](https://crates.io/crates/google-protobuf) | 0.36.2-release, through `protobuf` 4.36.2-release | lives in a upb arena, with strings copied in |
 
-google-protobuf is Google's official Rust implementation of protobuf, currently in beta. It is also
-published as version 4 of the `protobuf` crate, whose earlier versions are rust-protobuf, and the
-bench uses it through `protobuf` 4.36.2-release. Built with Cargo, it runs on upb, Google's C protobuf
-library, which decodes into an arena. That makes it the crate closest to RapidProto's design. Its
-build script compiles upb without `-DNDEBUG`, so upb's assertions run in release builds. Building with
-`CFLAGS=-DNDEBUG` makes it more than 20% faster on the packed payloads.
+google-protobuf, Google's Rust implementation, is a beta release. It decodes with upb's C code,
+which the crate's build script compiles without `-DNDEBUG`, leaving upb's `assert`s active in a
+release build. The table uses the build the crate ships. Twice, on two versions of the benchmark
+program, we ran that build alternately with one rebuilt using `CFLAGS=-DNDEBUG`, three runs each.
+Both times the rebuilt one was more than 20% faster on each of the four packed payloads.
 
-quick-protobuf reads packed fixed-width fields, like `repeated double`, as a slice into the input
-without checking alignment. That is undefined behavior whenever the data is misaligned, which
-depends on the input and on where it sits in memory. All four packed rows use the `Big` message,
-whose decoder has this flaw, so the table shows no number for quick-protobuf there.
+Every other crate in the table fails a decode on a string that isn't valid UTF-8. RapidProto hands
+strings over unchecked, and the benchmark's checksum reads only their lengths. You check a string
+by calling
+[`ProtoStr::to_str`](https://docs.rs/rapidproto/latest/rapidproto/struct.ProtoStr.html#method.to_str)
+on it. We also timed RapidProto calling it on every string, in a separate set of three runs. It kept
+47% of its throughput on `Dataset` and 79% on many small messages, still about 6 times as fast as
+prost on both.
 
-femtopb does not support map fields, so it cannot decode `Dataset`.
+### Rust and C++
 
-The other crates check that every string is valid UTF-8 before they hand it out. RapidProto leaves
-the check to the caller. `ProtoStr::to_str` checks one string when you need it as a `&str`. The
-bench reads only string lengths, so RapidProto's numbers include no UTF-8 check. Checking every
-string lowers RapidProto's throughput by 53% on `Dataset` and by 21% on many small messages. That
-would put it at 5.9 and 6.4 times the speed of prost.
+This comparison takes its Rust half from the measurements of 2026-11-14 and its C++ half from the
+clang++-20 measurements of 2026-11-25 behind the C++ tables. RapidProto's C++ decoders and runtime
+didn't change in the days between. For each payload that both languages time, it
+[pairs](benchmark-method.md#comparing-rust-with-c) the two arena decoders, each reusing its arena,
+and the two streaming decoders.
 
-### Rust vs C++
+| Rust relative to C++ | Arena decoder pairs | Streaming decoder pairs |
+|---|---|---|
+| Within 3% | 85 | 48 |
+| Rust more than 3% faster | 27 | 57 |
+| Rust more than 3% slower | 11 | 5 |
+| All | 123 | 110 |
 
-The Rust crate decodes as fast as the C++ library. The comparison covers 233 pairs of scenario and
-decoder. On 135 of them the Rust build is within 3% of the clang++-20 C++ build, on 84 it is more
-than 3% faster, and on 14 it is 3% to 10% slower. The median Rust/C++ throughput ratio is 1.00 for
-the arena decoder and 1.03 for the streaming decoder. In this comparison, both arena decoders reuse
-one arena for every decode.
+The median arena pair runs at the same speed in both languages and the median streaming pair 3%
+faster in Rust. No pair has Rust more than 10.4% behind. Rust's largest lead, 5.2 times, is on
+records decoded under a [decode profile](profiles.md) that drops most of their fields. The C++
+arena decoder is slow on those. With clang++-20 it manages only 1.3 times the throughput of protoc,
+which gets a new Arena per decode and parses all 20 fields of each record.
 
-### Reproducing the Rust numbers
+## Compile cost
 
-[rust/README.md](https://github.com/VeaaC/rapidproto/blob/main/rust/README.md#running-the-bench)
-shows how to write the payloads, then build and run `rapidproto-bench`. The published numbers come
-from a build with `--features compute,google-upb`, which adds the `compute Instance` scenario and
-the google-protobuf column and needs protoc 36.2. The runs alternated the two runners, `bench` then
-`stream`, five times over.
+The [compile-cost sweep](benchmark-method.md#the-compile-cost-sweep) builds one source file per row
+at `-O3 -DNDEBUG` and records the wall-clock seconds and the size of the machine code (`.text`). We
+ran it on 2026-11-24 on the test machine, with nothing else running.
 
-For the comparison with C++, also run `python3 tests/bench.py run --build-dir build/clang`, and set
-`RAPIDPROTO_BENCH_JSON=1` for the Rust runs. Each Rust record then names the C++ row it matches.
+| Schema | Decoder | g++-13 seconds | g++-13 `.text` | clang++-20 seconds | clang++-20 `.text` |
+|---|---|---|---|---|---|
+| 10-message chain | arena | 7.1 | 174 KB | 1.7 | 48 KB |
+| 10-message chain | streaming | 1.9 | 51 KB | 1.2 | 33 KB |
+| `descriptor.proto`, 5 messages | arena | 11.6 | 238 KB | 2.7 | 77 KB |
+| `descriptor.proto`, 5 messages | streaming | 1.0 | 25 KB | 0.6 | 10 KB |
+
+In the chain, each message holds the next one as a field, beside a string, an `int32` and a
+repeated `int64`. The streaming rows compile a single catch-all handler that doesn't descend into
+sub-messages. A program with real handlers for them takes longer to build and gets more code. The
+`.text` sizes repeat to the byte for a given compiler version and flags, while the seconds are wall
+time and vary a little from one sweep to the next.
 
 ## Reproducing
 
-The benches need `libprotobuf-dev` (+ a matching `protoc`) and `protozero` installed -
-though when the corpus is fetched, the protozero arm compiles against the corpus **pin**
-(v1.8.2) rather than the system install, so the measured version is recorded;
-`rapidproto_arena_bench` is built only when protobuf is found - and both bench targets
-exist only on Linux (`tests/bench_harness.hpp` is built on `perf_event` self-monitoring
-and refuses other platforms). The corpus-dependent scenarios (upb, google_message1/2, the
-OSM PBF pair, the large-schema arm) additionally want the fetched corpus and dataset:
+The C++ benchmarks build only on Linux, where the harness reads the CPU's counters through
+`perf_event`. They need:
+
+- protobuf: `libprotobuf-dev` with a `protoc` from the same release, or your own build. The
+  published numbers used protobuf v35.1, built from source as
+  [Building protobuf](running-benchmarks.md#building-protobuf) shows. Its `protoc --version` prints
+  `libprotoc 35.1`.
+- The
+  [fetched corpus](https://github.com/VeaaC/rapidproto/blob/main/CONTRIBUTING.md#the-real-world-schema-corpus),
+  for protozero 1.8.2, upb, libosmium, Google's payloads and `compute Instance`, a 40,498-byte
+  message of googleapis' `compute.proto` that the Rust and C++ comparison uses. Without the corpus
+  the benchmarks use any protozero that's installed. The OpenStreetMap payloads also need the Bremen
+  extract and zlib.
+
+Fetch the corpus and the extract before you configure, with
+[`fetch_corpus.py`](https://github.com/VeaaC/rapidproto/blob/main/tests/fetch_corpus.py) and
+[`fetch_osm_dataset.py`](https://github.com/VeaaC/rapidproto/blob/main/tests/fetch_osm_dataset.py):
 
 ```sh
-python3 tests/fetch_corpus.py       # pinned schemas + the upb/libosmium/protozero sources
-python3 tests/fetch_osm_dataset.py  # the pinned Geofabrik extract (sha256-verified)
+python3 tests/fetch_corpus.py        # schemas and the upb, libosmium and protozero sources, ~100 MB
+python3 tests/fetch_osm_dataset.py   # bremen-250101.osm.pbf, checked against its SHA-256
 ```
 
-**Quiesce the box first.** `tests/bench_box.sh setup` disables SMT and turbo, sets the
-`performance` governor, and enables the hardware counters - saving whatever was there before, so
-`tests/bench_box.sh restore` puts your machine back. None of it survives a reboot. `bench.py` checks
-the same settings on every run and prints the exact fix if any is off; `tests/bench_box.sh status`
-shows the current values.
-
-`--build-dir` defaults to `build/gcc-pb25`, which no preset creates - pass `--build-dir build/gcc`
-for the `gcc` preset from [CONTRIBUTING.md](https://github.com/VeaaC/rapidproto/blob/main/CONTRIBUTING.md), or the build dir you configured
-against a specific protobuf (see [Choosing the protoc baseline](#choosing-the-protoc-baseline)).
-Pinning defaults to `--core 2`; on a hybrid CPU make sure that is a performance core.
+Then configure, set up the machine, run, and put the machine back:
 
 ```sh
-python3 tests/bench.py run --build-dir build/gcc  # build both, run pinned, write a snapshot
-python3 tests/bench.py table SNAPSHOT [...]       # render one snapshot, or compare several
-python3 tests/bench.py diff OLD NEW               # regression check (see the gate rule below)
-python3 tests/bench.py experiment BASE [VAR]      # snapshot two git refs, then diff them
+cmake --preset gcc -B build/gcc-pb35 -DCMAKE_PREFIX_PATH=$HOME/protobuf-35.1
+tests/bench_box.sh setup                 # uses sudo
+python3 tests/bench.py run               # builds and runs build/gcc-pb35
+tests/bench_box.sh restore
+python3 tests/bench.py table bench_snapshots/g++-13-<rev>.ndjson
 ```
 
-Four things to know before acting on a number:
+For clang++-20, configure with `--preset clang -B build/clang-pb35` and the same
+`-DCMAKE_PREFIX_PATH`, then pass `--build-dir build/clang-pb35` to `bench.py run`.
+[Running the benchmarks](running-benchmarks.md) explains what
+[`bench.py`](https://github.com/VeaaC/rapidproto/blob/main/tests/bench.py) `run` writes and how
+`diff` compares two snapshots. On a CPU with performance and efficiency cores, pass a performance
+core with `--core`.
 
-- **`run` executes each bench `--repeat` times (default 5)** and keeps the median run of each *arm*
-  (one decoder variant within one scenario), because
-  one run is not reproducible across process launches - see the appendix. Budget roughly five times
-  a single run (plus ~2 min under
-  [`--compile`](#compile-cost---what-the-throughput-costs-to-build));
-  `experiment` builds and measures two revisions, so about double all of it.
-- **Both snapshots must use the same `--repeat`.** The median's sampling variance falls with K, and
-  at even K the harness keeps the upper of the two middle runs - so a mixed-K pair compares two
-  differently-behaved estimators. `diff` refuses, as it does for a snapshot written under
-  `RAPIDPROTO_BENCH_ONLY`, which covers only part of the suite.
-- **Read the `noise` column.** `diff` prints each arm's own `spread_pct` and will not fail an
-  arm on a delta smaller than it - an arm whose noise exceeds a delta cannot resolve it.
-- **Sanity-check with a self-comparison** (`experiment <rev> <rev>`) before believing a surprising
-  result - it needs a clean working tree. On a quiesced box it has passed here; if it does
-  not, treat
-  the box, not the code, as the first suspect.
+[`bench_box.sh setup`](https://github.com/VeaaC/rapidproto/blob/main/tests/bench_box.sh) turns off
+SMT (the second hardware thread on each core) and turbo, puts every online CPU on the `performance`
+governor and lowers `kernel.perf_event_paranoid` to 2 if it's higher. It can turn turbo off only
+through the `intel_pstate` driver and reports the setting as skipped under any other. `restore`
+writes back the values `setup` saved in `build/bench_box.state`. None of the changes outlives a
+reboot. Run nothing else on the machine while the benchmarks run. `bench.py run` checks the settings
+again and warns about any that are off, though it checks the governor only on its own core.
 
-A snapshot is NDJSON tagged with the compiler, protobuf version, and git revision, so a number is
-never separated from what it was measured against, and it carries every run's GB/s so it can be
-re-analysed without re-measuring. GB/s is the primary signal; cyc/B and ins/B are diagnostics.
+### Reproducing the Rust numbers
 
-## Compile cost - what the throughput costs to build
-
-A code generator also costs **compile time, `.text` size, and the compiler's peak RSS** for the
-generated decoders. `bench.py run` and `experiment` embed that sweep into the snapshot with
-**`--compile`** (opt-in - a ~2-minute ride-along per snapshot that a throughput-focused loop should not pay; pass it when the change
-under test touches codegen), measured by `tests/compile_bench.py`'s machinery - six schema
-shapes from single-message schemas through a 10-deep nesting chain, `descriptor.proto`, and a
-103k-line generated compute schema, each compiled per model per compiler as one TU with an external-linkage function per
-message (see that file's docstring for the methodology and its caveats). `table` renders the
-columns beside the throughput tables (compiler launchers are neutralized: every measured compile
-sets `CCACHE_DISABLE`, and a compiler resolving to an sccache/distcc/icecc shim is refused up
-front), and `diff`/`experiment` **gate** all three metrics, each at its own threshold: `.text`
-5% - deterministic, byte-stable across independent sweeps - peak RSS 10%, and wall-clock
-*seconds* 20%, the one metric that is load-sensitive like any timing. A codegen change that
-bloats `.text` therefore fails the same experiment that would previously have reported only its
-(possibly invisible) speed effect. For magnitudes: an arena 10-message nesting chain costs
-~7.2s and 174 KB
-of `.text` on gcc-13 against ~1.7s and 48 KB on clang-20 - build cost is strongly
-compiler-dependent, which is why the table always shows both. `tests/compile_bench.py` remains
-usable standalone (same `run`/`table`/`diff` shape) for compile-only investigation.
-
-## Choosing the protoc baseline
-
-The arena bench's `protoc` arm is whatever `find_package(Protobuf)` resolves, and libprotobuf's own
-decoder has sped up markedly across releases (3.21 → 25.3 measures ~10–40% fewer cycles/byte on these
-shapes), so an old baseline flatters the arena. To benchmark against a specific version, build it (plus
-**Abseil**, required by protobuf 22+) into a local prefix - nothing is committed to the tree - and
-point CMake at it:
-
-```sh
-git clone --depth 1 --recurse-submodules -b v25.3 https://github.com/protocolbuffers/protobuf
-cmake -S protobuf -B protobuf/_b -DCMAKE_BUILD_TYPE=Release -Dprotobuf_BUILD_TESTS=OFF \
-      -Dprotobuf_ABSL_PROVIDER=module -DCMAKE_INSTALL_PREFIX="$PWD/pb-25"
-cmake --build protobuf/_b -j && cmake --install protobuf/_b
-cmake --preset gcc -DCMAKE_PREFIX_PATH="$PWD/pb-25"    # find_package(Protobuf CONFIG) picks it up
-```
-
-The bench CMake prefers the protobuf **CONFIG** package (whose `protobuf::libprotobuf` target carries
-the Abseil link deps 22+ needs) and falls back to the **FindProtobuf module** for a system 3.x install;
-`protoc` and `libprotobuf` come matched from the same prefix.
-
-## Appendix: measurement noise
-
-Why `--repeat`, the `noise` column and the quiesce step exist - and what pins placement.
-
-**Placement across builds.** Decode hot loops are short enough that the address a function
-lands at (cache-line phase, uop-cache packing) moves its throughput with its instruction count
-unchanged. Measured directly (2026-09, recipe below) - the worst arms spread up to **~22%** across
-20 equally-valid layouts of an unaligned build, ins/B flat at 0.0% (upb excepted at ~1% -
-its work adapts slightly, so its row is an upper bound, not pure placement). The bench targets
-therefore compile with `-falign-functions=64 -falign-loops=64`, which pins every function's and
-loop's cache-line phase regardless of where the linker drops it: the same probe then measures
-the worst arms at **~6-6.5%** (upb, the protoc arm - whose prebuilt protobuf library the flags
-cannot reach - and one of RapidProto's own streaming arms), with most rows below 4%. That residual is an
-upper bound on placement: each layout is measured once, so it still contains the ~1-3% run
-noise documented below. Two consequences: cross-build GB/s deltas are meaningful down to those
-per-arm figures rather than a folklore ~10%; and alignment picks ONE phase - for most arms a
-middle-of-the-lottery one, but for one (`rv fx1 1M` streaming) the pinned phase sits at the
-BOTTOM of the old distribution, a ~20% median drop with identical instruction counts.
-Re-deriving the floors after a codegen change is a one-hour tool: relink the built bench
-objects per layout (append `-fuse-ld=lld
--Wl,--shuffle-sections=.text*=<seed>` and a fresh `-o` to CMake's `link.txt` command), run the
-scenarios of interest per layout (`RAPIDPROTO_BENCH_JSON=1 RAPIDPROTO_BENCH_ONLY=<pattern>`,
-pinned, quiesced), take each arm's (max−min)/median across seeds, and rerun one layout twice -
-that same-layout delta is the run-noise share of every spread. Measured on one quiesced Linux
-box. "Range" below means (max − min) / min across an arm's runs, used only to describe the
-tables; the gate's own statistic is `spread_pct`, defined further down.
-
-**Quiescing.** Same binary, five runs on an otherwise idle box, over the arena bench's then-259
-gated arms:
-
-| | median range | arms over 5% |
-|---|---|---|
-| as found (`powersave`, turbo on, SMT on) | 1.0% | 21 |
-| turbo off + `performance` governor | 0.6% | 14 |
-| + SMT off | 0.7% | 13 |
-
-Frequency is the change that moves the summary. Disabling SMT does not, but it removes a
-per-run coin
-flip - whether the scheduler puts work on the pinned core's sibling - that makes affected arms look
-bimodal when sampled a few times, so a fixed sibling state is worth having anyway. The arms-over-5%
-column is a sensitivity, not a constant: repeating the bottom row with a single background process
-alive moved it from 13 to 84.
-
-**What the residual is.** Per-arm counters (`RAPIDPROTO_BENCH_EVENT`), 12 runs *per counter* - the
-harness opens one extra event per process, so each row is its own set of runs - on the least stable
-arm, `rv fx1 1M` / `arena-warm`:
-
-| | run-to-run range | correlation with cycles |
-|---|---|---|
-| retired instructions | 0.0% | - (identical every run) |
-| branch misses | 0.1% | - |
-| dTLB misses | 7% | 0.28 (n=12; too few to distinguish from zero) |
-| **LLC misses** | **100%** | **0.94** |
-
-The LLC is shared by every core, so ambient activity anywhere evicts the benchmark's lines. The affected
-arms appear to be
-those whose
-live footprint is *comparable to* the LLC - evictable, but small enough that residency matters. Both
-sweeps decode a pool of buffers, so the live set is much larger than one buffer and is arm-specific.
-These figures were measured when a sample decoded one buffer of the pool; a sample is now a whole
-pass over it. `rv fx1 1M` / `arena-warm` holds 8 input buffers of ~1 MB plus ~8 MB of decoded arena,
-and is the least stable arm in the suite at ~14% on a quiesced box, with 3× outliers under load. The same
-scenario's `protozero` arm materializes nothing, touches only the 8 MB pool, and stays under 1%.
-`rv fx10 1M` holds ~80 MB, misses regardless, and measures 0.8%. Read your own LLC with
-`getconf LEVEL3_CACHE_SIZE`.
-
-An intervention is *consistent with* that reading: streaming loads on other cores collapse the LLC
-miss-rate range from 100% to 14% and the GB/s range from 14% to 5%. It is not proof - it also costs
-~40% throughput, so the arm may simply be bandwidth-clamped there, and it changes core occupancy and
-uncore clock at the same time. The control that would separate those (a cache-resident
-spinner on the
-same cores) has not been run. It is also disqualified as a remedy, since it measures a different
-operating point.
-
-**Tried and rejected as a fix:** transparent huge pages made it worse (range 14% → 23%). THP adds
-compaction as its own noise source and relocates the cache mapping rather than removing variance, so
-this rules THP out as a remedy without ruling physical page colouring in or out; the direct
-test - an
-identical pre-faulted mapping reused across runs - has not been done.
-
-Ruled out by measurement: ASLR (`setarch -R`, no effect over 20 runs per condition), and
-drift across
-a session (the median of per-arm ratios against the first run stays 1.000 ±0.01 across every run of
-every batch). Ruled out by construction: payload variation, since the generators are fixed-seed and
-every run decodes the same bytes.
-
-**The gate's noise statistic.** Each arm records the median of its `--repeat` runs, and `spread_pct`
-- printed as the `noise` column - is that run set's interquartile range relative to the median. What
-matters is how much the middle of the distribution moves, not how far the extremes reach, and an IQR
-ignores one outlier in either direction. Re-derived from one pair of 5-run snapshots of the
-same binary (485 gated arms across both benches as then
-measured - the suite has grown since; the arm counts in a live `bench.py diff` reflect it - via the
-stored `gb_s_runs`), the largest apparent change on unchanged code is **−3.7%**, where keeping each
-arm's *fastest* run instead gives **−46.9%** - the fastest run records an upward fluke the next
-snapshot has no reason to repeat.
-
-**Why 5 runs.** `statistics.quantiles` interpolates, so the IQR is outlier-robust only from K=5; at
-K=3 it is exactly half the full range. Below 5 an arm reports no noise and `diff` gates on the flat
-threshold, saying so. Repeats also keep paying: bootstrapped from 40 runs of the worst arm, the p95
-apparent delta between two snapshots of identical code falls ~14% → ~9% → ~8% → ~6% at 1, 3, 5 and 7
-runs, with no knee. 5 is the cheapest K the robustness requirement allows.
-
-**Investigating one arm.** Both variables are read by the bench binaries directly, so they work with
-or without `bench.py`:
-
-```sh
-RAPIDPROTO_BENCH_ONLY="rv fx1 1M"    # only scenarios whose name contains this; skips the other
-                                     # scenarios' payload builds too (under 1s for the arena bench
-                                     # against tens of seconds unfiltered)
-RAPIDPROTO_BENCH_EVENT=llc-miss      # one extra PMU counter, per arm, as xtra/B
-                                     # (l1d-miss | llc-miss | dtlb-miss | branch-miss)
-```
-
-The counter is scoped to exactly the region the harness times. That is what makes it usable: `perf
-stat` counts the whole process, where a per-arm effect is diluted away.
+Building and running `rapidproto-bench` is described in
+[rust/README.md](https://github.com/VeaaC/rapidproto/blob/main/rust/README.md#running-the-bench).
+The published measurements used two optional features. `compute` adds `compute Instance`, and
+`google-upb` adds google-protobuf. The benchmark generates that crate's message code for its
+schemas with protoc 36.2, found through `RAPIDPROTO_UPB_PROTOC`. The C++ half of the Rust and C++
+comparison is a clang++-20 snapshot made as above in `build/clang-pb35`.

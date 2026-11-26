@@ -201,7 +201,7 @@ The perf examples ([`perf_bench.rs`](rapidproto-bench/examples/perf_bench.rs) an
 covered about 2 GB, then print the byte total to divide the instruction count by. `perf stat`
 needs `kernel.perf_event_paranoid` at 2 or lower, which `setup` also sets. Code layout barely moves
 instructions per byte
-([measured on the C++ benches](../docs/benchmarks.md#appendix-measurement-noise)). If two builds
+([measured on the C++ benches](../docs/benchmark-method.md#code-placement)). If two builds
 differ by a few percent in throughput but run the same number of instructions, suspect layout or
 run noise first, and time one build against itself to see how large that noise is.
 

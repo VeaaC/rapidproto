@@ -9,14 +9,17 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 RapidProto generates Protobuf decoders for C++ and Rust from your `.proto` schemas. On every
-payload in the benchmarks they decode faster than protoc's generated C++ code and
-[prost](https://docs.rs/prost): 1.2 to 7 times as fast in C++, and 2.6 to 12 times in Rust.
+payload where the [benchmarks page](docs/benchmarks.md) compares them with protoc's generated C++
+code, both C++ decoders are 1.2 to 12 times as fast. In Rust the arena decoder is 2.6 to 12
+times as fast as [prost](https://docs.rs/prost), and the streaming decoder, timed against prost on
+`Dataset` only, 24 times.
 
-On `Dataset`, a [benchmark](docs/benchmarks.md) payload of 2000 mixed records, the C++ arena
-decoder has about 7 times the throughput of protoc's generated C++ code allocating from a
-[`google::protobuf::Arena`](https://protobuf.dev/reference/cpp/arenas/). The Rust arena decoder
-has about 12 times the throughput of prost. The [optimizations article](docs/optimizations.md)
-shows where the speed comes from, one optimization at a time.
+On `Dataset`, a benchmark payload of 2000 mixed records, the C++ arena decoder has 6 to 7 times the
+throughput of protoc's generated C++ code, with both reusing one arena (a
+[`google::protobuf::Arena`](https://protobuf.dev/reference/cpp/arenas/) on protoc's side). The
+Rust arena decoder has about 12 times the throughput of prost. The
+[optimizations article](docs/optimizations.md) shows where the speed comes from, one optimization
+at a time.
 
 Schemas can be proto2, proto3, or editions 2023 and 2024, with groups, maps and oneofs. The
 generator parses them itself and carries its own copy of the well-known types, so you don't need
@@ -306,6 +309,10 @@ cover Rust as well.
 - [Benchmarks](docs/benchmarks.md): the current numbers for both languages and how to reproduce
   them, with prost, rust-protobuf, quick-protobuf, femtopb and google-protobuf in the
   [Rust comparison](docs/benchmarks.md#other-rust-decoders)
+- [Benchmark method](docs/benchmark-method.md): how the benchmarks time each decoder, how each
+  baseline is set up and how far the numbers move between runs
+- [Running the benchmarks](docs/running-benchmarks.md): building and running them, and comparing
+  two builds
 
 The Rust guide is on docs.rs. [`rapidproto`](https://docs.rs/rapidproto) documents decoding,
 including [`Debug`](https://docs.rs/rapidproto/latest/rapidproto/#debug-output) output, opt-in

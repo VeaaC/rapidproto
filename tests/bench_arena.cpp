@@ -7,9 +7,10 @@
 //        protozero: mapbox pbf_reader (zero-materialization yardstick; absent -> that row is skipped)
 //      Reports parse TIME on the shared harness (bench_harness.hpp: drift-invariant ratios vs the
 //      protoc baseline + cycles/byte; arena measured "cold" = fresh arena and "warm" = reset+reuse)
-//      and peak MEMORY for the two MATERIALIZERS like-with-like: payload (arena bytes_used vs protoc
-//      SpaceUsed) and total-malloc'd (arena bytes_reserved vs protoc SpaceAllocated). All four decoders
-//      must agree on a checksum.
+//      and peak MEMORY for the two MATERIALIZERS like-with-like: in use (arena bytes_used vs protoc
+//      SpaceUsed) and held (arena bytes_reserved vs protoc SpaceAllocated), protoc's each plus the
+//      heap buffers of its long strings, which its Arena doesn't count (bench_protoc.cpp). All four
+//      decoders must agree on a checksum.
 //   2. Repeated / packed-array shapes (arena-warm vs protoc): packed varint vs fixed-width elements
 //      (same element count) and many-messages-few-elements vs few-messages-many (same element count),
 //      isolating the arena's repeated-field decode cost across the axes that stress it.
@@ -90,6 +91,17 @@ std::uint64_t bits(double d) {
 
 // ── builders (protoc serializes the bytes every decoder then parses) ──────────────────────────────
 
+// A builder's wire bytes. A failed serialize would leave every arm decoding a wrong payload, so it
+// ends the program.
+std::string serialized(const google::protobuf::MessageLite& message) {
+    std::string out;
+    if (!message.SerializeToString(&out)) {
+        std::fprintf(stderr, "bench: protoc failed to serialize a payload\n");
+        std::exit(1);
+    }
+    return out;
+}
+
 // The realistic mixed shape: records with scalars, strings, a nested message, repeated scalars/
 // strings/sub-messages, and a map. `people` scales the payload size.
 std::string make_dataset(int people) {
@@ -122,9 +134,7 @@ std::string make_dataset(int people) {
         (*p->mutable_counters())["clicks"] = i;
         (*p->mutable_counters())["views"] = i * 2;
     }
-    std::string out;
-    ds.SerializeToString(&out);
-    return out;
+    return serialized(ds);
 }
 
 // Many small arrays: each record carries six short repeated fields -> a flood of tiny allocations.
@@ -143,9 +153,7 @@ std::string make_wide(int items) {
             w->add_t("t" + std::to_string((i + k) % 32));
         }
     }
-    std::string out;
-    ws.SerializeToString(&out);
-    return out;
+    return serialized(ws);
 }
 
 // Few big arrays: a handful of records, each dominated by two large scalar arrays (the doubles array
@@ -159,9 +167,7 @@ std::string make_big(int items, int per) {
             b->add_reals(static_cast<double>(k) * 1.5);
         }
     }
-    std::string out;
-    bs.SerializeToString(&out);
-    return out;
+    return serialized(bs);
 }
 
 // Packed-scalar shapes for the varint-vs-fixed decode comparison: same element count and structure,
@@ -175,9 +181,7 @@ std::string make_big_varint(int items, int per) {
             b->add_numbers(static_cast<std::int64_t>(i) * per + k);
         }
     }
-    std::string out;
-    bs.SerializeToString(&out);
-    return out;
+    return serialized(bs);
 }
 std::string make_big_fixed(int items, int per) {
     bench::BigSet bs;
@@ -187,9 +191,7 @@ std::string make_big_fixed(int items, int per) {
             b->add_reals(static_cast<double>(k) * 1.5);
         }
     }
-    std::string out;
-    bs.SerializeToString(&out);
-    return out;
+    return serialized(bs);
 }
 // OSM-DenseNodes / vector-tile shape: repeated sub-messages, each carrying a packed sint64 DELTA run
 // (small signed values -> zigzag encodes to 1-2 bytes, the narrow-mixed regime the Struct/Bulk kernels
@@ -217,9 +219,7 @@ std::string make_big_osm(int items, int per) {
             b->add_kinds((next() & 1U) != 0U ? bench::KIND_ONE : bench::KIND_UNSPECIFIED);
         }
     }
-    std::string out;
-    bs.SerializeToString(&out);
-    return out;
+    return serialized(bs);
 }
 
 // Fixed-size sub-messages, always present: each record carries two 24-byte Vec3s. At the default
@@ -240,9 +240,7 @@ std::string make_particles(int items) {
         vel->set_z(i * 0.3);
         p->set_color(static_cast<std::uint32_t>(i));
     }
-    std::string out;
-    ps.SerializeToString(&out);
-    return out;
+    return serialized(ps);
 }
 
 // A RecordSet of scalar-heavy records (no strings/packed/maps), small values so per-field cost is
@@ -280,9 +278,7 @@ std::string make_records(int count) {
         r->set_f19((i + 15) & 63);
         r->set_f20((i + 16) & 63);
     }
-    std::string out;
-    rs.SerializeToString(&out);
-    return out;
+    return serialized(rs);
 }
 
 // ── shared scenario payloads ───────────────────────────────────────────────────────────────────────
@@ -803,7 +799,8 @@ int main() {
     const std::uint64_t c_arena = checksum_arena_dataset(adoc);
     const std::uint64_t c_protoc = rpbaseline::protoc_dataset(buf);
     const std::uint64_t c_stream = checksum_stream(view);
-    bool mismatch = c_arena != c_protoc || c_arena != c_stream;
+    const std::uint64_t c_protoc_warm = rpbaseline::protoc_dataset_warm(buf);
+    bool mismatch = c_arena != c_protoc || c_arena != c_stream || c_arena != c_protoc_warm;
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
     const std::uint64_t c_pz = rpbaseline::protozero_dataset(view);
     mismatch = mismatch || c_arena != c_pz;
@@ -825,10 +822,11 @@ int main() {
     }
 #endif
     if (mismatch) {
-        std::fprintf(stderr, "CHECKSUM MISMATCH arena=%llu protoc=%llu stream=%llu",
-                     static_cast<unsigned long long>(c_arena),
-                     static_cast<unsigned long long>(c_protoc),
-                     static_cast<unsigned long long>(c_stream));
+        std::fprintf(
+            stderr, "CHECKSUM MISMATCH arena=%llu protoc=%llu protoc-warm=%llu stream=%llu",
+            static_cast<unsigned long long>(c_arena), static_cast<unsigned long long>(c_protoc),
+            static_cast<unsigned long long>(c_protoc_warm),
+            static_cast<unsigned long long>(c_stream));
 #ifdef RAPIDPROTO_HAVE_PROTOZERO
         std::fprintf(stderr, " protozero=%llu", static_cast<unsigned long long>(c_pz));
 #endif
@@ -844,13 +842,14 @@ int main() {
     // Headline parse-time comparison on the shared harness (bench_harness.hpp): frequency-invariant
     // cycles/byte + drift-invariant ratios vs the protoc baseline, with a significance verdict.
     // '+X%' = the decoder out-throughputs protoc (so +53% == 1.53x). protoc is arm 0 (the baseline);
-    // arena is measured "cold" (fresh Arena) and "warm" (reset+reuse).
+    // protoc and the arena are each measured "cold" (fresh arena) and "warm" (reset+reuse).
     rapidproto::Arena warm;
     if (!rpbench::json_mode()) {
         std::printf("bench: Dataset with %d people, wire = %zu bytes\n\n", kPeople, buf.size());
     }
     std::vector<rpbench::Arm> arms = {
         {"protoc", [&]() { return rpbaseline::protoc_dataset(buf); }},
+        {"protoc-warm", [&]() { return rpbaseline::protoc_dataset_warm(buf); }},
         {"arena-cold",
          [&]() {
              rapidproto::Arena a;
@@ -869,10 +868,11 @@ int main() {
 #ifdef RAPIDPROTO_HAVE_UPB
     if (upb_ok) {
         // Decode + accessor-walk checksum into a fresh upb arena (arena-cold semantics; upb has
-        // no reset-and-reuse): the SAME work every other arm does. The walk reads through
-        // pre-resolved upb_MiniTableField accessors -- what upb's generated code compiles to --
-        // not reflection, so upb is neither flattered (walk skipped) nor over-billed
-        // (per-field name lookups); see bench_upb.hpp.
+        // no reset, and the arm doesn't yet start each decode on a reused block with
+        // upb_Arena_Init): the SAME work every other arm does. The walk reads through
+        // pre-resolved upb_MiniTableField handles, not reflection, so upb isn't flattered (walk
+        // skipped) and avoids per-field name lookups; it pays a little more than generated
+        // getters would (see bench_upb.hpp).
         arms.push_back({"upb", [&]() { return rpupb::decode_and_sum_dataset(view); }});
     }
 #endif
@@ -933,7 +933,7 @@ int main() {
         std::printf("\npeak memory of the two materializers (bytes, one parse, like-with-like):\n");
         std::printf("  used (payload):   arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_used,
                     mem_p_used, static_cast<double>(mem_a_used) / static_cast<double>(mem_p_used));
-        std::printf("  held (malloc'd):  arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_held,
+        std::printf("  held (reserved):  arena %9zu  protoc %9zu  (%.2fx)\n", mem_a_held,
                     mem_p_held, static_cast<double>(mem_a_held) / static_cast<double>(mem_p_held));
         std::printf("checksum %llu (all agree)\n", static_cast<unsigned long long>(c_arena));
     }
@@ -950,6 +950,7 @@ int main() {
         rapidproto::Arena w;
         std::vector<rpbench::Arm> a = {
             {"protoc", [&]() { return rpbaseline::protoc_big_set(b); }},
+            {"protoc-warm", [&]() { return rpbaseline::protoc_big_set_warm(b); }},
             {"arena-warm",
              [&]() {
                  w.reset();
@@ -968,6 +969,7 @@ int main() {
         rapidproto::Arena w;
         std::vector<rpbench::Arm> a = {
             {"protoc", [&]() { return rpbaseline::protoc_wide(wbuf); }},
+            {"protoc-warm", [&]() { return rpbaseline::protoc_wide_warm(wbuf); }},
             {"arena-warm",
              [&]() {
                  w.reset();
@@ -1002,6 +1004,7 @@ int main() {
         rapidproto::Arena w;
         std::vector<rpbench::Arm> a = {
             {"protoc", [&]() { return rpbaseline::protoc_record(rbuf); }},
+            {"protoc-warm", [&]() { return rpbaseline::protoc_record_warm(rbuf); }},
             {"arena-warm",
              [&]() {
                  w.reset();

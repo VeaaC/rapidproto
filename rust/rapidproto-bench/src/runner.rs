@@ -14,10 +14,9 @@
 //! over the median time per call, in decimal GB/s as the C++ benches print. There are no in-process
 //! counters: read instructions/byte with `perf stat -e instructions:u` over the `perf_*` examples.
 //!
-//! Comparing with C++: the C++ harness times one call per sample (two clock reads and a
-//! `std::function` call, ~20 ns), a pool's call being one pass over all its buffers, and adds rounds
-//! until its ratios are significant; this runner times batches of at least ~10 ms over a fixed number
-//! of rounds. On a small single buffer the C++ per-call overhead still weighs on its GB/s and ins/B.
+//! Comparing with C++: the C++ harness times the same ~10 ms batches (a pool's call being one pass over
+//! all its buffers), but adds rounds until its ratios are significant, where this runner times a
+//! fixed number of rounds.
 //!
 //! rust/README.md shows how to run both runners and lists the environment variables they read.
 //! With `RAPIDPROTO_BENCH_JSON`, each arm of a scenario is one `rec:"arm"` NDJSON line

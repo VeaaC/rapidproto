@@ -9,13 +9,18 @@
 // coupling this separation exists to remove.
 #include "bench_baselines.hpp"
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
+#include <memory>
 #include <string>
 
 #include <google/protobuf/arena.h>
 
 #include "bench.pb.h"
+#include "bench_pb_arena.hpp"
 
 namespace rpbaseline {
 namespace {
@@ -158,12 +163,34 @@ std::uint64_t checksum_big_protoc_kinds(const bench::Big& b) {
     return s;
 }
 
-// Parse into a fresh protoc Arena and checksum: the whole measured operation, in one place.
+// Parse into a fresh protoc Arena and checksum: the whole measured operation, in one place. A failed
+// parse returns a checksum no RapidProto arm produces, so the run fails on it.
 template <class Message, class Fn>
 std::uint64_t parse_and_sum(const std::string& buf, Fn&& sum) {
     google::protobuf::Arena arena;
-    auto* message = google::protobuf::Arena::CreateMessage<Message>(&arena);
-    message->ParseFromString(buf);
+    auto* message = new_in_arena<Message>(&arena);
+    if (!message->ParseFromString(buf)) {
+        return ~std::uint64_t{0};
+    }
+    return sum(*message);
+}
+
+// protoc's side of the arena decoder's reused arena: one Arena per message type, Reset() before
+// each parse. Reset() frees every block except a caller-owned first one, so the Arena starts on a
+// block large enough that no parse here needs a second. protobuf v35 keeps the Arena's cleanup list
+// (the destructors Reset() runs) outside its blocks, so Dataset's map entries still take heap
+// chunks on every parse.
+constexpr std::size_t kWarmBlockBytes = std::size_t{32} << 20;
+
+template <class Message, class Fn>
+std::uint64_t parse_and_sum_warm(const std::string& buf, Fn&& sum) {
+    static const std::unique_ptr<char[]> block(new char[kWarmBlockBytes]);
+    static google::protobuf::Arena arena(block.get(), kWarmBlockBytes);
+    arena.Reset();
+    auto* message = new_in_arena<Message>(&arena);
+    if (!message->ParseFromString(buf)) {
+        return ~std::uint64_t{0};
+    }
     return sum(*message);
 }
 
@@ -193,13 +220,72 @@ std::uint64_t protoc_big_zz(const std::string& buf) {
 std::uint64_t protoc_big_kinds(const std::string& buf) {
     return parse_and_sum<bench::Big>(buf, checksum_big_protoc_kinds);
 }
+std::uint64_t protoc_dataset_warm(const std::string& buf) {
+    return parse_and_sum_warm<bench::Dataset>(buf, checksum_protoc);
+}
+std::uint64_t protoc_big_set_warm(const std::string& buf) {
+    return parse_and_sum_warm<bench::BigSet>(buf, checksum_protoc_big);
+}
+std::uint64_t protoc_wide_warm(const std::string& buf) {
+    return parse_and_sum_warm<bench::WideSet>(buf, checksum_protoc_wide);
+}
+std::uint64_t protoc_record_warm(const std::string& buf) {
+    return parse_and_sum_warm<bench::RecordSet>(buf, checksum_protoc_record);
+}
+
+namespace {
+
+// The heap buffers of a parsed message's strings. The Arena holds each std::string object, but a
+// string too long for its inline buffer keeps its text in operator new memory, which the Arena's
+// SpaceUsed / SpaceAllocated never see. `used` adds what was requested (capacity + 1). `held` adds
+// the chunk glibc's malloc carves for that request: the request plus its 8-byte size header,
+// rounded up to 16, at least 32. It's computed from the request, not asked of the allocator:
+// malloc_usable_size also reports the slack of a reused chunk, which depends on what ran before.
+struct StringHeap {
+    std::size_t used = 0;
+    std::size_t held = 0;
+    void add(const std::string& s) {
+        const char* object = reinterpret_cast<const char*>(&s);
+        const std::less<const char*> before;
+        if (!before(s.data(), object) && before(s.data(), object + sizeof s)) {
+            return;  // the text sits in the object's inline buffer
+        }
+        const std::size_t request = s.capacity() + 1;
+        used += request;
+        held += std::max<std::size_t>(32, (request + sizeof(std::size_t) + 15) & ~std::size_t{15});
+    }
+};
+
+}  // namespace
 
 ProtocMemory protoc_dataset_memory(const std::string& buf) {
     google::protobuf::Arena arena;
-    auto* message = google::protobuf::Arena::CreateMessage<bench::Dataset>(&arena);
-    message->ParseFromString(buf);
-    return {static_cast<std::size_t>(arena.SpaceUsed()),
-            static_cast<std::size_t>(arena.SpaceAllocated())};
+    auto* message = new_in_arena<bench::Dataset>(&arena);
+    if (!message->ParseFromString(buf)) {
+        return {0, 0};
+    }
+    StringHeap heap;
+    heap.add(message->name());
+    for (const bench::Person& p : message->people()) {
+        heap.add(p.name());
+        heap.add(p.email());
+        if (p.has_address()) {
+            heap.add(p.address().street());
+            heap.add(p.address().city());
+        }
+        for (const std::string& t : p.tags()) {
+            heap.add(t);
+        }
+        for (const bench::Attribute& a : p.attributes()) {
+            heap.add(a.key());
+            heap.add(a.value());
+        }
+        for (const auto& kv : p.counters()) {
+            heap.add(kv.first);
+        }
+    }
+    return {static_cast<std::size_t>(arena.SpaceUsed()) + heap.used,
+            static_cast<std::size_t>(arena.SpaceAllocated()) + heap.held};
 }
 
 }  // namespace rpbaseline

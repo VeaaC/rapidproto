@@ -16,7 +16,7 @@ bench record, each tagged with `"decoder":"stream"|"arena"`. GB/s (measured deco
 PRIMARY signal -- it is what a reader actually cares about and, unlike ins/B, it reflects everything the
 CPU pays for (branch mispredictions, cache/memory stalls), so it is what the compare and the regression
 gate key on. Caveat: across independent builds GB/s carries code-PLACEMENT noise -- calibrated
-by shuffle-relinking (recipe in docs/benchmarks.md's noise appendix) at ~6% worst-arm, most
+by shuffle-relinking (recipe in docs/running-benchmarks.md) at ~6% worst-arm, most
 under 4%, now that the bench builds pin 64-byte function/loop alignment -- plus frequency drift; the gate keys on the larger of a flat
 threshold (--threshold, default 10%: conservative against those floors) and the arm's own
 measured run-to-run spread; sub-floor cross-build deltas are not reliable (quiesce the box --
@@ -80,7 +80,7 @@ def check_machine(core):
     """Warn about box settings that make a measurement untrustworthy, with the exact fix.
 
     None of these persist across a reboot, and every one of them is silent: the bench still prints
-    confident-looking numbers. Each was measured to matter on this bench (see docs/benchmarks.md) --
+    confident-looking numbers. Each was measured to matter on this bench (docs/benchmark-method.md) --
     SMT matters because whether the pinned core's sibling takes work is a per-run coin flip, which
     makes affected arms read as if they were bimodal. `tests/bench_box.sh setup` applies all of
     these and saves the previous values; `restore` puts them back."""
@@ -469,9 +469,10 @@ def table(args):
 def overhead_dominated(scenario):
     """The repeated-varint sweep's tiniest rows (n<=100 -> buffers of tens to hundreds of bytes) are
     excluded from pass/fail (still shown in the report): with one buffer per sample, per-op timer
-    overhead dominated their GB/s, which swung far more than the placement floor. Whole-pool samples
-    amortize that overhead, but their spread under them is unmeasured. The deterministic ins/B column
-    compares them fine. Only the sweep uses this `rv <dist> <count>` naming."""
+    overhead dominated their GB/s, which swung far more than the placement floor. Whole-pool, batched
+    samples amortize that overhead, and their snapshots now carry a spread, but no cross-build floor
+    has been measured for them. The deterministic ins/B column compares them fine. Only the sweep uses
+    this `rv <dist> <count>` naming."""
     return scenario.startswith("rv ") and scenario.rsplit(" ", 1)[-1] in ("10", "100")
 
 
@@ -538,7 +539,7 @@ def diff(args):
 
     An arm fails only past BOTH the flat threshold (--threshold, default 10% -- conservative
     against the calibrated per-arm placement floors, ~6% worst-arm on the alignment-pinned
-    builds; docs/benchmarks.md's noise appendix) and its own measured spread_pct. Arms that moved past the flat threshold but stayed inside
+    builds; docs/benchmark-method.md) and its own measured spread_pct. Arms that moved past the flat threshold but stayed inside
     their own noise are listed separately and never gated -- an arm that noisy cannot resolve a change
     that size, which is information rather than a pass.
 
@@ -775,9 +776,9 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     r = sub.add_parser("run", help="build both benches, run pinned, write a snapshot")
-    r.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb25"),
-                   help="cmake build dir (default build/gcc-pb25; no preset creates it -- see "
-                        "docs/benchmarks.md)")
+    r.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb35"),
+                   help="cmake build dir (default build/gcc-pb35, configured as "
+                        "docs/running-benchmarks.md shows)")
     r.add_argument("--core", default="2", help="taskset core to pin to, or 'none' to skip pinning (default 2)")
     r.add_argument("--out", default=None, help="snapshot path (default bench_snapshots/<cc>-<rev>.ndjson)")
     r.add_argument("--repeat", type=int, default=DEFAULT_REPEAT,
@@ -805,8 +806,9 @@ def main():
     e = sub.add_parser("experiment", help="build+snapshot two git refs and diff them on GB/s")
     e.add_argument("baseline", help="git ref for the baseline (built and snapshotted first)")
     e.add_argument("variant", nargs="?", default=None, help="git ref for the variant (default: current HEAD)")
-    e.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb25"),
-                   help="cmake build dir (default build/gcc-pb25; no preset creates it)")
+    e.add_argument("--build-dir", default=os.path.join(REPO, "build", "gcc-pb35"),
+                   help="cmake build dir (default build/gcc-pb35, configured as "
+                        "docs/running-benchmarks.md shows)")
     e.add_argument("--core", default="2", help="taskset core, or 'none' to skip pinning (default 2)")
     e.add_argument("--repeat", type=int, default=DEFAULT_REPEAT,
                    help=f"runs per snapshot, median run kept per arm (default {DEFAULT_REPEAT})")

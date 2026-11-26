@@ -239,5 +239,5 @@ any step that misses their shape, and two - `osm_blocks` and `many msgs, tiny ar
 back on the last step (−4% and −10%, the field-order probes mispredicting their wire order), though
 both still finish far ahead of where they started (0.9×→1.5× and 1.5×→2.5× protoc). The decoder is
 specialized to each schema at compile time, so the figure you get tracks the shape of your data. The
-maintained numbers, and how to run them on your own payloads, are in [benchmarks.md](benchmarks.md).
+maintained numbers are in [benchmarks.md](benchmarks.md).
 

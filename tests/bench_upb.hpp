@@ -17,9 +17,11 @@
 //
 // What the TIMED arm measures -- the SAME work as every other arm: decode, then read every
 // present field into the checksum. upb pays its walk through upb_MiniTableField handles
-// resolved once at init and upb's typed inline accessors -- exactly what its generated .upb.h
-// accessors compile to -- so it is neither flattered (walk skipped) nor over-billed
-// (reflection's per-field FieldDef dispatch). The REFLECTIVE walk below exists for validation
+// resolved once at init and upb's typed inline accessors, so it is not flattered (walk skipped)
+// and avoids reflection's per-field FieldDef dispatch. It still pays somewhat more than a codegen
+// consumer: generated .upb.h getters pass a compile-time constant upb_MiniTableField, so the
+// compiler folds the offset and mode tests that a runtime handle has to load and branch on (not
+// measured). The REFLECTIVE walk below exists for validation
 // only: at startup both upb walks and every other decoder must agree on one checksum, which
 // pins the timed walk equivalent before anything is measured.
 //
@@ -29,8 +31,8 @@
 // band upstream's own figures put upb in -- so a weak upb showing on the map/string-heavy
 // Dataset is upb's genuine shape behavior, not a mis-setup. The IN-TREE rows read lower mainly
 // because the timed arm also pays the read-out walk (reading fields OUT of a upb message costs
-// more than reading our arena's structs -- see docs/benchmarks.md), plus a smaller
-// short-rotated-batch effect on tiny payloads. The probe validates the CONFIGURATION; the
+// more than reading our arena's structs -- see docs/benchmark-method.md). The probe validates the
+// CONFIGURATION; the
 // table is the like-for-like comparison. Plugin-generated tables might still buy upb a little.
 
 #ifdef RAPIDPROTO_HAVE_UPB
@@ -64,9 +66,9 @@ extern const unsigned rp_upb_bench_desc_len;
 namespace rpupb {
 
 // The Dataset walk's pre-resolved accessor handles. upb_MiniTableField pointers looked up ONCE
-// at init by name; the timed walk then reads through upb's typed inline accessors -- exactly
-// what upb's generated .upb.h accessors compile to, so the walk cost matches what a codegen
-// consumer pays, with none of reflection's per-field name lookups.
+// at init by name; the timed walk then reads through upb's typed inline accessors, with none of
+// reflection's per-field name lookups. Generated .upb.h getters still read a little cheaper:
+// their field description is a compile-time constant (see the note at the top of this file).
 struct DatasetFields {
     const upb_MiniTableField* name = nullptr;
     const upb_MiniTableField* version = nullptr;
